@@ -16,7 +16,10 @@ func TestMain(m *testing.M) {
 	defer f.Close()
 
 	// auth and log account metadata so we're extra sure who we're testing against
-	auth := Authenticate(AuthConfig{}, ".auth_tokens.json", false)
+	auth, err := Authenticate(AuthConfig{}, ".auth_tokens.json", false)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Authentication failed")
+	}
 	user, _ := GetUser(auth)
 	drive, _ := GetDrive(auth)
 	log.Info().

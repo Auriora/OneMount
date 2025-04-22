@@ -126,9 +126,18 @@ func (a *Auth) handleFailedRefresh(resp *http.Response, body []byte, reauth bool
 			Bytes("response", body).
 			Int("http_code", resp.StatusCode).
 			Msg("Failed to renew access tokens. Attempting to reauthenticate.")
-		*a = *newAuth(a.AuthConfig, a.path, false)
+
+		newAuth, err := newAuth(a.AuthConfig, a.path, false)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to reauthenticate. Using existing tokens.")
+			return
+		}
+		*a = *newAuth
 	} else {
-		a.ToFile(a.path)
+		err := a.ToFile(a.path)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to save auth tokens to file")
+		}
 	}
 }
 
@@ -167,7 +176,7 @@ func getAuthURL(a AuthConfig) string {
 
 // getAuthCodeHeadless has the user perform authentication in their own browser
 // instead of WebKit2GTK and then input the auth code in the terminal.
-func getAuthCodeHeadless(a AuthConfig, accountName string) string {
+func getAuthCodeHeadless(a AuthConfig, accountName string) (string, error) {
 	fmt.Printf("Please visit the following URL:\n%s\n\n", getAuthURL(a))
 	fmt.Println("Please enter the redirect URL once you are redirected to a " +
 		"blank page (after \"Let this app access your info?\"):")
@@ -175,10 +184,9 @@ func getAuthCodeHeadless(a AuthConfig, accountName string) string {
 	fmt.Scanln(&response)
 	code, err := parseAuthCode(response)
 	if err != nil {
-		log.Fatal().Msg("No validation code returned, or code was invalid. " +
-			"Please restart the application and try again.")
+		return "", fmt.Errorf("no validation code returned, or code was invalid: %w", err)
 	}
-	return code
+	return code, nil
 }
 
 // parseAuthCode is used to parse the auth code out of the redirect the server gives us
@@ -193,7 +201,7 @@ func parseAuthCode(url string) (string, error) {
 }
 
 // Exchange an auth code for a set of access tokens (returned as a new Auth struct).
-func getAuthTokens(a AuthConfig, authCode string) *Auth {
+func getAuthTokens(a AuthConfig, authCode string) (*Auth, error) {
 	postData := strings.NewReader("client_id=" + a.ClientID +
 		"&redirect_uri=" + a.RedirectURL +
 		"&code=" + authCode +
@@ -202,13 +210,20 @@ func getAuthTokens(a AuthConfig, authCode string) *Auth {
 		"application/x-www-form-urlencoded",
 		postData)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Could not POST to obtain auth tokens.")
+		return nil, fmt.Errorf("could not POST to obtain auth tokens: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("could not read response body: %w", err)
+	}
+
 	var auth Auth
-	json.Unmarshal(body, &auth)
+	if err := json.Unmarshal(body, &auth); err != nil {
+		return nil, fmt.Errorf("could not unmarshal auth response: %w", err)
+	}
+
 	if auth.ExpiresAt == 0 {
 		auth.ExpiresAt = time.Now().Unix() + auth.ExpiresIn
 	}
@@ -216,68 +231,91 @@ func getAuthTokens(a AuthConfig, authCode string) *Auth {
 
 	if auth.AccessToken == "" || auth.RefreshToken == "" {
 		var authErr AuthError
-		var fields zerolog.Logger
+		var errMsg string
+
 		if err := json.Unmarshal(body, &authErr); err == nil {
 			// we got a parseable error message out of microsoft's servers
-			fields = log.With().
+			errMsg = fmt.Sprintf("Failed to retrieve access tokens: %s - %s",
+				authErr.Error, authErr.ErrorDescription)
+			log.Error().
 				Int("status", resp.StatusCode).
 				Str("error", authErr.Error).
 				Str("errorDescription", authErr.ErrorDescription).
 				Str("helpUrl", authErr.ErrorURI).
-				Logger()
+				Msg(errMsg)
 		} else {
 			// things are extra broken and this is an error type we haven't seen before
-			fields = log.With().
+			errMsg = "Failed to retrieve access tokens with unknown error format"
+			log.Error().
 				Int("status", resp.StatusCode).
 				Bytes("response", body).
 				Err(err).
-				Logger()
+				Msg(errMsg)
 		}
-		fields.Fatal().Msg(
-			"Failed to retrieve access tokens. Authentication cannot continue.",
-		)
+		return nil, errors.New(errMsg)
 	}
-	return &auth
+	return &auth, nil
 }
 
 // newAuth performs initial authentication flow and saves tokens to disk. The headless
 // parameter determines if we will try to auth directly in the terminal instead of
 // doing it via embedded browser.
-func newAuth(config AuthConfig, path string, headless bool) *Auth {
+func newAuth(config AuthConfig, path string, headless bool) (*Auth, error) {
 	// load the old account name
 	old := Auth{}
-	old.FromFile(path)
+	_ = old.FromFile(path) // Ignore error, we just want the account name if available
 
 	config.applyDefaults()
 	var code string
+	var err error
+
 	if headless {
-		code = getAuthCodeHeadless(config, old.Account)
+		code, err = getAuthCodeHeadless(config, old.Account)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get auth code: %w", err)
+		}
 	} else {
 		// in a build without CGO, this will be the same as above
-		code = getAuthCode(config, old.Account)
+		code, err = getAuthCode(config, old.Account)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get auth code: %w", err)
+		}
 	}
-	auth := getAuthTokens(config, code)
+
+	auth, err := getAuthTokens(config, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get auth tokens: %w", err)
+	}
 
 	if user, err := GetUser(auth); err == nil {
 		auth.Account = user.UserPrincipalName
 	}
-	auth.ToFile(path)
-	return auth
+
+	if err := auth.ToFile(path); err != nil {
+		log.Warn().Err(err).Msg("Failed to save auth tokens to file")
+	}
+
+	return auth, nil
 }
 
 // Authenticate performs authentication to Graph or load auth/refreshes it
 // from an existing file. If headless is true, we will authenticate in the
 // terminal.
-func Authenticate(config AuthConfig, path string, headless bool) *Auth {
+func Authenticate(config AuthConfig, path string, headless bool) (*Auth, error) {
 	auth := &Auth{}
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		// no tokens found, gotta start oauth flow from beginning
-		auth = newAuth(config, path, headless)
+		auth, err = newAuth(config, path, headless)
+		if err != nil {
+			return nil, fmt.Errorf("authentication failed: %w", err)
+		}
 	} else {
 		// we already have tokens, no need to force a new auth flow
-		auth.FromFile(path)
+		if err := auth.FromFile(path); err != nil {
+			return nil, fmt.Errorf("failed to load auth tokens: %w", err)
+		}
 		auth.Refresh()
 	}
-	return auth
+	return auth, nil
 }

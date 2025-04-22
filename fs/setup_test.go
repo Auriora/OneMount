@@ -58,7 +58,12 @@ func TestMain(m *testing.M) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: f, TimeFormat: "15:04:05"})
 	defer f.Close()
 
-	auth = graph.Authenticate(graph.AuthConfig{}, ".auth_tokens.json", false)
+	var err error
+	auth, err = graph.Authenticate(graph.AuthConfig{}, ".auth_tokens.json", false)
+	if err != nil {
+		fmt.Println("Authentication failed:", err)
+		os.Exit(1)
+	}
 	fs = NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
 	server, _ := fuse.NewServer(
 		fs,

@@ -131,13 +131,19 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	authPath := filepath.Join(cachePath, "auth_tokens.json")
 	if authOnly {
 		os.Remove(authPath)
-		graph.Authenticate(config.AuthConfig, authPath, headless)
+		_, err := graph.Authenticate(config.AuthConfig, authPath, headless)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Authentication failed")
+		}
 		os.Exit(0)
 	}
 
 	// create the filesystem
 	log.Info().Msgf("onedriver %s", common.Version())
-	auth := graph.Authenticate(config.AuthConfig, authPath, headless)
+	auth, err := graph.Authenticate(config.AuthConfig, authPath, headless)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Authentication failed")
+	}
 	filesystem := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
 	log.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
 	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Second)
