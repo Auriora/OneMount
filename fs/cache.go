@@ -570,6 +570,8 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 
 	inode.Lock()
 	inode.children = make([]string, 0)
+	// Store the path before processing to avoid calling Path() while locked
+	processingPath := inode.Path()
 	for i, item := range fetched {
 		// we will always have an id after fetching from the server
 		child := NewInodeDriveItem(item)
@@ -586,7 +588,7 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 		}
 
 		if i%50 == 0 && i > 0 {
-			log.Debug().Str("id", id).Str("path", inode.Path()).Int("processedCount", i).Int("totalCount", len(fetched)).Msg("Processing children progress")
+			log.Debug().Str("id", id).Str("path", processingPath).Int("processedCount", i).Int("totalCount", len(fetched)).Msg("Processing children progress")
 		}
 	}
 	// Store the path before unlocking to avoid potential deadlocks
