@@ -60,6 +60,9 @@ func main() {
 	versionFlag := flag.BoolP("version", "v", false, "Display program version.")
 	debugOn := flag.BoolP("debug", "d", false, "Enable FUSE debug logging. "+
 		"This logs communication between onedriver and the kernel.")
+	syncTree := flag.BoolP("sync-tree", "s", false,
+		"Sync the full directory tree to the local metadata store before mounting. "+
+			"This can take some time for large OneDrive accounts.")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
 	flag.Parse()
@@ -80,6 +83,9 @@ func main() {
 	}
 	if *logLevel != "" {
 		config.LogLevel = *logLevel
+	}
+	if *syncTree {
+		config.SyncTree = true
 	}
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
@@ -128,6 +134,16 @@ func main() {
 	filesystem := fs.NewFilesystem(auth, cachePath)
 	go filesystem.DeltaLoop(30 * time.Second)
 	xdgVolumeInfo(filesystem, auth)
+
+	// Sync the full directory tree if requested
+	if config.SyncTree {
+		log.Info().Msg("Syncing full directory tree to local metadata store...")
+		if err := filesystem.SyncDirectoryTree(auth); err != nil {
+			log.Error().Err(err).Msg("Error syncing directory tree")
+		} else {
+			log.Info().Msg("Directory tree sync completed successfully")
+		}
+	}
 
 	server, err := fuse.NewServer(filesystem, mountpoint, &fuse.MountOptions{
 		Name:          "onedriver",
