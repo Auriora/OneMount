@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/imdario/mergo"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 

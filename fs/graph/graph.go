@@ -105,7 +105,11 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 				"forcing reauth before retrying.")
 
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Starting reauth process")
-		reauth := newAuth(auth.AuthConfig, auth.path, false)
+		reauth, authErr := newAuth(auth.AuthConfig, auth.path, false)
+		if authErr != nil {
+			log.Error().Err(authErr).Str("method", method).Str("resource", resource).Msg("Reauth failed")
+			return nil, fmt.Errorf("reauth failed: %w", authErr)
+		}
 		mergo.Merge(auth, reauth, mergo.WithOverride)
 		request.Header.Set("Authorization", "bearer "+auth.AccessToken)
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Reauth process completed")
