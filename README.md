@@ -282,3 +282,90 @@ backups you can count on.
 
 Finally, this project is still in active development and is provided AS IS.
 There are no guarantees. It might kill your cat.
+
+# Code Refactoring Recommendations for Onedriver
+
+After reviewing the codebase, here are several refactoring recommendations to improve code quality, maintainability, and performance:
+
+## General Recommendations
+
+1. **Replace deprecated packages**: ✅ COMPLETED
+   - Replace `ioutil` with `io` and `os` packages throughout the codebase
+   - Example: `ioutil.ReadFile()` → `os.ReadFile()`
+
+2. **Consistent error handling**: ✅ COMPLETED
+   - Standardize error handling patterns across the codebase
+   - Avoid using `log.Fatal()` in library code as it terminates the program
+   - Return errors to callers instead of handling them internally when appropriate
+
+3. **Extract long functions**: ✅ COMPLETED
+   - Break down large functions into smaller, focused functions
+   - Main examples: `main()` in cmd/onedriver/main.go, `Refresh()` in fs/graph/oauth2.go
+
+4. **Improve code organization**: ✅ COMPLETED
+   - Group related functionality into separate files
+   - Consider using more interfaces to decouple components
+   - Extract common code in ReadDir and ReadDirPlus into a shared function
+
+## Specific Recommendations
+
+### cmd/onedriver/main.go: ✅ COMPLETED
+
+1. Extract command-line flag handling into a separate function ✅
+2. Move signal handling logic to a dedicated function ✅
+3. Create a separate function for filesystem initialization ✅
+4. Extract the xdgVolumeInfo function to a more appropriate package ✅
+
+### fs/fs.go
+
+1. Split the file into multiple files based on functionality:
+   - Directory operations (OpenDir, ReadDir, etc.)
+   - File operations (Open, Read, Write, etc.)
+   - Metadata operations (GetAttr, SetAttr, etc.)
+
+2. Extract common code in ReadDir and ReadDirPlus into a shared function ✅
+
+3. Improve offline mode handling by creating a dedicated abstraction
+
+### fs/graph/oauth2.go
+
+1. Fix the regex in `parseAuthCode` function: ✅ COMPLETED
+
+```
+// Change this:
+rexp := regexp.MustCompile("code=([a-zA-Z0-9-_.])+")
+// To this:
+rexp := regexp.MustCompile("code=([a-zA-Z0-9-_.]+)")
+```
+
+2. Split the `Refresh` method into smaller functions: ✅ COMPLETED
+3. Improve error handling in authentication functions
+4. Use context for timeout/cancellation in network requests
+
+### cmd/common/config.go
+
+1. Add validation for configuration values
+2. Extract configuration loading and merging into separate functions
+3. Use structured logging consistently
+
+## Testing Improvements
+
+1. Standardize test assertions (choose between t.Fatal and require/assert)
+2. Add more unit tests for individual components
+3. Consider using table-driven tests for better test coverage
+4. Add mocks for external dependencies to improve test isolation
+
+## Performance Improvements
+
+1. Consider using a connection pool for HTTP requests
+2. Implement more aggressive caching strategies
+3. Add support for concurrent operations where appropriate
+4. Profile the application to identify bottlenecks
+
+## Documentation Improvements
+
+1. Add more code comments explaining complex logic
+2. Document public APIs with godoc-compatible comments
+3. Create architecture documentation explaining component relationships
+
+These refactorings would improve code quality, maintainability, and performance while making the codebase more approachable for new contributors.

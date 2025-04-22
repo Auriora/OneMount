@@ -543,7 +543,6 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// update modtime, hashes, purge any local content in memory
 			ctx.Debug().Msg("Updating local item with remote metadata")
 			local.Lock()
-			defer local.Unlock()
 			local.DriveItem.ModTime = delta.ModTime
 			local.DriveItem.Size = delta.Size
 			local.DriveItem.ETag = delta.ETag
@@ -551,8 +550,9 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// as they will be null anyways
 			local.DriveItem.File = delta.File
 			local.hasChanges = false
+			local.Unlock()
 
-			// Update file status attributes
+			// Update file status attributes after releasing the lock
 			ctx.Debug().Msg("Updating file status attributes")
 			f.updateFileStatus(local)
 			ctx.Debug().Msg("Successfully updated local item with remote metadata")

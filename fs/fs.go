@@ -268,8 +268,8 @@ func (f *Filesystem) ReleaseDir(in *fuse.ReleaseIn) {
 	f.opendirsM.Unlock()
 }
 
-// ReadDirPlus reads an individual directory entry AND does a lookup.
-func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.DirEntryList) fuse.Status {
+// readDirCommon contains the common code for ReadDir and ReadDirPlus
+func (f *Filesystem) readDirCommon(cancel <-chan struct{}, in *fuse.ReadIn) ([]*Inode, fuse.Status) {
 	f.opendirsM.RLock()
 	entries, ok := f.opendirs[in.NodeId]
 	f.opendirsM.RUnlock()
@@ -277,19 +277,29 @@ func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *f
 		// readdir can sometimes arrive before the corresponding opendir, so we force it
 		status := f.OpenDir(cancel, &fuse.OpenIn{InHeader: in.InHeader}, nil)
 		if status != fuse.OK {
-			return status
+			return nil, status
 		}
 		f.opendirsM.RLock()
 		entries, ok = f.opendirs[in.NodeId]
 		f.opendirsM.RUnlock()
 		if !ok {
-			return fuse.EBADF
+			return nil, fuse.EBADF
 		}
 	}
 
 	if in.Offset >= uint64(len(entries)) {
 		// just tried to seek past end of directory, we're all done!
-		return fuse.OK
+		return nil, fuse.OK
+	}
+
+	return entries, fuse.OK
+}
+
+// ReadDirPlus reads an individual directory entry AND does a lookup.
+func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.DirEntryList) fuse.Status {
+	entries, status := f.readDirCommon(cancel, in)
+	if status != fuse.OK {
+		return status
 	}
 
 	inode := entries[in.Offset]
@@ -328,26 +338,9 @@ func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *f
 // ReadDir reads a directory entry. Usually doesn't get called (ReadDirPlus is
 // typically used).
 func (f *Filesystem) ReadDir(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.DirEntryList) fuse.Status {
-	f.opendirsM.RLock()
-	entries, ok := f.opendirs[in.NodeId]
-	f.opendirsM.RUnlock()
-	if !ok {
-		// readdir can sometimes arrive before the corresponding opendir, so we force it
-		status := f.OpenDir(cancel, &fuse.OpenIn{InHeader: in.InHeader}, nil)
-		if status != fuse.OK {
-			return status
-		}
-		f.opendirsM.RLock()
-		entries, ok = f.opendirs[in.NodeId]
-		f.opendirsM.RUnlock()
-		if !ok {
-			return fuse.EBADF
-		}
-	}
-
-	if in.Offset >= uint64(len(entries)) {
-		// just tried to seek past end of directory, we're all done!
-		return fuse.OK
+	entries, status := f.readDirCommon(cancel, in)
+	if status != fuse.OK {
+		return status
 	}
 
 	inode := entries[in.Offset]
@@ -511,19 +504,18 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	// we have something on disk-
 	// verify content against what we're supposed to have
 	inode.Lock()
-	defer inode.Unlock()
-	// stay locked until end to prevent multiple Opens() from competing for
-	// downloads of the same file.
 
 	// try grabbing from disk
 	fd, err := f.content.Open(id)
 	if err != nil {
+		inode.Unlock()
 		ctx.Error().Err(err).Msg("Could not create cache file.")
 		return fuse.EIO
 	}
 
 	if isLocalID(id) {
 		// just use whatever's present if we're the only ones who have it
+		inode.Unlock()
 		return fuse.OK
 	}
 
@@ -534,12 +526,17 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		// we check size ourselves in case the API file sizes are WRONG (it happens)
 		st, err := fd.Stat()
 		if err != nil {
+			inode.Unlock()
 			ctx.Error().Err(err).Msg("Could not fetch file stats.")
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
+		inode.Unlock()
 		return fuse.OK
 	}
+
+	// Release the lock before network operations
+	inode.Unlock()
 
 	ctx.Info().Msg(
 		"Not using cached item due to file hash mismatch, fetching content from API.",
@@ -682,10 +679,13 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 		return 0, fuse.EIO
 	}
 
+	// Get the path before acquiring the lock to avoid potential deadlocks
+	path := inode.Path()
+
 	inode.Lock()
-	defer inode.Unlock()
 	n, err := fd.WriteAt(data, int64(offset))
 	if err != nil {
+		inode.Unlock()
 		ctx.Error().Err(err).Msg("Error during write")
 		return uint32(n), fuse.EIO
 	}
@@ -693,6 +693,7 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	st, _ := fd.Stat()
 	inode.DriveItem.Size = uint64(st.Size())
 	inode.hasChanges = true
+	inode.Unlock()
 
 	// Mark file as locally modified
 	f.SetFileStatus(id, FileStatusInfo{
@@ -706,7 +707,7 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 			ID:        id,
 			Type:      "modify",
 			Timestamp: time.Now(),
-			Path:      inode.Path(),
+			Path:      path,
 		}
 		f.TrackOfflineChange(change)
 	}
@@ -777,10 +778,10 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 
 	// grab a lock to prevent a race condition closing an opened file prior to its use (use after free segfault)
 	inode.Lock()
-	defer inode.Unlock()
 	f.content.Close(id)
+	inode.Unlock()
 
-	// Update file status attributes
+	// Update file status attributes after releasing the lock
 	f.updateFileStatus(inode)
 	return 0
 }
