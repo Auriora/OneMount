@@ -231,20 +231,39 @@ type driveChildren struct {
 
 // this is the internal method that actually fetches an item's children
 func getItemChildren(pollURL string, auth *Auth) ([]*DriveItem, error) {
+	log.Debug().Str("pollURL", pollURL).Msg("Starting getItemChildren")
 	fetched := make([]*DriveItem, 0)
+	pageCount := 0
+
 	for pollURL != "" {
+		pageCount++
+		log.Debug().Str("pollURL", pollURL).Int("pageCount", pageCount).Msg("Fetching page of children")
+
+		log.Debug().Str("pollURL", pollURL).Int("pageCount", pageCount).Msg("About to call Get for children page")
 		body, err := Get(pollURL, auth)
+		log.Debug().Str("pollURL", pollURL).Int("pageCount", pageCount).Err(err).Msg("Returned from Get for children page")
+
 		if err != nil {
+			log.Error().Str("pollURL", pollURL).Int("pageCount", pageCount).Err(err).Msg("Error fetching children page")
 			return fetched, err
 		}
+
+		log.Debug().Str("pollURL", pollURL).Int("pageCount", pageCount).Int("bodySize", len(body)).Msg("Unmarshalling response body")
 		var pollResult driveChildren
-		json.Unmarshal(body, &pollResult)
+		err = json.Unmarshal(body, &pollResult)
+		if err != nil {
+			log.Error().Str("pollURL", pollURL).Int("pageCount", pageCount).Err(err).Msg("Error unmarshalling children response")
+			return fetched, err
+		}
 
 		// there can be multiple pages of 200 items each (default).
 		// continue to next interation if we have an @odata.nextLink value
+		log.Debug().Str("pollURL", pollURL).Int("pageCount", pageCount).Int("childrenCount", len(pollResult.Children)).Str("nextLink", pollResult.NextLink).Msg("Processing children page")
 		fetched = append(fetched, pollResult.Children...)
 		pollURL = strings.TrimPrefix(pollResult.NextLink, GraphURL)
 	}
+
+	log.Debug().Int("totalFetched", len(fetched)).Msg("Completed getItemChildren")
 	return fetched, nil
 }
 

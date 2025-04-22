@@ -48,8 +48,11 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		return nil, errors.New("cannot make a request with empty auth")
 	}
 
+	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting auth refresh")
 	auth.Refresh()
+	log.Debug().Str("method", method).Str("resource", resource).Msg("Auth refresh completed")
 
+	log.Debug().Str("method", method).Str("resource", resource).Msg("Creating HTTP client with 60s timeout")
 	client := &http.Client{Timeout: 60 * time.Second}
 	request, _ := http.NewRequestWithContext(ctx, method, GraphURL+resource, content)
 	request.Header.Add("Authorization", "bearer "+auth.AccessToken)
@@ -67,6 +70,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	}
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting network request with context")
+	log.Debug().Str("method", method).Str("resource", resource).Str("url", GraphURL+resource).Msg("About to execute HTTP request")
 	response, err := client.Do(request)
 	if err != nil {
 		// Check if the error was due to context cancellation
@@ -79,39 +83,74 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		return nil, err
 	}
 	log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Network request completed")
-	body, _ := ioutil.ReadAll(response.Body)
+
+	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting to read response body")
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Error reading response body")
+		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+	log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Successfully read response body")
+
 	response.Body.Close()
 
 	if response.StatusCode == 401 {
 		var err graphError
 		json.Unmarshal(body, &err)
 		log.Warn().
+			Str("method", method).
+			Str("resource", resource).
 			Str("code", err.Error.Code).
 			Str("message", err.Error.Message).
 			Msg("Authentication token invalid or new app permissions required, " +
 				"forcing reauth before retrying.")
 
+		log.Debug().Str("method", method).Str("resource", resource).Msg("Starting reauth process")
 		reauth := newAuth(auth.AuthConfig, auth.path, false)
 		mergo.Merge(auth, reauth, mergo.WithOverride)
 		request.Header.Set("Authorization", "bearer "+auth.AccessToken)
+		log.Debug().Str("method", method).Str("resource", resource).Msg("Reauth process completed")
 	}
 	if response.StatusCode >= 500 || response.StatusCode == 401 {
 		// the onedrive API is having issues, retry once
+		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Server error or auth issue, retrying request")
+
+		log.Debug().Str("method", method).Str("resource", resource).Msg("Executing retry request")
 		response, err = client.Do(request)
 		if err != nil {
+			log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Retry request failed")
 			return nil, err
 		}
-		body, _ = ioutil.ReadAll(response.Body)
+		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Retry request completed")
+
+		log.Debug().Str("method", method).Str("resource", resource).Msg("Reading retry response body")
+		body, err = ioutil.ReadAll(response.Body)
+		if err != nil {
+			log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Error reading retry response body")
+			return nil, fmt.Errorf("error reading retry response body: %v", err)
+		}
+		log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Successfully read retry response body")
+
 		response.Body.Close()
 	}
 
 	if response.StatusCode >= 400 {
 		// something was wrong with the request
+		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Request failed with error status code")
 		var err graphError
-		json.Unmarshal(body, &err)
+		unmarshalErr := json.Unmarshal(body, &err)
+		if unmarshalErr != nil {
+			log.Error().Str("method", method).Str("resource", resource).Err(unmarshalErr).Msg("Failed to unmarshal error response")
+			return nil, fmt.Errorf("HTTP %d - failed to parse error response: %v",
+				response.StatusCode, unmarshalErr)
+		}
+		log.Error().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).
+			Str("errorCode", err.Error.Code).Str("errorMessage", err.Error.Message).
+			Msg("Request failed with API error")
 		return nil, fmt.Errorf("HTTP %d - %s: %s",
 			response.StatusCode, err.Error.Code, err.Error.Message)
 	}
+	log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Request completed successfully")
 	return body, nil
 }
 

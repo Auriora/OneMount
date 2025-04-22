@@ -206,9 +206,11 @@ func (f *Filesystem) OpenDir(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.
 	id := f.TranslateID(in.NodeId)
 	dir := f.GetID(id)
 	if dir == nil {
+		log.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Directory not found")
 		return fuse.ENOENT
 	}
 	if !dir.IsDir() {
+		log.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Not a directory")
 		return fuse.ENOTDIR
 	}
 	path := dir.Path()
@@ -217,9 +219,12 @@ func (f *Filesystem) OpenDir(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
 		Str("path", path).Logger()
-	ctx.Debug().Msg("")
+	ctx.Debug().Msg("Starting OpenDir operation")
 
+	ctx.Debug().Msg("About to call GetChildrenID")
 	children, err := f.GetChildrenID(id, f.auth)
+	ctx.Debug().Err(err).Int("childrenCount", len(children)).Msg("Returned from GetChildrenID")
+
 	if err != nil {
 		// not an item not found error (Lookup/Getattr will always be called
 		// before Readdir()), something has happened to our connection
@@ -227,25 +232,32 @@ func (f *Filesystem) OpenDir(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.
 		return fuse.EREMOTEIO
 	}
 
+	ctx.Debug().Msg("Getting parent directory")
 	parent := f.GetID(dir.ParentID())
 	if parent == nil {
 		// This is the parent of the mountpoint. The FUSE kernel module discards
 		// this info, so what we put here doesn't actually matter.
+		ctx.Debug().Msg("Parent is nil, creating dummy parent")
 		parent = NewInode("..", 0755|fuse.S_IFDIR, nil)
 		parent.nodeID = math.MaxUint64
 	}
 
+	ctx.Debug().Msg("Creating entries array")
 	entries := make([]*Inode, 2)
 	entries[0] = dir
 	entries[1] = parent
 
+	ctx.Debug().Int("childrenCount", len(children)).Msg("Adding children to entries")
 	for _, child := range children {
 		entries = append(entries, child)
 	}
+
+	ctx.Debug().Int("totalEntries", len(entries)).Msg("Storing entries in opendirs map")
 	f.opendirsM.Lock()
 	f.opendirs[in.NodeId] = entries
 	f.opendirsM.Unlock()
 
+	ctx.Debug().Msg("OpenDir operation completed successfully")
 	return fuse.OK
 }
 
