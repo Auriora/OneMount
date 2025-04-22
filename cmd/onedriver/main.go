@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -244,4 +243,3 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server) {
 		os.Exit(128)
 	}()
 }
-
