@@ -39,6 +39,10 @@ type Filesystem struct {
 	// tracks currently open directories
 	opendirsM sync.RWMutex
 	opendirs  map[uint64][]*Inode
+
+	// Track file statuses
+	statusM  sync.RWMutex
+	statuses map[string]FileStatusInfo
 }
 
 // boltdb buckets
@@ -120,6 +124,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string) *Filesystem {
 		db:            db,
 		auth:          auth,
 		opendirs:      make(map[uint64][]*Inode),
+		statuses:      make(map[string]FileStatusInfo),
 	}
 
 	rootItem, err := graph.GetItem("root", auth)

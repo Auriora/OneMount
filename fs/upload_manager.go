@@ -93,6 +93,11 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					// side throttling that can cause errors.
 					if u.inFlight < maxUploadsInFlight {
 						u.inFlight++
+						// Update status to syncing
+						u.fs.SetFileStatus(session.ID, FileStatusInfo{
+							Status:    StatusSyncing,
+							Timestamp: time.Now(),
+						})
 						go session.Upload(u.auth)
 					}
 
@@ -105,6 +110,8 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 							Err(session).
 							Int("retries", session.retries).
 							Msg("Upload session failed too many times, cancelling session.")
+						// Update status to error
+						u.fs.MarkFileError(session.ID, session.error)
 						u.finishUpload(session.ID)
 					}
 
@@ -142,6 +149,15 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 						inode.Lock()
 						inode.DriveItem.ETag = session.ETag
 						inode.Unlock()
+
+						// Update status to local (synced)
+						u.fs.SetFileStatus(session.ID, FileStatusInfo{
+							Status:    StatusLocal,
+							Timestamp: time.Now(),
+						})
+
+						// Update file status attributes
+						u.fs.updateFileStatus(inode)
 					}
 
 					// the old ID is the one that was used to add it to the queue.

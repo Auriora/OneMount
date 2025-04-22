@@ -264,13 +264,17 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 				ctx.Info().Str("delta", "conflict").
 					Msg("Conflict detected, creating conflict copy.")
 
+				// Mark the file as having a conflict
+				f.MarkFileConflict(delta.ID, "Conflict detected between local and remote changes")
+
 				// Create a conflict copy of the remote file
 				conflictName := delta.Name + " (Conflict Copy " + time.Now().Format("2006-01-02 15:04:05") + ")"
 				conflictItem := *delta
 				conflictItem.Name = conflictName
 
 				// Add the conflict copy to the filesystem
-				f.InsertChild(parentID, NewInodeDriveItem(&conflictItem))
+				conflictInode := NewInodeDriveItem(&conflictItem)
+				f.InsertChild(parentID, conflictInode)
 
 				// Keep the local version as is
 				return nil
@@ -279,6 +283,10 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// No local changes, accept remote changes
 			ctx.Info().Str("delta", "overwrite").
 				Msg("Overwriting local item, no local changes to preserve.")
+
+			// Mark the file as out of sync
+			f.MarkFileOutofSync(delta.ID)
+
 			// update modtime, hashes, purge any local content in memory
 			local.Lock()
 			defer local.Unlock()
@@ -289,6 +297,10 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// as they will be null anyways
 			local.DriveItem.File = delta.File
 			local.hasChanges = false
+
+			// Update file status attributes
+			f.updateFileStatus(local)
+
 			return nil
 		}
 	}

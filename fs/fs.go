@@ -528,11 +528,15 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		"Not using cached item due to file hash mismatch, fetching content from API.",
 	)
 
+	// Mark file as downloading
+	f.MarkFileDownloading(id)
+
 	// write to tempfile first to ensure our download is good
 	tempID := "temp-" + id
 	temp, err := f.content.Open(tempID)
 	if err != nil {
 		ctx.Error().Err(err).Msg("Failed to create tempfile for download.")
+		f.MarkFileError(id, err)
 		return fuse.EIO
 	}
 	defer f.content.Delete(tempID)
@@ -541,6 +545,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	size, err := graph.GetItemContentStream(id, f.auth, temp)
 	if err != nil || !inode.VerifyChecksum(graph.QuickXORHashStream(temp)) {
 		ctx.Error().Err(err).Msg("Failed to fetch remote content.")
+		f.MarkFileError(id, err)
 		return fuse.EREMOTEIO
 	}
 	// Reset file positions
@@ -568,10 +573,21 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	// Ensure data is flushed to disk
 	if err := fd.Sync(); err != nil {
 		ctx.Error().Err(err).Msg("Failed to sync file to disk")
+		f.MarkFileError(id, err)
 		return fuse.EIO
 	}
 
 	inode.DriveItem.Size = size
+
+	// Update status to local
+	f.SetFileStatus(id, FileStatusInfo{
+		Status:    StatusLocal,
+		Timestamp: time.Now(),
+	})
+
+	// Update file status attributes
+	f.updateFileStatus(inode)
+
 	return fuse.OK
 }
 
@@ -694,6 +710,12 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	inode.DriveItem.Size = uint64(st.Size())
 	inode.hasChanges = true
 
+	// Mark file as locally modified
+	f.SetFileStatus(id, FileStatusInfo{
+		Status:    StatusLocalModified,
+		Timestamp: time.Now(),
+	})
+
 	// Track this change if we're offline
 	if f.IsOffline() {
 		change := &OfflineChange{
@@ -768,6 +790,9 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	inode.Lock()
 	defer inode.Unlock()
 	f.content.Close(id)
+
+	// Update file status attributes
+	f.updateFileStatus(inode)
 	return 0
 }
 
