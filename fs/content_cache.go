@@ -2,7 +2,6 @@ package fs
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,7 +15,12 @@ type LoopbackCache struct {
 }
 
 func NewLoopbackCache(directory string) *LoopbackCache {
-	os.Mkdir(directory, 0700)
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		// Log error but continue - the directory might already exist
+		// or we might be able to create files directly
+		// This is a best-effort approach
+		// Using MkdirAll instead of Mkdir to create parent directories if needed
+	}
 	return &LoopbackCache{
 		directory: directory,
 		fds:       sync.Map{},
@@ -30,13 +34,18 @@ func (l *LoopbackCache) contentPath(id string) string {
 
 // Get reads a file's content from disk.
 func (l *LoopbackCache) Get(id string) []byte {
-	content, _ := ioutil.ReadFile(l.contentPath(id))
+	content, err := os.ReadFile(l.contentPath(id))
+	if err != nil {
+		// Return empty content if file doesn't exist or can't be read
+		// This matches the previous behavior but is more explicit
+		return []byte{}
+	}
 	return content
 }
 
 // InsertContent writes file content to disk in a single bulk insert.
 func (l *LoopbackCache) Insert(id string, content []byte) error {
-	return ioutil.WriteFile(l.contentPath(id), content, 0600)
+	return os.WriteFile(l.contentPath(id), content, 0600)
 }
 
 // InsertStream inserts a stream of data
@@ -45,18 +54,69 @@ func (l *LoopbackCache) InsertStream(id string, reader io.Reader) (int64, error)
 	if err != nil {
 		return 0, err
 	}
-	return io.Copy(fd, reader)
+
+	// Copy the data from the reader to the file
+	// We don't reset position or truncate here to maintain compatibility with existing code
+	n, err := io.Copy(fd, reader)
+	if err != nil {
+		return n, err
+	}
+
+	return n, nil
 }
 
 // Delete closes the fd AND deletes content from disk.
 func (l *LoopbackCache) Delete(id string) error {
-	l.Close(id)
-	return os.Remove(l.contentPath(id))
+	// Try to close the file first
+	closeErr := l.Close(id)
+
+	// Try to remove the file regardless of close error
+	removeErr := os.Remove(l.contentPath(id))
+
+	// Handle remove error - ignore "file not found" errors
+	if removeErr != nil && !os.IsNotExist(removeErr) {
+		return removeErr
+	}
+
+	// If we got here, the remove succeeded or the file didn't exist
+	// Return any close error that might have occurred
+	return closeErr
 }
 
 // Move moves content from one ID to another
 func (l *LoopbackCache) Move(oldID string, newID string) error {
-	return os.Rename(l.contentPath(oldID), l.contentPath(newID))
+	// Close both files to ensure they're not open during the move
+	// Capture errors but continue with the move operation
+	oldCloseErr := l.Close(oldID)
+	newCloseErr := l.Close(newID)
+
+	// Make sure the destination directory exists
+	destDir := filepath.Dir(l.contentPath(newID))
+	if err := os.MkdirAll(destDir, 0700); err != nil {
+		return err
+	}
+
+	// Check if source file exists
+	if _, err := os.Stat(l.contentPath(oldID)); os.IsNotExist(err) {
+		return err
+	}
+
+	// Remove destination file if it exists to avoid "file exists" errors
+	// Ignore any errors from this operation
+	_ = os.Remove(l.contentPath(newID))
+
+	// Perform the rename operation
+	renameErr := os.Rename(l.contentPath(oldID), l.contentPath(newID))
+	if renameErr != nil {
+		return renameErr
+	}
+
+	// If we got here, the rename succeeded
+	// Return any close errors that might have occurred
+	if oldCloseErr != nil {
+		return oldCloseErr
+	}
+	return newCloseErr
 }
 
 // IsOpen returns true if the file is already opened somewhere
@@ -99,11 +159,27 @@ func (l *LoopbackCache) Open(id string) (*os.File, error) {
 }
 
 // Close closes the currently open fd
-func (l *LoopbackCache) Close(id string) {
+func (l *LoopbackCache) Close(id string) error {
 	if fd, ok := l.fds.Load(id); ok {
 		file := fd.(*os.File)
-		file.Sync()
-		file.Close()
+
+		// Try to sync the file, but don't fail if it doesn't work
+		// We still want to try to close the file even if sync fails
+		syncErr := file.Sync()
+
+		// Close the file and capture any error
+		closeErr := file.Close()
+
+		// Remove from the map regardless of errors
 		l.fds.Delete(id)
+
+		// Return the first error encountered
+		if syncErr != nil {
+			return syncErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
 	}
+	return nil
 }

@@ -543,10 +543,34 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		ctx.Error().Err(err).Msg("Failed to fetch remote content.")
 		return fuse.EREMOTEIO
 	}
-	temp.Seek(0, 0) // being explicit, even though already done in hashstream func
-	fd.Seek(0, 0)
-	fd.Truncate(0)
-	io.Copy(fd, temp)
+	// Reset file positions
+	if _, err := temp.Seek(0, 0); err != nil { // being explicit, even though already done in hashstream func
+		ctx.Error().Err(err).Msg("Failed to seek temp file")
+		return fuse.EIO
+	}
+
+	if _, err := fd.Seek(0, 0); err != nil {
+		ctx.Error().Err(err).Msg("Failed to seek destination file")
+		return fuse.EIO
+	}
+
+	if err := fd.Truncate(0); err != nil {
+		ctx.Error().Err(err).Msg("Failed to truncate destination file")
+		return fuse.EIO
+	}
+
+	// Copy content from temp file to destination
+	if _, err := io.Copy(fd, temp); err != nil {
+		ctx.Error().Err(err).Msg("Failed to copy content from temp file")
+		return fuse.EIO
+	}
+
+	// Ensure data is flushed to disk
+	if err := fd.Sync(); err != nil {
+		ctx.Error().Err(err).Msg("Failed to sync file to disk")
+		return fuse.EIO
+	}
+
 	inode.DriveItem.Size = size
 	return fuse.OK
 }
