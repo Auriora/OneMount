@@ -810,14 +810,15 @@ func (f *Filesystem) StopDeltaLoop() {
 		close(done)
 	}()
 
-	// Wait for delta loop to finish or timeout after 5 seconds
+	// Wait for delta loop to finish or timeout after 10 seconds
 	select {
 	case <-done:
 		log.Info().Msg("Delta loop stopped successfully")
-	case <-time.After(5 * time.Second):
-		log.Warn().Msg("Timed out waiting for delta loop to stop - this may indicate a deadlock")
+	case <-time.After(10 * time.Second):
+		log.Warn().Msg("Timed out waiting for delta loop to stop - continuing shutdown anyway")
 		// Log additional debug information
 		log.Debug().Msg("Delta loop may be stuck in a network operation or processing a large batch of changes")
+		log.Debug().Msg("This is not a critical error, but may indicate a potential issue with network operations")
 	}
 }
 

@@ -2,6 +2,7 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -25,8 +26,19 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		log.Debug().Msg("Delta goroutine completed")
 	}()
 
+	// Create a ticker for the interval
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// Create a shorter ticker for offline mode
+	offlineTicker := time.NewTicker(2 * time.Second)
+	defer offlineTicker.Stop()
+
+	// Use the normal ticker by default
+	currentTicker := ticker
+
 	for { // eva
-		// Check if we should stop
+		// Check if we should stop before starting a new cycle
 		select {
 		case <-f.deltaLoopStop:
 			log.Info().Msg("Stopping delta goroutine.")
@@ -35,17 +47,27 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		default:
 			// Continue with normal operation
 		}
+
 		// get deltas
 		log.Debug().Msg("Starting delta fetch cycle")
 		log.Trace().Msg("Fetching deltas from server.")
 		pollSuccess := false
 		deltas := make(map[string]*graph.DriveItem)
+
+		// Use a timeout for the entire delta fetch cycle
+		fetchCtx, fetchCancel := context.WithTimeout(f.deltaLoopCtx, 2*time.Minute)
+
+	fetchLoop:
 		for {
 			// Check if we should stop before making network call
 			select {
 			case <-f.deltaLoopStop:
 				log.Debug().Msg("Delta loop stop signal received during polling loop")
+				fetchCancel()
 				return
+			case <-fetchCtx.Done():
+				log.Debug().Msg("Delta fetch cycle timed out")
+				break fetchLoop
 			default:
 				// Continue with normal operation
 			}
@@ -54,7 +76,24 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			incoming, cont, err := f.pollDeltas(f.auth)
 			log.Debug().Bool("continue", cont).Int("incomingCount", len(incoming)).Msg("pollDeltas returned")
 
+			// Check again if we should stop after network call
+			select {
+			case <-f.deltaLoopStop:
+				log.Debug().Msg("Delta loop stop signal received after pollDeltas")
+				fetchCancel()
+				return
+			default:
+				// Continue processing
+			}
+
 			if err != nil {
+				// Check if it's a context cancellation error
+				if fetchCtx.Err() != nil || f.deltaLoopCtx.Err() != nil {
+					log.Debug().Msg("Delta fetch was cancelled by context")
+					fetchCancel()
+					return
+				}
+
 				// the only thing that should be able to bring the FS out
 				// of a read-only state is a successful delta call
 				log.Error().Err(err).
@@ -78,15 +117,36 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			log.Debug().Msg("Need to continue polling for more deltas")
 		}
 
+		// Clean up the fetch context
+		fetchCancel()
+
+		// Check if we should stop before applying deltas
+		select {
+		case <-f.deltaLoopStop:
+			log.Debug().Msg("Delta loop stop signal received before applying deltas")
+			return
+		default:
+			// Continue with normal operation
+		}
+
 		// now apply deltas
 		log.Debug().Int("deltaCount", len(deltas)).Msg("Starting to apply deltas")
 		secondPass := make([]string, 0)
+
+		// Use a timeout for delta application
+		applyCtx, applyCancel := context.WithTimeout(f.deltaLoopCtx, 1*time.Minute)
+
+	applyLoop:
 		for _, delta := range deltas {
 			// Check if we should stop before applying delta
 			select {
 			case <-f.deltaLoopStop:
 				log.Debug().Msg("Delta loop stop signal received during delta application")
+				applyCancel()
 				return
+			case <-applyCtx.Done():
+				log.Debug().Msg("Delta application timed out")
+				break applyLoop
 			default:
 				// Continue with normal operation
 			}
@@ -98,13 +158,32 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			}
 		}
 
+		// Check if we should stop before second pass
+		select {
+		case <-f.deltaLoopStop:
+			log.Debug().Msg("Delta loop stop signal received before second pass")
+			applyCancel()
+			return
+		case <-applyCtx.Done():
+			log.Debug().Msg("Delta application timed out before second pass")
+			applyCancel()
+			// Continue to next cycle
+			goto nextCycle
+		default:
+			// Continue with normal operation
+		}
+
 		log.Debug().Int("secondPassCount", len(secondPass)).Msg("Starting second pass for non-empty directories")
 		for _, id := range secondPass {
-			// Check if we should stop before second pass
+			// Check if we should stop before processing each item in second pass
 			select {
 			case <-f.deltaLoopStop:
 				log.Debug().Msg("Delta loop stop signal received during second pass")
+				applyCancel()
 				return
+			case <-applyCtx.Done():
+				log.Debug().Msg("Second pass timed out")
+				break
 			default:
 				// Continue with normal operation
 			}
@@ -113,7 +192,19 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			f.applyDelta(deltas[id])
 		}
 
+		// Clean up the apply context
+		applyCancel()
+
 		log.Debug().Msg("Finished applying deltas")
+
+		// Check if we should stop before serialization
+		select {
+		case <-f.deltaLoopStop:
+			log.Debug().Msg("Delta loop stop signal received before serialization")
+			return
+		default:
+			// Continue with normal operation
+		}
 
 		if !f.IsOffline() {
 			log.Debug().Msg("Serializing filesystem state")
@@ -129,6 +220,11 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			f.offline = false
 			f.Unlock()
 
+			// Switch to normal ticker if we were using offline ticker
+			if currentTicker == offlineTicker {
+				currentTicker = ticker
+			}
+
 			log.Debug().Msg("Saving delta link to database")
 			f.db.Batch(func(tx *bolt.Tx) error {
 				return tx.Bucket(bucketDelta).Put([]byte("deltaLink"), []byte(f.deltaLink))
@@ -137,16 +233,32 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			// If we were offline and now we're online, process offline changes
 			if wasOffline {
 				log.Info().Msg("Transitioning from offline to online, processing offline changes")
-				go f.ProcessOfflineChanges()
+				// Use a goroutine with proper error handling
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Error().Interface("recover", r).Msg("Panic in ProcessOfflineChanges")
+						}
+					}()
+					f.ProcessOfflineChanges()
+				}()
 			}
-
-			// wait until next interval
-			log.Debug().Dur("interval", interval).Msg("Delta cycle complete, sleeping until next interval")
-			time.Sleep(interval)
 		} else {
-			// shortened duration while offline
-			log.Debug().Msg("Delta cycle failed, using shortened sleep interval while offline")
-			time.Sleep(2 * time.Second)
+			// Switch to offline ticker for shorter retry intervals
+			if currentTicker == ticker {
+				currentTicker = offlineTicker
+			}
+		}
+
+	nextCycle:
+		// Wait for next interval or stop signal
+		select {
+		case <-currentTicker.C:
+			// Time to run the next cycle
+			log.Debug().Msg("Ticker triggered, starting next delta cycle")
+		case <-f.deltaLoopStop:
+			log.Info().Msg("Stopping delta goroutine during wait interval.")
+			return
 		}
 	}
 }
@@ -171,17 +283,29 @@ func (f *Filesystem) pollDeltas(auth *graph.Auth) ([]*graph.DriveItem, bool, err
 		return make([]*graph.DriveItem, 0), false, f.deltaLoopCtx.Err()
 	}
 
+	// Create a timeout context that's a child of the main context
+	// This ensures we don't get stuck in network calls indefinitely
+	ctx, cancel := context.WithTimeout(f.deltaLoopCtx, 30*time.Second)
+	defer cancel()
+
 	// Make the network request with context that can be cancelled during shutdown
 	log.Debug().Msg("Starting delta request with cancellable context")
-	resp, err := graph.GetWithContext(f.deltaLoopCtx, f.deltaLink, auth)
+	resp, err := graph.GetWithContext(ctx, f.deltaLink, auth)
 	log.Debug().Msg("Delta request completed or cancelled")
 
-	if err != nil {
-		// Check if the error was due to context cancellation
+	// Check for context cancellation first
+	if ctx.Err() != nil {
+		log.Debug().Err(ctx.Err()).Msg("Delta request context was cancelled")
+		// Check if it was our parent context or just the timeout
 		if f.deltaLoopCtx.Err() != nil {
-			log.Debug().Err(f.deltaLoopCtx.Err()).Msg("Delta request was cancelled by context")
+			log.Debug().Msg("Parent context was cancelled, stopping delta loop")
 			return make([]*graph.DriveItem, 0), false, f.deltaLoopCtx.Err()
 		}
+		log.Debug().Msg("Request timed out, will retry on next cycle")
+		return make([]*graph.DriveItem, 0), false, ctx.Err()
+	}
+
+	if err != nil {
 		log.Error().Err(err).Msg("Error fetching deltas from server")
 		return make([]*graph.DriveItem, 0), false, err
 	}
