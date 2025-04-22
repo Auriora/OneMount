@@ -63,6 +63,9 @@ func main() {
 	syncTree := flag.BoolP("sync-tree", "s", false,
 		"Sync the full directory tree to the local metadata store before mounting. "+
 			"This can take some time for large OneDrive accounts.")
+	deltaInterval := flag.IntP("delta-interval", "i", 0,
+		"Set the interval in minutes between delta query checks. "+
+			"Default is 1 minute. Set to 0 to use the default.")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
 	flag.Parse()
@@ -86,6 +89,9 @@ func main() {
 	}
 	if *syncTree {
 		config.SyncTree = true
+	}
+	if *deltaInterval > 0 {
+		config.DeltaInterval = *deltaInterval
 	}
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
@@ -132,7 +138,8 @@ func main() {
 	log.Info().Msgf("onedriver %s", common.Version())
 	auth := graph.Authenticate(config.AuthConfig, authPath, *headless)
 	filesystem := fs.NewFilesystem(auth, cachePath)
-	go filesystem.DeltaLoop(30 * time.Second)
+	log.Info().Msgf("Setting delta query interval to %d minute(s)", config.DeltaInterval)
+	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Minute)
 	xdgVolumeInfo(filesystem, auth)
 
 	// Sync the full directory tree if requested

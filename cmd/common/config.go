@@ -16,6 +16,7 @@ type Config struct {
 	CacheDir         string `yaml:"cacheDir"`
 	LogLevel         string `yaml:"log"`
 	SyncTree         bool   `yaml:"syncTree"`
+	DeltaInterval    int    `yaml:"deltaInterval"`
 	graph.AuthConfig `yaml:"auth"`
 }
 
@@ -32,9 +33,10 @@ func DefaultConfigPath() string {
 func LoadConfig(path string) *Config {
 	xdgCacheDir, _ := os.UserCacheDir()
 	defaults := Config{
-		CacheDir: filepath.Join(xdgCacheDir, "onedriver"),
-		LogLevel: "debug",
-		SyncTree: false,
+		CacheDir:      filepath.Join(xdgCacheDir, "onedriver"),
+		LogLevel:      "debug",
+		SyncTree:      false,
+		DeltaInterval: 1, // Default to 1 minute
 	}
 
 	conf, err := ioutil.ReadFile(path)
