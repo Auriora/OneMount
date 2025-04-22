@@ -525,7 +525,9 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 	// already and can fetch them directly from the cache
 	inode.RLock()
 	if inode.children != nil {
-		log.Debug().Str("id", id).Str("path", inode.Path()).Int("childCount", len(inode.children)).Msg("Children found in cache, retrieving them")
+		// Store the path before unlocking to avoid potential deadlocks
+		path := inode.Path()
+		log.Debug().Str("id", id).Str("path", path).Int("childCount", len(inode.children)).Msg("Children found in cache, retrieving them")
 		// can potentially have out-of-date child metadata if started offline, but since
 		// changes are disallowed while offline, the children will be back in sync after
 		// the first successful delta fetch (which also brings the fs back online)
@@ -538,17 +540,19 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			children[strings.ToLower(child.Name())] = child
 		}
 		inode.RUnlock()
-		log.Debug().Str("id", id).Str("path", inode.Path()).Int("childCount", len(children)).Msg("Successfully retrieved children from cache")
+		log.Debug().Str("id", id).Str("path", path).Int("childCount", len(children)).Msg("Successfully retrieved children from cache")
 		return children, nil
 	}
+	// Store the path before unlocking to avoid potential deadlocks
+	pathForLogs := inode.Path()
 	inode.RUnlock()
 
-	log.Debug().Str("id", id).Str("path", inode.Path()).Msg("Children not in cache, fetching from server")
+	log.Debug().Str("id", id).Str("path", pathForLogs).Msg("Children not in cache, fetching from server")
 
 	// We haven't fetched the children for this item yet, get them from the server.
-	log.Debug().Str("id", id).Str("path", inode.Path()).Msg("About to call graph.GetItemChildren")
+	log.Debug().Str("id", id).Str("path", pathForLogs).Msg("About to call graph.GetItemChildren")
 	fetched, err := graph.GetItemChildren(id, auth)
-	log.Debug().Str("id", id).Str("path", inode.Path()).Err(err).Msg("Returned from graph.GetItemChildren")
+	log.Debug().Str("id", id).Str("path", pathForLogs).Err(err).Msg("Returned from graph.GetItemChildren")
 
 	if err != nil {
 		if graph.IsOffline(err) {
@@ -558,11 +562,11 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			return children, nil
 		}
 		// something else happened besides being offline
-		log.Error().Str("id", id).Str("path", inode.Path()).Err(err).Msg("Error fetching children from server")
+		log.Error().Str("id", id).Str("path", pathForLogs).Err(err).Msg("Error fetching children from server")
 		return nil, err
 	}
 
-	log.Debug().Str("id", id).Str("path", inode.Path()).Int("fetchedCount", len(fetched)).Msg("Processing fetched children")
+	log.Debug().Str("id", id).Str("path", pathForLogs).Int("fetchedCount", len(fetched)).Msg("Processing fetched children")
 
 	inode.Lock()
 	inode.children = make([]string, 0)
@@ -585,10 +589,12 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			log.Debug().Str("id", id).Str("path", inode.Path()).Int("processedCount", i).Int("totalCount", len(fetched)).Msg("Processing children progress")
 		}
 	}
-	log.Debug().Str("id", id).Str("path", inode.Path()).Int("childrenCount", len(children)).Uint32("subdirCount", inode.subdir).Msg("Finished processing all children")
+	// Store the path before unlocking to avoid potential deadlocks
+	finalPath := inode.Path()
+	log.Debug().Str("id", id).Str("path", finalPath).Int("childrenCount", len(children)).Uint32("subdirCount", inode.subdir).Msg("Finished processing all children")
 	inode.Unlock()
 
-	log.Debug().Str("id", id).Str("path", inode.Path()).Int("childrenCount", len(children)).Msg("GetChildrenID completed successfully")
+	log.Debug().Str("id", id).Str("path", finalPath).Int("childrenCount", len(children)).Msg("GetChildrenID completed successfully")
 	return children, nil
 }
 
