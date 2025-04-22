@@ -12,8 +12,8 @@ log: debug
 # This directory can get pretty large. "~" is a placeholder for your home directory.
 cacheDir: ~/.cache/onedriver
 
-# deltaInterval specifies how often (in minutes) onedriver should check for changes
-# on the server. Default is 1 minute.
+# deltaInterval specifies how often (in seconds) onedriver should check for changes
+# on the server. Default is 1 second.
 deltaInterval: 1
 
 # Don't uncomment or change this unless you are a super duper expert and have

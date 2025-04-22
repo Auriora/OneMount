@@ -36,7 +36,7 @@ func LoadConfig(path string) *Config {
 		CacheDir:      filepath.Join(xdgCacheDir, "onedriver"),
 		LogLevel:      "debug",
 		SyncTree:      false,
-		DeltaInterval: 1, // Default to 1 minute
+		DeltaInterval: 1, // Default to 1 second
 	}
 
 	conf, err := ioutil.ReadFile(path)
