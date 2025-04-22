@@ -180,18 +180,19 @@ func (i *Inode) ParentID() string {
 
 // Path returns an inode's full Path
 func (i *Inode) Path() string {
+	i.RLock()
+	defer i.RUnlock()
+
 	// special case when it's the root item
-	name := i.Name()
-	if i.ParentID() == "" && name == "root" {
-		return "/"
+	name := i.DriveItem.Name
+	if i.DriveItem.Parent == nil || i.DriveItem.Parent.ID == "" {
+		if name == "root" {
+			return "/"
+		}
+		return name
 	}
 
 	// all paths come prefixed with "/drive/root:"
-	i.RLock()
-	defer i.RUnlock()
-	if i.DriveItem.Parent == nil {
-		return name
-	}
 	prepath := strings.TrimPrefix(i.DriveItem.Parent.Path+"/"+name, "/drive/root:")
 	return strings.Replace(prepath, "//", "/", -1)
 }
