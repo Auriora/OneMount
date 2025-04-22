@@ -31,6 +31,10 @@ type Filesystem struct {
 	deltaLink string
 	uploads   *UploadManager
 
+	// Cache cleanup configuration
+	cacheExpirationDays int
+	cacheCleanupStop    chan struct{}
+
 	sync.RWMutex
 	offline    bool
 	lastNodeID uint64
@@ -68,7 +72,7 @@ type OfflineChange struct {
 }
 
 // NewFilesystem creates a new filesystem
-func NewFilesystem(auth *graph.Auth, cacheDir string) *Filesystem {
+func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *Filesystem {
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
@@ -119,12 +123,14 @@ func NewFilesystem(auth *graph.Auth, cacheDir string) *Filesystem {
 
 	// ok, ready to start fs
 	fs := &Filesystem{
-		RawFileSystem: fuse.NewDefaultRawFileSystem(),
-		content:       content,
-		db:            db,
-		auth:          auth,
-		opendirs:      make(map[uint64][]*Inode),
-		statuses:      make(map[string]FileStatusInfo),
+		RawFileSystem:       fuse.NewDefaultRawFileSystem(),
+		content:             content,
+		db:                  db,
+		auth:                auth,
+		opendirs:            make(map[uint64][]*Inode),
+		statuses:            make(map[string]FileStatusInfo),
+		cacheExpirationDays: cacheExpirationDays,
+		cacheCleanupStop:    make(chan struct{}),
 	}
 
 	rootItem, err := graph.GetItem("root", auth)
@@ -678,6 +684,59 @@ func (f *Filesystem) MovePath(oldParent, newParent, oldName, newName string, aut
 	inode.Parent.ID = parent.DriveItem.ID
 	f.InsertID(id, inode)
 	return nil
+}
+
+// StartCacheCleanup starts a background goroutine that periodically cleans up
+// the content cache by removing files that haven't been modified for the specified
+// number of days.
+func (f *Filesystem) StartCacheCleanup() {
+	// Don't start cleanup if expiration days is 0 or negative
+	if f.cacheExpirationDays <= 0 {
+		log.Info().Msg("Cache cleanup disabled (expiration days <= 0)")
+		return
+	}
+
+	log.Info().Int("expirationDays", f.cacheExpirationDays).Msg("Starting content cache cleanup routine")
+
+	// Run cleanup in a goroutine
+	go func() {
+		// Run cleanup immediately on startup
+		count, err := f.content.CleanupCache(f.cacheExpirationDays)
+		if err != nil {
+			log.Error().Err(err).Msg("Error during initial content cache cleanup")
+		} else {
+			log.Info().Int("removedFiles", count).Msg("Initial content cache cleanup completed")
+		}
+
+		// Set up ticker for periodic cleanup (once per day)
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				// Run cleanup
+				count, err := f.content.CleanupCache(f.cacheExpirationDays)
+				if err != nil {
+					log.Error().Err(err).Msg("Error during content cache cleanup")
+				} else {
+					log.Info().Int("removedFiles", count).Msg("Content cache cleanup completed")
+				}
+			case <-f.cacheCleanupStop:
+				// Stop the cleanup routine
+				log.Info().Msg("Stopping content cache cleanup routine")
+				return
+			}
+		}
+	}()
+}
+
+// StopCacheCleanup stops the background cache cleanup routine.
+func (f *Filesystem) StopCacheCleanup() {
+	// Only send stop signal if expiration days is positive (cleanup is running)
+	if f.cacheExpirationDays > 0 {
+		close(f.cacheCleanupStop)
+	}
 }
 
 // SerializeAll dumps all inode metadata currently in the cache to disk. This

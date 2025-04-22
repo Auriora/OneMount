@@ -66,6 +66,9 @@ func main() {
 	deltaInterval := flag.IntP("delta-interval", "i", 0,
 		"Set the interval in seconds between delta query checks. "+
 			"Default is 1 seconds. Set to 0 to use the default.")
+	cacheExpiration := flag.IntP("cache-expiration", "e", 0,
+		"Set the number of days after which files will be removed from the content cache. "+
+			"Default is 30 days. Set to 0 to use the default.")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
 	flag.Parse()
@@ -92,6 +95,9 @@ func main() {
 	}
 	if *deltaInterval > 0 {
 		config.DeltaInterval = *deltaInterval
+	}
+	if *cacheExpiration > 0 {
+		config.CacheExpiration = *cacheExpiration
 	}
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
@@ -137,9 +143,16 @@ func main() {
 	// create the filesystem
 	log.Info().Msgf("onedriver %s", common.Version())
 	auth := graph.Authenticate(config.AuthConfig, authPath, *headless)
-	filesystem := fs.NewFilesystem(auth, cachePath)
+	filesystem := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
 	log.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
 	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Second)
+
+	// Start the content cache cleanup routine
+	if config.CacheExpiration > 0 {
+		log.Info().Msgf("Setting content cache expiration to %d day(s)", config.CacheExpiration)
+		filesystem.StartCacheCleanup()
+	}
+
 	xdgVolumeInfo(filesystem, auth)
 
 	// Sync the full directory tree if requested
@@ -167,7 +180,25 @@ func main() {
 	// setup signal handler for graceful unmount on signals like sigint
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go fs.UnmountHandler(sigChan, server)
+
+	// Create a custom signal handler that stops cache cleanup before unmounting
+	go func() {
+		sig := <-sigChan // block until signal
+		log.Info().Str("signal", strings.ToUpper(sig.String())).
+			Msg("Signal received, cleaning up and unmounting filesystem.")
+
+		// Stop the cache cleanup routine
+		filesystem.StopCacheCleanup()
+
+		// Unmount the filesystem
+		err := server.Unmount()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to unmount filesystem cleanly! " +
+				"Run \"fusermount3 -uz /MOUNTPOINT/GOES/HERE\" to unmount.")
+		}
+
+		os.Exit(128)
+	}()
 
 	// serve filesystem
 	log.Info().

@@ -6,12 +6,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
 )
 
 // LoopbackCache stores the content for files under a folder as regular files
 type LoopbackCache struct {
 	directory string
 	fds       sync.Map
+	// lastCleanup tracks when the last cache cleanup was performed
+	lastCleanup time.Time
 }
 
 func NewLoopbackCache(directory string) *LoopbackCache {
@@ -22,8 +25,9 @@ func NewLoopbackCache(directory string) *LoopbackCache {
 		// Using MkdirAll instead of Mkdir to create parent directories if needed
 	}
 	return &LoopbackCache{
-		directory: directory,
-		fds:       sync.Map{},
+		directory:   directory,
+		fds:         sync.Map{},
+		lastCleanup: time.Now(),
 	}
 }
 
@@ -182,4 +186,59 @@ func (l *LoopbackCache) Close(id string) error {
 		}
 	}
 	return nil
+}
+
+// CleanupCache removes files from the content cache that haven't been modified
+// for the specified number of days. Returns the number of files removed and any error.
+func (l *LoopbackCache) CleanupCache(expirationDays int) (int, error) {
+	// Update the last cleanup time
+	l.lastCleanup = time.Now()
+
+	// Calculate the cutoff time
+	cutoffTime := time.Now().AddDate(0, 0, -expirationDays)
+
+	// Count of removed files
+	removedCount := 0
+
+	// Walk through the content directory
+	err := filepath.Walk(l.directory, func(path string, info os.FileInfo, err error) error {
+		// Skip the root directory
+		if path == l.directory {
+			return nil
+		}
+
+		// Skip if there was an error accessing the file
+		if err != nil {
+			return nil
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if the file's modification time is older than the cutoff
+		if info.ModTime().Before(cutoffTime) {
+			// Get the file ID from the path
+			id := filepath.Base(path)
+
+			// Check if the file is currently open
+			if l.IsOpen(id) {
+				// Skip files that are currently open
+				return nil
+			}
+
+			// Remove the file
+			if err := os.Remove(path); err != nil {
+				// Log the error but continue with other files
+				return nil
+			}
+
+			removedCount++
+		}
+
+		return nil
+	})
+
+	return removedCount, err
 }
