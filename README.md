@@ -316,16 +316,16 @@ After reviewing the codebase, here are several refactoring recommendations to im
 3. Create a separate function for filesystem initialization ✅
 4. Extract the xdgVolumeInfo function to a more appropriate package ✅
 
-### fs/fs.go
+### fs/fs.go ✅ COMPLETED
 
-1. Split the file into multiple files based on functionality:
+1. Split the file into multiple files based on functionality: ✅
    - Directory operations (OpenDir, ReadDir, etc.)
    - File operations (Open, Read, Write, etc.)
    - Metadata operations (GetAttr, SetAttr, etc.)
 
 2. Extract common code in ReadDir and ReadDirPlus into a shared function ✅
 
-3. Improve offline mode handling by creating a dedicated abstraction
+3. Improve offline mode handling by creating a dedicated abstraction ✅
 
 ### fs/graph/oauth2.go
 
