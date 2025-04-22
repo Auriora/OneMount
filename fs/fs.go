@@ -398,8 +398,17 @@ func (f *Filesystem) Mknod(cancel <-chan struct{}, in *fuse.MknodIn, name string
 		Str("path", path).
 		Logger()
 	if f.IsOffline() {
-		ctx.Warn().Msg("We are offline. Refusing Mknod() to avoid data loss later.")
-		return fuse.EROFS
+		// Instead of returning EROFS, log that we're in offline mode but allowing file creation
+		ctx.Info().Msg("Operating in offline mode with write access. File creation will sync when online.")
+
+		// Track this change for later synchronization
+		change := &OfflineChange{
+			ID:        parent.ID() + "-" + name, // Temporary ID until we get a real one
+			Type:      "create",
+			Timestamp: time.Now(),
+			Path:      filepath.Join(parent.Path(), name),
+		}
+		f.TrackOfflineChange(change)
 	}
 
 	if child, _ := f.GetChild(parentID, name, f.auth); child != nil {
@@ -473,11 +482,11 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	flags := int(in.Flags)
 	if flags&os.O_RDWR+flags&os.O_WRONLY > 0 && f.IsOffline() {
-		ctx.Warn().
+		// Instead of returning EROFS, log that we're in offline mode but allowing writes
+		ctx.Info().
 			Bool("readWrite", flags&os.O_RDWR > 0).
 			Bool("writeOnly", flags&os.O_WRONLY > 0).
-			Msg("Refusing Open() with write flag, FS is offline.")
-		return fuse.EROFS
+			Msg("Operating in offline mode with write access. Changes will sync when online.")
 	}
 
 	ctx.Debug().Msg("")
@@ -550,9 +559,6 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 		// the file we are unlinking never existed
 		return fuse.ENOENT
 	}
-	if f.IsOffline() {
-		return fuse.EROFS
-	}
 
 	id := child.ID()
 	path := child.Path()
@@ -563,6 +569,21 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 		Str("childID", id).
 		Str("path", path).
 		Logger()
+
+	if f.IsOffline() {
+		// Instead of returning EROFS, log that we're in offline mode but allowing file deletion
+		ctx.Info().Msg("Operating in offline mode with write access. File deletion will sync when online.")
+
+		// Track this change for later synchronization
+		change := &OfflineChange{
+			ID:        id,
+			Type:      "delete",
+			Timestamp: time.Now(),
+			Path:      path,
+		}
+		f.TrackOfflineChange(change)
+	}
+
 	ctx.Debug().Msg("Unlinking inode.")
 
 	// if no ID, the item is local-only, and does not need to be deleted on the
@@ -648,6 +669,18 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	st, _ := fd.Stat()
 	inode.DriveItem.Size = uint64(st.Size())
 	inode.hasChanges = true
+
+	// Track this change if we're offline
+	if f.IsOffline() {
+		change := &OfflineChange{
+			ID:        id,
+			Type:      "modify",
+			Timestamp: time.Now(),
+			Path:      inode.Path(),
+		}
+		f.TrackOfflineChange(change)
+	}
+
 	return uint32(n), fuse.OK
 }
 

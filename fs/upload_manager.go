@@ -157,10 +157,29 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 func (u *UploadManager) QueueUpload(inode *Inode) error {
 	data := u.fs.getInodeContent(inode)
 	session, err := NewUploadSession(inode, data)
-	if err == nil {
-		u.queue <- session
+	if err != nil {
+		return err
 	}
-	return err
+
+	if u.fs.IsOffline() {
+		// If offline, store the session for later but don't start upload
+		contents, _ := json.Marshal(session)
+		u.db.Batch(func(tx *bolt.Tx) error {
+			b, _ := tx.CreateBucketIfNotExists(bucketUploads)
+			return b.Put([]byte(session.ID), contents)
+		})
+
+		log.Info().
+			Str("id", session.ID).
+			Str("name", session.Name).
+			Msg("Queued upload for when connectivity is restored.")
+
+		return nil
+	}
+
+	// Normal online behavior
+	u.queue <- session
+	return nil
 }
 
 // CancelUpload is used to kill any pending uploads for a session

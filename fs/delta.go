@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -65,6 +66,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 
 		if pollSuccess {
 			f.Lock()
+			wasOffline := f.offline
 			if f.offline {
 				log.Info().Msg("Delta fetch success, marking fs as online.")
 			}
@@ -74,6 +76,11 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			f.db.Batch(func(tx *bolt.Tx) error {
 				return tx.Bucket(bucketDelta).Put([]byte("deltaLink"), []byte(f.deltaLink))
 			})
+
+			// If we were offline and now we're online, process offline changes
+			if wasOffline {
+				go f.ProcessOfflineChanges()
+			}
 
 			// wait until next interval
 			time.Sleep(interval)
@@ -218,7 +225,58 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 		}
 
 		if !sameContent {
-			//TODO check if local has changes and rename the server copy if so
+			// Check if we have local changes
+			hasLocalChanges := false
+
+			// Check if the item has been modified offline
+			f.db.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket(bucketOfflineChanges)
+				if b == nil {
+					return nil
+				}
+
+				c := b.Cursor()
+				prefix := []byte(delta.ID + "-")
+				for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+					hasLocalChanges = true
+					return nil
+				}
+				return nil
+			})
+
+			// Also check if the item has pending uploads
+			if !hasLocalChanges {
+				f.db.View(func(tx *bolt.Tx) error {
+					b := tx.Bucket(bucketUploads)
+					if b == nil {
+						return nil
+					}
+
+					if b.Get([]byte(delta.ID)) != nil {
+						hasLocalChanges = true
+					}
+					return nil
+				})
+			}
+
+			if hasLocalChanges {
+				// Conflict detected - create a conflict copy
+				ctx.Info().Str("delta", "conflict").
+					Msg("Conflict detected, creating conflict copy.")
+
+				// Create a conflict copy of the remote file
+				conflictName := delta.Name + " (Conflict Copy " + time.Now().Format("2006-01-02 15:04:05") + ")"
+				conflictItem := *delta
+				conflictItem.Name = conflictName
+
+				// Add the conflict copy to the filesystem
+				f.InsertChild(parentID, NewInodeDriveItem(&conflictItem))
+
+				// Keep the local version as is
+				return nil
+			}
+
+			// No local changes, accept remote changes
 			ctx.Info().Str("delta", "overwrite").
 				Msg("Overwriting local item, no local changes to preserve.")
 			// update modtime, hashes, purge any local content in memory

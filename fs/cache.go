@@ -1,10 +1,12 @@
 package fs
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -41,14 +43,25 @@ type Filesystem struct {
 
 // boltdb buckets
 var (
-	bucketContent  = []byte("content")
-	bucketMetadata = []byte("metadata")
-	bucketDelta    = []byte("delta")
-	bucketVersion  = []byte("version")
+	bucketContent        = []byte("content")
+	bucketMetadata       = []byte("metadata")
+	bucketDelta          = []byte("delta")
+	bucketVersion        = []byte("version")
+	bucketOfflineChanges = []byte("offline_changes") // New bucket for offline changes
 )
 
 // so we can tell what format the db has
 const fsVersion = "1"
+
+// OfflineChange represents a change made while offline
+type OfflineChange struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"` // "create", "modify", "delete", "rename", etc.
+	Timestamp time.Time `json:"timestamp"`
+	Path      string    `json:"path,omitempty"`
+	OldPath   string    `json:"old_path,omitempty"` // For rename operations
+	NewPath   string    `json:"new_path,omitempty"` // For rename operations
+}
 
 // NewFilesystem creates a new filesystem
 func NewFilesystem(auth *graph.Auth, cacheDir string) *Filesystem {
@@ -175,6 +188,111 @@ func (f *Filesystem) IsOffline() bool {
 	f.RLock()
 	defer f.RUnlock()
 	return f.offline
+}
+
+// TrackOfflineChange records a change made while offline
+func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
+	if !f.IsOffline() {
+		return nil // No need to track if we're online
+	}
+
+	return f.db.Batch(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(bucketOfflineChanges)
+		if err != nil {
+			return err
+		}
+
+		// Generate a unique key for this change
+		key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
+
+		data, err := json.Marshal(change)
+		if err != nil {
+			return err
+		}
+
+		return b.Put(key, data)
+	})
+}
+
+// ProcessOfflineChanges processes all changes made while offline
+func (f *Filesystem) ProcessOfflineChanges() {
+	log.Info().Msg("Processing offline changes...")
+
+	// Get all offline changes
+	changes := make([]*OfflineChange, 0)
+	f.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketOfflineChanges)
+		if b == nil {
+			return nil
+		}
+
+		return b.ForEach(func(k, v []byte) error {
+			change := &OfflineChange{}
+			if err := json.Unmarshal(v, change); err != nil {
+				return err
+			}
+			changes = append(changes, change)
+			return nil
+		})
+	})
+
+	// Sort changes by timestamp
+	sort.Slice(changes, func(i, j int) bool {
+		return changes[i].Timestamp.Before(changes[j].Timestamp)
+	})
+
+	// Process each change
+	for _, change := range changes {
+		log.Info().
+			Str("id", change.ID).
+			Str("type", change.Type).
+			Str("path", change.Path).
+			Msg("Processing offline change")
+
+		switch change.Type {
+		case "create", "modify":
+			// Queue upload
+			if inode := f.GetID(change.ID); inode != nil {
+				f.uploads.QueueUpload(inode)
+			}
+		case "delete":
+			// Handle deletion
+			if !isLocalID(change.ID) {
+				graph.Remove(change.ID, f.auth)
+			}
+		case "rename":
+			// Handle rename
+			if inode := f.GetID(change.ID); inode != nil {
+				// Implementation depends on how renames are tracked
+				if change.OldPath != "" && change.NewPath != "" {
+					oldDir := filepath.Dir(change.OldPath)
+					newDir := filepath.Dir(change.NewPath)
+					oldName := filepath.Base(change.OldPath)
+					newName := filepath.Base(change.NewPath)
+
+					// Get parent IDs
+					oldParent, _ := f.GetPath(oldDir, f.auth)
+					newParent, _ := f.GetPath(newDir, f.auth)
+
+					if oldParent != nil && newParent != nil {
+						f.MovePath(oldParent.ID(), newParent.ID(), oldName, newName, f.auth)
+					}
+				}
+			}
+		}
+
+		// Remove the processed change
+		f.db.Batch(func(tx *bolt.Tx) error {
+			b := tx.Bucket(bucketOfflineChanges)
+			if b == nil {
+				return nil
+			}
+			key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
+			return b.Delete(key)
+		})
+	}
+
+	log.Info().Msg("Finished processing offline changes.")
 }
 
 // TranslateID returns the DriveItemID for a given NodeID
