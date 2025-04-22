@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -264,7 +263,10 @@ func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *f
 	f.opendirsM.RUnlock()
 	if !ok {
 		// readdir can sometimes arrive before the corresponding opendir, so we force it
-		f.OpenDir(cancel, &fuse.OpenIn{InHeader: in.InHeader}, nil)
+		status := f.OpenDir(cancel, &fuse.OpenIn{InHeader: in.InHeader}, nil)
+		if status != fuse.OK {
+			return status
+		}
 		f.opendirsM.RLock()
 		entries, ok = f.opendirs[in.NodeId]
 		f.opendirsM.RUnlock()
@@ -319,7 +321,10 @@ func (f *Filesystem) ReadDir(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.
 	f.opendirsM.RUnlock()
 	if !ok {
 		// readdir can sometimes arrive before the corresponding opendir, so we force it
-		f.OpenDir(cancel, &fuse.OpenIn{InHeader: in.InHeader}, nil)
+		status := f.OpenDir(cancel, &fuse.OpenIn{InHeader: in.InHeader}, nil)
+		if status != fuse.OK {
+			return status
+		}
 		f.opendirsM.RLock()
 		entries, ok = f.opendirs[in.NodeId]
 		f.opendirsM.RUnlock()
@@ -528,62 +533,29 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		"Not using cached item due to file hash mismatch, fetching content from API.",
 	)
 
-	// Mark file as downloading
-	f.MarkFileDownloading(id)
-
-	// write to tempfile first to ensure our download is good
-	tempID := "temp-" + id
-	temp, err := f.content.Open(tempID)
-	if err != nil {
-		ctx.Error().Err(err).Msg("Failed to create tempfile for download.")
+	// Queue the download in the background
+	if _, err := f.downloads.QueueDownload(id); err != nil {
+		ctx.Error().Err(err).Msg("Failed to queue download.")
 		f.MarkFileError(id, err)
 		return fuse.EIO
 	}
-	defer f.content.Delete(tempID)
 
-	// replace content only on a match
-	size, err := graph.GetItemContentStream(id, f.auth, temp)
-	if err != nil || !inode.VerifyChecksum(graph.QuickXORHashStream(temp)) {
-		ctx.Error().Err(err).Msg("Failed to fetch remote content.")
-		f.MarkFileError(id, err)
+	// For directory listing operations (like 'ls'), we don't want to block waiting for downloads
+	// Check if this is a directory - if so, return immediately without waiting for download
+	// This prevents the 'ls' command from hanging when there are pending downloads
+	if inode.IsDir() {
+		ctx.Debug().Msg("Non-blocking open for directory")
+		// Update file status attributes but don't wait for download
+		f.updateFileStatus(inode)
+		return fuse.OK
+	}
+
+	// For actual file read/write operations, wait for the download to complete
+	// This ensures we don't return until the file is available
+	if err := f.downloads.WaitForDownload(id); err != nil {
+		ctx.Error().Err(err).Msg("Download failed.")
 		return fuse.EREMOTEIO
 	}
-	// Reset file positions
-	if _, err := temp.Seek(0, 0); err != nil { // being explicit, even though already done in hashstream func
-		ctx.Error().Err(err).Msg("Failed to seek temp file")
-		return fuse.EIO
-	}
-
-	if _, err := fd.Seek(0, 0); err != nil {
-		ctx.Error().Err(err).Msg("Failed to seek destination file")
-		return fuse.EIO
-	}
-
-	if err := fd.Truncate(0); err != nil {
-		ctx.Error().Err(err).Msg("Failed to truncate destination file")
-		return fuse.EIO
-	}
-
-	// Copy content from temp file to destination
-	if _, err := io.Copy(fd, temp); err != nil {
-		ctx.Error().Err(err).Msg("Failed to copy content from temp file")
-		return fuse.EIO
-	}
-
-	// Ensure data is flushed to disk
-	if err := fd.Sync(); err != nil {
-		ctx.Error().Err(err).Msg("Failed to sync file to disk")
-		f.MarkFileError(id, err)
-		return fuse.EIO
-	}
-
-	inode.DriveItem.Size = size
-
-	// Update status to local
-	f.SetFileStatus(id, FileStatusInfo{
-		Status:    StatusLocal,
-		Timestamp: time.Now(),
-	})
 
 	// Update file status attributes
 	f.updateFileStatus(inode)
@@ -760,10 +732,15 @@ func (f *Filesystem) Fsync(cancel <-chan struct{}, in *fuse.FsyncIn) fuse.Status
 		inode.DriveItem.File.Hashes.QuickXorHash = graph.QuickXORHashStream(fd)
 		inode.Unlock()
 
-		if err := f.uploads.QueueUpload(inode); err != nil {
+		// Queue the upload in the background with high priority since it's a mount point request
+		_, err = f.uploads.QueueUploadWithPriority(inode, PriorityHigh)
+		if err != nil {
 			ctx.Error().Err(err).Msg("Error creating upload session.")
 			return fuse.EREMOTEIO
 		}
+
+		// Don't wait for the upload to complete, return immediately
+		ctx.Debug().Str("id", id).Msg("File upload queued in background with high priority")
 		return fuse.OK
 	}
 	return fuse.OK

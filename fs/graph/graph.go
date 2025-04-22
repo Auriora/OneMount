@@ -4,6 +4,7 @@
 package graph
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,11 @@ type Header struct {
 
 // Request performs an authenticated request to Microsoft Graph
 func Request(resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
+	return RequestWithContext(context.Background(), resource, auth, method, content, headers...)
+}
+
+// RequestWithContext performs an authenticated request to Microsoft Graph with context
+func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
 	if auth == nil || auth.AccessToken == "" {
 		// a catch all condition to avoid wiping our auth by accident
 		log.Error().Msg("Auth was empty and we attempted to make a request with it!")
@@ -45,7 +51,7 @@ func Request(resource string, auth *Auth, method string, content io.Reader, head
 	auth.Refresh()
 
 	client := &http.Client{Timeout: 60 * time.Second}
-	request, _ := http.NewRequest(method, GraphURL+resource, content)
+	request, _ := http.NewRequestWithContext(ctx, method, GraphURL+resource, content)
 	request.Header.Add("Authorization", "bearer "+auth.AccessToken)
 	switch method { // request type-specific code here
 	case "PATCH":
@@ -60,11 +66,19 @@ func Request(resource string, auth *Auth, method string, content io.Reader, head
 		request.Header.Add(header.key, header.value)
 	}
 
+	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting network request with context")
 	response, err := client.Do(request)
 	if err != nil {
-		// the actual request failed
+		// Check if the error was due to context cancellation
+		if ctx.Err() != nil {
+			log.Debug().Err(ctx.Err()).Str("method", method).Str("resource", resource).Msg("Network request cancelled by context")
+			return nil, ctx.Err()
+		}
+		// the actual request failed for other reasons
+		log.Debug().Err(err).Str("method", method).Str("resource", resource).Msg("Network request failed")
 		return nil, err
 	}
+	log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Network request completed")
 	body, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 
@@ -106,9 +120,19 @@ func Get(resource string, auth *Auth, headers ...Header) ([]byte, error) {
 	return Request(resource, auth, "GET", nil, headers...)
 }
 
+// GetWithContext is a convenience wrapper around RequestWithContext
+func GetWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) ([]byte, error) {
+	return RequestWithContext(ctx, resource, auth, "GET", nil, headers...)
+}
+
 // Patch is a convenience wrapper around Request
 func Patch(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	return Request(resource, auth, "PATCH", content, headers...)
+}
+
+// PatchWithContext is a convenience wrapper around RequestWithContext
+func PatchWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
+	return RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
 }
 
 // Post is a convenience wrapper around Request
@@ -116,14 +140,30 @@ func Post(resource string, auth *Auth, content io.Reader, headers ...Header) ([]
 	return Request(resource, auth, "POST", content, headers...)
 }
 
+// PostWithContext is a convenience wrapper around RequestWithContext
+func PostWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
+	return RequestWithContext(ctx, resource, auth, "POST", content, headers...)
+}
+
 // Put is a convenience wrapper around Request
 func Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	return Request(resource, auth, "PUT", content, headers...)
 }
 
+// PutWithContext is a convenience wrapper around RequestWithContext
+func PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
+	return RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
+}
+
 // Delete performs an HTTP delete
 func Delete(resource string, auth *Auth, headers ...Header) error {
 	_, err := Request(resource, auth, "DELETE", nil, headers...)
+	return err
+}
+
+// DeleteWithContext performs an HTTP delete with context
+func DeleteWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) error {
+	_, err := RequestWithContext(ctx, resource, auth, "DELETE", nil, headers...)
 	return err
 }
 

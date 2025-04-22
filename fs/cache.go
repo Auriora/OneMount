@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,10 +31,20 @@ type Filesystem struct {
 	root      string // the id of the filesystem's root item
 	deltaLink string
 	uploads   *UploadManager
+	downloads *DownloadManager
 
 	// Cache cleanup configuration
-	cacheExpirationDays int
-	cacheCleanupStop    chan struct{}
+	cacheExpirationDays  int
+	cacheCleanupStop     chan struct{}
+	cacheCleanupStopOnce sync.Once
+	cacheCleanupWg       sync.WaitGroup
+
+	// DeltaLoop stop channel and context
+	deltaLoopStop     chan struct{}
+	deltaLoopWg       sync.WaitGroup
+	deltaLoopStopOnce sync.Once
+	deltaLoopCtx      context.Context
+	deltaLoopCancel   context.CancelFunc
 
 	sync.RWMutex
 	offline    bool
@@ -122,6 +133,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 	})
 
 	// ok, ready to start fs
+	ctx, cancel := context.WithCancel(context.Background())
 	fs := &Filesystem{
 		RawFileSystem:       fuse.NewDefaultRawFileSystem(),
 		content:             content,
@@ -131,6 +143,9 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 		statuses:            make(map[string]FileStatusInfo),
 		cacheExpirationDays: cacheExpirationDays,
 		cacheCleanupStop:    make(chan struct{}),
+		deltaLoopStop:       make(chan struct{}),
+		deltaLoopCtx:        ctx,
+		deltaLoopCancel:     cancel,
 	}
 
 	rootItem, err := graph.GetItem("root", auth)
@@ -169,6 +184,9 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 	fs.InsertID(fs.root, root)
 
 	fs.uploads = NewUploadManager(2*time.Second, db, fs, auth)
+
+	// Initialize download manager with 4 worker threads
+	fs.downloads = NewDownloadManager(fs, auth, 4)
 
 	if !fs.IsOffline() {
 		// .Trash-UID is used by "gio trash" for user trash, create it if it
@@ -262,9 +280,12 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 		switch change.Type {
 		case "create", "modify":
-			// Queue upload
+			// Queue upload with low priority since it's a background task
 			if inode := f.GetID(change.ID); inode != nil {
-				f.uploads.QueueUpload(inode)
+				_, err := f.uploads.QueueUploadWithPriority(inode, PriorityLow)
+				if err != nil {
+					log.Error().Err(err).Str("id", change.ID).Msg("Failed to queue upload for offline change")
+				}
 			}
 		case "delete":
 			// Handle deletion
@@ -698,8 +719,12 @@ func (f *Filesystem) StartCacheCleanup() {
 
 	log.Info().Int("expirationDays", f.cacheExpirationDays).Msg("Starting content cache cleanup routine")
 
+	// Add to wait group to track this goroutine
+	f.cacheCleanupWg.Add(1)
+
 	// Run cleanup in a goroutine
 	go func() {
+		defer f.cacheCleanupWg.Done()
 		// Run cleanup immediately on startup
 		count, err := f.content.CleanupCache(f.cacheExpirationDays)
 		if err != nil {
@@ -733,9 +758,60 @@ func (f *Filesystem) StartCacheCleanup() {
 
 // StopCacheCleanup stops the background cache cleanup routine.
 func (f *Filesystem) StopCacheCleanup() {
+	log.Info().Msg("Stopping cache cleanup routine...")
 	// Only send stop signal if expiration days is positive (cleanup is running)
 	if f.cacheExpirationDays > 0 {
-		close(f.cacheCleanupStop)
+		f.cacheCleanupStopOnce.Do(func() {
+			close(f.cacheCleanupStop)
+		})
+		f.cacheCleanupWg.Wait()
+		log.Info().Msg("Cache cleanup routine stopped")
+	}
+}
+
+// StopDeltaLoop stops the delta loop goroutine and waits for it to finish.
+func (f *Filesystem) StopDeltaLoop() {
+	log.Info().Msg("Stopping delta loop...")
+
+	// Cancel the context to interrupt any in-progress network requests
+	f.deltaLoopCancel()
+	log.Debug().Msg("Cancelled delta loop context to interrupt network operations")
+
+	// Close the stop channel to signal the delta loop to stop
+	f.deltaLoopStopOnce.Do(func() {
+		close(f.deltaLoopStop)
+	})
+	log.Debug().Msg("Closed delta loop stop channel")
+
+	// Wait for delta loop to finish with a timeout
+	done := make(chan struct{})
+	go func() {
+		f.deltaLoopWg.Wait()
+		close(done)
+	}()
+
+	// Wait for delta loop to finish or timeout after 5 seconds
+	select {
+	case <-done:
+		log.Info().Msg("Delta loop stopped successfully")
+	case <-time.After(5 * time.Second):
+		log.Warn().Msg("Timed out waiting for delta loop to stop - this may indicate a deadlock")
+		// Log additional debug information
+		log.Debug().Msg("Delta loop may be stuck in a network operation or processing a large batch of changes")
+	}
+}
+
+// StopDownloadManager stops the download manager and waits for all workers to finish.
+func (f *Filesystem) StopDownloadManager() {
+	if f.downloads != nil {
+		f.downloads.Stop()
+	}
+}
+
+// StopUploadManager stops the upload manager and waits for all uploads to finish.
+func (f *Filesystem) StopUploadManager() {
+	if f.uploads != nil {
+		f.uploads.Stop()
 	}
 }
 

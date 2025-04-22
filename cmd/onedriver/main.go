@@ -61,8 +61,8 @@ func main() {
 	debugOn := flag.BoolP("debug", "d", false, "Enable FUSE debug logging. "+
 		"This logs communication between onedriver and the kernel.")
 	syncTree := flag.BoolP("sync-tree", "s", false,
-		"Sync the full directory tree to the local metadata store before mounting. "+
-			"This can take some time for large OneDrive accounts.")
+		"Sync the full directory tree to the local metadata store in the background. "+
+			"This improves performance by pre-caching directory structure without blocking startup.")
 	deltaInterval := flag.IntP("delta-interval", "i", 0,
 		"Set the interval in seconds between delta query checks. "+
 			"Default is 1 seconds. Set to 0 to use the default.")
@@ -157,12 +157,14 @@ func main() {
 
 	// Sync the full directory tree if requested
 	if config.SyncTree {
-		log.Info().Msg("Syncing full directory tree to local metadata store...")
-		if err := filesystem.SyncDirectoryTree(auth); err != nil {
-			log.Error().Err(err).Msg("Error syncing directory tree")
-		} else {
-			log.Info().Msg("Directory tree sync completed successfully")
-		}
+		log.Info().Msg("Starting full directory tree synchronization in background...")
+		go func() {
+			if err := filesystem.SyncDirectoryTree(auth); err != nil {
+				log.Error().Err(err).Msg("Error syncing directory tree")
+			} else {
+				log.Info().Msg("Directory tree sync completed successfully")
+			}
+		}()
 	}
 
 	server, err := fuse.NewServer(filesystem, mountpoint, &fuse.MountOptions{
@@ -181,7 +183,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Create a custom signal handler that stops cache cleanup before unmounting
+	// Create a custom signal handler that stops background processes before unmounting
 	go func() {
 		sig := <-sigChan // block until signal
 		log.Info().Str("signal", strings.ToUpper(sig.String())).
@@ -189,6 +191,19 @@ func main() {
 
 		// Stop the cache cleanup routine
 		filesystem.StopCacheCleanup()
+
+		// Stop the delta loop
+		filesystem.StopDeltaLoop()
+
+		// Stop the download manager
+		filesystem.StopDownloadManager()
+
+		// Stop the upload manager
+		filesystem.StopUploadManager()
+
+		// Give the system a moment to release all resources
+		log.Info().Msg("Waiting for all resources to be released before unmounting...")
+		time.Sleep(500 * time.Millisecond)
 
 		// Unmount the filesystem
 		err := server.Unmount()

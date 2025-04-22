@@ -15,14 +15,45 @@ import (
 // DeltaLoop creates a new thread to poll the server for changes and should be
 // called as a goroutine
 func (f *Filesystem) DeltaLoop(interval time.Duration) {
-	log.Trace().Msg("Starting delta goroutine.")
+	log.Info().Msg("Starting delta goroutine.")
+
+	// Add to wait group to track this goroutine
+	f.deltaLoopWg.Add(1)
+	defer func() {
+		log.Debug().Msg("Delta goroutine exiting, calling Done() on wait group")
+		f.deltaLoopWg.Done()
+		log.Debug().Msg("Delta goroutine completed")
+	}()
+
 	for { // eva
+		// Check if we should stop
+		select {
+		case <-f.deltaLoopStop:
+			log.Info().Msg("Stopping delta goroutine.")
+			log.Debug().Msg("Delta goroutine received stop signal, exiting loop")
+			return
+		default:
+			// Continue with normal operation
+		}
 		// get deltas
+		log.Debug().Msg("Starting delta fetch cycle")
 		log.Trace().Msg("Fetching deltas from server.")
 		pollSuccess := false
 		deltas := make(map[string]*graph.DriveItem)
 		for {
+			// Check if we should stop before making network call
+			select {
+			case <-f.deltaLoopStop:
+				log.Debug().Msg("Delta loop stop signal received during polling loop")
+				return
+			default:
+				// Continue with normal operation
+			}
+
+			log.Debug().Msg("Calling pollDeltas to fetch changes from server")
 			incoming, cont, err := f.pollDeltas(f.auth)
+			log.Debug().Bool("continue", cont).Int("incomingCount", len(incoming)).Msg("pollDeltas returned")
+
 			if err != nil {
 				// the only thing that should be able to bring the FS out
 				// of a read-only state is a successful delta call
@@ -44,23 +75,48 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 				pollSuccess = true
 				break
 			}
+			log.Debug().Msg("Need to continue polling for more deltas")
 		}
 
 		// now apply deltas
+		log.Debug().Int("deltaCount", len(deltas)).Msg("Starting to apply deltas")
 		secondPass := make([]string, 0)
 		for _, delta := range deltas {
+			// Check if we should stop before applying delta
+			select {
+			case <-f.deltaLoopStop:
+				log.Debug().Msg("Delta loop stop signal received during delta application")
+				return
+			default:
+				// Continue with normal operation
+			}
+
 			err := f.applyDelta(delta)
 			// retry deletion of non-empty directories after all other deltas applied
 			if err != nil && err.Error() == "directory is non-empty" {
 				secondPass = append(secondPass, delta.ID)
 			}
 		}
+
+		log.Debug().Int("secondPassCount", len(secondPass)).Msg("Starting second pass for non-empty directories")
 		for _, id := range secondPass {
+			// Check if we should stop before second pass
+			select {
+			case <-f.deltaLoopStop:
+				log.Debug().Msg("Delta loop stop signal received during second pass")
+				return
+			default:
+				// Continue with normal operation
+			}
+
 			// failures should explicitly be ignored the second time around as per docs
 			f.applyDelta(deltas[id])
 		}
 
+		log.Debug().Msg("Finished applying deltas")
+
 		if !f.IsOffline() {
+			log.Debug().Msg("Serializing filesystem state")
 			f.SerializeAll()
 		}
 
@@ -73,19 +129,23 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			f.offline = false
 			f.Unlock()
 
+			log.Debug().Msg("Saving delta link to database")
 			f.db.Batch(func(tx *bolt.Tx) error {
 				return tx.Bucket(bucketDelta).Put([]byte("deltaLink"), []byte(f.deltaLink))
 			})
 
 			// If we were offline and now we're online, process offline changes
 			if wasOffline {
+				log.Info().Msg("Transitioning from offline to online, processing offline changes")
 				go f.ProcessOfflineChanges()
 			}
 
 			// wait until next interval
+			log.Debug().Dur("interval", interval).Msg("Delta cycle complete, sleeping until next interval")
 			time.Sleep(interval)
 		} else {
 			// shortened duration while offline
+			log.Debug().Msg("Delta cycle failed, using shortened sleep interval while offline")
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -103,22 +163,51 @@ type deltaResponse struct {
 // distinction between local and remote changes from the server's perspective,
 // everything is a delta, regardless of where it came from).
 func (f *Filesystem) pollDeltas(auth *graph.Auth) ([]*graph.DriveItem, bool, error) {
-	resp, err := graph.Get(f.deltaLink, auth)
+	log.Debug().Str("deltaLink", f.deltaLink).Msg("Making network request to delta endpoint")
+
+	// Check if context is already cancelled before making request
+	if f.deltaLoopCtx.Err() != nil {
+		log.Debug().Err(f.deltaLoopCtx.Err()).Msg("Context already cancelled before making delta request")
+		return make([]*graph.DriveItem, 0), false, f.deltaLoopCtx.Err()
+	}
+
+	// Make the network request with context that can be cancelled during shutdown
+	log.Debug().Msg("Starting delta request with cancellable context")
+	resp, err := graph.GetWithContext(f.deltaLoopCtx, f.deltaLink, auth)
+	log.Debug().Msg("Delta request completed or cancelled")
+
 	if err != nil {
+		// Check if the error was due to context cancellation
+		if f.deltaLoopCtx.Err() != nil {
+			log.Debug().Err(f.deltaLoopCtx.Err()).Msg("Delta request was cancelled by context")
+			return make([]*graph.DriveItem, 0), false, f.deltaLoopCtx.Err()
+		}
+		log.Error().Err(err).Msg("Error fetching deltas from server")
 		return make([]*graph.DriveItem, 0), false, err
 	}
 
+	log.Debug().Int("responseSize", len(resp)).Msg("Received response from delta endpoint")
+
 	page := deltaResponse{}
-	json.Unmarshal(resp, &page)
+	err = json.Unmarshal(resp, &page)
+	if err != nil {
+		log.Error().Err(err).Msg("Error unmarshaling delta response")
+		return make([]*graph.DriveItem, 0), false, err
+	}
 
 	// If the server does not provide a `@odata.nextLink` item, it means we've
 	// reached the end of this polling cycle and should not continue until the
 	// next poll interval.
 	if page.NextLink != "" {
-		f.deltaLink = strings.TrimPrefix(page.NextLink, graph.GraphURL)
+		newLink := strings.TrimPrefix(page.NextLink, graph.GraphURL)
+		log.Debug().Str("oldLink", f.deltaLink).Str("newLink", newLink).Bool("continue", true).Int("itemCount", len(page.Values)).Msg("Delta page has nextLink, continuing")
+		f.deltaLink = newLink
 		return page.Values, true, nil
 	}
-	f.deltaLink = strings.TrimPrefix(page.DeltaLink, graph.GraphURL)
+
+	newLink := strings.TrimPrefix(page.DeltaLink, graph.GraphURL)
+	log.Debug().Str("oldLink", f.deltaLink).Str("newLink", newLink).Bool("continue", false).Int("itemCount", len(page.Values)).Msg("Delta page has deltaLink, finished polling")
+	f.deltaLink = newLink
 	return page.Values, false, nil
 }
 
@@ -141,19 +230,32 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	// diagnose and act on what type of delta we're dealing with
 
 	// do we have it at all?
-	if parent := f.GetID(parentID); parent == nil {
+	parent := f.GetID(parentID)
+	if parent == nil {
 		// Nothing needs to be applied, item not in cache, so latest copy will
 		// be pulled down next time it's accessed.
-		ctx.Trace().
+		ctx.Debug().
 			Str("delta", "skip").
 			Msg("Skipping delta, item's parent not in cache.")
 		return nil
 	}
 
+	ctx.Debug().
+		Str("parentPath", parent.Path()).
+		Msg("Found parent in cache")
+
 	local := f.GetID(id)
+	if local != nil {
+		ctx.Debug().
+			Str("localPath", local.Path()).
+			Msg("Found item in cache")
+	} else {
+		ctx.Debug().Msg("Item not found in cache")
+	}
 
 	// was it deleted?
 	if delta.Deleted != nil {
+		ctx.Debug().Msg("Processing deletion delta")
 		if delta.IsDir() && local != nil && local.HasChildren() {
 			// from docs: you should only delete a folder locally if it is empty
 			// after syncing all the changes.
@@ -170,6 +272,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	// does the item exist locally? if not, add the delta to the cache under the
 	// appropriate parent
 	if local == nil {
+		ctx.Debug().Msg("Item not in cache by ID, checking by name")
 		// check if we don't have it here first
 		local, _ = f.GetChild(parentID, name, nil)
 		if local != nil {
@@ -178,17 +281,21 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 				Str("localID", localID).
 				Msg("Local item already exists under different ID.")
 			if isLocalID(localID) {
+				ctx.Debug().Msg("Local ID is a temporary ID, moving to permanent ID")
 				if err := f.MoveID(localID, id); err != nil {
 					ctx.Error().
 						Str("localID", localID).
 						Err(err).
 						Msg("Could not move item to new, nonlocal ID!")
+				} else {
+					ctx.Debug().Msg("Successfully moved item to new ID")
 				}
 			}
 		} else {
 			ctx.Info().Str("delta", "create").
 				Msg("Creating inode from delta.")
 			f.InsertChild(parentID, NewInodeDriveItem(delta))
+			ctx.Debug().Msg("Successfully created inode from delta")
 			return nil
 		}
 	}
@@ -196,6 +303,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	// was the item moved?
 	localName := local.Name()
 	if local.ParentID() != parentID || local.Name() != name {
+		ctx.Debug().Msg("Processing move/rename delta")
 		log.Info().
 			Str("parent", local.ParentID()).
 			Str("name", localName).
@@ -206,7 +314,9 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			Msg("Applying server-side rename")
 		oldParentID := local.ParentID()
 		// local rename only
+		ctx.Debug().Msg("Calling MovePath to rename/move item")
 		f.MovePath(oldParentID, parentID, localName, name, f.auth)
+		ctx.Debug().Msg("Successfully renamed/moved item")
 		// do not return, there may be additional changes
 	}
 
@@ -216,19 +326,31 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	// actually modifies remotely is the actual file data, so we simply accept
 	// the remote metadata changes that do not deal with the file's content
 	// changing.
+	ctx.Debug().
+		Time("localModTime", *local.DriveItem.ModTime).
+		Time("remoteModTime", *delta.ModTime).
+		Str("localETag", local.ETag).
+		Str("remoteETag", delta.ETag).
+		Msg("Checking for content changes")
+
 	if delta.ModTimeUnix() > local.ModTime() && !delta.ETagIsMatch(local.ETag) {
+		ctx.Debug().Msg("Remote item is newer than local item")
 		sameContent := false
 		if !delta.IsDir() && delta.File != nil {
+			ctx.Debug().Msg("Verifying file content checksum")
 			local.RLock()
 			sameContent = local.VerifyChecksum(delta.File.Hashes.QuickXorHash)
 			local.RUnlock()
+			ctx.Debug().Bool("sameContent", sameContent).Msg("Checksum verification result")
 		}
 
 		if !sameContent {
+			ctx.Debug().Msg("Content has changed, checking for local modifications")
 			// Check if we have local changes
 			hasLocalChanges := false
 
 			// Check if the item has been modified offline
+			ctx.Debug().Msg("Checking for offline changes")
 			f.db.View(func(tx *bolt.Tx) error {
 				b := tx.Bucket(bucketOfflineChanges)
 				if b == nil {
@@ -246,6 +368,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 
 			// Also check if the item has pending uploads
 			if !hasLocalChanges {
+				ctx.Debug().Msg("Checking for pending uploads")
 				f.db.View(func(tx *bolt.Tx) error {
 					b := tx.Bucket(bucketUploads)
 					if b == nil {
@@ -259,12 +382,15 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 				})
 			}
 
+			ctx.Debug().Bool("hasLocalChanges", hasLocalChanges).Msg("Local modification check result")
+
 			if hasLocalChanges {
 				// Conflict detected - create a conflict copy
 				ctx.Info().Str("delta", "conflict").
 					Msg("Conflict detected, creating conflict copy.")
 
 				// Mark the file as having a conflict
+				ctx.Debug().Msg("Marking file as having a conflict")
 				f.MarkFileConflict(delta.ID, "Conflict detected between local and remote changes")
 
 				// Create a conflict copy of the remote file
@@ -273,8 +399,10 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 				conflictItem.Name = conflictName
 
 				// Add the conflict copy to the filesystem
+				ctx.Debug().Str("conflictName", conflictName).Msg("Creating conflict copy")
 				conflictInode := NewInodeDriveItem(&conflictItem)
 				f.InsertChild(parentID, conflictInode)
+				ctx.Debug().Msg("Successfully created conflict copy")
 
 				// Keep the local version as is
 				return nil
@@ -285,9 +413,11 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 				Msg("Overwriting local item, no local changes to preserve.")
 
 			// Mark the file as out of sync
+			ctx.Debug().Msg("Marking file as out of sync")
 			f.MarkFileOutofSync(delta.ID)
 
 			// update modtime, hashes, purge any local content in memory
+			ctx.Debug().Msg("Updating local item with remote metadata")
 			local.Lock()
 			defer local.Unlock()
 			local.DriveItem.ModTime = delta.ModTime
@@ -299,12 +429,14 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			local.hasChanges = false
 
 			// Update file status attributes
+			ctx.Debug().Msg("Updating file status attributes")
 			f.updateFileStatus(local)
+			ctx.Debug().Msg("Successfully updated local item with remote metadata")
 
 			return nil
 		}
 	}
 
-	ctx.Trace().Str("delta", "skip").Msg("Skipping, no changes relative to local state.")
+	ctx.Debug().Str("delta", "skip").Msg("Skipping, no changes relative to local state.")
 	return nil
 }
