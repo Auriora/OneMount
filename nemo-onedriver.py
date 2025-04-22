@@ -23,12 +23,13 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
             print(f"Error getting OneDriver mounts: {e}")
         return mounts
 
-    def update_file_info(self, file, info, update_complete_callback):
+    def update_file_info(self, file, info=None, update_complete_callback=None):
         """Add emblems based on OneDriver file status"""
         # Check if the file is within a OneDriver mount
         path = file.get_location().get_path()
         if not path:
-            update_complete_callback()
+            if update_complete_callback:
+                update_complete_callback()
             return Nemo.OperationResult.COMPLETE
 
         for mount in self.onedriver_mounts:
@@ -36,26 +37,28 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
                 # Query OneDriver status for this file
                 status = self._get_file_status(path)
 
-                if status == "Cloud":
-                    info.add_emblem("emblem-synchronizing-offline")
-                elif status == "Local":
-                    info.add_emblem("emblem-default")
-                elif status == "LocalModified":
-                    info.add_emblem("emblem-synchronizing-locally-modified")
-                elif status == "Syncing":
-                    info.add_emblem("emblem-synchronizing")
-                elif status == "Downloading":
-                    info.add_emblem("emblem-downloads")
-                elif status == "OutofSync":
-                    info.add_emblem("emblem-important")
-                elif status == "Error":
-                    info.add_emblem("emblem-error")
-                elif status == "Conflict":
-                    info.add_emblem("emblem-warning")
+                if info is not None:
+                    if status == "Cloud":
+                        info.add_emblem("emblem-synchronizing-offline")
+                    elif status == "Local":
+                        info.add_emblem("emblem-default")
+                    elif status == "LocalModified":
+                        info.add_emblem("emblem-synchronizing-locally-modified")
+                    elif status == "Syncing":
+                        info.add_emblem("emblem-synchronizing")
+                    elif status == "Downloading":
+                        info.add_emblem("emblem-downloads")
+                    elif status == "OutofSync":
+                        info.add_emblem("emblem-important")
+                    elif status == "Error":
+                        info.add_emblem("emblem-error")
+                    elif status == "Conflict":
+                        info.add_emblem("emblem-warning")
 
                 break
 
-        update_complete_callback()
+        if update_complete_callback:
+            update_complete_callback()
         return Nemo.OperationResult.COMPLETE
 
     def _get_file_status(self, path):
