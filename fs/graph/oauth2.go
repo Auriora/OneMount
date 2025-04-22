@@ -159,7 +159,7 @@ func getAuthCodeHeadless(a AuthConfig, accountName string) string {
 // parseAuthCode is used to parse the auth code out of the redirect the server gives us
 // after successful authentication
 func parseAuthCode(url string) (string, error) {
-	rexp := regexp.MustCompile("code=([a-zA-Z0-9-_.])+")
+	rexp := regexp.MustCompile("code=([a-zA-Z0-9-_.]+)")
 	code := rexp.FindString(url)
 	if len(code) == 0 {
 		return "", errors.New("invalid auth code")
