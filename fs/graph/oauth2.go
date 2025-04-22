@@ -87,46 +87,71 @@ func (a *Auth) FromFile(file string) error {
 	return a.applyDefaults()
 }
 
+// createRefreshTokenRequest creates the HTTP request for refreshing tokens
+func (a *Auth) createRefreshTokenRequest() *strings.Reader {
+	return strings.NewReader("client_id=" + a.ClientID +
+		"&redirect_uri=" + a.RedirectURL +
+		"&refresh_token=" + a.RefreshToken +
+		"&grant_type=refresh_token")
+}
+
+// handleRefreshResponse processes the response from the token refresh request
+// Returns true if reauthorization is needed
+func (a *Auth) handleRefreshResponse(resp *http.Response, err error) (bool, error) {
+	if err != nil {
+		if IsOffline(err) || resp == nil {
+			log.Trace().Err(err).Msg("Network unreachable during token renewal, ignoring.")
+			return false, err
+		}
+		log.Error().Err(err).Msg("Could not POST to renew tokens, forcing reauth.")
+		return true, err
+	}
+
+	// put here so as to avoid spamming the log when offline
+	log.Info().Msg("Auth tokens expired, attempting renewal.")
+	return false, nil
+}
+
+// updateTokenExpiration updates token expiration times
+func (a *Auth) updateTokenExpiration(oldTime int64) {
+	if a.ExpiresAt == oldTime {
+		a.ExpiresAt = time.Now().Unix() + a.ExpiresIn
+	}
+}
+
+// handleFailedRefresh handles the case when token refresh fails
+func (a *Auth) handleFailedRefresh(resp *http.Response, body []byte, reauth bool) {
+	if reauth || a.AccessToken == "" || a.RefreshToken == "" {
+		log.Error().
+			Bytes("response", body).
+			Int("http_code", resp.StatusCode).
+			Msg("Failed to renew access tokens. Attempting to reauthenticate.")
+		*a = *newAuth(a.AuthConfig, a.path, false)
+	} else {
+		a.ToFile(a.path)
+	}
+}
+
 // Refresh auth tokens if expired.
 func (a *Auth) Refresh() {
 	if a.ExpiresAt <= time.Now().Unix() {
 		oldTime := a.ExpiresAt
-		postData := strings.NewReader("client_id=" + a.ClientID +
-			"&redirect_uri=" + a.RedirectURL +
-			"&refresh_token=" + a.RefreshToken +
-			"&grant_type=refresh_token")
+		postData := a.createRefreshTokenRequest()
 		resp, err := http.Post(a.TokenURL,
 			"application/x-www-form-urlencoded",
 			postData)
 
-		var reauth bool
-		if err != nil {
-			if IsOffline(err) || resp == nil {
-				log.Trace().Err(err).Msg("Network unreachable during token renewal, ignoring.")
-				return
-			}
-			log.Error().Err(err).Msg("Could not POST to renew tokens, forcing reauth.")
-			reauth = true
-		} else {
-			// put here so as to avoid spamming the log when offline
-			log.Info().Msg("Auth tokens expired, attempting renewal.")
-		}
-		defer resp.Body.Close()
-
-		body, _ := io.ReadAll(resp.Body)
-		json.Unmarshal(body, &a)
-		if a.ExpiresAt == oldTime {
-			a.ExpiresAt = time.Now().Unix() + a.ExpiresIn
+		reauth, respErr := a.handleRefreshResponse(resp, err)
+		if respErr != nil && (IsOffline(err) || resp == nil) {
+			return
 		}
 
-		if reauth || a.AccessToken == "" || a.RefreshToken == "" {
-			log.Error().
-				Bytes("response", body).
-				Int("http_code", resp.StatusCode).
-				Msg("Failed to renew access tokens. Attempting to reauthenticate.")
-			a = newAuth(a.AuthConfig, a.path, false)
-		} else {
-			a.ToFile(a.path)
+		if resp != nil {
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			json.Unmarshal(body, &a)
+			a.updateTokenExpiration(oldTime)
+			a.handleFailedRefresh(resp, body, reauth)
 		}
 	}
 }
