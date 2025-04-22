@@ -51,3 +51,4 @@ debian/files
 *.build*
 *.upload
 *.tar.xz
+.idea/
