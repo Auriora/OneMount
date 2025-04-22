@@ -823,15 +823,47 @@ func (f *Filesystem) StopDeltaLoop() {
 
 // StopDownloadManager stops the download manager and waits for all workers to finish.
 func (f *Filesystem) StopDownloadManager() {
+	log.Info().Msg("Stopping download manager...")
 	if f.downloads != nil {
-		f.downloads.Stop()
+		// Create a channel to signal when the download manager has stopped
+		done := make(chan struct{})
+
+		// Start a goroutine to call Stop and signal when done
+		go func() {
+			f.downloads.Stop()
+			close(done)
+		}()
+
+		// Wait for download manager to stop or timeout after 5 seconds
+		select {
+		case <-done:
+			log.Info().Msg("Download manager stopped successfully")
+		case <-time.After(5 * time.Second):
+			log.Warn().Msg("Timed out waiting for download manager to stop")
+		}
 	}
 }
 
 // StopUploadManager stops the upload manager and waits for all uploads to finish.
 func (f *Filesystem) StopUploadManager() {
+	log.Info().Msg("Stopping upload manager...")
 	if f.uploads != nil {
-		f.uploads.Stop()
+		// Create a channel to signal when the upload manager has stopped
+		done := make(chan struct{})
+
+		// Start a goroutine to call Stop and signal when done
+		go func() {
+			f.uploads.Stop()
+			close(done)
+		}()
+
+		// Wait for upload manager to stop or timeout after 5 seconds
+		select {
+		case <-done:
+			log.Info().Msg("Upload manager stopped successfully")
+		case <-time.After(5 * time.Second):
+			log.Warn().Msg("Timed out waiting for upload manager to stop")
+		}
 	}
 }
 
