@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -85,7 +84,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Network request completed")
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting to read response body")
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Error reading response body")
 		return nil, fmt.Errorf("error reading response body: %v", err)
@@ -124,7 +123,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Retry request completed")
 
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Reading retry response body")
-		body, err = ioutil.ReadAll(response.Body)
+		body, err = io.ReadAll(response.Body)
 		if err != nil {
 			log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Error reading retry response body")
 			return nil, fmt.Errorf("error reading retry response body: %v", err)
