@@ -183,7 +183,7 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 func TestDeltaContentChangeBoth(t *testing.T) {
 	t.Parallel()
 
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_content_change_both"))
+	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_content_change_both"), 30)
 	inode := NewInode("both_content_changed.txt", 0644|fuse.S_IFREG, nil)
 	cache.InsertPath("/both_content_changed.txt", nil, inode)
 	original := []byte("initial content")
@@ -287,7 +287,7 @@ func TestDeltaFolderDeletion(t *testing.T) {
 // We should only perform a delta deletion of a folder if it was nonempty
 func TestDeltaFolderDeletionNonEmpty(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_folder_deletion_nonempty"))
+	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_folder_deletion_nonempty"), 30)
 	dir := NewInode("folder", 0755|fuse.S_IFDIR, nil)
 	file := NewInode("file", 0644|fuse.S_IFREG, nil)
 	cache.InsertPath("/folder", nil, dir)
@@ -338,7 +338,7 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 // https://github.com/jstaf/onedriver/issues/111
 func TestDeltaMissingHash(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_missing_hash"))
+	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_missing_hash"), 30)
 	file := NewInode("file", 0644|fuse.S_IFREG, nil)
 	cache.InsertPath("/folder", nil, file)
 

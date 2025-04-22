@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 	defer f.Close()
 
 	auth = graph.Authenticate(graph.AuthConfig{}, ".auth_tokens.json", false)
-	fs = NewFilesystem(auth, filepath.Join(testDBLoc, "test"))
+	fs = NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
 	server, _ := fuse.NewServer(
 		fs,
 		mountLoc,
