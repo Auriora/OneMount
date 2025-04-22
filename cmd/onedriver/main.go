@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -123,7 +122,7 @@ func main() {
 			Str("mountpoint", mountpoint).
 			Msg("Mountpoint did not exist or was not a directory.")
 	}
-	if res, _ := ioutil.ReadDir(mountpoint); len(res) > 0 {
+	if res, _ := os.ReadDir(mountpoint); len(res) > 0 {
 		log.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint must be empty.")
 	}
 
