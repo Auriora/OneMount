@@ -302,6 +302,11 @@ func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *f
 		return status
 	}
 
+	// Check if entries is nil or if offset is out of range
+	if entries == nil || in.Offset >= uint64(len(entries)) {
+		return fuse.OK
+	}
+
 	inode := entries[in.Offset]
 	entry := fuse.DirEntry{
 		Ino:  inode.NodeID(),
@@ -341,6 +346,11 @@ func (f *Filesystem) ReadDir(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.
 	entries, status := f.readDirCommon(cancel, in)
 	if status != fuse.OK {
 		return status
+	}
+
+	// Check if entries is nil or if offset is out of range
+	if entries == nil || in.Offset >= uint64(len(entries)) {
+		return fuse.OK
 	}
 
 	inode := entries[in.Offset]
