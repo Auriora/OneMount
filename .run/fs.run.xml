@@ -1,0 +1,17 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="fs" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="onedriver" />
+    <working_directory value="$PROJECT_DIR$" />
+    <go_parameters value="-race -v -parallel=8 -count=1" />
+    <envs>
+      <env name="CGO_FLAGS" value="-Wno-deprecated-declarations" />
+      <env name="GORACE" value="log_path=fusefs_tests.race strip_path_prefix=1" />
+    </envs>
+    <kind value="DIRECTORY" />
+    <package value="github.com/jstaf/onedriver" />
+    <directory value="$PROJECT_DIR$/fs" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2" />
+  </configuration>
+</component>
