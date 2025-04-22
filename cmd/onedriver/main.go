@@ -121,7 +121,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn bool, moun
 }
 
 // initializeFilesystem sets up the filesystem and returns the filesystem, auth, server, and paths
-func initializeFilesystem(config *common.Config, mountpoint string, authOnly, headless, debugOn bool) (*fs.Filesystem, *graph.Auth, *fuse.Server, string, string) {
+func initializeFilesystem(config *common.Config, mountpoint string, authOnly, headless, debugOn bool) (*fs.Filesystem, *graph.Auth, *fuse.Server, string, string, error) {
 	// compute cache name as systemd would
 	absMountPath, _ := filepath.Abs(mountpoint)
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
@@ -133,7 +133,8 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 		os.Remove(authPath)
 		_, err := graph.Authenticate(config.AuthConfig, authPath, headless)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Authentication failed")
+			log.Error().Err(err).Msg("Authentication failed")
+			return nil, nil, nil, "", "", fmt.Errorf("authentication failed: %w", err)
 		}
 		os.Exit(0)
 	}
@@ -142,9 +143,16 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	log.Info().Msgf("onedriver %s", common.Version())
 	auth, err := graph.Authenticate(config.AuthConfig, authPath, headless)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Authentication failed")
+		log.Error().Err(err).Msg("Authentication failed")
+		return nil, nil, nil, "", "", fmt.Errorf("authentication failed: %w", err)
 	}
-	filesystem := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
+
+	filesystem, err := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize filesystem")
+		return nil, nil, nil, "", "", fmt.Errorf("failed to initialize filesystem: %w", err)
+	}
+
 	log.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
 	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Second)
 
@@ -176,11 +184,12 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 		Debug:         debugOn,
 	})
 	if err != nil {
-		log.Fatal().Err(err).Msgf("Mount failed. Is the mountpoint already in use? "+
+		log.Error().Err(err).Msgf("Mount failed. Is the mountpoint already in use? "+
 			"(Try running \"fusermount3 -uz %s\")\n", mountpoint)
+		return nil, nil, nil, "", "", fmt.Errorf("mount failed (is the mountpoint already in use?): %w", err)
 	}
 
-	return filesystem, auth, server, cachePath, absMountPath
+	return filesystem, auth, server, cachePath, absMountPath, nil
 }
 
 func main() {
@@ -199,7 +208,10 @@ func main() {
 	}
 
 	// Initialize the filesystem
-	filesystem, _, server, cachePath, absMountPath := initializeFilesystem(config, mountpoint, authOnly, headless, debugOn)
+	filesystem, _, server, cachePath, absMountPath, err := initializeFilesystem(config, mountpoint, authOnly, headless, debugOn)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize filesystem")
+	}
 
 	// setup signal handler for graceful unmount on signals like sigint
 	setupSignalHandler(filesystem, server)

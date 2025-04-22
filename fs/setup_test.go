@@ -64,8 +64,14 @@ func TestMain(m *testing.M) {
 		fmt.Println("Authentication failed:", err)
 		os.Exit(1)
 	}
-	fs = NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
-	server, _ := fuse.NewServer(
+	var fsErr error
+	fs, fsErr = NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
+	if fsErr != nil {
+		log.Error().Err(fsErr).Msg("Failed to initialize filesystem")
+		os.Exit(1)
+	}
+
+	server, err := fuse.NewServer(
 		fs,
 		mountLoc,
 		&fuse.MountOptions{
@@ -75,6 +81,10 @@ func TestMain(m *testing.M) {
 			MaxBackground: 1024,
 		},
 	)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create FUSE server")
+		os.Exit(1)
+	}
 
 	// setup sigint handler for graceful unmount on interrupt/terminate
 	sigChan := make(chan os.Signal, 1)

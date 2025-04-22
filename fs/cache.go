@@ -83,11 +83,12 @@ type OfflineChange struct {
 }
 
 // NewFilesystem creates a new filesystem
-func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *Filesystem {
+func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
-			log.Fatal().Err(err).Msg("Could not create cache directory.")
+			log.Error().Err(err).Msg("Could not create cache directory.")
+			return nil, fmt.Errorf("could not create cache directory: %w", err)
 		}
 	}
 	db, err := bolt.Open(
@@ -96,7 +97,8 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 		&bolt.Options{Timeout: time.Second * 5},
 	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Could not open DB. Is it already in use by another mount?")
+		log.Error().Err(err).Msg("Could not open DB. Is it already in use by another mount?")
+		return nil, fmt.Errorf("could not open DB (is it already in use by another mount?): %w", err)
 	}
 
 	content := NewLoopbackCache(filepath.Join(cacheDir, "content"))
@@ -157,11 +159,13 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 			fs.offline = true
 			fs.Unlock()
 			if root = fs.GetID("root"); root == nil {
-				log.Fatal().Msg(
+				log.Error().Msg(
 					"We are offline and could not fetch the filesystem root item from disk.",
 				)
+				return nil, errors.New("offline and could not fetch the filesystem root item from disk")
 			}
 			// when offline, we load the cache deltaLink from disk
+			var deltaLinkErr error
 			fs.db.View(func(tx *bolt.Tx) error {
 				if link := tx.Bucket(bucketDelta).Get([]byte("deltaLink")); link != nil {
 					fs.deltaLink = string(link)
@@ -170,13 +174,18 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 					// long enough to save its delta link. We explicitly disallow these
 					// types of startups as it's possible for things to get out of sync
 					// this way.
-					log.Fatal().Msg("Cannot perform an offline startup without a valid " +
+					log.Error().Msg("Cannot perform an offline startup without a valid " +
 						"delta link from a previous session.")
+					deltaLinkErr = errors.New("cannot perform an offline startup without a valid delta link from a previous session")
 				}
 				return nil
 			})
+			if deltaLinkErr != nil {
+				return nil, deltaLinkErr
+			}
 		} else {
-			log.Fatal().Err(err).Msg("Could not fetch root item of filesystem!")
+			log.Error().Err(err).Msg("Could not fetch root item of filesystem!")
+			return nil, fmt.Errorf("could not fetch root item of filesystem: %w", err)
 		}
 	}
 	// root inode is inode 1
@@ -209,7 +218,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) *
 	}
 
 	// deltaloop is started manually
-	return fs
+	return fs, nil
 }
 
 // IsOffline returns whether or not the cache thinks its offline.

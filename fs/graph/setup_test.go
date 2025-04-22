@@ -18,14 +18,34 @@ func TestMain(m *testing.M) {
 	// auth and log account metadata so we're extra sure who we're testing against
 	auth, err := Authenticate(AuthConfig{}, ".auth_tokens.json", false)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Authentication failed")
+		log.Error().Err(err).Msg("Authentication failed")
+		os.Exit(1)
 	}
-	user, _ := GetUser(auth)
-	drive, _ := GetDrive(auth)
-	log.Info().
-		Str("account", user.UserPrincipalName).
-		Str("type", drive.DriveType).
-		Msg("Starting tests")
+	user, userErr := GetUser(auth)
+	if userErr != nil {
+		log.Warn().Err(userErr).Msg("Failed to get user information, continuing anyway")
+	}
+
+	drive, driveErr := GetDrive(auth)
+	if driveErr != nil {
+		log.Warn().Err(driveErr).Msg("Failed to get drive information, continuing anyway")
+	}
+
+	logEvent := log.Info()
+
+	if userErr == nil {
+		logEvent = logEvent.Str("account", user.UserPrincipalName)
+	} else {
+		logEvent = logEvent.Str("account", "unknown")
+	}
+
+	if driveErr == nil {
+		logEvent = logEvent.Str("type", drive.DriveType)
+	} else {
+		logEvent = logEvent.Str("type", "unknown")
+	}
+
+	logEvent.Msg("Starting tests")
 
 	os.Exit(m.Run())
 }

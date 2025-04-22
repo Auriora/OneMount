@@ -12,7 +12,8 @@ import (
 
 func TestRootGet(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_get"), 30)
+	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_get"), 30)
+	require.NoError(t, err)
 	root, err := cache.GetPath("/", auth)
 	require.NoError(t, err)
 	assert.Equal(t, "/", root.Path(), "Root path did not resolve correctly.")
@@ -20,7 +21,8 @@ func TestRootGet(t *testing.T) {
 
 func TestRootChildrenUpdate(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_children_update"), 30)
+	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_children_update"), 30)
+	require.NoError(t, err)
 	children, err := cache.GetChildrenPath("/", auth)
 	require.NoError(t, err)
 
@@ -31,7 +33,8 @@ func TestRootChildrenUpdate(t *testing.T) {
 
 func TestSubdirGet(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_get"), 30)
+	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_get"), 30)
+	require.NoError(t, err)
 	documents, err := cache.GetPath("/Documents", auth)
 	require.NoError(t, err)
 	assert.Equal(t, "Documents", documents.Name(), "Failed to fetch \"/Documents\".")
@@ -39,7 +42,8 @@ func TestSubdirGet(t *testing.T) {
 
 func TestSubdirChildrenUpdate(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_children_update"), 30)
+	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_children_update"), 30)
+	require.NoError(t, err)
 	children, err := cache.GetChildrenPath("/Documents", auth)
 	require.NoError(t, err)
 
@@ -55,7 +59,8 @@ func TestSubdirChildrenUpdate(t *testing.T) {
 
 func TestSamePointer(t *testing.T) {
 	t.Parallel()
-	cache := NewFilesystem(auth, filepath.Join(testDBLoc, "test_same_pointer"), 30)
+	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_same_pointer"), 30)
+	require.NoError(t, err)
 	item, _ := cache.GetPath("/Documents", auth)
 	item2, _ := cache.GetPath("/Documents", auth)
 	if item != item2 {

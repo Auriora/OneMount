@@ -56,8 +56,14 @@ func TestMain(m *testing.M) {
 	log.Info().Msg("Setup offline tests ------------------------------")
 
 	// reuses the cached data from the previous tests
-	server, _ := fuse.NewServer(
-		fs.NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30),
+	filesystem, err := fs.NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize filesystem")
+		os.Exit(1)
+	}
+
+	server, err := fuse.NewServer(
+		filesystem,
 		mountLoc,
 		&fuse.MountOptions{
 			Name:          "onedriver",
@@ -66,6 +72,10 @@ func TestMain(m *testing.M) {
 			MaxBackground: 1024,
 		},
 	)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create FUSE server")
+		os.Exit(1)
+	}
 
 	// setup sigint handler for graceful unmount on interrupt/terminate
 	sigChan := make(chan os.Signal, 1)
