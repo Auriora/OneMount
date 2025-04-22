@@ -1,0 +1,54 @@
+.vscode/
+.osc/
+compile_flags.txt
+.commit
+.date
+mount/
+build/
+tmp/
+*.json
+*.bak
+*.log*
+*.race.*
+*.pdf
+*.fa
+*.docx
+*.gz
+*.db
+*.test
+*.out
+*.txt
+*.coverage
+*.core
+*.gdb
+vgcore.*
+__debug_bin*
+
+# do not include binaries, but do include sources
+onedriver
+onedriver-headless
+onedriver-launcher
+onedriver-*/
+!cmd/onedriver-launcher
+!cmd/onedriver
+vendor/
+
+# rpm build stuff
+*.rpm
+
+# for tests on older linuxes
+util-linux*
+unshare
+
+# debian build stuff
+debian/debhelper-build-stamp
+debian/*.substvars
+debian/*.debhelper
+debian/files
+*.dsc
+*.deb
+*.changes
+*.build*
+*.upload
+*.tar.xz
+.idea/
