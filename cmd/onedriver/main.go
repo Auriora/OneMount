@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -131,7 +132,7 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	authPath := filepath.Join(cachePath, "auth_tokens.json")
 	if authOnly {
 		os.Remove(authPath)
-		_, err := graph.Authenticate(config.AuthConfig, authPath, headless)
+		_, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 		if err != nil {
 			log.Error().Err(err).Msg("Authentication failed")
 			return nil, nil, nil, "", "", fmt.Errorf("authentication failed: %w", err)
@@ -141,7 +142,7 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 
 	// create the filesystem
 	log.Info().Msgf("onedriver %s", common.Version())
-	auth, err := graph.Authenticate(config.AuthConfig, authPath, headless)
+	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 	if err != nil {
 		log.Error().Err(err).Msg("Authentication failed")
 		return nil, nil, nil, "", "", fmt.Errorf("authentication failed: %w", err)
