@@ -16,10 +16,9 @@ import (
 // verify that items automatically get created with an ID of "local-"
 func TestConstructor(t *testing.T) {
 	inode := NewInode("Test Create", 0644|fuse.S_IFREG, nil)
-	if inode.ID() == "" || !isLocalID(inode.ID()) {
-		t.Fatalf("Expected an ID beginning with \"local-\", got \"%s\" instaed",
-			inode.ID())
-	}
+	require.True(t, inode.ID() != "" && isLocalID(inode.ID()),
+		"Expected an ID beginning with \"local-\", got \"%s\" instead",
+		inode.ID())
 }
 
 // verify that the mode of items fetched are correctly set when fetched from
@@ -27,10 +26,9 @@ func TestConstructor(t *testing.T) {
 func TestMode(t *testing.T) {
 	item, _ := graph.GetItemPath("/Documents", auth)
 	inode := NewInodeDriveItem(item)
-	if inode.Mode() != uint32(0755|fuse.S_IFDIR) {
-		t.Fatalf("mode of /Documents wrong: %o != %o",
-			inode.Mode(), 0755|fuse.S_IFDIR)
-	}
+	require.Equal(t, uint32(0755|fuse.S_IFDIR), inode.Mode(),
+		"mode of /Documents wrong: %o != %o",
+		inode.Mode(), 0755|fuse.S_IFDIR)
 
 	fname := "/onedriver_tests/test_mode.txt"
 	require.NoError(t, os.WriteFile("mount"+fname, []byte("test"), 0644))
@@ -43,23 +41,18 @@ func TestMode(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
-	if item == nil {
-		t.Fatal("item cannot be nil, err:", err)
-	}
+	require.NotNil(t, item, "item cannot be nil, err: %v", err)
 	inode = NewInodeDriveItem(item)
-	if inode.Mode() != uint32(0644|fuse.S_IFREG) {
-		t.Fatalf("mode of file wrong: %o != %o",
-			inode.Mode(), 0644|fuse.S_IFREG)
-	}
+	require.Equal(t, uint32(0644|fuse.S_IFREG), inode.Mode(),
+		"mode of file wrong: %o != %o",
+		inode.Mode(), 0644|fuse.S_IFREG)
 }
 
 // Do we properly detect whether something is a directory or not?
 func TestIsDir(t *testing.T) {
 	item, _ := graph.GetItemPath("/Documents", auth)
 	inode := NewInodeDriveItem(item)
-	if !inode.IsDir() {
-		t.Fatal("/Documents not detected as a directory")
-	}
+	require.True(t, inode.IsDir(), "/Documents not detected as a directory")
 
 	fname := "/onedriver_tests/test_is_dir.txt"
 	require.NoError(t, os.WriteFile("mount"+fname, []byte("test"), 0644))
@@ -67,9 +60,8 @@ func TestIsDir(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		item, err := graph.GetItemPath(fname, auth)
 		if err == nil && item != nil {
-			if inode := NewInodeDriveItem(item); inode.IsDir() {
-				t.Fatal("File created with mode 644 not detected as file")
-			}
+			inode := NewInodeDriveItem(item)
+			require.False(t, inode.IsDir(), "File created with mode 644 not detected as file")
 			return true
 		}
 		return false
@@ -118,9 +110,8 @@ func TestDoubleCreate(t *testing.T) {
 	// we clean up after ourselves to prevent failing some of the offline tests
 	defer fs.Unlink(context.Background().Done(), &fuse.InHeader{NodeId: parent.nodeID}, fname)
 
-	if err != nil || child == nil {
-		t.Fatal("Could not find child post-create")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, child, "Could not find child post-create")
 	childID := child.ID()
 
 	fs.Create(
@@ -134,9 +125,7 @@ func TestDoubleCreate(t *testing.T) {
 	)
 	child, err = fs.GetChild(parent.ID(), fname, auth)
 	require.NoError(t, err)
-	if child == nil {
-		t.Fatal("Could not find child post-create")
-	}
+	require.NotNil(t, child, "Could not find child post-create")
 	assert.Equal(t, childID, child.ID(),
 		"IDs did not match when create run twice on same file.",
 	)

@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -74,7 +75,7 @@ func TestMain(m *testing.M) {
 	defer f.Close()
 
 	var err error
-	auth, err = graph.Authenticate(graph.AuthConfig{}, ".auth_tokens.json", false)
+	auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
 	if err != nil {
 		fmt.Println("Authentication failed:", err)
 		os.Exit(1)

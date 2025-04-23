@@ -26,19 +26,16 @@ func TestUploadSession(t *testing.T) {
 	require.NoError(t, err)
 	err = session.Upload(auth)
 	require.NoError(t, err)
-	if isLocalID(session.ID) {
-		t.Fatalf("The session's ID was somehow still local following an upload: %s\n",
-			session.ID)
-	}
-	if sessionMtime := uint64(session.ModTime.Unix()); sessionMtime != mtime {
-		t.Errorf("session modtime changed - before: %d - after: %d", mtime, sessionMtime)
-	}
+	require.False(t, isLocalID(session.ID),
+		"The session's ID was somehow still local following an upload: %s",
+		session.ID)
+	sessionMtime := uint64(session.ModTime.Unix())
+	assert.Equal(t, mtime, sessionMtime, "session modtime changed - before: %d - after: %d", mtime, sessionMtime)
 
 	resp, _, err := graph.GetItemContent(session.ID, auth)
 	require.NoError(t, err)
-	if !bytes.Equal(data, resp) {
-		t.Fatalf("Data mismatch. Original content: %s\nRemote content: %s\n", data, resp)
-	}
+	require.True(t, bytes.Equal(data, resp),
+		"Data mismatch. Original content: %s\nRemote content: %s", data, resp)
 
 	// item now has a new id following the upload. We just change the ID here
 	// because thats part of the UploadManager functionality and gets tested elsewhere.
@@ -55,9 +52,8 @@ func TestUploadSession(t *testing.T) {
 
 	resp, _, err = graph.GetItemContent(session.ID, auth)
 	require.NoError(t, err)
-	if !bytes.Equal(newData, resp) {
-		t.Fatalf("Data mismatch. Original content: %s\nRemote content: %s\n", newData, resp)
-	}
+	require.True(t, bytes.Equal(newData, resp),
+		"Data mismatch. Original content: %s\nRemote content: %s", newData, resp)
 }
 
 // TestUploadSessionSmallFS verifies is the same test as TestUploadSessionSmall, but uses
@@ -70,15 +66,13 @@ func TestUploadSessionSmallFS(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 	item, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
-	if err != nil || item == nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, item, "Item not found")
 
 	content, _, err := graph.GetItemContent(item.ID, auth)
 	require.NoError(t, err)
-	if !bytes.Equal(content, data) {
-		t.Fatalf("Data mismatch. Original content: %s\nRemote content: %s\n", data, content)
-	}
+	require.True(t, bytes.Equal(content, data),
+		"Data mismatch. Original content: %s\nRemote content: %s", data, content)
 
 	// upload it again to ensure uploads with an existing remote id succeed
 	data = []byte("more super special data")
@@ -87,15 +81,13 @@ func TestUploadSessionSmallFS(t *testing.T) {
 
 	time.Sleep(15 * time.Second)
 	item2, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
-	if err != nil || item == nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, item2, "Item not found")
 
 	content, _, err = graph.GetItemContent(item2.ID, auth)
 	require.NoError(t, err)
-	if !bytes.Equal(content, data) {
-		t.Fatalf("Data mismatch. Original content: %s\nRemote content: %s\n", data, content)
-	}
+	require.True(t, bytes.Equal(content, data),
+		"Data mismatch. Original content: %s\nRemote content: %s", data, content)
 }
 
 // copy large file inside onedrive mount, then verify that we can still
@@ -119,22 +111,18 @@ func TestUploadSessionLargeFS(t *testing.T) {
 	require.NoError(t, err)
 
 	header := ">X dna:chromosome chromosome:BDGP6.22:X:1:23542271:1 REF"
-	if string(contents[:len(header)]) != header {
-		t.Fatalf("Could not read FASTA header. Wanted \"%s\", got \"%s\"\n",
-			header, string(contents[:len(header)]))
-	}
+	require.Equal(t, header, string(contents[:len(header)]),
+		"Could not read FASTA header. Wanted \"%s\", got \"%s\"",
+		header, string(contents[:len(header)]))
 
 	final := "AAATAAAATAC\n" // makes yucky test output, but is the final line
 	match := string(contents[len(contents)-len(final):])
-	if match != final {
-		t.Fatalf("Could not read final line of FASTA. Wanted \"%s\", got \"%s\"\n",
-			final, match)
-	}
+	require.Equal(t, final, match,
+		"Could not read final line of FASTA. Wanted \"%s\", got \"%s\"",
+		final, match)
 
 	st, _ := os.Stat(fname)
-	if st.Size() == 0 {
-		t.Fatal("File size cannot be 0.")
-	}
+	require.NotZero(t, st.Size(), "File size cannot be 0.")
 
 	// poll endpoint to make sure it has a size greater than 0
 	size := uint64(len(contents))

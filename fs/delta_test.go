@@ -4,6 +4,7 @@ package fs
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,7 +49,7 @@ func TestDeltaMkdir(t *testing.T) {
 			if st.Mode().IsDir() {
 				return true
 			}
-			t.Fatalf("%s was not a directory", fname)
+			require.Fail(t, fmt.Sprintf("%s was not a directory", fname))
 		}
 		return false
 	}, retrySeconds, time.Second, "%s not found", fname)
@@ -198,9 +199,7 @@ func TestDeltaContentChangeBoth(t *testing.T) {
 		},
 		local,
 	)
-	if status != fuse.OK {
-		t.Fatal("Write failed")
-	}
+	require.Equal(t, fuse.OK, status, "Write failed")
 
 	// apply a fake delta to the local item
 	fakeDelta := inode.DriveItem
@@ -254,10 +253,9 @@ func TestDeltaBadContentInCache(t *testing.T) {
 	fs.content.Insert(id, []byte("wrong contents"))
 	contents, err := os.ReadFile(filepath.Join(DeltaDir, "corrupted"))
 	require.NoError(t, err)
-	if bytes.HasPrefix(contents, []byte("wrong")) {
-		t.Fatalf("File contents were wrong! Got \"%s\", wanted \"correct contents\"",
-			string(contents))
-	}
+	require.False(t, bytes.HasPrefix(contents, []byte("wrong")), 
+		"File contents were wrong! Got \"%s\", wanted \"correct contents\"",
+		string(contents))
 }
 
 // Check that folders are deleted only when empty after syncing the complete set of
@@ -321,12 +319,9 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 	finfo, err = os.Stat(fname)
 	require.NoError(t, err)
 	mtimeNew := finfo.ModTime()
-	if !mtimeNew.Equal(mtimeOriginal) {
-		t.Fatalf(
-			"Modification time was updated even though the file did not change.\n"+
-				"Old mtime: %d, New mtime: %d\n", mtimeOriginal.Unix(), mtimeNew.Unix(),
-		)
-	}
+	require.True(t, mtimeNew.Equal(mtimeOriginal),
+		"Modification time was updated even though the file did not change.\n"+
+			"Old mtime: %d, New mtime: %d\n", mtimeOriginal.Unix(), mtimeNew.Unix())
 }
 
 // deltas can come back missing from the server
