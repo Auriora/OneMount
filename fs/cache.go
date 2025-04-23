@@ -60,6 +60,9 @@ type Filesystem struct {
 	// Track file statuses
 	statusM  sync.RWMutex              // Mutex for file statuses map
 	statuses map[string]FileStatusInfo // Map of file statuses by ID
+
+	// D-Bus server for file status updates
+	dbusServer *FileStatusDBusServer
 }
 
 // boltdb buckets
@@ -232,6 +235,22 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	}
 
 	// deltaloop is started manually
+
+	// Initialize D-Bus server
+	fs.dbusServer = NewFileStatusDBusServer(fs)
+	// Use StartForTesting in test environment
+	if os.Getenv("ONEDRIVER_TEST") == "1" {
+		if err := fs.dbusServer.StartForTesting(); err != nil {
+			log.Error().Err(err).Msg("Failed to start D-Bus server in test mode")
+			// Continue even if D-Bus server fails to start
+		}
+	} else {
+		if err := fs.dbusServer.Start(); err != nil {
+			log.Error().Err(err).Msg("Failed to start D-Bus server")
+			// Continue even if D-Bus server fails to start
+		}
+	}
+
 	return fs, nil
 }
 

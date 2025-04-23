@@ -224,7 +224,7 @@ func (f *Filesystem) InodePath(inode *Inode) string {
 	return inode.Path()
 }
 
-// updateFileStatus sets the extended attribute for file status
+// updateFileStatus sets the extended attribute for file status and sends a D-Bus signal
 func (f *Filesystem) updateFileStatus(inode *Inode) {
 	path := f.InodePath(inode)
 	if path == "" {
@@ -232,9 +232,10 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	}
 
 	status := f.GetFileStatus(inode.ID())
+	statusStr := status.Status.String()
 
 	// Set the extended attribute
-	if err := syscall.Setxattr(path, "user.onedriver.status", []byte(status.Status.String()), 0); err != nil {
+	if err := syscall.Setxattr(path, "user.onedriver.status", []byte(statusStr), 0); err != nil {
 		log.Error().Err(err).Str("path", path).Msg("Failed to set status xattr")
 	}
 
@@ -243,5 +244,10 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 		if err := syscall.Setxattr(path, "user.onedriver.error", []byte(status.ErrorMsg), 0); err != nil {
 			log.Error().Err(err).Str("path", path).Msg("Failed to set error xattr")
 		}
+	}
+
+	// Send D-Bus signal if server is available
+	if f.dbusServer != nil {
+		f.dbusServer.SendFileStatusUpdate(path, statusStr)
 	}
 }

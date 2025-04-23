@@ -2,12 +2,66 @@
 
 import gi
 gi.require_version('Nemo', '3.0')
-from gi.repository import Nemo, GObject, Gio
+from gi.repository import Nemo, GObject, Gio, GLib
 import os
+import dbus
+import dbus.mainloop.glib
 
 class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
     def __init__(self):
+        # Initialize D-Bus main loop
+        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+        # Connect to D-Bus
+        self.bus = dbus.SessionBus()
+        self.dbus_proxy = None
+        self.connect_to_dbus()
+
+        # Set up signal handlers for file status changes
+        self.file_status_cache = {}
+        self.setup_dbus_signals()
+
+        # Get list of OneDriver mount points
         self.onedriver_mounts = self._get_onedriver_mounts()
+
+    def connect_to_dbus(self):
+        """Connect to the OneDriver D-Bus service"""
+        try:
+            self.dbus_proxy = self.bus.get_object(
+                'org.onedriver.FileStatus',
+                '/org/onedriver/FileStatus'
+            )
+            print("Connected to OneDriver D-Bus service")
+        except dbus.exceptions.DBusException as e:
+            print(f"Failed to connect to OneDriver D-Bus service: {e}")
+            self.dbus_proxy = None
+
+    def setup_dbus_signals(self):
+        """Set up D-Bus signal handlers for file status changes"""
+        if self.dbus_proxy is None:
+            return
+
+        try:
+            self.bus.add_signal_receiver(
+                self._on_file_status_changed,
+                dbus_interface='org.onedriver.FileStatus',
+                signal_name='FileStatusChanged'
+            )
+            print("Set up D-Bus signal handler for file status changes")
+        except dbus.exceptions.DBusException as e:
+            print(f"Failed to set up D-Bus signal handler: {e}")
+
+    def _on_file_status_changed(self, path, status):
+        """Handle file status change signals from D-Bus"""
+        print(f"File status changed: {path} -> {status}")
+        self.file_status_cache[path] = status
+
+        # Request Nemo to refresh the file's emblems
+        try:
+            location = Gio.File.new_for_path(path)
+            Nemo.FileInfo.invalidate_extension_info(location)
+        except Exception as e:
+            print(f"Error refreshing file emblems: {e}")
 
     def _get_onedriver_mounts(self):
         """Get list of OneDriver mount points"""
@@ -71,11 +125,33 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
         return Nemo.OperationResult.COMPLETE
 
     def _get_file_status(self, path):
-        """Get the OneDriver status from extended attributes"""
+        """Get the OneDriver status via D-Bus or extended attributes as fallback"""
+        # First check if we have a cached status
+        if path in self.file_status_cache:
+            return self.file_status_cache[path]
+
+        # Try to get status via D-Bus
+        if self.dbus_proxy is not None:
+            try:
+                get_status = self.dbus_proxy.get_dbus_method(
+                    'GetFileStatus',
+                    'org.onedriver.FileStatus'
+                )
+                status = get_status(path)
+                self.file_status_cache[path] = status
+                return status
+            except dbus.exceptions.DBusException as e:
+                print(f"D-Bus error getting status for {path}: {e}")
+                # If D-Bus fails, try to reconnect for next time
+                self.connect_to_dbus()
+                # Fall back to extended attributes
+
+        # Fallback: Get the status from extended attributes
         try:
-            # Get the status from extended attributes
             status = os.getxattr(path, "user.onedriver.status")
-            return status.decode('utf-8')
+            status_str = status.decode('utf-8')
+            self.file_status_cache[path] = status_str
+            return status_str
         except Exception as e:
             print(f"Error getting status for {path}: {e}")
             return "Unknown"

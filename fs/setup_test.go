@@ -37,6 +37,8 @@ var (
 // avoid having to repeatedly recreate auth_tokens.json and juggle multiple auth
 // sessions.
 func TestMain(m *testing.M) {
+	// Set environment variable to indicate we're in a test environment
+	os.Setenv("ONEDRIVER_TEST", "1")
 	// We used to skip paging test setup for single tests, but that caused issues
 	// when running TestListChildrenPaging individually
 

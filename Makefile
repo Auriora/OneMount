@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, srpm, rpm, dsc, changes, deb, clean, install, uninstall
+.PHONY: all, test, test-init, test-python, srpm, rpm, dsc, changes, deb, clean, install, uninstall
 
 # autocalculate software/package versions
 VERSION := $(shell grep Version onedriver.spec | sed 's/Version: *//g')
@@ -122,14 +122,19 @@ dmel.fa:
 # setup tests for the first time on a new computer
 test-init: onedriver
 	go install github.com/rakyll/gotest@latest
+	pip install pytest pytest-mock
 	mkdir -p mount/
-	$< -a mount/	
+	$< -a mount/
 
+
+# Run Python tests for nemo-onedriver.py
+test-python:
+	pytest -xvs test_nemo_onedriver.py
 
 # For offline tests, the test binary is built online, then network access is
 # disabled and tests are run. sudo is required - otherwise we don't have
 # permission to deny network access to onedriver during the test.
-test: onedriver onedriver-launcher dmel.fa
+test: onedriver onedriver-launcher dmel.fa test-python
 	rm -f *.race* fusefs_tests.log
 	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 $(shell go list ./ui/... | grep -v offline)
 	$(CGO_CFLAGS) gotest -v -parallel=8 -count=1 ./cmd/...

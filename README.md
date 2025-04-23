@@ -210,7 +210,19 @@ make test-init
 
 # actually run tests
 make test
+
+# run only the Python tests for nemo-onedriver.py
+make test-python
+
+# run only the Go tests for the D-Bus interface
+go test -v ./fs -run TestDBus
 ```
+
+The test suite includes:
+- Go tests for the filesystem functionality
+- Go tests for the D-Bus interface that provides file status updates
+- Python pytest tests for the nemo-onedriver.py extension that uses the D-Bus interface
+- Offline tests that simulate network disconnection
 
 ### Installation from source
 
