@@ -18,46 +18,48 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-// Filesystem is the actual FUSE filesystem and uses the go analogy of the
-// "low-level" FUSE API here:
-// https://github.com/libfuse/libfuse/blob/master/include/fuse_lowlevel.h
+// Filesystem is the actual FUSE filesystem implementation for onedriver.
+// It provides a native Linux filesystem for Microsoft OneDrive using the
+// "low-level" FUSE API (https://github.com/libfuse/libfuse/blob/master/include/fuse_lowlevel.h).
+// The Filesystem handles file operations, caching, synchronization with OneDrive,
+// and offline mode functionality.
 type Filesystem struct {
-	fuse.RawFileSystem
+	fuse.RawFileSystem // Implements the base FUSE filesystem interface
 
-	metadata  sync.Map
-	db        *bolt.DB
-	content   *LoopbackCache
-	auth      *graph.Auth
-	root      string // the id of the filesystem's root item
-	deltaLink string
-	uploads   *UploadManager
-	downloads *DownloadManager
+	metadata  sync.Map         // In-memory cache of filesystem metadata
+	db        *bolt.DB         // Persistent database for filesystem state
+	content   *LoopbackCache   // Cache for file contents
+	auth      *graph.Auth      // Authentication for Microsoft Graph API
+	root      string           // The ID of the filesystem's root item
+	deltaLink string           // Link for incremental synchronization with OneDrive
+	uploads   *UploadManager   // Manages file uploads to OneDrive
+	downloads *DownloadManager // Manages file downloads from OneDrive
 
 	// Cache cleanup configuration
-	cacheExpirationDays  int
-	cacheCleanupStop     chan struct{}
-	cacheCleanupStopOnce sync.Once
-	cacheCleanupWg       sync.WaitGroup
+	cacheExpirationDays  int            // Number of days after which cached files expire
+	cacheCleanupStop     chan struct{}  // Channel to signal cache cleanup to stop
+	cacheCleanupStopOnce sync.Once      // Ensures cleanup is stopped only once
+	cacheCleanupWg       sync.WaitGroup // Wait group for cache cleanup goroutine
 
 	// DeltaLoop stop channel and context
-	deltaLoopStop     chan struct{}
-	deltaLoopWg       sync.WaitGroup
-	deltaLoopStopOnce sync.Once
-	deltaLoopCtx      context.Context
-	deltaLoopCancel   context.CancelFunc
+	deltaLoopStop     chan struct{}      // Channel to signal delta loop to stop
+	deltaLoopWg       sync.WaitGroup     // Wait group for delta loop goroutine
+	deltaLoopStopOnce sync.Once          // Ensures delta loop is stopped only once
+	deltaLoopCtx      context.Context    // Context for delta loop cancellation
+	deltaLoopCancel   context.CancelFunc // Function to cancel delta loop context
 
-	sync.RWMutex
-	offline    bool
-	lastNodeID uint64
-	inodes     []string
+	sync.RWMutex          // Mutex for filesystem state
+	offline      bool     // Whether the filesystem is in offline mode
+	lastNodeID   uint64   // Last assigned node ID
+	inodes       []string // List of inode IDs
 
-	// tracks currently open directories
-	opendirsM sync.RWMutex
-	opendirs  map[uint64][]*Inode
+	// Tracks currently open directories
+	opendirsM sync.RWMutex        // Mutex for open directories map
+	opendirs  map[uint64][]*Inode // Map of open directories by node ID
 
 	// Track file statuses
-	statusM  sync.RWMutex
-	statuses map[string]FileStatusInfo
+	statusM  sync.RWMutex              // Mutex for file statuses map
+	statuses map[string]FileStatusInfo // Map of file statuses by ID
 }
 
 // boltdb buckets
@@ -82,7 +84,19 @@ type OfflineChange struct {
 	NewPath   string    `json:"new_path,omitempty"` // For rename operations
 }
 
-// NewFilesystem creates a new filesystem
+// NewFilesystem creates a new filesystem instance for onedriver.
+// It initializes the filesystem with the provided authentication, cache directory,
+// and cache expiration settings. The function sets up the database, content cache,
+// and starts background processes for synchronization and cache management.
+//
+// Parameters:
+//   - auth: Authentication information for Microsoft Graph API
+//   - cacheDir: Directory where filesystem data will be cached
+//   - cacheExpirationDays: Number of days after which cached files expire
+//
+// Returns:
+//   - A new Filesystem instance and nil error on success
+//   - nil and an error if initialization fails
 func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
@@ -221,7 +235,13 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	return fs, nil
 }
 
-// IsOffline returns whether or not the cache thinks its offline.
+// IsOffline returns whether the filesystem is currently in offline mode.
+// In offline mode, the filesystem operates without network connectivity,
+// using only locally cached content.
+//
+// Returns:
+//   - true if the filesystem is in offline mode
+//   - false if the filesystem is in online mode
 func (f *Filesystem) IsOffline() bool {
 	f.RLock()
 	defer f.RUnlock()
@@ -375,8 +395,16 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 	return nodeID
 }
 
-// GetID gets an inode from the cache by ID. No API fetching is performed.
-// Result is nil if no inode is found.
+// GetID retrieves an inode from the cache by its OneDrive ID.
+// This method only checks the in-memory cache and local database; it does not
+// perform any API requests to fetch the item from OneDrive.
+//
+// Parameters:
+//   - id: The OneDrive ID of the item to retrieve
+//
+// Returns:
+//   - The Inode if found in memory or database
+//   - nil if the item is not found in the cache
 func (f *Filesystem) GetID(id string) *Inode {
 	entry, exists := f.metadata.Load(id)
 	if !exists {
@@ -400,10 +428,17 @@ func (f *Filesystem) GetID(id string) *Inode {
 	return entry.(*Inode)
 }
 
-// InsertID inserts a single item into the filesystem by ID and sets its parent
-// using the Inode.Parent.ID, if set. Must be called after DeleteID, if being
-// used to rename/move an item. This is the main way new Inodes are added to the
-// filesystem. Returns the Inode's numeric NodeID.
+// InsertID adds or updates an item in the filesystem by its OneDrive ID.
+// This method stores the inode in the in-memory cache, assigns it a numeric node ID
+// for the kernel, and establishes the parent-child relationship if a parent ID is set.
+// When used for renaming or moving an item, DeleteID must be called first.
+//
+// Parameters:
+//   - id: The OneDrive ID to associate with the inode
+//   - inode: The inode to insert into the filesystem
+//
+// Returns:
+//   - The numeric node ID assigned to the inode for kernel operations
 func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	f.metadata.Store(id, inode)
 	nodeID := f.InsertNodeID(inode)

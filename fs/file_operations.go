@@ -99,8 +99,25 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 	return result
 }
 
-// Open fetches a Inodes's content and initializes the .Data field with actual
-// data from the server.
+// Open handles file open operations for the FUSE filesystem.
+// This method is called when a file is opened by the kernel. It verifies if the file
+// content is available locally, and if not or if the checksum doesn't match, it queues
+// a download from OneDrive. For directories, it performs a non-blocking open to prevent
+// 'ls' commands from hanging when there are pending downloads.
+//
+// The method handles both online and offline modes. In offline mode, it allows write
+// operations but logs that changes will sync when online.
+//
+// Parameters:
+//   - cancel: Channel that signals if the operation should be canceled
+//   - in: Input parameters for the open operation, including node ID and flags
+//   - out: Output parameters for the open operation
+//
+// Returns:
+//   - fuse.OK if the file was opened successfully
+//   - fuse.ENOENT if the file doesn't exist
+//   - fuse.EIO if there was an error creating the cache file
+//   - fuse.EREMOTEIO if the download failed
 func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
@@ -247,7 +264,21 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 	return fuse.OK
 }
 
-// Read an inode's data like a file.
+// Read handles file read operations for the FUSE filesystem.
+// This method is called when a file's content is read by the kernel. It retrieves
+// the file content from the local cache and returns it to the caller. The method
+// uses file descriptor passing for efficient data transfer to the kernel.
+//
+// Parameters:
+//   - cancel: Channel that signals if the operation should be canceled
+//   - in: Input parameters for the read operation, including node ID, offset, and size
+//   - buf: Buffer to store the read data
+//
+// Returns:
+//   - fuse.ReadResult: A read result object containing the data or file descriptor
+//   - fuse.OK if the read was successful
+//   - fuse.EBADF if the inode doesn't exist
+//   - fuse.EIO if there was an error opening the cache file
 func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
 	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
@@ -277,9 +308,23 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 	return fuse.ReadResultFd(fd.Fd(), int64(in.Offset), int(in.Size)), fuse.OK
 }
 
-// Write to an Inode like a file. Note that changes are 100% local until
-// Flush() is called. Returns the number of bytes written and the status of the
-// op.
+// Write handles file write operations for the FUSE filesystem.
+// This method is called when data is written to a file by the kernel. It writes
+// the data to the local cache and marks the file as modified. The changes remain
+// local until Flush() is called, which triggers synchronization with OneDrive.
+// In offline mode, the changes are tracked for later synchronization when the
+// filesystem goes online.
+//
+// Parameters:
+//   - cancel: Channel that signals if the operation should be canceled
+//   - in: Input parameters for the write operation, including node ID and offset
+//   - data: The data to be written to the file
+//
+// Returns:
+//   - uint32: The number of bytes written
+//   - fuse.OK if the write was successful
+//   - fuse.EBADF if the inode doesn't exist
+//   - fuse.EIO if there was an error writing to the cache file
 func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)

@@ -13,22 +13,27 @@ import (
 	"github.com/jstaf/onedriver/fs/graph"
 )
 
-// Inode represents a file or folder fetched from the Graph API. All struct
-// fields are pointers so as to avoid including them when marshaling to JSON
-// if not present. The embedded DriveItem's fields should never be accessed, they
-// are there for JSON umarshaling/marshaling only. (They are not safe to access
-// concurrently.) This struct's methods are thread-safe and can be called
-// concurrently. Reads/writes are done directly to DriveItems instead of
-// implementing something like the fs.FileHandle to minimize the complexity of
-// operations like Flush.
+// Inode represents a file or folder in the onedriver filesystem.
+// It wraps a DriveItem from the Microsoft Graph API and adds filesystem-specific
+// metadata and functionality. The Inode struct is thread-safe, with all methods
+// properly handling concurrent access through its embedded RWMutex.
+//
+// The embedded DriveItem's fields should never be accessed directly, as they are
+// not safe for concurrent access. Instead, use the provided methods to access
+// and modify the Inode's properties.
+//
+// Reads and writes are performed directly on DriveItems rather than implementing
+// a separate file handle interface to minimize the complexity of operations like
+// Flush. All modifications to the Inode are tracked and synchronized with OneDrive
+// when appropriate.
 type Inode struct {
-	sync.RWMutex
-	graph.DriveItem
-	nodeID     uint64   // filesystem node id
-	children   []string // a slice of ids, nil when uninitialized
-	hasChanges bool     // used to trigger an upload on flush
-	subdir     uint32   // used purely by NLink()
-	mode       uint32   // do not set manually
+	sync.RWMutex             // Protects access to all fields
+	graph.DriveItem          // The underlying OneDrive item
+	nodeID          uint64   // Filesystem node ID used by the kernel
+	children        []string // Slice of child item IDs, nil when uninitialized
+	hasChanges      bool     // Flag to trigger an upload on flush
+	subdir          uint32   // Number of subdirectories, used by NLink()
+	mode            uint32   // File mode/permissions, do not set manually
 }
 
 // SerializeableInode is like a Inode, but can be serialized for local storage
@@ -40,7 +45,18 @@ type SerializeableInode struct {
 	Mode     uint32
 }
 
-// NewInode initializes a new Inode
+// NewInode creates a new Inode with the specified name, mode, and parent.
+// This constructor is typically used when creating new files or directories
+// that don't yet exist in OneDrive. It assigns a local ID to the new Inode,
+// which will be replaced with a OneDrive ID when the item is uploaded.
+//
+// Parameters:
+//   - name: The name of the file or directory
+//   - mode: The file mode/permissions (e.g., directory or regular file)
+//   - parent: The parent Inode, or nil if this is the root
+//
+// Returns:
+//   - A new Inode instance with initialized fields
 func NewInode(name string, mode uint32, parent *Inode) *Inode {
 	itemParent := &graph.DriveItemParent{ID: "", Path: ""}
 	if parent != nil {
@@ -96,7 +112,16 @@ func NewInodeJSON(data []byte) (*Inode, error) {
 	}, nil
 }
 
-// NewInodeDriveItem creates a new Inode from a DriveItem
+// NewInodeDriveItem creates a new Inode from an existing DriveItem.
+// This constructor is typically used when retrieving items from OneDrive
+// through the Microsoft Graph API. It wraps the DriveItem in an Inode
+// to provide filesystem functionality.
+//
+// Parameters:
+//   - item: The DriveItem from OneDrive to wrap in an Inode
+//
+// Returns:
+//   - A new Inode instance containing the DriveItem, or nil if item is nil
 func NewInodeDriveItem(item *graph.DriveItem) *Inode {
 	if item == nil {
 		return nil
