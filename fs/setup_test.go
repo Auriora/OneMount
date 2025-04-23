@@ -37,13 +37,8 @@ var (
 // avoid having to repeatedly recreate auth_tokens.json and juggle multiple auth
 // sessions.
 func TestMain(m *testing.M) {
-	// determine if we're running a single test in vscode or something
-	var singleTest bool
-	for _, arg := range os.Args {
-		if strings.Contains(arg, "-test.run") {
-			singleTest = true
-		}
-	}
+	// We used to skip paging test setup for single tests, but that caused issues
+	// when running TestListChildrenPaging individually
 
 	// Check if we're already in the project root directory
 	cwd, _ := os.Getwd()
@@ -120,10 +115,8 @@ func TestMain(m *testing.M) {
 	os.Mkdir(DeltaDir, 0755)
 
 	// create paging test files before the delta thread is created
-	if !singleTest {
-		os.Mkdir(filepath.Join(TestDir, "paging"), 0755)
-		createPagingTestFiles()
-	}
+	os.Mkdir(filepath.Join(TestDir, "paging"), 0755)
+	createPagingTestFiles()
 	go fs.DeltaLoop(5 * time.Second)
 
 	// not created by default on onedrive for business

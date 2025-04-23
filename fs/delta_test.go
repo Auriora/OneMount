@@ -164,6 +164,10 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 		return getErr == nil && bytes.Equal(body, newContent)
 	}, 30*time.Second, time.Second, "Failed to upload test file or content mismatch")
 
+	// Give the DeltaLoop time to detect the change and mark the file as out of sync
+	// The DeltaLoop polls every 5 seconds, so we'll wait for 10 seconds to be safe
+	time.Sleep(10 * time.Second)
+
 	var content []byte
 	assert.Eventuallyf(t, func() bool {
 		content, err = os.ReadFile(filepath.Join(DeltaDir, "remote_content"))
@@ -253,7 +257,7 @@ func TestDeltaBadContentInCache(t *testing.T) {
 	fs.content.Insert(id, []byte("wrong contents"))
 	contents, err := os.ReadFile(filepath.Join(DeltaDir, "corrupted"))
 	require.NoError(t, err)
-	require.False(t, bytes.HasPrefix(contents, []byte("wrong")), 
+	require.False(t, bytes.HasPrefix(contents, []byte("wrong")),
 		"File contents were wrong! Got \"%s\", wanted \"correct contents\"",
 		string(contents))
 }
@@ -271,10 +275,10 @@ func TestDeltaFolderDeletion(t *testing.T) {
 		entries, _ := os.ReadDir(DeltaDir)
 		for _, entry := range entries {
 			if entry.Name() == "nested" {
-				return true
+				return false
 			}
 		}
-		return false
+		return true
 	}, retrySeconds, time.Second, "\"nested/\" directory was not deleted.")
 }
 

@@ -86,7 +86,11 @@ func TestRepeatedUploads(t *testing.T) {
 	require.NoError(t, os.WriteFile(fname, []byte("initial content"), 0644))
 	var inode *Inode
 	require.Eventually(t, func() bool {
-		inode, _ = fs.GetPath("/onedriver_tests/repeated_upload.txt", auth)
+		var err error
+		inode, err = fs.GetPath("/onedriver_tests/repeated_upload.txt", auth)
+		if err != nil || inode == nil {
+			return false
+		}
 		return !isLocalID(inode.ID())
 	}, retrySeconds, 2*time.Second, "ID was local after upload.")
 

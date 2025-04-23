@@ -88,20 +88,38 @@ func (f *Filesystem) GetFileStatus(id string) FileStatusInfo {
 func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 	// Check if file is being uploaded
 	if f.uploads != nil {
+		// Use the UploadManager's mutex to safely access the sessions map
+		f.uploads.mutex.RLock()
 		for _, session := range f.uploads.sessions {
-			if session.ID == id || session.OldID == id {
-				switch session.getState() {
+			session.Lock()
+			sessionID := session.ID
+			sessionOldID := session.OldID
+			session.Unlock()
+
+			if sessionID == id || sessionOldID == id {
+				state := session.getState()
+				f.uploads.mutex.RUnlock()
+				switch state {
 				case uploadStarted:
 					return FileStatusInfo{Status: StatusSyncing, Timestamp: time.Now()}
 				case uploadErrored:
+					session.Lock()
+					var errorMsg string
+					if session.error != nil {
+						errorMsg = session.error.Error()
+					} else {
+						errorMsg = "Unknown error"
+					}
+					session.Unlock()
 					return FileStatusInfo{
 						Status:    StatusError,
-						ErrorMsg:  session.error.Error(),
+						ErrorMsg:  errorMsg,
 						Timestamp: time.Now(),
 					}
 				}
 			}
 		}
+		f.uploads.mutex.RUnlock()
 	}
 
 	// Check if file has offline changes

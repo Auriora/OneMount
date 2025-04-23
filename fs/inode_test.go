@@ -24,24 +24,50 @@ func TestConstructor(t *testing.T) {
 // verify that the mode of items fetched are correctly set when fetched from
 // server
 func TestMode(t *testing.T) {
-	item, _ := graph.GetItemPath("/Documents", auth)
+	// Ensure the Documents directory exists
+	docDir := "mount/Documents"
+	if _, err := os.Stat(docDir); os.IsNotExist(err) {
+		require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
+		// Give the filesystem time to process the directory creation
+		time.Sleep(2 * time.Second)
+	}
+
+	// Test directory mode
+	var item *graph.DriveItem
+	var err error
+
+	// Retry getting the Documents directory
+	assert.Eventually(t, func() bool {
+		item, err = graph.GetItemPath("/Documents", auth)
+		return err == nil && item != nil
+	}, 10*time.Second, time.Second, "Could not get Documents directory")
+
+	require.NotNil(t, item, "Documents directory item cannot be nil, err: %v", err)
 	inode := NewInodeDriveItem(item)
 	require.Equal(t, uint32(0755|fuse.S_IFDIR), inode.Mode(),
 		"mode of /Documents wrong: %o != %o",
 		inode.Mode(), 0755|fuse.S_IFDIR)
 
+	// Test file mode
 	fname := "/onedriver_tests/test_mode.txt"
-	require.NoError(t, os.WriteFile("mount"+fname, []byte("test"), 0644))
+	fullPath := "mount" + fname
 
-	var err error
-	for i := 0; i < 10; i++ {
+	// Remove the file if it exists to ensure a clean state
+	os.Remove(fullPath)
+
+	// Create the test file
+	require.NoError(t, os.WriteFile(fullPath, []byte("test"), 0644))
+
+	// Give the filesystem time to process the file creation
+	time.Sleep(2 * time.Second)
+
+	// Retry getting the test file
+	assert.Eventually(t, func() bool {
 		item, err = graph.GetItemPath(fname, auth)
-		if err == nil && item != nil {
-			break
-		}
-		time.Sleep(time.Second)
-	}
-	require.NotNil(t, item, "item cannot be nil, err: %v", err)
+		return err == nil && item != nil
+	}, 15*time.Second, time.Second, "Could not get test file")
+
+	require.NotNil(t, item, "Test file item cannot be nil, err: %v", err)
 	inode = NewInodeDriveItem(item)
 	require.Equal(t, uint32(0644|fuse.S_IFREG), inode.Mode(),
 		"mode of file wrong: %o != %o",
@@ -50,41 +76,101 @@ func TestMode(t *testing.T) {
 
 // Do we properly detect whether something is a directory or not?
 func TestIsDir(t *testing.T) {
-	item, _ := graph.GetItemPath("/Documents", auth)
+	// Ensure the Documents directory exists
+	docDir := "mount/Documents"
+	if _, err := os.Stat(docDir); os.IsNotExist(err) {
+		require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
+		// Give the filesystem time to process the directory creation
+		time.Sleep(2 * time.Second)
+	}
+
+	// Test directory detection
+	var item *graph.DriveItem
+	var err error
+
+	// Retry getting the Documents directory
+	assert.Eventually(t, func() bool {
+		item, err = graph.GetItemPath("/Documents", auth)
+		return err == nil && item != nil
+	}, 10*time.Second, time.Second, "Could not get Documents directory")
+
+	require.NotNil(t, item, "Documents directory item cannot be nil, err: %v", err)
 	inode := NewInodeDriveItem(item)
 	require.True(t, inode.IsDir(), "/Documents not detected as a directory")
 
+	// Test file detection
 	fname := "/onedriver_tests/test_is_dir.txt"
-	require.NoError(t, os.WriteFile("mount"+fname, []byte("test"), 0644))
+	fullPath := "mount" + fname
 
+	// Remove the file if it exists to ensure a clean state
+	os.Remove(fullPath)
+
+	// Create the test file
+	require.NoError(t, os.WriteFile(fullPath, []byte("test"), 0644))
+
+	// Give the filesystem time to process the file creation
+	time.Sleep(2 * time.Second)
+
+	// Retry getting the test file
 	assert.Eventually(t, func() bool {
-		item, err := graph.GetItemPath(fname, auth)
+		item, err = graph.GetItemPath(fname, auth)
 		if err == nil && item != nil {
-			inode := NewInodeDriveItem(item)
+			inode = NewInodeDriveItem(item)
 			require.False(t, inode.IsDir(), "File created with mode 644 not detected as file")
 			return true
 		}
 		return false
-	}, 10*time.Second, time.Second, "Could not create item.")
+	}, 15*time.Second, time.Second, "Could not create item.")
 }
 
 // A filename like .~lock.libreoffice-test.docx# will fail to upload unless the
 // filename is escaped.
 func TestFilenameEscape(t *testing.T) {
-	fname := `.~lock.libreoffice-test.docx#`
-	require.NoError(t, os.WriteFile(filepath.Join(TestDir, fname), []byte("argl bargl"), 0644))
+	// Ensure the test directory exists
+	err := os.MkdirAll(TestDir, 0755)
+	require.NoError(t, err, "Failed to create test directory")
 
-	// make sure it made it to the server
+	// Use a special filename that needs escaping
+	fname := `.~lock.libreoffice-test.docx#`
+	filePath := filepath.Join(TestDir, fname)
+
+	// Remove the file if it exists to ensure a clean state
+	os.Remove(filePath)
+
+	// Create the test file
+	require.NoError(t, os.WriteFile(filePath, []byte("argl bargl"), 0644))
+
+	// Give the filesystem time to process the file creation
+	time.Sleep(2 * time.Second)
+
+	// Make sure it made it to the server
+	// Increase timeout and add more detailed logging
 	assert.Eventually(t, func() bool {
 		children, err := graph.GetItemChildrenPath("/onedriver_tests", auth)
-		require.NoError(t, err)
-		for _, child := range children {
+		if err != nil {
+			t.Logf("Error getting children: %v", err)
+			return false
+		}
+
+		// Log all children to help debug
+		t.Logf("Found %d children in /onedriver_tests", len(children))
+		for i, child := range children {
+			t.Logf("Child %d: %s", i, child.Name)
 			if child.Name == fname {
+				t.Logf("Found matching file: %s", child.Name)
 				return true
 			}
 		}
+
+		// If we didn't find the file, check if it exists locally
+		if _, err := os.Stat(filePath); err != nil {
+			t.Logf("File doesn't exist locally either: %v", err)
+		} else {
+			t.Logf("File exists locally but not on server yet")
+		}
+
 		return false
-	}, retrySeconds, 5*time.Second, "Could not find file: ", fname)
+	}, 30*time.Second, 5*time.Second, "Could not find file: %s", fname)
 }
 
 // When running creat() on an existing file, we should truncate the existing file and

@@ -87,18 +87,18 @@ func getItem(path string, auth *Auth) (*DriveItem, error) {
 		return nil, err
 	}
 	item := &DriveItem{}
- err = json.Unmarshal(body, item)
- if err != nil && bytes.Contains(body, []byte("\"size\":-")) {
-     // onedrive for business directories can sometimes have negative sizes,
-     // handle this case by creating a custom unmarshaler
-     var rawItem map[string]interface{}
-     if jsonErr := json.Unmarshal(body, &rawItem); jsonErr == nil {
-         // Set size to 0 for the item
-         item.Size = 0
-         // Clear the error since we've handled it
-         err = nil
-     }
- }
+	err = json.Unmarshal(body, item)
+	if err != nil && bytes.Contains(body, []byte("\"size\":-")) {
+		// onedrive for business directories can sometimes have negative sizes,
+		// handle this case by creating a custom unmarshaler
+		var rawItem map[string]interface{}
+		if jsonErr := json.Unmarshal(body, &rawItem); jsonErr == nil {
+			// Set size to 0 for the item
+			item.Size = 0
+			// Clear the error since we've handled it
+			err = nil
+		}
+	}
 	return item, err
 }
 
@@ -218,14 +218,33 @@ func Rename(itemID string, itemName string, parentID string, auth *Auth) error {
 	// apply patch to server copy - note that we don't actually care about the
 	// response content, only if it returns an error
 	jsonPatch, _ := json.Marshal(patchContent)
+
+	// First attempt
 	_, err := Patch("/me/drive/items/"+itemID, auth, bytes.NewReader(jsonPatch))
-	if err != nil && strings.Contains(err.Error(), "resourceModified") {
-		// Wait a second, then retry the request. The Onedrive servers sometimes
-		// aren't quick enough here if the object has been recently created
-		// (<1 second ago).
+	if err != nil {
+		// If there's an error, log it and retry with a delay
+		log.Warn().Err(err).
+			Str("itemID", itemID).
+			Str("newName", itemName).
+			Str("newParentID", parentID).
+			Msg("Error during rename operation, retrying after delay")
+
+		// Wait a second before retrying
 		time.Sleep(time.Second)
+
+		// Create a new reader for the retry since the previous one was consumed
 		_, err = Patch("/me/drive/items/"+itemID, auth, bytes.NewReader(jsonPatch))
+
+		// If still failing after retry, log a more detailed error
+		if err != nil {
+			log.Error().Err(err).
+				Str("itemID", itemID).
+				Str("newName", itemName).
+				Str("newParentID", parentID).
+				Msg("Rename operation failed after retry")
+		}
 	}
+
 	return err
 }
 
