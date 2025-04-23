@@ -30,13 +30,22 @@ var auth *graph.Auth
 func TestMain(m *testing.M) {
 	if wd, _ := os.Getwd(); strings.HasSuffix(wd, "/offline") {
 		// depending on how this test gets launched, the working directory can be wrong
-		os.Chdir("../..")
+		if err := os.Chdir("../.."); err != nil {
+			fmt.Println("Failed to change directory:", err)
+			os.Exit(1)
+		}
 	}
 
 	// attempt to unmount regardless of what happens (in case previous tests
 	// failed and didn't clean themselves up)
-	exec.Command("fusermount3", "-uz", mountLoc).Run()
-	os.Mkdir(mountLoc, 0755)
+	if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err != nil {
+		fmt.Println("Warning: Failed to unmount:", err)
+		// Continue anyway as it might not be mounted
+	}
+	if err := os.Mkdir(mountLoc, 0755); err != nil && !os.IsExist(err) {
+		fmt.Println("Failed to create mount directory:", err)
+		os.Exit(1)
+	}
 
 	var err error
 	auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
@@ -50,10 +59,18 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	f, _ := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		fmt.Println("Failed to open log file:", err)
+		os.Exit(1)
+	}
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: f, TimeFormat: "15:04:05"})
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close log file")
+		}
+	}()
 	log.Info().Msg("Setup offline tests ------------------------------")
 
 	// reuses the cached data from the previous tests
@@ -92,7 +109,9 @@ func TestMain(m *testing.M) {
 
 	if server.Unmount() != nil {
 		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")
-		exec.Command("fusermount3", "-zu", "mount").Run()
+		if err := exec.Command("fusermount3", "-zu", "mount").Run(); err != nil {
+			log.Error().Err(err).Msg("Failed to perform lazy unmount")
+		}
 	}
 	fmt.Println("Successfully unmounted fuse server!")
 	os.Exit(code)

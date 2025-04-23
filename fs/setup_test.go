@@ -41,10 +41,18 @@ func TestMain(m *testing.M) {
 	// when running TestListChildrenPaging individually
 
 	// Check if we're already in the project root directory
-	cwd, _ := os.Getwd()
+	cwd, cwdErr := os.Getwd()
+	if cwdErr != nil {
+		fmt.Println("Failed to get current working directory:", cwdErr)
+		os.Exit(1)
+	}
+
 	if strings.HasSuffix(cwd, "/fs") {
 		// If we're in the fs directory, change to the project root
-		os.Chdir("..")
+		if cdErr := os.Chdir(".."); cdErr != nil {
+			fmt.Println("Failed to change to project root directory:", cdErr)
+			os.Exit(1)
+		}
 	} else if !strings.HasSuffix(cwd, "/onedriver") {
 		// If we're not in the project root, try to find it
 		// This handles the case where tests are run from GoLand with a different working directory
@@ -52,22 +60,45 @@ func TestMain(m *testing.M) {
 			// Extract the path up to and including "onedriver"
 			index := strings.Index(cwd, "/onedriver")
 			projectRoot := cwd[:index+len("/onedriver")]
-			os.Chdir(projectRoot)
+			if cdErr := os.Chdir(projectRoot); cdErr != nil {
+				fmt.Println("Failed to change to project root directory:", cdErr)
+				os.Exit(1)
+			}
 		}
 	}
 
 	// attempt to unmount regardless of what happens (in case previous tests
 	// failed and didn't clean themselves up)
-	exec.Command("fusermount3", "-uz", mountLoc).Run()
-	os.Mkdir(mountLoc, 0755)
+	if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
+		fmt.Println("Warning: Failed to unmount:", unmountErr)
+		// Continue anyway as it might not be mounted
+	}
+	if mkdirErr := os.Mkdir(mountLoc, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+		fmt.Println("Failed to create mount directory:", mkdirErr)
+		os.Exit(1)
+	}
 	// wipe all cached data from previous tests
-	os.RemoveAll(testDBLoc)
-	os.Mkdir(testDBLoc, 0755)
+	if rmErr := os.RemoveAll(testDBLoc); rmErr != nil {
+		fmt.Println("Failed to remove test database location:", rmErr)
+		os.Exit(1)
+	}
+	if mkdirErr := os.Mkdir(testDBLoc, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+		fmt.Println("Failed to create test database directory:", mkdirErr)
+		os.Exit(1)
+	}
 
-	f, _ := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	f, openErr := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	if openErr != nil {
+		fmt.Println("Failed to open log file:", openErr)
+		os.Exit(1)
+	}
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: f, TimeFormat: "15:04:05"})
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Msg("Failed to close log file")
+		}
+	}()
 
 	var err error
 	auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
@@ -111,16 +142,28 @@ func TestMain(m *testing.M) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	os.Mkdir(TestDir, 0755)
-	os.Mkdir(DeltaDir, 0755)
+	if mkdirErr := os.Mkdir(TestDir, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+		log.Error().Err(mkdirErr).Msg("Failed to create test directory")
+		os.Exit(1)
+	}
+	if mkdirErr := os.Mkdir(DeltaDir, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+		log.Error().Err(mkdirErr).Msg("Failed to create delta directory")
+		os.Exit(1)
+	}
 
 	// create paging test files before the delta thread is created
-	os.Mkdir(filepath.Join(TestDir, "paging"), 0755)
+	if mkdirErr := os.Mkdir(filepath.Join(TestDir, "paging"), 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+		log.Error().Err(mkdirErr).Msg("Failed to create paging directory")
+		os.Exit(1)
+	}
 	createPagingTestFiles()
 	go fs.DeltaLoop(5 * time.Second)
 
 	// not created by default on onedrive for business
-	os.Mkdir(mountLoc+"/Documents", 0755)
+	if mkdirErr := os.Mkdir(mountLoc+"/Documents", 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+		log.Error().Err(mkdirErr).Msg("Failed to create Documents directory")
+		// Not exiting here as this is not critical
+	}
 
 	// we do not cd into the mounted directory or it will hang indefinitely on
 	// unmount with "device or resource busy"
@@ -140,7 +183,9 @@ func TestMain(m *testing.M) {
 	// unmount
 	if server.Unmount() != nil {
 		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")
-		exec.Command("fusermount3", "-zu", "mount").Run()
+		if unmountErr := exec.Command("fusermount3", "-zu", "mount").Run(); unmountErr != nil {
+			log.Error().Err(unmountErr).Msg("Failed to perform lazy unmount")
+		}
 	}
 	fmt.Println("Successfully unmounted fuse server!")
 	os.Exit(code)

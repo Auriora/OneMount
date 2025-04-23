@@ -53,7 +53,9 @@ func TestMode(t *testing.T) {
 	fullPath := "mount" + fname
 
 	// Remove the file if it exists to ensure a clean state
-	os.Remove(fullPath)
+	if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove test file: %v", err)
+	}
 
 	// Create the test file
 	require.NoError(t, os.WriteFile(fullPath, []byte("test"), 0644))
@@ -103,7 +105,9 @@ func TestIsDir(t *testing.T) {
 	fullPath := "mount" + fname
 
 	// Remove the file if it exists to ensure a clean state
-	os.Remove(fullPath)
+	if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove test file: %v", err)
+	}
 
 	// Create the test file
 	require.NoError(t, os.WriteFile(fullPath, []byte("test"), 0644))
@@ -135,7 +139,9 @@ func TestFilenameEscape(t *testing.T) {
 	filePath := filepath.Join(TestDir, fname)
 
 	// Remove the file if it exists to ensure a clean state
-	os.Remove(filePath)
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove test file: %v", err)
+	}
 
 	// Create the test file
 	require.NoError(t, os.WriteFile(filePath, []byte("argl bargl"), 0644))

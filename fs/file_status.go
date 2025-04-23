@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -100,8 +101,12 @@ func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 				state := session.getState()
 				f.uploads.mutex.RUnlock()
 				switch state {
+				case uploadNotStarted:
+					return FileStatusInfo{Status: StatusLocalModified, Timestamp: time.Now()}
 				case uploadStarted:
 					return FileStatusInfo{Status: StatusSyncing, Timestamp: time.Now()}
+				case uploadComplete:
+					return FileStatusInfo{Status: StatusLocal, Timestamp: time.Now()}
 				case uploadErrored:
 					session.Lock()
 					var errorMsg string
@@ -116,6 +121,8 @@ func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 						ErrorMsg:  errorMsg,
 						Timestamp: time.Now(),
 					}
+				default:
+					return FileStatusInfo{Status: StatusLocalModified, Timestamp: time.Now()}
 				}
 			}
 		}
@@ -124,7 +131,7 @@ func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 
 	// Check if file has offline changes
 	hasOfflineChanges := false
-	f.db.View(func(tx *bolt.Tx) error {
+	if err := f.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketOfflineChanges)
 		if b == nil {
 			return nil
@@ -135,10 +142,12 @@ func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 		prefix := []byte(id + "-")
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			hasOfflineChanges = true
-			return nil
+			break // Found a match, no need to continue
 		}
 		return nil
-	})
+	}); err != nil {
+		log.Error().Err(err).Str("id", id).Msg("Error checking offline changes")
+	}
 
 	if hasOfflineChanges {
 		return FileStatusInfo{Status: StatusLocalModified, Timestamp: time.Now()}
@@ -225,10 +234,14 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	status := f.GetFileStatus(inode.ID())
 
 	// Set the extended attribute
-	syscall.Setxattr(path, "user.onedriver.status", []byte(status.Status.String()), 0)
+	if err := syscall.Setxattr(path, "user.onedriver.status", []byte(status.Status.String()), 0); err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to set status xattr")
+	}
 
 	// If there's an error message, set it too
 	if status.ErrorMsg != "" {
-		syscall.Setxattr(path, "user.onedriver.error", []byte(status.ErrorMsg), 0)
+		if err := syscall.Setxattr(path, "user.onedriver.error", []byte(status.ErrorMsg), 0); err != nil {
+			log.Error().Err(err).Str("path", path).Msg("Failed to set error xattr")
+		}
 	}
 }

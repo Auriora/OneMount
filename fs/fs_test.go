@@ -99,7 +99,9 @@ func TestMkdirRmdir(t *testing.T) {
 	fname := filepath.Join(TestDir, "folder1")
 
 	// Remove the directory if it exists to ensure we start fresh
-	os.Remove(fname)
+	if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove directory: %v", err)
+	}
 
 	// Create, remove, and recreate the directory
 	require.NoError(t, os.Mkdir(fname, 0755))
@@ -157,7 +159,9 @@ func TestRenameMove(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, st, "Renamed file does not exist.")
 
-	os.Mkdir(filepath.Join(TestDir, "dest"), 0755)
+	if err := os.Mkdir(filepath.Join(TestDir, "dest"), 0755); err != nil && !os.IsExist(err) {
+		t.Fatalf("Failed to create destination directory: %v", err)
+	}
 	dname2 := filepath.Join(TestDir, "dest/even-newer-name.txt")
 	require.NoError(t, os.Rename(dname, dname2))
 	st, err = os.Stat(dname2)
@@ -183,17 +187,25 @@ func TestAppend(t *testing.T) {
 	fname := filepath.Join(TestDir, "append.txt")
 
 	// Remove the file if it exists to ensure we start fresh
-	os.Remove(fname)
+	if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove file: %v", err)
+	}
 
 	for i := 0; i < 5; i++ {
-		file, _ := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		file.WriteString("append\n")
-		file.Close()
+		file, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		require.NoError(t, err, "Failed to open file for append: %v", err)
+		_, err = file.WriteString("append\n")
+		require.NoError(t, err, "Failed to write to file: %v", err)
+		require.NoError(t, file.Close(), "Failed to close file: %v", err)
 	}
 
 	file, err := os.Open(fname)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Logf("Warning: Failed to close file: %v", closeErr)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	var counter int
@@ -209,14 +221,20 @@ func TestAppend(t *testing.T) {
 func TestTruncate(t *testing.T) {
 	fname := filepath.Join(TestDir, "truncate.txt")
 	for i := 0; i < 5; i++ {
-		file, _ := os.OpenFile(fname, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
-		file.WriteString("append\n")
-		file.Close()
+		file, err := os.OpenFile(fname, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+		require.NoError(t, err, "Failed to open file for truncate: %v", err)
+		_, err = file.WriteString("append\n")
+		require.NoError(t, err, "Failed to write to file: %v", err)
+		require.NoError(t, file.Close(), "Failed to close file: %v", err)
 	}
 
 	file, err := os.Open(fname)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Logf("Warning: Failed to close file: %v", closeErr)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	var counter int
@@ -243,8 +261,13 @@ massa lectus mattis dolor, in volutpat nulla lectus id neque.`
 	fname := filepath.Join(TestDir, "midfile.txt")
 	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
 
-	file, _ := os.OpenFile(fname, os.O_RDWR, 0644)
-	defer file.Close()
+	file, err := os.OpenFile(fname, os.O_RDWR, 0644)
+	require.NoError(t, err, "Failed to open file for read/write: %v", err)
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Logf("Warning: Failed to close file: %v", closeErr)
+		}
+	}()
 	match := "my hands are typing words. aaaaaaa"
 
 	n, err := file.WriteAt([]byte(match), 123)
@@ -334,8 +357,12 @@ func TestNTFSIsABadFilesystem2(t *testing.T) {
 	// Remove any existing test files to ensure a clean state
 	file1Path := filepath.Join(TestDir, "case-sensitive2.txt")
 	file2Path := filepath.Join(TestDir, "CASE-SENSITIVE2.txt")
-	os.Remove(file1Path)
-	os.Remove(file2Path)
+	if err := os.Remove(file1Path); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove file1: %v", err)
+	}
+	if err := os.Remove(file2Path); err != nil && !os.IsNotExist(err) {
+		t.Logf("Warning: Failed to remove file2: %v", err)
+	}
 
 	// Give the filesystem time to process the removals
 	time.Sleep(1 * time.Second)
@@ -343,7 +370,9 @@ func TestNTFSIsABadFilesystem2(t *testing.T) {
 	// Create the first file
 	file1, err := os.OpenFile(file1Path, os.O_CREATE|os.O_EXCL, 0644)
 	if err == nil {
-		file1.Close()
+		if closeErr := file1.Close(); closeErr != nil {
+			t.Logf("Warning: Failed to close file1: %v", closeErr)
+		}
 	} else {
 		t.Logf("Failed to create first file: %v", err)
 		// If we can't create the first file, skip the test
@@ -356,7 +385,9 @@ func TestNTFSIsABadFilesystem2(t *testing.T) {
 	// Try to create the second file with different case
 	file2, err := os.OpenFile(file2Path, os.O_CREATE|os.O_EXCL, 0644)
 	if err == nil {
-		file2.Close()
+		if closeErr := file2.Close(); closeErr != nil {
+			t.Logf("Warning: Failed to close file2: %v", closeErr)
+		}
 
 		// Check if both files exist now
 		_, err1 := os.Stat(file1Path)
@@ -640,10 +671,14 @@ func TestDisallowedFilenames(t *testing.T) {
 
 	// Clean up any files/directories that were created
 	for _, file := range filesToCleanup {
-		os.Remove(file)
+		if err := os.Remove(file); err != nil {
+			t.Logf("Warning: Failed to clean up file %s: %v", file, err)
+		}
 	}
 	for _, dir := range dirsToCleanup {
-		os.RemoveAll(dir)
+		if err := os.RemoveAll(dir); err != nil {
+			t.Logf("Warning: Failed to clean up directory %s: %v", dir, err)
+		}
 	}
 
 	t.Log("Note: This test is informational. OneDrive may reject these files later during upload.")

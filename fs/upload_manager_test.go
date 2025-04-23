@@ -22,7 +22,12 @@ import (
 func TestUploadDiskSerialization(t *testing.T) {
 	// write a file and get its id - we do this as a goroutine because uploads are
 	// blocking now
-	go exec.Command("cp", "dmel.fa", filepath.Join(TestDir, "upload_to_disk.fa")).Run()
+	cmd := exec.Command("cp", "dmel.fa", filepath.Join(TestDir, "upload_to_disk.fa"))
+	go func() {
+		if err := cmd.Run(); err != nil {
+			t.Logf("Error copying file: %v", err)
+		}
+	}()
 	time.Sleep(time.Second)
 	inode, err := fs.GetPath("/onedriver_tests/upload_to_disk.fa", nil)
 	require.NoError(t, err)
@@ -49,7 +54,7 @@ func TestUploadDiskSerialization(t *testing.T) {
 
 	// confirm that the file didn't get uploaded yet (just in case!)
 	driveItem, err := graph.GetItemPath("/onedriver_tests/upload_to_disk.fa", auth)
-	if err == nil || driveItem != nil {
+	if err == nil && driveItem != nil {
 		if driveItem.Size > 0 {
 			t.Fatal("This test should be rewritten, the file was uploaded before " +
 				"the upload could be canceled.")
@@ -60,11 +65,18 @@ func TestUploadDiskSerialization(t *testing.T) {
 	// into its db and confirm that the file gets uploaded
 	db, err := bolt.Open(filepath.Join(testDBLoc, "test_upload_disk_serialization.db"), 0644, nil)
 	require.NoError(t, err)
-	db.Update(func(tx *bolt.Tx) error {
-		b, _ := tx.CreateBucket(bucketUploads)
-		payload, _ := json.Marshal(&session)
+	err = db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucket(bucketUploads)
+		if err != nil {
+			return err
+		}
+		payload, err := json.Marshal(&session)
+		if err != nil {
+			return err
+		}
 		return b.Put([]byte(session.ID), payload)
 	})
+	require.NoError(t, err)
 
 	NewUploadManager(time.Second, db, fs, auth)
 	assert.Eventually(t, func() bool {
