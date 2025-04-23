@@ -15,7 +15,6 @@ import (
 
 // verify that items automatically get created with an ID of "local-"
 func TestConstructor(t *testing.T) {
-	t.Parallel()
 	inode := NewInode("Test Create", 0644|fuse.S_IFREG, nil)
 	if inode.ID() == "" || !isLocalID(inode.ID()) {
 		t.Fatalf("Expected an ID beginning with \"local-\", got \"%s\" instaed",
@@ -26,7 +25,6 @@ func TestConstructor(t *testing.T) {
 // verify that the mode of items fetched are correctly set when fetched from
 // server
 func TestMode(t *testing.T) {
-	t.Parallel()
 	item, _ := graph.GetItemPath("/Documents", auth)
 	inode := NewInodeDriveItem(item)
 	if inode.Mode() != uint32(0755|fuse.S_IFDIR) {
@@ -57,7 +55,6 @@ func TestMode(t *testing.T) {
 
 // Do we properly detect whether something is a directory or not?
 func TestIsDir(t *testing.T) {
-	t.Parallel()
 	item, _ := graph.GetItemPath("/Documents", auth)
 	inode := NewInodeDriveItem(item)
 	if !inode.IsDir() {
@@ -82,7 +79,6 @@ func TestIsDir(t *testing.T) {
 // A filename like .~lock.libreoffice-test.docx# will fail to upload unless the
 // filename is escaped.
 func TestFilenameEscape(t *testing.T) {
-	t.Parallel()
 	fname := `.~lock.libreoffice-test.docx#`
 	require.NoError(t, os.WriteFile(filepath.Join(TestDir, fname), []byte("argl bargl"), 0644))
 
@@ -103,7 +99,6 @@ func TestFilenameEscape(t *testing.T) {
 // return the original inode.
 // Related to: https://github.com/jstaf/onedriver/issues/99
 func TestDoubleCreate(t *testing.T) {
-	t.Parallel()
 	fname := "double_create.txt"
 
 	parent, err := fs.GetPath("/onedriver_tests", auth)

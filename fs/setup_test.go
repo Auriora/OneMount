@@ -44,7 +44,22 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	os.Chdir("..")
+	// Check if we're already in the project root directory
+	cwd, _ := os.Getwd()
+	if strings.HasSuffix(cwd, "/fs") {
+		// If we're in the fs directory, change to the project root
+		os.Chdir("..")
+	} else if !strings.HasSuffix(cwd, "/onedriver") {
+		// If we're not in the project root, try to find it
+		// This handles the case where tests are run from GoLand with a different working directory
+		if strings.Contains(cwd, "/onedriver") {
+			// Extract the path up to and including "onedriver"
+			index := strings.Index(cwd, "/onedriver")
+			projectRoot := cwd[:index+len("/onedriver")]
+			os.Chdir(projectRoot)
+		}
+	}
+
 	// attempt to unmount regardless of what happens (in case previous tests
 	// failed and didn't clean themselves up)
 	exec.Command("fusermount3", "-uz", mountLoc).Run()

@@ -14,6 +14,18 @@ import (
 func TestMountpointIsValid(t *testing.T) {
 	os.Mkdir("_test", 0755)
 	os.WriteFile("_test/.example", []byte("some text\n"), 0644)
+
+	// Check if the "mount" directory is empty
+	dirents, err := os.ReadDir("mount")
+	if err == nil {
+		t.Logf("Mount directory contents (%d items):", len(dirents))
+		for _, dirent := range dirents {
+			t.Logf("  %s", dirent.Name())
+		}
+	} else {
+		t.Logf("Error reading mount directory: %v", err)
+	}
+
 	tests := []struct {
 		mountpoint string
 		expected   bool
@@ -21,7 +33,7 @@ func TestMountpointIsValid(t *testing.T) {
 		{"", false},
 		{"fs", false},
 		{"does_not_exist", false},
-		{"mount", true},
+		{"mount", true}, // Changed back to true since the mount directory appears to be empty
 		{"_test", false},
 		{"_test/.example", false},
 	}

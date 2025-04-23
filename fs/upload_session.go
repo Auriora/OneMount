@@ -161,7 +161,7 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 		return nil, -1, errors.New("offset cannot be larger than DriveItem size")
 	}
 
-	auth.Refresh()
+	auth.Refresh(nil) // nil context will use context.Background() internally
 
 	client := &http.Client{}
 	request, _ := http.NewRequest(

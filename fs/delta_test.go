@@ -33,7 +33,6 @@ func (i *Inode) setContent(f *Filesystem, newContent []byte) {
 // In this test, we create a directory through the API, and wait to see if
 // the cache picks it up post-creation.
 func TestDeltaMkdir(t *testing.T) {
-	t.Parallel()
 	parent, err := graph.GetItemPath("/onedriver_tests/delta", auth)
 	require.NoError(t, err)
 
@@ -58,7 +57,6 @@ func TestDeltaMkdir(t *testing.T) {
 // We create a directory through the cache, then delete through the API and see
 // if the cache picks it up.
 func TestDeltaRmdir(t *testing.T) {
-	t.Parallel()
 	fname := filepath.Join(DeltaDir, "delete_me")
 	require.NoError(t, os.Mkdir(fname, 0755))
 
@@ -69,14 +67,13 @@ func TestDeltaRmdir(t *testing.T) {
 	// wait for delta sync
 	assert.Eventually(t, func() bool {
 		_, err := os.Stat(fname)
-		return err == nil
+		return os.IsNotExist(err)
 	}, retrySeconds, time.Second, "File deletion not picked up by client")
 }
 
 // Create a file locally, then rename it remotely and verify that the renamed
 // file still has the correct content under the new parent.
 func TestDeltaRename(t *testing.T) {
-	t.Parallel()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(DeltaDir, "delta_rename_start"),
 		[]byte("cheesecake"),
@@ -106,7 +103,6 @@ func TestDeltaRename(t *testing.T) {
 // Create a file locally, then move it on the server to a new directory. Check
 // to see if the cache picks it up.
 func TestDeltaMoveParent(t *testing.T) {
-	t.Parallel()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(DeltaDir, "delta_move_start"),
 		[]byte("carrotcake"),
@@ -139,7 +135,6 @@ func TestDeltaMoveParent(t *testing.T) {
 // Change the content remotely on the server, and verify it gets propagated to
 // to the client.
 func TestDeltaContentChangeRemote(t *testing.T) {
-	t.Parallel()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(DeltaDir, "remote_content"),
 		[]byte("the cake is a lie"),
@@ -147,10 +142,13 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 	))
 
 	// change and upload it via the API
-	time.Sleep(time.Second * 10)
-	item, err := graph.GetItemPath("/onedriver_tests/delta/remote_content", auth)
+	var item *graph.DriveItem
+	var err error
+	require.Eventually(t, func() bool {
+		item, err = graph.GetItemPath("/onedriver_tests/delta/remote_content", auth)
+		return err == nil && item != nil
+	}, 30*time.Second, time.Second, "Could not find remote_content file")
 	inode := NewInodeDriveItem(item)
-	require.NoError(t, err)
 	newContent := []byte("because it has been changed remotely!")
 	inode.setContent(fs, newContent)
 	data := fs.content.Get(inode.ID())
@@ -158,11 +156,12 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, session.Upload(auth))
 
-	time.Sleep(time.Second * 10)
-	body, _, _ := graph.GetItemContent(inode.ID(), auth)
-	if !bytes.Equal(body, newContent) {
-		t.Fatalf("Failed to upload test file. Remote content: \"%s\"", body)
-	}
+	var body []byte
+	var getErr error
+	require.Eventually(t, func() bool {
+		body, _, getErr = graph.GetItemContent(inode.ID(), auth)
+		return getErr == nil && bytes.Equal(body, newContent)
+	}, 30*time.Second, time.Second, "Failed to upload test file or content mismatch")
 
 	var content []byte
 	assert.Eventuallyf(t, func() bool {
@@ -180,7 +179,6 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 // Change the content both on the server and the client and verify that the
 // client data is preserved.
 func TestDeltaContentChangeBoth(t *testing.T) {
-	t.Parallel()
 
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_content_change_both"), 30)
 	require.NoError(t, err)
@@ -237,7 +235,6 @@ func TestDeltaContentChangeBoth(t *testing.T) {
 // pick up an old version of a file from previous program startups and think
 // it's current, which would erase the real, up-to-date server copy.
 func TestDeltaBadContentInCache(t *testing.T) {
-	t.Parallel()
 	// write a file to the server and poll until it exists
 	require.NoError(t, os.WriteFile(
 		filepath.Join(DeltaDir, "corrupted"),
@@ -266,7 +263,6 @@ func TestDeltaBadContentInCache(t *testing.T) {
 // Check that folders are deleted only when empty after syncing the complete set of
 // changes.
 func TestDeltaFolderDeletion(t *testing.T) {
-	t.Parallel()
 	require.NoError(t, os.MkdirAll(filepath.Join(DeltaDir, "nested/directory"), 0755))
 	nested, err := graph.GetItemPath("/onedriver_tests/delta/nested", auth)
 	require.NoError(t, err)
@@ -286,7 +282,6 @@ func TestDeltaFolderDeletion(t *testing.T) {
 
 // We should only perform a delta deletion of a folder if it was nonempty
 func TestDeltaFolderDeletionNonEmpty(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_folder_deletion_nonempty"), 30)
 	require.NoError(t, err)
 	dir := NewInode("folder", 0755|fuse.S_IFDIR, nil)
@@ -315,7 +310,6 @@ func TestDeltaFolderDeletionNonEmpty(t *testing.T) {
 // test verifies that the delta thread does not modify modification times if the
 // content is unchanged.
 func TestDeltaNoModTimeUpdate(t *testing.T) {
-	t.Parallel()
 	fname := filepath.Join(DeltaDir, "mod_time_update.txt")
 	require.NoError(t, os.WriteFile(fname, []byte("a pretend lockfile"), 0644))
 	finfo, err := os.Stat(fname)
@@ -338,7 +332,6 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 // deltas can come back missing from the server
 // https://github.com/jstaf/onedriver/issues/111
 func TestDeltaMissingHash(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_missing_hash"), 30)
 	require.NoError(t, err)
 	file := NewInode("file", 0644|fuse.S_IFREG, nil)

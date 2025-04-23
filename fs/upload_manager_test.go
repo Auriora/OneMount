@@ -20,7 +20,6 @@ import (
 // Test that new uploads are written to disk to support resuming them later if
 // the user shuts down their computer.
 func TestUploadDiskSerialization(t *testing.T) {
-	t.Parallel()
 	// write a file and get its id - we do this as a goroutine because uploads are
 	// blocking now
 	go exec.Command("cp", "dmel.fa", filepath.Join(TestDir, "upload_to_disk.fa")).Run()
@@ -81,7 +80,6 @@ func TestUploadDiskSerialization(t *testing.T) {
 
 // Make sure that uploading the same file multiple times works exactly as it should.
 func TestRepeatedUploads(t *testing.T) {
-	t.Parallel()
 
 	// test setup
 	fname := filepath.Join(TestDir, "repeated_upload.txt")

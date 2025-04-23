@@ -11,7 +11,6 @@ import (
 )
 
 func TestRootGet(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_get"), 30)
 	require.NoError(t, err)
 	root, err := cache.GetPath("/", auth)
@@ -20,7 +19,6 @@ func TestRootGet(t *testing.T) {
 }
 
 func TestRootChildrenUpdate(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_children_update"), 30)
 	require.NoError(t, err)
 	children, err := cache.GetChildrenPath("/", auth)
@@ -32,7 +30,6 @@ func TestRootChildrenUpdate(t *testing.T) {
 }
 
 func TestSubdirGet(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_get"), 30)
 	require.NoError(t, err)
 	documents, err := cache.GetPath("/Documents", auth)
@@ -41,7 +38,6 @@ func TestSubdirGet(t *testing.T) {
 }
 
 func TestSubdirChildrenUpdate(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_children_update"), 30)
 	require.NoError(t, err)
 	children, err := cache.GetChildrenPath("/Documents", auth)
@@ -58,7 +54,6 @@ func TestSubdirChildrenUpdate(t *testing.T) {
 }
 
 func TestSamePointer(t *testing.T) {
-	t.Parallel()
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_same_pointer"), 30)
 	require.NoError(t, err)
 	item, _ := cache.GetPath("/Documents", auth)

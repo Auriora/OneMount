@@ -3,7 +3,6 @@ package fs
 import (
 	"bytes"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,7 +14,6 @@ import (
 
 // TestUploadSession verifies that the basic functionality of uploads works correctly.
 func TestUploadSession(t *testing.T) {
-	t.Parallel()
 	testDir, err := fs.GetPath("/onedriver_tests", auth)
 	require.NoError(t, err)
 
@@ -66,7 +64,6 @@ func TestUploadSession(t *testing.T) {
 // the filesystem itself to perform the uploads instead of testing the internal upload
 // functions directly
 func TestUploadSessionSmallFS(t *testing.T) {
-	t.Parallel()
 	data := []byte("super special data for upload test 2")
 	err := os.WriteFile(filepath.Join(TestDir, "uploadSessionSmallFS.txt"), data, 0644)
 	require.NoError(t, err)
@@ -104,9 +101,19 @@ func TestUploadSessionSmallFS(t *testing.T) {
 // copy large file inside onedrive mount, then verify that we can still
 // access selected lines
 func TestUploadSessionLargeFS(t *testing.T) {
-	t.Parallel()
+	// Check if the source file exists
+	_, err := os.Stat("dmel.fa")
+	if err != nil {
+		t.Skip("dmel.fa file not found, skipping test")
+	}
+
+	// Use os.ReadFile and os.WriteFile instead of exec.Command("cp")
+	sourceData, err := os.ReadFile("dmel.fa")
+	require.NoError(t, err, "Failed to read source file")
+
 	fname := filepath.Join(TestDir, "dmel.fa")
-	require.NoError(t, exec.Command("cp", "dmel.fa", fname).Run())
+	err = os.WriteFile(fname, sourceData, 0644)
+	require.NoError(t, err, "Failed to write to destination file")
 
 	contents, err := os.ReadFile(fname)
 	require.NoError(t, err)
