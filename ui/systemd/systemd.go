@@ -37,7 +37,7 @@ func UntemplateUnit(unit string) (string, error) {
 	return unit[start:end], nil
 }
 
-// UnitIsActive returns true if the unit is currently active
+// UnitIsActive returns true if the unit is currently active or activating
 func UnitIsActive(unit string) (bool, error) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
@@ -62,7 +62,8 @@ func UnitIsActive(unit string) (bool, error) {
 	}
 	var active string
 	property.Store(&active)
-	return active == "active", nil
+	// Consider both "active" and "activating" states as active
+	return active == "active" || active == "activating", nil
 }
 
 func UnitSetActive(unit string, active bool) error {

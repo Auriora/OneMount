@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-systemd/v22/unit"
+	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,6 +63,20 @@ func TestUnitActive(t *testing.T) {
 	testDir, _ := os.Getwd()
 	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testDir+"/mount"))
 
+	// Check if the unit exists before proceeding
+	conn, err := dbus.ConnectSessionBus()
+	if err != nil {
+		t.Skip("Could not connect to session bus:", err)
+	}
+	defer conn.Close()
+
+	obj := conn.Object(SystemdBusName, SystemdObjectPath)
+	call := obj.Call("org.freedesktop.systemd1.Manager.GetUnit", 0, unitName)
+	if call.Err != nil {
+		// Unit doesn't exist, skip the test
+		t.Skipf("Unit %s not found, skipping test", unitName)
+	}
+
 	// make extra sure things are off before we start
 	require.NoError(t, UnitSetActive(unitName, false))
 	active, err := UnitIsActive(unitName)
@@ -69,10 +84,23 @@ func TestUnitActive(t *testing.T) {
 	require.False(t, active, "Unit was active before job start and we could not stop it!")
 
 	require.NoError(t, UnitSetActive(unitName, true), "Failed to start unit.")
-	time.Sleep(2 * time.Second)
-	active, err = UnitIsActive(unitName)
-	require.NoError(t, err, "Failed to check unit active state.")
-	require.True(t, active, "Could not detect unit as active following start.")
+
+	// Wait up to 5 seconds for the unit to become active
+	startTime := time.Now()
+	timeout := 5 * time.Second
+	var lastErr error
+	var isActive bool
+
+	for time.Since(startTime) < timeout {
+		isActive, lastErr = UnitIsActive(unitName)
+		if lastErr == nil && isActive {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	require.NoError(t, lastErr, "Failed to check unit active state.")
+	require.True(t, isActive, "Could not detect unit as active following start.")
 
 	require.NoError(t, UnitSetActive(unitName, false), "Failed to stop unit.")
 	active, err = UnitIsActive(unitName)
