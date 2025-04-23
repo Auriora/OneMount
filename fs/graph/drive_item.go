@@ -12,12 +12,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// DriveTypePersonal and friends represent the possible different values for a
-// drive's type when fetched from the API.
+// DriveTypePersonal represents the value for a personal drive's type when fetched from the API.
 const (
-	DriveTypePersonal   = "personal"
-	DriveTypeBusiness   = "business"
-	DriveTypeSharepoint = "documentLibrary"
+	DriveTypePersonal = "personal"
+	// Other possible values include "business" and "documentLibrary"
 )
 
 // DriveItemParent describes a DriveItem's parent in the Graph API
