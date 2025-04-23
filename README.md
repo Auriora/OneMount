@@ -260,6 +260,8 @@ create thumbnail images. This is somewhat annoying, but only needs to happen
 once - after the initial thumbnail images have been created, thumbnails will
 persist between filesystem restarts.
 
+In Nemo file manager, OneDrive will appear as a network or cloud mount in the sidebar, making it easier to identify and access your OneDrive files.
+
 Microsoft does not support symbolic links (or anything remotely like them) on
 OneDrive. Attempting to create symbolic links within the filesystem returns
 ENOSYS (function not implemented) because the functionality hasn't been
@@ -362,10 +364,10 @@ rexp := regexp.MustCompile("code=([a-zA-Z0-9-_.]+)")
 3. Add support for concurrent operations where appropriate
 4. Profile the application to identify bottlenecks
 
-## Documentation Improvements
+## Documentation Improvements ✅ COMPLETED
 
-1. Add more code comments explaining complex logic
-2. Document public APIs with godoc-compatible comments
-3. Create architecture documentation explaining component relationships
+1. Add more code comments explaining complex logic ✅
+2. Document public APIs with godoc-compatible comments ✅
+3. Create architecture documentation explaining component relationships ✅
 
 These refactorings would improve code quality, maintainability, and performance while making the codebase more approachable for new contributors.

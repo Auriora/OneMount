@@ -43,12 +43,14 @@ func LogLevels() []string {
 	return []string{"trace", "debug", "info", "warn", "error", "fatal"}
 }
 
-// TemplateXDGVolumeInfo returns
+// TemplateXDGVolumeInfo returns a formatted .xdg-volume-info file content
 func TemplateXDGVolumeInfo(name string) string {
 	xdgVolumeInfo := fmt.Sprintf("[Volume Info]\nName=%s\n", name)
 	if _, err := os.Stat("/usr/share/icons/onedriver/onedriver.png"); err == nil {
 		xdgVolumeInfo += "IconFile=/usr/share/icons/onedriver/onedriver.png\n"
 	}
+	// Add network mount type for Nemo to display it as a network/cloud mount
+	xdgVolumeInfo += "Type=network\n"
 	return xdgVolumeInfo
 }
 
