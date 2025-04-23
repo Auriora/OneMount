@@ -198,6 +198,13 @@ func main() {
 
 	config, authOnly, headless, debugOn, mountpoint := setupFlags()
 
+	// Check if the mountpoint might be a mistyped flag
+	if len(mountpoint) == 1 && strings.Contains("acdefhilnsvw", mountpoint) {
+		log.Fatal().
+			Str("mountpoint", mountpoint).
+			Msg("Mountpoint looks like a flag without the hyphen prefix. Did you mean '-" + mountpoint + "'? Use '--help' for usage information.")
+	}
+
 	st, err := os.Stat(mountpoint)
 	if err != nil || !st.IsDir() {
 		log.Fatal().
