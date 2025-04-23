@@ -37,6 +37,11 @@ Getting started with your files on OneDrive is as easy as running:
 list of all the arguments onedriver can be run with you can read the manual page
 by typing `man onedriver` or get a quick summary with `onedriver --help`.
 
+You can also view statistics about your OneDrive cache without mounting by using
+the `--stats` flag: `onedriver --stats /path/to/mount/onedrive/at`. This will
+display information about the metadata cache, content cache, upload queue, 
+file statuses, and the embedded bbolt database used for persistent storage.
+
 ## Key features
 
 onedriver has several nice features that make it significantly more useful than
@@ -357,12 +362,27 @@ rexp := regexp.MustCompile("code=([a-zA-Z0-9-_.]+)")
 3. Consider using table-driven tests for better test coverage ✅ COMPLETED
 4. Add mocks for external dependencies to improve test isolation ✅ COMPLETED
 
-## Performance Improvements
+## Performance Improvements ✅ COMPLETED
 
-1. Consider using a connection pool for HTTP requests
-2. Implement more aggressive caching strategies
-3. Add support for concurrent operations where appropriate
-4. Profile the application to identify bottlenecks
+1. Consider using a connection pool for HTTP requests ✅
+   - Implemented a shared HTTP client with connection pooling
+   - Reuse connections across requests to improve performance
+   - Configured optimal connection pool settings
+
+2. Implement more aggressive caching strategies ✅
+   - Added a TTL-based cache for API responses
+   - Implemented cache invalidation for write operations
+   - Optimized cache expiration and cleanup
+
+3. Add support for concurrent operations where appropriate ✅
+   - Analyzed upload and download managers for concurrency improvements
+   - Leveraged existing worker pools for parallel operations
+   - Ensured thread-safe access to shared resources
+
+4. Profile the application to identify bottlenecks ✅
+   - Added comprehensive profiling capabilities
+   - Support for CPU, memory, goroutine, block, and mutex profiling
+   - Tools for capturing and analyzing performance data
 
 ## Documentation Improvements ✅ COMPLETED
 

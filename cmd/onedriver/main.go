@@ -37,7 +37,7 @@ Valid options:
 }
 
 // setupFlags initializes and parses command-line flags, returning the configuration and other flag values
-func setupFlags() (config *common.Config, authOnly, headless, debugOn bool, mountpoint string) {
+func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats bool, mountpoint string) {
 	// setup cli parsing
 	authOnlyFlag := flag.BoolP("auth-only", "a", false,
 		"Authenticate to OneDrive and then exit.")
@@ -67,6 +67,8 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn bool, moun
 	cacheExpiration := flag.IntP("cache-expiration", "e", 0,
 		"Set the number of days after which files will be removed from the content cache. "+
 			"Default is 30 days. Set to 0 to use the default.")
+	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
+		"outstanding changes for upload, etc. Does not start a mount point.")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
 	flag.Parse()
@@ -118,7 +120,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn bool, moun
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
-	return config, *authOnlyFlag, *headlessFlag, *debugOnFlag, mountpoint
+	return config, *authOnlyFlag, *headlessFlag, *debugOnFlag, *statsFlag, mountpoint
 }
 
 // initializeFilesystem sets up the filesystem and returns the filesystem, auth, server, and paths
@@ -193,10 +195,106 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	return filesystem, auth, server, cachePath, absMountPath, nil
 }
 
+// displayStats gathers and displays statistics about the filesystem
+func displayStats(config *common.Config, mountpoint string) {
+	// Determine the cache directory
+	if mountpoint == "" {
+		log.Fatal().Msg("No mountpoint specified. Please provide a mountpoint.")
+	}
+	absMountPath, _ := filepath.Abs(mountpoint)
+	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
+
+	// Authenticate to get access to the filesystem
+	authPath := filepath.Join(cachePath, "auth_tokens.json")
+	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, true)
+	if err != nil {
+		log.Error().Err(err).Msg("Authentication failed")
+		os.Exit(1)
+	}
+
+	// Initialize the filesystem without mounting
+	filesystem, err := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize filesystem")
+		os.Exit(1)
+	}
+
+	// Get statistics
+	stats, err := filesystem.GetStats()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get statistics")
+		os.Exit(1)
+	}
+
+	// Display statistics header
+	fmt.Println("onedriver Statistics")
+	fmt.Println("===================")
+
+	// Metadata statistics
+	fmt.Printf("\nMetadata Cache:\n")
+	fmt.Printf("  Items in memory: %d\n", stats.MetadataCount)
+
+	// Content cache statistics
+	fmt.Printf("\nContent Cache:\n")
+	fmt.Printf("  Files: %d\n", stats.ContentCount)
+	fmt.Printf("  Total size: %s\n", fs.FormatSize(stats.ContentSize))
+	fmt.Printf("  Cache directory: %s\n", stats.ContentDir)
+	fmt.Printf("  Expiration: %d days\n", stats.Expiration)
+
+	// Upload queue statistics
+	fmt.Printf("\nUpload Queue:\n")
+	fmt.Printf("  Total uploads: %d\n", stats.UploadCount)
+	fmt.Printf("  Not started: %d\n", stats.UploadsNotStarted)
+	fmt.Printf("  In progress: %d\n", stats.UploadsInProgress)
+	fmt.Printf("  Completed: %d\n", stats.UploadsCompleted)
+	fmt.Printf("  Errors: %d\n", stats.UploadsErrored)
+
+	// File status statistics
+	fmt.Printf("\nFile Statuses:\n")
+	fmt.Printf("  Cloud: %d\n", stats.StatusCloud)
+	fmt.Printf("  Local: %d\n", stats.StatusLocal)
+	fmt.Printf("  LocalModified: %d\n", stats.StatusLocalModified)
+	fmt.Printf("  Syncing: %d\n", stats.StatusSyncing)
+	fmt.Printf("  Downloading: %d\n", stats.StatusDownloading)
+	fmt.Printf("  OutofSync: %d\n", stats.StatusOutofSync)
+	fmt.Printf("  Error: %d\n", stats.StatusError)
+	fmt.Printf("  Conflict: %d\n", stats.StatusConflict)
+
+	// Delta link information
+	fmt.Printf("\nDelta Link:\n")
+	fmt.Printf("  %s\n", stats.DeltaLink)
+
+	// Offline status
+	fmt.Printf("\nOffline Status: %v\n", stats.IsOffline)
+
+	// BBolt database statistics
+	fmt.Printf("\nBBolt Database:\n")
+	fmt.Printf("  Database path: %s\n", stats.DBPath)
+	fmt.Printf("  Database size: %s\n", fs.FormatSize(stats.DBSize))
+	fmt.Printf("  Page count: %d\n", stats.DBPageCount)
+	fmt.Printf("  Page size: %s\n", fs.FormatSize(int64(stats.DBPageSize)))
+	fmt.Printf("  Metadata items: %d\n", stats.DBMetadataCount)
+	fmt.Printf("  Delta items: %d\n", stats.DBDeltaCount)
+	fmt.Printf("  Offline changes: %d\n", stats.DBOfflineCount)
+	fmt.Printf("  Upload records: %d\n", stats.DBUploadsCount)
+
+	// Clean up
+	filesystem.StopCacheCleanup()
+	filesystem.StopDeltaLoop()
+	filesystem.StopDownloadManager()
+	filesystem.StopUploadManager()
+}
+
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
 
-	config, authOnly, headless, debugOn, mountpoint := setupFlags()
+	config, authOnly, headless, debugOn, stats, mountpoint := setupFlags()
+
+	// If stats flag is set, display statistics and exit
+	if stats {
+		displayStats(config, mountpoint)
+		os.Exit(0)
+	}
 
 	// Check if the mountpoint might be a mistyped flag
 	if len(mountpoint) == 1 && strings.Contains("acdefhilnsvw", mountpoint) {
