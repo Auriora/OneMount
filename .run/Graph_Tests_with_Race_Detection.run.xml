@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Graph Tests with Race Detection" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="onedriver" />
+    <working_directory value="$PROJECT_DIR$" />
+    <parameters value="-race -v -parallel=8 -count=1" />
+    <kind value="DIRECTORY" />
+    <package value="github.com/jstaf/onedriver/fs/graph" />
+    <directory value="$PROJECT_DIR$/fs/graph" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2" />
+  </configuration>
+</component>

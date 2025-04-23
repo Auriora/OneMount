@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="UI Tests" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="onedriver" />
+    <working_directory value="$PROJECT_DIR$" />
+    <parameters value="-v -parallel=8 -count=1" />
+    <kind value="DIRECTORY" />
+    <package value="github.com/jstaf/onedriver/ui" />
+    <directory value="$PROJECT_DIR$/ui" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <pattern value="^Test.*$" />
+    <method v="2" />
+  </configuration>
+</component>

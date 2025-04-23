@@ -1,14 +1,13 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All Tests" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Command Tests" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="onedriver" />
     <working_directory value="$PROJECT_DIR$" />
-    <go_parameters value="-v -parallel=8 -count=1" />
+    <parameters value="-v -parallel=8 -count=1" />
     <kind value="DIRECTORY" />
-    <package value="github.com/jstaf/onedriver" />
-    <directory value="$PROJECT_DIR$" />
+    <package value="github.com/jstaf/onedriver/cmd" />
+    <directory value="$PROJECT_DIR$/cmd" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
-    <pattern value="*_test.go" />
     <method v="2" />
   </configuration>
 </component>

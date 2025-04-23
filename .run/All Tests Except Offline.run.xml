@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="All Tests Except Offline" type="CompoundRunConfigurationType">
+    <toRun name="Command Tests" type="GoTestRunConfiguration" />
+    <toRun name="FS Tests with Race Detection" type="GoTestRunConfiguration" />
+    <toRun name="Graph Tests with Race Detection" type="GoTestRunConfiguration" />
+    <toRun name="UI Tests" type="GoTestRunConfiguration" />
+    <method v="2" />
+  </configuration>
+</component>
