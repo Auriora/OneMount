@@ -3,9 +3,9 @@
     <module name="onedriver" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-race -v -parallel=8 -count=1" />
-    <kind value="PACKAGE" />
+    <kind value="DIRECTORY" />
     <package value="github.com/jstaf/onedriver/fs" />
-    <directory value="$PROJECT_DIR$" />
+    <directory value="$PROJECT_DIR$/fs" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
     <method v="2" />

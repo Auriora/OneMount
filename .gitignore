@@ -52,7 +52,5 @@ debian/files
 *.upload
 *.tar.xz
 .idea/
-.run/
-!.run/
 /.cache/
 /.config/
