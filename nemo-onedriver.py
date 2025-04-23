@@ -25,6 +25,9 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
 
     def update_file_info(self, file, info=None, update_complete_callback=None):
         """Add emblems based on OneDriver file status"""
+        # Refresh the list of OneDriver mounts
+        self.onedriver_mounts = self._get_onedriver_mounts()
+
         # Check if the file is within a OneDriver mount
         path = file.get_location().get_path()
         if not path:
@@ -54,6 +57,12 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
                         info.add_emblem("emblem-error")
                     elif status == "Conflict":
                         info.add_emblem("emblem-warning")
+                    elif status == "Unknown":
+                        info.add_emblem("emblem-question")
+                    else:
+                        # Default emblem for any unrecognized status
+                        print(f"Unrecognized status: {status}")
+                        info.add_emblem("emblem-question")
 
                 break
 
@@ -67,8 +76,9 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
             # Get the status from extended attributes
             status = os.getxattr(path, "user.onedriver.status")
             return status.decode('utf-8')
-        except:
-            return "unknown"
+        except Exception as e:
+            print(f"Error getting status for {path}: {e}")
+            return "Unknown"
 
 # Register the extension with Nemo
 def module_init():
