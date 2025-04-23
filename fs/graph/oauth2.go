@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -119,49 +120,80 @@ func (a *Auth) updateTokenExpiration(oldTime int64) {
 }
 
 // handleFailedRefresh handles the case when token refresh fails
-func (a *Auth) handleFailedRefresh(resp *http.Response, body []byte, reauth bool) {
+// Returns an error if reauthentication failed
+// Uses the context from the Refresh method
+func (a *Auth) handleFailedRefresh(ctx context.Context, resp *http.Response, body []byte, reauth bool) error {
 	if reauth || a.AccessToken == "" || a.RefreshToken == "" {
 		log.Error().
 			Bytes("response", body).
 			Int("http_code", resp.StatusCode).
 			Msg("Failed to renew access tokens. Attempting to reauthenticate.")
 
-		newAuth, err := newAuth(a.AuthConfig, a.path, false)
+		newAuth, err := newAuth(ctx, a.AuthConfig, a.path, false)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to reauthenticate. Using existing tokens.")
-			return
+			return fmt.Errorf("failed to reauthenticate: %w", err)
 		}
 		*a = *newAuth
 	} else {
 		err := a.ToFile(a.path)
 		if err != nil {
 			log.Warn().Err(err).Msg("Failed to save auth tokens to file")
+			return fmt.Errorf("failed to save auth tokens to file: %w", err)
 		}
 	}
+	return nil
 }
 
 // Refresh auth tokens if expired.
-func (a *Auth) Refresh() {
+// Returns an error if the refresh failed and couldn't be recovered.
+// If ctx is nil, context.Background() will be used.
+func (a *Auth) Refresh(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	if a.ExpiresAt <= time.Now().Unix() {
 		oldTime := a.ExpiresAt
 		postData := a.createRefreshTokenRequest()
-		resp, err := http.Post(a.TokenURL,
-			"application/x-www-form-urlencoded",
-			postData)
+
+		req, err := http.NewRequestWithContext(ctx, "POST", a.TokenURL, postData)
+		if err != nil {
+			return fmt.Errorf("failed to create refresh request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(req)
 
 		reauth, respErr := a.handleRefreshResponse(resp, err)
-		if respErr != nil && (IsOffline(err) || resp == nil) {
-			return
+		if respErr != nil {
+			if IsOffline(err) || resp == nil {
+				return fmt.Errorf("network is offline during token renewal: %w", respErr)
+			}
+			return fmt.Errorf("failed to refresh token: %w", respErr)
 		}
 
 		if resp != nil {
 			defer resp.Body.Close()
-			body, _ := io.ReadAll(resp.Body)
-			json.Unmarshal(body, &a)
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read refresh response body: %w", err)
+			}
+
+			if err := json.Unmarshal(body, &a); err != nil {
+				return fmt.Errorf("failed to parse refresh response: %w", err)
+			}
+
 			a.updateTokenExpiration(oldTime)
-			a.handleFailedRefresh(resp, body, reauth)
+
+			refreshErr := a.handleFailedRefresh(ctx, resp, body, reauth)
+			if refreshErr != nil {
+				return refreshErr
+			}
 		}
 	}
+	return nil
 }
 
 // Get the appropriate authentication URL for the Graph OAuth2 challenge.
@@ -200,14 +232,25 @@ func parseAuthCode(url string) (string, error) {
 }
 
 // Exchange an auth code for a set of access tokens (returned as a new Auth struct).
-func getAuthTokens(a AuthConfig, authCode string) (*Auth, error) {
+// If ctx is nil, context.Background() will be used.
+func getAuthTokens(ctx context.Context, a AuthConfig, authCode string) (*Auth, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	postData := strings.NewReader("client_id=" + a.ClientID +
 		"&redirect_uri=" + a.RedirectURL +
 		"&code=" + authCode +
 		"&grant_type=authorization_code")
-	resp, err := http.Post(a.TokenURL,
-		"application/x-www-form-urlencoded",
-		postData)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", a.TokenURL, postData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create auth token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("could not POST to obtain auth tokens: %w", err)
 	}
@@ -259,7 +302,12 @@ func getAuthTokens(a AuthConfig, authCode string) (*Auth, error) {
 // newAuth performs initial authentication flow and saves tokens to disk. The headless
 // parameter determines if we will try to auth directly in the terminal instead of
 // doing it via embedded browser.
-func newAuth(config AuthConfig, path string, headless bool) (*Auth, error) {
+// If ctx is nil, context.Background() will be used.
+func newAuth(ctx context.Context, config AuthConfig, path string, headless bool) (*Auth, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// load the old account name
 	old := Auth{}
 	_ = old.FromFile(path) // Ignore error, we just want the account name if available
@@ -281,12 +329,12 @@ func newAuth(config AuthConfig, path string, headless bool) (*Auth, error) {
 		}
 	}
 
-	auth, err := getAuthTokens(config, code)
+	auth, err := getAuthTokens(ctx, config, code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth tokens: %w", err)
 	}
 
-	if user, err := GetUser(auth); err == nil {
+	if user, err := GetUserWithContext(ctx, auth); err == nil {
 		auth.Account = user.UserPrincipalName
 	}
 
@@ -300,12 +348,17 @@ func newAuth(config AuthConfig, path string, headless bool) (*Auth, error) {
 // Authenticate performs authentication to Graph or load auth/refreshes it
 // from an existing file. If headless is true, we will authenticate in the
 // terminal.
-func Authenticate(config AuthConfig, path string, headless bool) (*Auth, error) {
+// If ctx is nil, context.Background() will be used.
+func Authenticate(ctx context.Context, config AuthConfig, path string, headless bool) (*Auth, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	auth := &Auth{}
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		// no tokens found, gotta start oauth flow from beginning
-		auth, err = newAuth(config, path, headless)
+		auth, err = newAuth(ctx, config, path, headless)
 		if err != nil {
 			return nil, fmt.Errorf("authentication failed: %w", err)
 		}
@@ -314,7 +367,9 @@ func Authenticate(config AuthConfig, path string, headless bool) (*Auth, error) 
 		if err := auth.FromFile(path); err != nil {
 			return nil, fmt.Errorf("failed to load auth tokens: %w", err)
 		}
-		auth.Refresh()
+		if err := auth.Refresh(ctx); err != nil {
+			log.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
+		}
 	}
 	return auth, nil
 }

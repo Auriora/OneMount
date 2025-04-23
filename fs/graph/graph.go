@@ -48,7 +48,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	}
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting auth refresh")
-	auth.Refresh()
+	auth.Refresh(ctx)
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Auth refresh completed")
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Creating HTTP client with 60s timeout")
@@ -105,7 +105,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 				"forcing reauth before retrying.")
 
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Starting reauth process")
-		reauth, authErr := newAuth(auth.AuthConfig, auth.path, false)
+		reauth, authErr := newAuth(ctx, auth.AuthConfig, auth.path, false)
 		if authErr != nil {
 			log.Error().Err(authErr).Str("method", method).Str("resource", resource).Msg("Reauth failed")
 			return nil, fmt.Errorf("reauth failed: %w", authErr)
@@ -247,7 +247,12 @@ type User struct {
 
 // GetUser fetches the current user details from the Graph API.
 func GetUser(auth *Auth) (User, error) {
-	resp, err := Get("/me", auth)
+	return GetUserWithContext(context.Background(), auth)
+}
+
+// GetUserWithContext fetches the current user details from the Graph API with context.
+func GetUserWithContext(ctx context.Context, auth *Auth) (User, error) {
+	resp, err := GetWithContext(ctx, "/me", auth)
 	user := User{}
 	if err == nil {
 		err = json.Unmarshal(resp, &user)

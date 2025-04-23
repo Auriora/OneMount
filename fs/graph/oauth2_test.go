@@ -45,7 +45,7 @@ func TestAuthRefresh(t *testing.T) {
 	var auth Auth
 	auth.FromFile(".auth_tokens.json")
 	auth.ExpiresAt = 0 // force an auth refresh
-	auth.Refresh()
+	auth.Refresh(nil)  // nil context will use context.Background() internally
 	if auth.ExpiresAt <= time.Now().Unix() {
 		t.Fatal("Auth could not be refreshed successfully!")
 	}
