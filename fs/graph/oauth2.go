@@ -163,7 +163,7 @@ func (a *Auth) Refresh(ctx context.Context) error {
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		client := &http.Client{Timeout: 30 * time.Second}
+		client := getHTTPClient()
 		resp, err := client.Do(req)
 
 		reauth, respErr := a.handleRefreshResponse(resp, err)
@@ -249,7 +249,7 @@ func getAuthTokens(ctx context.Context, a AuthConfig, authCode string) (*Auth, e
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := getHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("could not POST to obtain auth tokens: %w", err)

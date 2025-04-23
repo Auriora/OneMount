@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/imdario/mergo"
@@ -20,6 +22,51 @@ import (
 
 // GraphURL is the API endpoint of Microsoft Graph
 const GraphURL = "https://graph.microsoft.com/v1.0"
+
+// Default timeout for HTTP requests
+const defaultRequestTimeout = 60 * time.Second
+
+// sharedHTTPClient is a singleton HTTP client with connection pooling
+// responseCache is a singleton cache for API responses
+var (
+	sharedHTTPClient *http.Client
+	responseCache    *ResponseCache
+	clientOnce       sync.Once
+	cacheOnce        sync.Once
+)
+
+// getHTTPClient returns the shared HTTP client with connection pooling
+func getHTTPClient() *http.Client {
+	clientOnce.Do(func() {
+		// Create a custom transport with connection pooling settings
+		transport := &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 20,
+			IdleConnTimeout:     90 * time.Second,
+		}
+
+		// Create the shared client with the custom transport and timeout
+		sharedHTTPClient = &http.Client{
+			Transport: transport,
+			Timeout:   defaultRequestTimeout,
+		}
+
+		log.Info().Msg("Initialized shared HTTP client with connection pooling")
+	})
+
+	return sharedHTTPClient
+}
+
+// getResponseCache returns the shared response cache
+func getResponseCache() *ResponseCache {
+	cacheOnce.Do(func() {
+		// Create the response cache with a default TTL of 5 minutes
+		responseCache = NewResponseCache(5 * time.Minute)
+		log.Info().Msg("Initialized response cache with 5-minute TTL")
+	})
+
+	return responseCache
+}
 
 // graphError is an internal struct used when decoding Graph's error messages
 type graphError struct {
@@ -51,8 +98,8 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	auth.Refresh(ctx)
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Auth refresh completed")
 
-	log.Debug().Str("method", method).Str("resource", resource).Msg("Creating HTTP client with 60s timeout")
-	client := &http.Client{Timeout: 60 * time.Second}
+	log.Debug().Str("method", method).Str("resource", resource).Msg("Using shared HTTP client with connection pooling")
+	client := getHTTPClient()
 	request, _ := http.NewRequestWithContext(ctx, method, GraphURL+resource, content)
 	request.Header.Add("Authorization", "bearer "+auth.AccessToken)
 	switch method { // request type-specific code here
@@ -162,50 +209,126 @@ func Get(resource string, auth *Auth, headers ...Header) ([]byte, error) {
 	return Request(resource, auth, "GET", nil, headers...)
 }
 
-// GetWithContext is a convenience wrapper around RequestWithContext
+// GetWithContext is a convenience wrapper around RequestWithContext with caching
 func GetWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) ([]byte, error) {
+	// Only cache GET requests without custom headers
+	if len(headers) == 0 {
+		cache := getResponseCache()
+
+		// Try to get from cache first
+		if data, found := cache.Get(resource); found {
+			log.Debug().Str("resource", resource).Msg("Cache hit for GET request")
+			return data, nil
+		}
+
+		// Not in cache, make the request
+		data, err := RequestWithContext(ctx, resource, auth, "GET", nil)
+		if err == nil {
+			// Cache the successful response
+			cache.Set(resource, data)
+			log.Debug().Str("resource", resource).Msg("Cached GET response")
+		}
+		return data, err
+	}
+
+	// For requests with custom headers, bypass cache
 	return RequestWithContext(ctx, resource, auth, "GET", nil, headers...)
+}
+
+// invalidateResourceCache invalidates cache entries related to the given resource
+func invalidateResourceCache(resource string) {
+	cache := getResponseCache()
+
+	// Invalidate the exact resource
+	cache.Invalidate(resource)
+
+	// If this is an item, invalidate its parent's children listing
+	if strings.Contains(resource, "/items/") {
+		parts := strings.Split(resource, "/items/")
+		if len(parts) > 1 {
+			// Extract the parent path and invalidate its children listing
+			parentPath := parts[0]
+			cache.InvalidatePrefix(parentPath + "/children")
+		}
+	}
+
+	// If this is a root operation, invalidate root children
+	if resource == "/me/drive/root" || strings.HasPrefix(resource, "/me/drive/root/") {
+		cache.InvalidatePrefix("/me/drive/root/children")
+	}
+
+	log.Debug().Str("resource", resource).Msg("Invalidated cache entries for modified resource")
 }
 
 // Patch is a convenience wrapper around Request
 func Patch(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return Request(resource, auth, "PATCH", content, headers...)
+	data, err := Request(resource, auth, "PATCH", content, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return data, err
 }
 
 // PatchWithContext is a convenience wrapper around RequestWithContext
 func PatchWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
+	data, err := RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return data, err
 }
 
 // Post is a convenience wrapper around Request
 func Post(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return Request(resource, auth, "POST", content, headers...)
+	data, err := Request(resource, auth, "POST", content, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return data, err
 }
 
 // PostWithContext is a convenience wrapper around RequestWithContext
 func PostWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return RequestWithContext(ctx, resource, auth, "POST", content, headers...)
+	data, err := RequestWithContext(ctx, resource, auth, "POST", content, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return data, err
 }
 
 // Put is a convenience wrapper around Request
 func Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return Request(resource, auth, "PUT", content, headers...)
+	data, err := Request(resource, auth, "PUT", content, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return data, err
 }
 
 // PutWithContext is a convenience wrapper around RequestWithContext
 func PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
+	data, err := RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return data, err
 }
 
 // Delete performs an HTTP delete
 func Delete(resource string, auth *Auth, headers ...Header) error {
 	_, err := Request(resource, auth, "DELETE", nil, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
 	return err
 }
 
 // DeleteWithContext performs an HTTP delete with context
 func DeleteWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) error {
 	_, err := RequestWithContext(ctx, resource, auth, "DELETE", nil, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
 	return err
 }
 
