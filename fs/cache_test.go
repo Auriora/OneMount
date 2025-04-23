@@ -2,7 +2,6 @@
 package fs
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -24,9 +23,7 @@ func TestRootChildrenUpdate(t *testing.T) {
 	children, err := cache.GetChildrenPath("/", auth)
 	require.NoError(t, err)
 
-	if _, exists := children["documents"]; !exists {
-		t.Fatal("Could not find documents folder.")
-	}
+	require.Contains(t, children, "documents", "Could not find documents folder.")
 }
 
 func TestSubdirGet(t *testing.T) {
@@ -43,14 +40,9 @@ func TestSubdirChildrenUpdate(t *testing.T) {
 	children, err := cache.GetChildrenPath("/Documents", auth)
 	require.NoError(t, err)
 
-	if _, exists := children["documents"]; exists {
-		fmt.Println("Documents directory found inside itself. " +
-			"Likely the cache did not traverse correctly.\n\nChildren:")
-		for key := range children {
-			fmt.Println(key)
-		}
-		t.FailNow()
-	}
+	require.NotContains(t, children, "documents",
+		"Documents directory found inside itself. Likely the cache did not traverse correctly.\nChildren: %v",
+		children)
 }
 
 func TestSamePointer(t *testing.T) {
@@ -58,8 +50,6 @@ func TestSamePointer(t *testing.T) {
 	require.NoError(t, err)
 	item, _ := cache.GetPath("/Documents", auth)
 	item2, _ := cache.GetPath("/Documents", auth)
-	if item != item2 {
-		t.Fatalf("Pointers to cached items do not match: %p != %p\n", item, item2)
-	}
+	require.Same(t, item, item2, "Pointers to cached items do not match: %p != %p", item, item2)
 	assert.NotNil(t, item)
 }

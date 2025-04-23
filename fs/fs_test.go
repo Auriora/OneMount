@@ -5,7 +5,7 @@ package fs
 
 import (
 	"bufio"
-	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,16 +30,16 @@ func TestReaddir(t *testing.T) {
 			files = append(files, info)
 		}
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
+	found := false
 	for _, file := range files {
 		if file.Name() == "Documents" {
-			return
+			found = true
+			break
 		}
 	}
-	t.Fatal("Could not find \"Documents\" folder.")
+	require.True(t, found, "Could not find \"Documents\" folder.")
 }
 
 // does ls work and can we find the Documents folder?
@@ -47,9 +47,7 @@ func TestLs(t *testing.T) {
 	stdout, err := exec.Command("ls", "mount").Output()
 	require.NoError(t, err)
 	sout := string(stdout)
-	if !strings.Contains(sout, "Documents") {
-		t.Fatal("Could not find \"Documents\" folder.")
-	}
+	require.Contains(t, sout, "Documents", "Could not find \"Documents\" folder.")
 }
 
 // can touch create an empty file?
@@ -61,9 +59,7 @@ func TestTouchCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Zero(t, st.Size(), "Size should be zero.")
-	if st.Mode() != 0644 {
-		t.Fatal("Mode of new file was not 644, got", Octal(uint32(st.Mode())))
-	}
+	require.Equal(t, os.FileMode(0644), st.Mode(), "Mode of new file was not 644, got %s", Octal(uint32(st.Mode())))
 	require.False(t, st.IsDir(), "New file detected as directory.")
 }
 
@@ -78,10 +74,9 @@ func TestTouchUpdateTime(t *testing.T) {
 	require.NoError(t, exec.Command("touch", fname).Run())
 	st2, _ := os.Stat(fname)
 
-	if st2.ModTime().Equal(st1.ModTime()) || st2.ModTime().Before(st1.ModTime()) {
-		t.Fatalf("File modification time was not updated by touch:\n"+
-			"Before: %d\nAfter: %d\n", st1.ModTime().Unix(), st2.ModTime().Unix())
-	}
+	require.False(t, st2.ModTime().Equal(st1.ModTime()) || st2.ModTime().Before(st1.ModTime()),
+		"File modification time was not updated by touch:\nBefore: %d\nAfter: %d\n",
+		st1.ModTime().Unix(), st2.ModTime().Unix())
 }
 
 // chmod should *just work*
@@ -90,9 +85,7 @@ func TestChmod(t *testing.T) {
 	require.NoError(t, exec.Command("touch", fname).Run())
 	require.NoError(t, os.Chmod(fname, 0777))
 	st, _ := os.Stat(fname)
-	if st.Mode() != 0777 {
-		t.Fatalf("Mode of file was not 0777, got %o instead!", st.Mode())
-	}
+	require.Equal(t, os.FileMode(0777), st.Mode(), "Mode of file was not 0777, got %o instead!", st.Mode())
 }
 
 // test that both mkdir and rmdir work, as well as the potentially failing
@@ -190,13 +183,9 @@ func TestAppend(t *testing.T) {
 	for scanner.Scan() {
 		counter++
 		scanned := scanner.Text()
-		if scanned != "append" {
-			t.Fatalf("File text was wrong. Got \"%s\", wanted \"append\"\n", scanned)
-		}
+		require.Equal(t, "append", scanned, "File text was wrong. Got \"%s\", wanted \"append\"", scanned)
 	}
-	if counter != 5 {
-		t.Fatalf("Got wrong number of lines (%d), expected 5\n", counter)
-	}
+	require.Equal(t, 5, counter, "Got wrong number of lines (%d), expected 5", counter)
 }
 
 // identical to TestAppend, but truncates the file each time it is written to
@@ -218,9 +207,7 @@ func TestTruncate(t *testing.T) {
 		counter++
 		assert.Equal(t, "append", scanner.Text(), "File text was wrong.")
 	}
-	if counter != 1 {
-		t.Fatalf("Got wrong number of lines (%d), expected 1\n", counter)
-	}
+	require.Equal(t, 1, counter, "Got wrong number of lines (%d), expected 1", counter)
 }
 
 // can we seek to the middle of a file and do writes there correctly?
@@ -269,9 +256,7 @@ func TestUnlink(t *testing.T) {
 	require.NoError(t, exec.Command("touch", fname).Run())
 	require.NoError(t, os.Remove(fname))
 	stdout, _ := exec.Command("ls", "mount").Output()
-	if strings.Contains(string(stdout), "unlink_tester") {
-		t.Fatalf("Deleting %s did not work.", fname)
-	}
+	require.NotContains(t, string(stdout), "unlink_tester", "Deleting %s did not work.", fname)
 }
 
 // OneDrive is case-insensitive due to limitations imposed by Windows NTFS
@@ -344,13 +329,9 @@ func TestChildrenAreCasedProperly(t *testing.T) {
 	require.NoError(t, os.WriteFile(
 		filepath.Join(TestDir, "CASE-check.txt"), []byte("yep"), 0644))
 	stdout, err := exec.Command("ls", TestDir).Output()
-	if err != nil {
-		t.Fatalf("%s: %s", err, stdout)
-	}
-	if !strings.Contains(string(stdout), "CASE-check.txt") {
-		t.Fatalf("Upper case filenames were not honored, "+
-			"expected \"CASE-check.txt\" in output, got %s\n", string(stdout))
-	}
+	require.NoError(t, err, "%s: %s", err, stdout)
+	require.Contains(t, string(stdout), "CASE-check.txt",
+		"Upper case filenames were not honored, expected \"CASE-check.txt\" in output, got %s", string(stdout))
 }
 
 // Test that when running "echo some text > file.txt" that file.txt actually
@@ -365,9 +346,8 @@ func TestEchoWritesToFile(t *testing.T) {
 
 	content, err := os.ReadFile(fname)
 	require.NoError(t, err)
-	if !bytes.Contains(content, []byte("bagels")) {
-		t.Fatalf("Populating a file via 'echo' failed. Got: \"%s\", wanted \"bagels\"\n", content)
-	}
+	require.Contains(t, string(content), "bagels",
+		"Populating a file via 'echo' failed. Got: \"%s\", wanted \"bagels\"", content)
 }
 
 // Test that if we stat a file, we get some correct information back
@@ -376,13 +356,10 @@ func TestStat(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Documents", stat.Name(), "Name was not \"Documents\".")
 
-	if stat.ModTime().Year() < 1971 {
-		t.Fatal("Modification time of /Documents wrong, got: " + stat.ModTime().String())
-	}
-
-	if !stat.IsDir() {
-		t.Fatalf("Mode of /Documents wrong, not detected as directory, got: %s", stat.Mode())
-	}
+	require.True(t, stat.ModTime().Year() >= 1971,
+		"Modification time of /Documents wrong, got: %s", stat.ModTime().String())
+	require.True(t, stat.IsDir(),
+		"Mode of /Documents wrong, not detected as directory, got: %s", stat.Mode())
 }
 
 // Question marks appear in `ls -l`s output if an item is populated via readdir,
@@ -390,11 +367,8 @@ func TestStat(t *testing.T) {
 // metadata corruption, as `ls` will exit with 1 if something bad happens.
 func TestNoQuestionMarks(t *testing.T) {
 	out, err := exec.Command("ls", "-l", "mount/").CombinedOutput()
-	if strings.Contains(string(out), "??????????") || err != nil {
-		t.Log("A Lookup() failed on an inode found by Readdir()")
-		t.Log(string(out))
-		t.FailNow()
-	}
+	require.False(t, strings.Contains(string(out), "??????????") || err != nil,
+		"A Lookup() failed on an inode found by Readdir()\n%s", string(out))
 }
 
 // Trashing items through nautilus or other Linux file managers is done via
@@ -425,12 +399,11 @@ func TestGIOTrash(t *testing.T) {
 				t.Skip("This is a GIO bug (it complains about test file being " +
 					"a directory despite correct metadata from onedriver), skipping.")
 			}
-			t.Fatal(fname, "still exists after deletion!")
+			require.Fail(t, fmt.Sprintf("%s still exists after deletion!", fname))
 		}
 	}
-	if strings.Contains(string(out), "Unable to find or create trash directory") {
-		t.Fatal(string(out))
-	}
+	require.False(t, strings.Contains(string(out), "Unable to find or create trash directory"),
+		"Error creating trash directory: %s", string(out))
 
 	// Give the DeltaLoop time to process the file deletion
 	time.Sleep(2 * time.Second)
@@ -459,7 +432,7 @@ func TestListChildrenPaging(t *testing.T) {
 			)
 			t.SkipNow()
 		}
-		t.Fatalf("Paging limit failed. Got %d files, wanted at least 201.\n", len(files))
+		require.GreaterOrEqual(t, len(files), 201, "Paging limit failed. Got %d files, wanted at least 201.", len(files))
 	}
 }
 
@@ -491,9 +464,7 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		item, err := graph.GetItemPath("/onedriver_tests/libreoffice.docx", auth)
 		if err == nil && item != nil {
-			if item.Size == 0 {
-				t.Fatal("Item size was 0!")
-			}
+			require.NotZero(t, item.Size, "Item size was 0!")
 			return true
 		}
 		return false
