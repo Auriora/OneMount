@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -277,6 +278,71 @@ func displayStats(config *common.Config, mountpoint string) {
 	fmt.Printf("  Delta items: %d\n", stats.DBDeltaCount)
 	fmt.Printf("  Offline changes: %d\n", stats.DBOfflineCount)
 	fmt.Printf("  Upload records: %d\n", stats.DBUploadsCount)
+
+	// Directory statistics derived from metadata
+	fmt.Printf("\nDirectory Statistics:\n")
+	fmt.Printf("  Total directories: %d\n", stats.DirCount)
+	fmt.Printf("  Empty directories: %d\n", stats.EmptyDirCount)
+	fmt.Printf("  Maximum directory depth: %d\n", stats.MaxDirDepth)
+	fmt.Printf("  Average directory depth: %.2f\n", stats.AvgDirDepth)
+	fmt.Printf("  Average files per directory: %.2f\n", stats.AvgFilesPerDir)
+	fmt.Printf("  Maximum files in a directory: %d\n", stats.MaxFilesInDir)
+
+	// File type statistics
+	if len(stats.FileExtensions) > 0 {
+		fmt.Printf("\nFile Type Distribution:\n")
+		// Sort extensions for consistent display
+		extensions := make([]string, 0, len(stats.FileExtensions))
+		for ext := range stats.FileExtensions {
+			extensions = append(extensions, ext)
+		}
+		sort.Strings(extensions)
+
+		for _, ext := range extensions {
+			fmt.Printf("  %s: %d\n", ext, stats.FileExtensions[ext])
+		}
+	}
+
+	// File size statistics
+	if len(stats.FileSizeRanges) > 0 {
+		fmt.Printf("\nFile Size Distribution:\n")
+		// Define order for size ranges
+		sizeRangeOrder := []string{
+			"Empty (0 bytes)",
+			"< 1 KB",
+			"1 KB - 1 MB",
+			"1 MB - 10 MB",
+			"10 MB - 100 MB",
+			"100 MB - 1 GB",
+			"> 1 GB",
+		}
+
+		for _, sizeRange := range sizeRangeOrder {
+			if count, exists := stats.FileSizeRanges[sizeRange]; exists {
+				fmt.Printf("  %s: %d\n", sizeRange, count)
+			}
+		}
+	}
+
+	// File age statistics
+	if len(stats.FileAgeRanges) > 0 {
+		fmt.Printf("\nFile Age Distribution:\n")
+		// Define order for age ranges
+		ageRangeOrder := []string{
+			"Today",
+			"This week",
+			"This month",
+			"Last 3 months",
+			"This year",
+			"Older than a year",
+		}
+
+		for _, ageRange := range ageRangeOrder {
+			if count, exists := stats.FileAgeRanges[ageRange]; exists {
+				fmt.Printf("  %s: %d\n", ageRange, count)
+			}
+		}
+	}
 
 	// Clean up
 	filesystem.StopCacheCleanup()

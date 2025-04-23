@@ -41,6 +41,9 @@ You can also view statistics about your OneDrive cache without mounting by using
 the `--stats` flag: `onedriver --stats /path/to/mount/onedrive/at`. This will
 display information about the metadata cache, content cache, upload queue, 
 file statuses, and the embedded bbolt database used for persistent storage.
+The stats command now includes detailed metadata analysis such as file type distribution,
+directory depth statistics, file size distribution, and file age information derived
+from the bbolt database.
 
 ## Key features
 
