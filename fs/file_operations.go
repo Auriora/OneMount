@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -123,6 +124,17 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	inode := f.GetID(id)
 	if inode == nil {
 		return fuse.ENOENT
+	}
+
+	// Check if this is a thumbnail request
+	name := inode.Name()
+	if _, _, ok := parseThumbnailRequest(name); ok {
+		// This is a thumbnail request, handle it
+		status, handleID := f.HandleThumbnailRequest(cancel, in, name, out)
+		if status == fuse.OK {
+			out.Fh = handleID
+		}
+		return status
 	}
 
 	path := inode.Path()
@@ -280,6 +292,22 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error opening the cache file
 func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
+	// Check if this is a thumbnail file handle
+	if in.Fh != 0 {
+		// Get the file handle
+		fh := f.GetFileHandle(in.Fh)
+		if fh != nil {
+			// This is a thumbnail file handle, use its Read method
+			ctx := context.Background()
+			result, errno := fh.Read(ctx, buf, int64(in.Offset))
+			if errno != 0 {
+				return nil, fuse.Status(errno)
+			}
+			return result, fuse.OK
+		}
+	}
+
+	// Regular file read
 	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		return fuse.ReadResultData(make([]byte, 0)), fuse.EBADF
@@ -433,6 +461,18 @@ func (f *Filesystem) Fsync(cancel <-chan struct{}, in *fuse.FsyncIn) fuse.Status
 // Flush is called when a file descriptor is closed. Uses Fsync() to perform file
 // uploads. (Release not implemented because all cleanup is already done here).
 func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status {
+	// Check if this is a thumbnail file handle
+	if in.Fh != 0 {
+		// Get the file handle
+		fh := f.GetFileHandle(in.Fh)
+		if fh != nil {
+			// This is a thumbnail file handle, but we don't need to do anything special
+			// The file will be cleaned up in Release
+			return fuse.OK
+		}
+	}
+
+	// Regular file flush
 	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		return fuse.EBADF

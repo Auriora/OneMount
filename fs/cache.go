@@ -26,14 +26,15 @@ import (
 type Filesystem struct {
 	fuse.RawFileSystem // Implements the base FUSE filesystem interface
 
-	metadata  sync.Map         // In-memory cache of filesystem metadata
-	db        *bolt.DB         // Persistent database for filesystem state
-	content   *LoopbackCache   // Cache for file contents
-	auth      *graph.Auth      // Authentication for Microsoft Graph API
-	root      string           // The ID of the filesystem's root item
-	deltaLink string           // Link for incremental synchronization with OneDrive
-	uploads   *UploadManager   // Manages file uploads to OneDrive
-	downloads *DownloadManager // Manages file downloads from OneDrive
+	metadata   sync.Map         // In-memory cache of filesystem metadata
+	db         *bolt.DB         // Persistent database for filesystem state
+	content    *LoopbackCache   // Cache for file contents
+	thumbnails *ThumbnailCache  // Cache for file thumbnails
+	auth       *graph.Auth      // Authentication for Microsoft Graph API
+	root       string           // The ID of the filesystem's root item
+	deltaLink  string           // Link for incremental synchronization with OneDrive
+	uploads    *UploadManager   // Manages file uploads to OneDrive
+	downloads  *DownloadManager // Manages file downloads from OneDrive
 
 	// Cache cleanup configuration
 	cacheExpirationDays  int            // Number of days after which cached files expire
@@ -119,6 +120,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	}
 
 	content := NewLoopbackCache(filepath.Join(cacheDir, "content"))
+	thumbnails := NewThumbnailCache(filepath.Join(cacheDir, "thumbnails"))
 	db.Update(func(tx *bolt.Tx) error {
 		tx.CreateBucketIfNotExists(bucketMetadata)
 		tx.CreateBucketIfNotExists(bucketDelta)
@@ -156,6 +158,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	fs := &Filesystem{
 		RawFileSystem:       fuse.NewDefaultRawFileSystem(),
 		content:             content,
+		thumbnails:          thumbnails,
 		db:                  db,
 		auth:                auth,
 		opendirs:            make(map[uint64][]*Inode),
