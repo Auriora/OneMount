@@ -3,11 +3,17 @@
     <module name="onedriver" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-v -parallel=8 -count=1" />
+    <envs>
+      <env name="CGO_ENABLED" value="0" />
+    </envs>
     <kind value="DIRECTORY" />
     <package value="github.com/jstaf/onedriver/ui" />
     <directory value="$PROJECT_DIR$/ui" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
-    <method v="2" />
+    <method v="2">
+      <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_External Tools_Remove fusefs test logs" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="all" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
+    </method>
   </configuration>
 </component>
