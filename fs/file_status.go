@@ -140,9 +140,9 @@ func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 		// Check if there are any changes for this ID
 		c := b.Cursor()
 		prefix := []byte(id + "-")
-		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+		k, _ := c.Seek(prefix)
+		if k != nil && bytes.HasPrefix(k, prefix) {
 			hasOfflineChanges = true
-			break // Found a match, no need to continue
 		}
 		return nil
 	}); err != nil {

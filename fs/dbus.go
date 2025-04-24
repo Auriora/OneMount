@@ -193,7 +193,9 @@ func (s *FileStatusDBusServer) Stop() {
 	}
 
 	if s.conn != nil {
-		s.conn.Close()
+		if err := s.conn.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close D-Bus connection")
+		}
 		s.conn = nil
 	}
 	s.started = false
