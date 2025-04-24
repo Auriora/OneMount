@@ -11,7 +11,7 @@ import (
 
 // Statfs returns information about the filesystem. Mainly useful for checking
 // quotas and storage limits.
-func (f *Filesystem) StatFs(cancel <-chan struct{}, in *fuse.InHeader, out *fuse.StatfsOut) fuse.Status {
+func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.StatfsOut) fuse.Status {
 	ctx := log.With().Str("op", "StatFs").Logger()
 	ctx.Debug().Msg("")
 	drive, err := graph.GetDrive(f.auth)
@@ -44,7 +44,7 @@ func (f *Filesystem) StatFs(cancel <-chan struct{}, in *fuse.InHeader, out *fuse
 
 // Getattr returns a the Inode as a UNIX stat. Holds the read mutex for all of
 // the "metadata fetch" operations.
-func (f *Filesystem) GetAttr(cancel <-chan struct{}, in *fuse.GetAttrIn, out *fuse.AttrOut) fuse.Status {
+func (f *Filesystem) GetAttr(_ <-chan struct{}, in *fuse.GetAttrIn, out *fuse.AttrOut) fuse.Status {
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
@@ -65,7 +65,7 @@ func (f *Filesystem) GetAttr(cancel <-chan struct{}, in *fuse.GetAttrIn, out *fu
 // Setattr is the workhorse for setting filesystem attributes. Does the work of
 // operations like utimens, chmod, chown (not implemented, FUSE is single-user),
 // and truncate.
-func (f *Filesystem) SetAttr(cancel <-chan struct{}, in *fuse.SetAttrIn, out *fuse.AttrOut) fuse.Status {
+func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.AttrOut) fuse.Status {
 	i := f.GetNodeID(in.NodeId)
 	if i == nil {
 		return fuse.ENOENT
@@ -112,9 +112,18 @@ func (f *Filesystem) SetAttr(cancel <-chan struct{}, in *fuse.SetAttrIn, out *fu
 			Uint64("oldSize", i.DriveItem.Size).
 			Uint64("newSize", size).
 			Msg("")
-		fd, _ := f.content.Open(i.DriveItem.ID)
+		fd, err := f.content.Open(i.DriveItem.ID)
+		if err != nil {
+			ctx.Error().Err(err).Msg("Failed to open file for truncation")
+			i.Unlock()
+			return fuse.EIO
+		}
 		// the unix syscall does not update the seek position, so neither should we
-		fd.Truncate(int64(size))
+		if err := fd.Truncate(int64(size)); err != nil {
+			ctx.Error().Err(err).Msg("Failed to truncate file")
+			i.Unlock()
+			return fuse.EIO
+		}
 		i.DriveItem.Size = size
 		i.hasChanges = true
 	}
@@ -126,7 +135,7 @@ func (f *Filesystem) SetAttr(cancel <-chan struct{}, in *fuse.SetAttrIn, out *fu
 }
 
 // Rename renames and/or moves an inode.
-func (f *Filesystem) Rename(cancel <-chan struct{}, in *fuse.RenameIn, name string, newName string) fuse.Status {
+func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, newName string) fuse.Status {
 	if isNameRestricted(newName) {
 		return fuse.EINVAL
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // Mkdir creates a directory.
-func (f *Filesystem) Mkdir(cancel <-chan struct{}, in *fuse.MkdirIn, name string, out *fuse.EntryOut) fuse.Status {
+func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out *fuse.EntryOut) fuse.Status {
 	if isNameRestricted(name) {
 		return fuse.EINVAL
 	}
@@ -81,7 +81,7 @@ func (f *Filesystem) Rmdir(cancel <-chan struct{}, in *fuse.InHeader, name strin
 }
 
 // OpenDir provides a list of all the entries in the directory
-func (f *Filesystem) OpenDir(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
+func (f *Filesystem) OpenDir(_ <-chan struct{}, in *fuse.OpenIn, _ *fuse.OpenOut) fuse.Status {
 	id := f.TranslateID(in.NodeId)
 	dir := f.GetID(id)
 	if dir == nil {
@@ -253,7 +253,7 @@ func (f *Filesystem) ReadDir(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.
 
 // Lookup is called by the kernel when the VFS wants to know about a file inside
 // a directory.
-func (f *Filesystem) Lookup(cancel <-chan struct{}, in *fuse.InHeader, name string, out *fuse.EntryOut) fuse.Status {
+func (f *Filesystem) Lookup(_ <-chan struct{}, in *fuse.InHeader, name string, out *fuse.EntryOut) fuse.Status {
 	id := f.TranslateID(in.NodeId)
 	log.Trace().
 		Str("op", "Lookup").
