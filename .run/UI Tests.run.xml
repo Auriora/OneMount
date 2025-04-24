@@ -8,7 +8,6 @@
     <directory value="$PROJECT_DIR$/ui" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
-    <pattern value="^Test.*$" />
     <method v="2" />
   </configuration>
 </component>
