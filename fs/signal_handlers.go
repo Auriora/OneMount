@@ -17,7 +17,7 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server) {
 
 	// Unmount the filesystem with retries
 	maxRetries := 3
-	retryDelay := 500 * time.Millisecond
+	retryDelay := 5000 * time.Millisecond
 	var err error
 
 	for i := 0; i < maxRetries; i++ {
