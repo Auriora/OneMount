@@ -69,47 +69,145 @@ func TestOfflineBagelContents(t *testing.T) {
 	require.Equal(t, []byte("bagels\n"), contents, "Offline file contents did not match.")
 }
 
-// Creating a file should fail
+// Creating a file should succeed in offline mode
 func TestOfflineFileCreation(t *testing.T) {
 	t.Parallel()
-	require.Error(t,
-		os.WriteFile(filepath.Join(TestDir, "donuts"), []byte("fail me"), 0644),
-		"Writing a file while offline should fail.",
-	)
+	donutsPath := filepath.Join(TestDir, "donuts")
+	donutsContent := []byte("donuts are tasty")
+
+	// Write the file in offline mode
+	err := os.WriteFile(donutsPath, donutsContent, 0644)
+	require.NoError(t, err, "Writing a file while offline should succeed")
+
+	// Verify the file was created and has the correct content
+	contents, err := os.ReadFile(donutsPath)
+	require.NoError(t, err, "Reading the file should succeed")
+	require.Equal(t, donutsContent, contents, "File contents should match what was written")
 }
 
-// Modifying a file offline should fail.
+// Modifying a file offline should succeed
 func TestOfflineFileModification(t *testing.T) {
 	t.Parallel()
-	require.Error(t,
-		os.WriteFile(filepath.Join(TestDir, "bagels"), []byte("fail me too"), 0644),
-		"Modifying a file while offline should fail.",
-	)
+	bagelPath := filepath.Join(TestDir, "bagels")
+	newContent := []byte("modified bagels are better")
+
+	// First read the original content
+	originalContent, err := os.ReadFile(bagelPath)
+	require.NoError(t, err, "Reading the original file should succeed")
+
+	// Modify the file in offline mode
+	err = os.WriteFile(bagelPath, newContent, 0644)
+	require.NoError(t, err, "Modifying a file while offline should succeed")
+
+	// Verify the file was modified and has the new content
+	modifiedContent, err := os.ReadFile(bagelPath)
+	require.NoError(t, err, "Reading the modified file should succeed")
+	require.Equal(t, newContent, modifiedContent, "File contents should match the new content")
+	require.NotEqual(t, originalContent, modifiedContent, "File contents should be different from the original")
 }
 
-// Deleting a file offline should fail.
+// Deleting a file offline should succeed
 func TestOfflineFileDeletion(t *testing.T) {
 	t.Parallel()
-	if os.Remove(filepath.Join(TestDir, "write.txt")) == nil {
-		t.Error("Deleting a file while offline should fail.")
-	}
-	if os.Remove(filepath.Join(TestDir, "empty")) == nil {
-		t.Error("Deleting an empty file while offline should fail.")
-	}
+
+	// Create a test file to delete
+	testFilePath := filepath.Join(TestDir, "file_to_delete.txt")
+	err := os.WriteFile(testFilePath, []byte("this file will be deleted"), 0644)
+	require.NoError(t, err, "Creating a test file should succeed")
+
+	// Verify the file exists
+	_, err = os.Stat(testFilePath)
+	require.NoError(t, err, "The test file should exist before deletion")
+
+	// Delete the file in offline mode
+	err = os.Remove(testFilePath)
+	require.NoError(t, err, "Deleting a file while offline should succeed")
+
+	// Verify the file was deleted
+	_, err = os.Stat(testFilePath)
+	require.Error(t, err, "The test file should not exist after deletion")
+	require.True(t, os.IsNotExist(err), "The error should indicate that the file does not exist")
 }
 
-// Creating a directory offline should fail.
+// Creating a directory offline should succeed
 func TestOfflineMkdir(t *testing.T) {
 	t.Parallel()
-	if os.Mkdir(filepath.Join(TestDir, "offline_dir"), 0755) == nil {
-		t.Fatal("Creating a directory should have failed offline.")
-	}
+	dirPath := filepath.Join(TestDir, "offline_dir")
+
+	// Create the directory in offline mode
+	err := os.Mkdir(dirPath, 0755)
+	require.NoError(t, err, "Creating a directory while offline should succeed")
+
+	// Verify the directory was created
+	info, err := os.Stat(dirPath)
+	require.NoError(t, err, "The directory should exist after creation")
+	require.True(t, info.IsDir(), "The created path should be a directory")
 }
 
-// Deleting a directory offline should fail.
+// Deleting a directory offline should succeed
 func TestOfflineRmdir(t *testing.T) {
 	t.Parallel()
-	if os.Remove(filepath.Join(TestDir, "folder1")) == nil {
-		t.Fatal("Removing a directory should have failed offline.")
-	}
+
+	// Create a test directory to delete
+	dirPath := filepath.Join(TestDir, "dir_to_delete")
+	err := os.Mkdir(dirPath, 0755)
+	require.NoError(t, err, "Creating a test directory should succeed")
+
+	// Verify the directory exists
+	_, err = os.Stat(dirPath)
+	require.NoError(t, err, "The test directory should exist before deletion")
+
+	// Delete the directory in offline mode
+	err = os.Remove(dirPath)
+	require.NoError(t, err, "Deleting a directory while offline should succeed")
+
+	// Verify the directory was deleted
+	_, err = os.Stat(dirPath)
+	require.Error(t, err, "The test directory should not exist after deletion")
+	require.True(t, os.IsNotExist(err), "The error should indicate that the directory does not exist")
+}
+
+// Test that changes made in offline mode are cached and marked as changed
+func TestOfflineChangesCached(t *testing.T) {
+	t.Parallel()
+
+	// Create a test file in offline mode
+	testFilePath := filepath.Join(TestDir, "cached_changes.txt")
+	testContent := []byte("this file was created in offline mode")
+	err := os.WriteFile(testFilePath, testContent, 0644)
+	require.NoError(t, err, "Creating a file in offline mode should succeed")
+
+	// Verify the file exists and has the correct content
+	content, err := os.ReadFile(testFilePath)
+	require.NoError(t, err, "Reading the file should succeed")
+	require.Equal(t, testContent, content, "File content should match what was written")
+
+	// The file should be marked as changed in the filesystem
+	// Note: We can't directly access the filesystem's internal state from these tests,
+	// but the fact that we can read the file back confirms it was cached locally
+}
+
+// Test that when going back online, files are synchronized
+func TestOfflineSynchronization(t *testing.T) {
+	// This test is not run in parallel because it changes the global offline state
+
+	// Create a test file in offline mode
+	syncFilePath := filepath.Join(TestDir, "sync_test.txt")
+	syncContent := []byte("this file will be synchronized when online")
+	err := os.WriteFile(syncFilePath, syncContent, 0644)
+	require.NoError(t, err, "Creating a file in offline mode should succeed")
+
+	// Verify the file exists and has the correct content
+	content, err := os.ReadFile(syncFilePath)
+	require.NoError(t, err, "Reading the file should succeed")
+	require.Equal(t, syncContent, content, "File content should match what was written")
+
+	// Note: We can't actually test the synchronization in this test suite because:
+	// 1. We're running with network access disabled via unshare
+	// 2. We don't have access to the filesystem's internal state
+	//
+	// In a real scenario, when the filesystem goes back online:
+	// 1. The changes would be detected as they're marked in the local cache
+	// 2. The upload manager would process the queued changes
+	// 3. The files would be synchronized with OneDrive
 }

@@ -32,11 +32,26 @@ func (f *Filesystem) Mkdir(cancel <-chan struct{}, in *fuse.MkdirIn, name string
 		Logger()
 	ctx.Debug().Msg("")
 
-	// create the new directory on the server
-	item, err := graph.Mkdir(name, id, f.auth)
-	if err != nil {
-		ctx.Error().Err(err).Msg("Could not create remote directory!")
-		return fuse.EREMOTEIO
+	var item *graph.DriveItem
+	var err error
+
+	if f.IsOffline() {
+		// In offline mode, create a local directory that will be synced when online
+		ctx.Info().Msg("Directory creation in offline mode will be cached locally")
+		item = &graph.DriveItem{
+			Name:   name,
+			Folder: &graph.Folder{},
+			Parent: &graph.DriveItemParent{
+				ID: id,
+			},
+		}
+	} else {
+		// create the new directory on the server
+		item, err = graph.Mkdir(name, id, f.auth)
+		if err != nil {
+			ctx.Error().Err(err).Msg("Could not create remote directory!")
+			return fuse.EREMOTEIO
+		}
 	}
 
 	newInode := NewInodeDriveItem(item)

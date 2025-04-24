@@ -35,8 +35,7 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 		Str("path", path).
 		Logger()
 	if f.IsOffline() {
-		ctx.Info().Msg("File creation not allowed in offline mode")
-		return fuse.EREMOTEIO
+		ctx.Info().Msg("File creation in offline mode will be cached locally")
 	}
 
 	if child, _ := f.GetChild(parentID, name, f.auth); child != nil {
@@ -146,8 +145,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		ctx.Info().
 			Bool("readWrite", flags&os.O_RDWR > 0).
 			Bool("writeOnly", flags&os.O_WRONLY > 0).
-			Msg("Write operations not allowed in offline mode")
-		return fuse.EREMOTEIO
+			Msg("Write operations in offline mode will be cached locally")
 	}
 
 	ctx.Debug().Msg("")
@@ -259,8 +257,7 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 		Logger()
 
 	if f.IsOffline() {
-		ctx.Info().Msg("File deletion not allowed in offline mode")
-		return fuse.EREMOTEIO
+		ctx.Info().Msg("File deletion in offline mode will be cached locally")
 	}
 
 	ctx.Debug().Msg("Unlinking inode.")
@@ -377,10 +374,9 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 		Logger()
 	ctx.Trace().Msg("")
 
-	// Prevent write operations in offline mode
+	// In offline mode, we allow writes but they will be cached locally
 	if f.IsOffline() {
-		ctx.Info().Msg("Write operations not allowed in offline mode")
-		return 0, fuse.EREMOTEIO
+		ctx.Info().Msg("Write operations in offline mode will be cached locally")
 	}
 
 	fd, err := f.content.Open(id)
