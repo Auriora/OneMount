@@ -142,6 +142,28 @@ func TestMain(m *testing.M) {
 	// mount fs in background thread
 	go server.Serve()
 
+	// Wait for the filesystem to be mounted
+	log.Info().Msg("Waiting for filesystem to be mounted...")
+	mounted := false
+	for i := 0; i < 300; i++ { // 30 seconds timeout
+		if _, err := os.Stat(mountLoc); err == nil {
+			// Try to create a test file to verify the filesystem is working
+			testFile := filepath.Join(mountLoc, ".test-mount-ready")
+			if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
+				// Successfully created test file, filesystem is mounted
+				os.Remove(testFile) // Clean up
+				mounted = true
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !mounted {
+		log.Error().Msg("Filesystem failed to mount within timeout")
+		os.Exit(1)
+	}
+	log.Info().Msg("Filesystem mounted successfully")
+
 	// cleanup from last run
 	log.Info().Msg("Setup test environment ---------------------------------")
 	if err := os.RemoveAll(TestDir); err != nil {

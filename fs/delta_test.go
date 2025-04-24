@@ -265,11 +265,21 @@ func TestDeltaBadContentInCache(t *testing.T) {
 
 	insertErr := fs.content.Insert(id, []byte("wrong contents"))
 	require.NoError(t, insertErr)
-	contents, err := os.ReadFile(filepath.Join(DeltaDir, "corrupted"))
-	require.NoError(t, err)
-	require.False(t, bytes.HasPrefix(contents, []byte("wrong")),
-		"File contents were wrong! Got \"%s\", wanted \"correct contents\"",
-		string(contents))
+
+	// Use Eventually to wait for the file to be redownloaded with correct contents
+	// This gives the system time to detect the corrupted cache and download the correct content
+	var contents []byte
+	var err error
+	require.Eventually(t, func() bool {
+		contents, err = os.ReadFile(filepath.Join(DeltaDir, "corrupted"))
+		return err == nil && !bytes.HasPrefix(contents, []byte("wrong"))
+	}, retrySeconds, time.Second, "File contents were wrong! Got \"%s\", wanted \"correct contents\"",
+		func() string {
+			if err != nil {
+				return err.Error()
+			}
+			return string(contents)
+		}())
 }
 
 // Check that folders are deleted only when empty after syncing the complete set of
