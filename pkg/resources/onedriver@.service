@@ -2,6 +2,8 @@
 Description=onedriver
 
 [Service]
+Type=dbus
+BusName=org.onedriver.FileStatus
 ExecStart=/usr/bin/onedriver %f
 ExecStopPost=/usr/bin/fusermount3 -uz /%I
 Restart=on-abnormal

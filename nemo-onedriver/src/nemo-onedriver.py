@@ -33,7 +33,8 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
             )
             print("Connected to OneDriver D-Bus service")
         except dbus.exceptions.DBusException as e:
-            print(f"Failed to connect to OneDriver D-Bus service: {e}")
+            # Silently handle the case when the D-Bus service is not available
+            # This is expected when onedriver is not running or D-Bus service is not registered
             self.dbus_proxy = None
 
     def setup_dbus_signals(self):
@@ -49,7 +50,9 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
             )
             print("Set up D-Bus signal handler for file status changes")
         except dbus.exceptions.DBusException as e:
-            print(f"Failed to set up D-Bus signal handler: {e}")
+            # Silently handle the case when the D-Bus signal handler cannot be set up
+            # This is expected when onedriver is not running or D-Bus service is not registered
+            pass
 
     def _on_file_status_changed(self, path, status):
         """Handle file status change signals from D-Bus"""
@@ -140,9 +143,10 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
                 status = get_status(path)
                 self.file_status_cache[path] = status
                 return status
-            except dbus.exceptions.DBusException as e:
-                print(f"D-Bus error getting status for {path}: {e}")
-                # If D-Bus fails, try to reconnect for next time
+            except dbus.exceptions.DBusException:
+                # Silently handle D-Bus errors and fall back to extended attributes
+                # This is expected when onedriver is not running or D-Bus service is not registered
+                # Try to reconnect for next time
                 self.connect_to_dbus()
                 # Fall back to extended attributes
 
