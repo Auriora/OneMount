@@ -10,6 +10,9 @@ RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 # glib compatibility: https://github.com/gotk3/gotk3/issues/762#issuecomment-919035313
 CGO_CFLAGS := CGO_CFLAGS=-Wno-deprecated-declarations
 
+# Add this near the top with other variables
+OUTPUT_DIR := build
+
 # test-specific variables
 TEST_UID := $(shell whoami)
 GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
@@ -18,27 +21,31 @@ all: onedriver onedriver-launcher
 
 
 onedriver: $(shell find fs/ -type f) cmd/onedriver/main.go
-	bash cgo-helper.sh 
+	bash cgo-helper.sh
+	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
+		-o $(OUTPUT_DIR)/onedriver \
 		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver
 
 
 onedriver-headless: $(shell find fs/ cmd/common/ -type f) cmd/onedriver/main.go
-	CGO_ENABLED=0 go build -v -o onedriver-headless \
+	CGO_ENABLED=0 go build -v \
+		-o $(OUTPUT_DIR)/onedriver/onedriver-headless \
 		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver
 
 
 onedriver-launcher: $(shell find ui/ cmd/common/ -type f) cmd/onedriver-launcher/main.go
 	$(CGO_CFLAGS) go build -v \
+		-o $(OUTPUT_DIR)/onedriver-lanucher \
 		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver-launcher
 
 
 install: onedriver onedriver-launcher
-	cp onedriver /usr/bin/
-	cp onedriver-launcher /usr/bin/
+	cp $(OUTPUT_DIR)/onedriver /usr/bin/
+	cp $(OUTPUT_DIR)/onedriver-launcher /usr/bin/
 	mkdir -p /usr/share/icons/onedriver/
 	cp pkg/resources/onedriver.svg /usr/share/icons/onedriver/
 	cp pkg/resources/onedriver.png /usr/share/icons/onedriver/
