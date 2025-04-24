@@ -86,7 +86,7 @@ func TestMain(m *testing.M) {
 		&fuse.MountOptions{
 			Name:          "onedriver",
 			FsName:        "onedriver",
-			DisableXAttrs: true,
+			DisableXAttrs: false,
 			MaxBackground: 1024,
 		},
 	)
@@ -109,7 +109,7 @@ func TestMain(m *testing.M) {
 
 	if server.Unmount() != nil {
 		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")
-		if err := exec.Command("fusermount3", "-zu", "mount").Run(); err != nil {
+		if err := exec.Command("fusermount3", "-uz", "mount").Run(); err != nil {
 			log.Error().Err(err).Msg("Failed to perform lazy unmount")
 		}
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 // GetXAttr retrieves the value of an extended attribute.
-func (f *Filesystem) GetXAttr(cancel <-chan struct{}, header *fuse.InHeader, name string, buf []byte) (uint32, fuse.Status) {
+func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name string, buf []byte) (uint32, fuse.Status) {
 	id := f.TranslateID(header.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
@@ -53,7 +53,7 @@ func (f *Filesystem) GetXAttr(cancel <-chan struct{}, header *fuse.InHeader, nam
 }
 
 // SetXAttr sets the value of an extended attribute.
-func (f *Filesystem) SetXAttr(cancel <-chan struct{}, in *fuse.SetXAttrIn, name string, value []byte) fuse.Status {
+func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name string, value []byte) fuse.Status {
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
@@ -85,7 +85,7 @@ func (f *Filesystem) SetXAttr(cancel <-chan struct{}, in *fuse.SetXAttrIn, name 
 }
 
 // ListXAttr lists all extended attributes for a file.
-func (f *Filesystem) ListXAttr(cancel <-chan struct{}, header *fuse.InHeader, buf []byte) (uint32, fuse.Status) {
+func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []byte) (uint32, fuse.Status) {
 	id := f.TranslateID(header.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
@@ -140,7 +140,7 @@ func (f *Filesystem) ListXAttr(cancel <-chan struct{}, header *fuse.InHeader, bu
 }
 
 // RemoveXAttr removes an extended attribute.
-func (f *Filesystem) RemoveXAttr(cancel <-chan struct{}, header *fuse.InHeader, name string) fuse.Status {
+func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name string) fuse.Status {
 	id := f.TranslateID(header.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {

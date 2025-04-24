@@ -13,7 +13,7 @@ import (
 )
 
 // Mknod creates a regular file. The server doesn't have this yet.
-func (f *Filesystem) Mknod(cancel <-chan struct{}, in *fuse.MknodIn, name string, out *fuse.EntryOut) fuse.Status {
+func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out *fuse.EntryOut) fuse.Status {
 	if isNameRestricted(name) {
 		return fuse.EINVAL
 	}
@@ -45,7 +45,9 @@ func (f *Filesystem) Mknod(cancel <-chan struct{}, in *fuse.MknodIn, name string
 			Timestamp: time.Now(),
 			Path:      filepath.Join(parent.Path(), name),
 		}
-		f.TrackOfflineChange(change)
+		if err := f.TrackOfflineChange(change); err != nil {
+			ctx.Error().Err(err).Msg("Failed to track offline change")
+		}
 	}
 
 	if child, _ := f.GetChild(parentID, name, f.auth); child != nil {
@@ -82,16 +84,21 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 		// return the existing file inode as per "man creat"
 		parentID := f.TranslateID(in.NodeId)
 		child, _ := f.GetChild(parentID, name, f.auth)
-		log.Debug().
+		logger := log.Debug().
 			Str("op", "Create").
 			Uint64("nodeID", in.NodeId).
 			Str("id", parentID).
 			Str("childID", child.ID()).
 			Str("path", child.Path()).
-			Str("mode", Octal(in.Mode)).
-			Msg("Child inode already exists, truncating.")
-		f.content.Delete(child.ID())
-		f.content.Open(child.ID())
+			Str("mode", Octal(in.Mode))
+		logger.Msg("Child inode already exists, truncating.")
+
+		if err := f.content.Delete(child.ID()); err != nil {
+			log.Error().Err(err).Str("id", child.ID()).Msg("Failed to delete existing file content")
+		}
+		if _, err := f.content.Open(child.ID()); err != nil {
+			log.Error().Err(err).Str("id", child.ID()).Msg("Failed to open file for writing")
+		}
 		child.DriveItem.Size = 0
 		child.hasChanges = true
 		return fuse.OK
@@ -228,7 +235,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 }
 
 // Unlink deletes a child file.
-func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name string) fuse.Status {
+func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) fuse.Status {
 	parentID := f.TranslateID(in.NodeId)
 	child, _ := f.GetChild(parentID, name, nil)
 	if child == nil {
@@ -257,7 +264,9 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 			Timestamp: time.Now(),
 			Path:      path,
 		}
-		f.TrackOfflineChange(change)
+		if err := f.TrackOfflineChange(change); err != nil {
+			ctx.Error().Err(err).Msg("Failed to track offline change")
+		}
 	}
 
 	ctx.Debug().Msg("Unlinking inode.")
@@ -272,7 +281,9 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 	}
 
 	f.DeleteID(id)
-	f.content.Delete(id)
+	if err := f.content.Delete(id); err != nil {
+		ctx.Error().Err(err).Str("id", id).Msg("Failed to delete file content")
+	}
 	return fuse.OK
 }
 
@@ -291,7 +302,7 @@ func (f *Filesystem) Unlink(cancel <-chan struct{}, in *fuse.InHeader, name stri
 //   - fuse.OK if the read was successful
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error opening the cache file
-func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
+func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
 	// Check if this is a thumbnail file handle
 	if in.Fh != 0 {
 		// Get the file handle
@@ -353,7 +364,7 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 //   - fuse.OK if the write was successful
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error writing to the cache file
-func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
+func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
@@ -408,7 +419,9 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 			Timestamp: time.Now(),
 			Path:      path,
 		}
-		f.TrackOfflineChange(change)
+		if err := f.TrackOfflineChange(change); err != nil {
+			ctx.Error().Err(err).Str("id", id).Msg("Failed to track offline change")
+		}
 	}
 
 	return uint32(n), fuse.OK
@@ -416,7 +429,7 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 
 // Fsync is a signal to ensure writes to the Inode are flushed to stable
 // storage. This method is used to trigger uploads of file content.
-func (f *Filesystem) Fsync(cancel <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
+func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
@@ -439,8 +452,11 @@ func (f *Filesystem) Fsync(cancel <-chan struct{}, in *fuse.FsyncIn) fuse.Status
 		fd, err := f.content.Open(id)
 		if err != nil {
 			ctx.Error().Err(err).Msg("Could not get fd.")
+		} else {
+			if err := fd.Sync(); err != nil {
+				ctx.Error().Err(err).Msg("Failed to sync file to disk")
+			}
 		}
-		fd.Sync()
 		inode.DriveItem.File.Hashes.QuickXorHash = graph.QuickXORHashStream(fd)
 		inode.Unlock()
 
@@ -489,7 +505,9 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 
 	// grab a lock to prevent a race condition closing an opened file prior to its use (use after free segfault)
 	inode.Lock()
-	f.content.Close(id)
+	if err := f.content.Close(id); err != nil {
+		log.Error().Err(err).Str("id", id).Str("path", inode.Path()).Msg("Failed to close file")
+	}
 	inode.Unlock()
 
 	// Update file status attributes after releasing the lock

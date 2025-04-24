@@ -11,9 +11,9 @@ import (
 // it releases the file handle and cleans up any temporary files.
 //
 // Parameters:
-//   - cancel: Channel that signals if the operation should be canceled
+//   - cancel: Channel that signals if the operation should be canceled (required by FUSE interface but not used)
 //   - in: Input parameters for the release operation, including node ID and file handle
-func (f *Filesystem) Release(cancel <-chan struct{}, in *fuse.ReleaseIn) {
+func (f *Filesystem) Release(_ <-chan struct{}, in *fuse.ReleaseIn) {
 	// Check if this is a thumbnail file handle
 	if in.Fh != 0 {
 		// Get the file handle

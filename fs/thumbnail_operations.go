@@ -83,7 +83,14 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		if err != nil {
 			return err
 		}
-		defer f.thumbnails.Close(inode.ID(), size)
+		defer func() {
+			if closeErr := f.thumbnails.Close(inode.ID(), size); closeErr != nil {
+				log.Error().Err(closeErr).
+					Str("id", inode.ID()).
+					Str("size", size).
+					Msg("Failed to close cached thumbnail file")
+			}
+		}()
 
 		// Copy the thumbnail to the output
 		_, err = io.Copy(output, file)
@@ -111,8 +118,24 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 				Msg("Failed to create temporary file for thumbnail caching")
 			return
 		}
-		defer os.Remove(tempFile.Name())
-		defer tempFile.Close()
+		defer func() {
+			if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
+				log.Error().Err(removeErr).
+					Str("path", tempFile.Name()).
+					Str("id", inode.ID()).
+					Str("size", size).
+					Msg("Failed to remove temporary thumbnail file")
+			}
+		}()
+		defer func() {
+			if closeErr := tempFile.Close(); closeErr != nil {
+				log.Error().Err(closeErr).
+					Str("path", tempFile.Name()).
+					Str("id", inode.ID()).
+					Str("size", size).
+					Msg("Failed to close temporary thumbnail file")
+			}
+		}()
 
 		// Get the thumbnail again and write it to the temporary file
 		if err := graph.GetThumbnailContentStream(inode.ID(), size, f.auth, tempFile); err != nil {

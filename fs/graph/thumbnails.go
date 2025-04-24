@@ -29,6 +29,8 @@ type thumbnailsResponse struct {
 }
 
 // GetThumbnails retrieves available thumbnails for a DriveItem
+// This is a convenience wrapper around GetThumbnailsWithContext for code that doesn't need
+// to pass a context. It's kept for API consistency with other Graph API functions.
 func GetThumbnails(itemID string, auth *Auth) (*ThumbnailSet, error) {
 	return GetThumbnailsWithContext(context.Background(), itemID, auth)
 }
@@ -117,7 +119,12 @@ func downloadThumbnail(ctx context.Context, url string, auth *Auth) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to download thumbnail: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Just log the error since we can't return it from a defer
+			fmt.Printf("Error closing response body: %v\n", err)
+		}
+	}()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -188,7 +195,12 @@ func GetThumbnailContentStreamWithContext(ctx context.Context, itemID string, si
 	if err != nil {
 		return fmt.Errorf("failed to download thumbnail: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Just log the error since we can't return it from a defer
+			fmt.Printf("Error closing response body: %v\n", err)
+		}
+	}()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {

@@ -2,7 +2,6 @@ package fs
 
 import (
 	"bytes"
-	"syscall"
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
@@ -259,12 +258,4 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	if f.dbusServer != nil {
 		f.dbusServer.SendFileStatusUpdate(path, statusStr)
 	}
-}
-
-// isXattrNotSupportedError checks if an error is related to xattr not being supported
-func isXattrNotSupportedError(err error) bool {
-	// ENOTSUP (95): Operation not supported
-	// ENOENT (2): No such file or directory
-	// EOPNOTSUPP (95): Operation not supported on transport endpoint
-	return err == syscall.ENOTSUP || err == syscall.ENOENT || err == syscall.EOPNOTSUPP
 }

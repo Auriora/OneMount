@@ -122,9 +122,19 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	content := NewLoopbackCache(filepath.Join(cacheDir, "content"))
 	thumbnails := NewThumbnailCache(filepath.Join(cacheDir, "thumbnails"))
 	db.Update(func(tx *bolt.Tx) error {
-		tx.CreateBucketIfNotExists(bucketMetadata)
-		tx.CreateBucketIfNotExists(bucketDelta)
-		versionBucket, _ := tx.CreateBucketIfNotExists(bucketVersion)
+		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
+			log.Error().Err(err).Msg("Failed to create metadata bucket")
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(bucketDelta); err != nil {
+			log.Error().Err(err).Msg("Failed to create delta bucket")
+			return err
+		}
+		versionBucket, err := tx.CreateBucketIfNotExists(bucketVersion)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create version bucket")
+			return err
+		}
 
 		// migrate old content bucket to the local filesystem
 		b := tx.Bucket(bucketContent)
@@ -144,7 +154,9 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 			if err != nil {
 				log.Error().Err(err).Msg("Migration failed.")
 			}
-			tx.DeleteBucket(bucketContent)
+			if err := tx.DeleteBucket(bucketContent); err != nil {
+				log.Error().Err(err).Msg("Failed to delete content bucket during migration")
+			}
 			log.Info().
 				Str("oldVersion", oldVersion).
 				Str("version", fsVersion).
@@ -186,7 +198,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 			}
 			// when offline, we load the cache deltaLink from disk
 			var deltaLinkErr error
-			fs.db.View(func(tx *bolt.Tx) error {
+			if viewErr := fs.db.View(func(tx *bolt.Tx) error {
 				if link := tx.Bucket(bucketDelta).Get([]byte("deltaLink")); link != nil {
 					fs.deltaLink = string(link)
 				} else {
@@ -199,7 +211,10 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 					deltaLinkErr = errors.New("cannot perform an offline startup without a valid delta link from a previous session")
 				}
 				return nil
-			})
+			}); viewErr != nil {
+				log.Error().Err(viewErr).Msg("Failed to read delta link from database")
+				return nil, fmt.Errorf("failed to read delta link from database: %w", viewErr)
+			}
 			if deltaLinkErr != nil {
 				return nil, deltaLinkErr
 			}
@@ -300,7 +315,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 	// Get all offline changes
 	changes := make([]*OfflineChange, 0)
-	f.db.View(func(tx *bolt.Tx) error {
+	if err := f.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketOfflineChanges)
 		if b == nil {
 			return nil
@@ -314,7 +329,10 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			changes = append(changes, change)
 			return nil
 		})
-	})
+	}); err != nil {
+		log.Error().Err(err).Msg("Failed to read offline changes from database")
+		return
+	}
 
 	// Sort changes by timestamp
 	sort.Slice(changes, func(i, j int) bool {
@@ -341,7 +359,9 @@ func (f *Filesystem) ProcessOfflineChanges() {
 		case "delete":
 			// Handle deletion
 			if !isLocalID(change.ID) {
-				graph.Remove(change.ID, f.auth)
+				if err := graph.Remove(change.ID, f.auth); err != nil {
+					log.Error().Err(err).Str("id", change.ID).Msg("Failed to remove item during offline change processing")
+				}
 			}
 		case "rename":
 			// Handle rename
@@ -358,21 +378,32 @@ func (f *Filesystem) ProcessOfflineChanges() {
 					newParent, _ := f.GetPath(newDir, f.auth)
 
 					if oldParent != nil && newParent != nil {
-						f.MovePath(oldParent.ID(), newParent.ID(), oldName, newName, f.auth)
+						if err := f.MovePath(oldParent.ID(), newParent.ID(), oldName, newName, f.auth); err != nil {
+							log.Error().Err(err).
+								Str("id", change.ID).
+								Str("oldPath", change.OldPath).
+								Str("newPath", change.NewPath).
+								Msg("Failed to move item during offline change processing")
+						}
 					}
 				}
 			}
 		}
 
 		// Remove the processed change
-		f.db.Batch(func(tx *bolt.Tx) error {
+		if err := f.db.Batch(func(tx *bolt.Tx) error {
 			b := tx.Bucket(bucketOfflineChanges)
 			if b == nil {
 				return nil
 			}
 			key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
 			return b.Delete(key)
-		})
+		}); err != nil {
+			log.Error().Err(err).
+				Str("id", change.ID).
+				Time("timestamp", change.Timestamp).
+				Msg("Failed to remove processed offline change from database")
+		}
 	}
 
 	log.Info().Msg("Finished processing offline changes.")
@@ -433,14 +464,17 @@ func (f *Filesystem) GetID(id string) *Inode {
 		// we allow fetching from disk as a fallback while offline (and it's also
 		// necessary while transitioning from offline->online)
 		var found *Inode
-		f.db.View(func(tx *bolt.Tx) error {
+		if err := f.db.View(func(tx *bolt.Tx) error {
 			data := tx.Bucket(bucketMetadata).Get([]byte(id))
 			var err error
 			if data != nil {
 				found, err = NewInodeJSON(data)
 			}
 			return err
-		})
+		}); err != nil {
+			log.Error().Err(err).Str("id", id).Msg("Failed to read inode from database")
+			return nil
+		}
 		if found != nil {
 			f.InsertNodeID(found)
 			f.metadata.Store(id, found) // move to memory for next time
@@ -778,7 +812,13 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 	if inode.IsDir() {
 		return nil
 	}
-	f.content.Move(oldID, newID)
+	if err := f.content.Move(oldID, newID); err != nil {
+		log.Error().Err(err).
+			Str("oldID", oldID).
+			Str("newID", newID).
+			Msg("Failed to move file content")
+		return fmt.Errorf("failed to move file content: %w", err)
+	}
 	return nil
 }
 
@@ -963,16 +1003,22 @@ func (f *Filesystem) SerializeAll() {
 		One transaction to bring them all
 		and in the darkness write them.
 	*/
-	f.db.Batch(func(tx *bolt.Tx) error {
+	if err := f.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketMetadata)
 		for k, v := range allItems {
-			b.Put([]byte(k), v)
+			if err := b.Put([]byte(k), v); err != nil {
+				return fmt.Errorf("failed to put item %s: %w", k, err)
+			}
 			if k == f.root {
 				// root item must be updated manually (since there's actually
 				// two copies)
-				b.Put([]byte("root"), v)
+				if err := b.Put([]byte("root"), v); err != nil {
+					return fmt.Errorf("failed to put root item: %w", err)
+				}
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		log.Error().Err(err).Msg("Failed to serialize metadata to database")
+	}
 }

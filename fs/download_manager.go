@@ -139,7 +139,11 @@ func (dm *DownloadManager) processDownload(id string) {
 		dm.setSessionError(session, err)
 		return
 	}
-	defer dm.fs.content.Delete(tempID)
+	defer func() {
+		if err := dm.fs.content.Delete(tempID); err != nil {
+			log.Error().Err(err).Str("tempID", tempID).Msg("Failed to delete temporary file")
+		}
+	}()
 
 	// Download the file content
 	size, err := graph.GetItemContentStream(id, dm.auth, temp)

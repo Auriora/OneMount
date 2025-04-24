@@ -180,13 +180,25 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 		}()
 	}
 
-	server, err := fuse.NewServer(filesystem, mountpoint, &fuse.MountOptions{
+	// Create mount options
+	mountOptions := &fuse.MountOptions{
 		Name:          "onedriver",
 		FsName:        "onedriver",
-		DisableXAttrs: true,
+		DisableXAttrs: false,
 		MaxBackground: 1024,
 		Debug:         debugOn,
-	})
+	}
+
+	// Only set AllowOther if user_allow_other is enabled in /etc/fuse.conf
+	if common.IsUserAllowOtherEnabled() {
+		log.Info().Msg("Setting AllowOther mount option (user_allow_other is enabled in /etc/fuse.conf)")
+		mountOptions.AllowOther = true
+	} else {
+		log.Info().Msg("Not setting AllowOther mount option (user_allow_other is not enabled in /etc/fuse.conf)")
+	}
+
+	// Create the FUSE server
+	server, err := fuse.NewServer(filesystem, mountpoint, mountOptions)
 	if err != nil {
 		log.Error().Err(err).Msgf("Mount failed. Is the mountpoint already in use? "+
 			"(Try running \"fusermount3 -uz %s\")\n", mountpoint)

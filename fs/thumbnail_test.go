@@ -16,7 +16,11 @@ func TestThumbnailCache(t *testing.T) {
 	// Create a temporary directory for the thumbnail cache
 	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temporary directory: %v", err)
+		}
+	}()
 
 	// Create a thumbnail cache
 	cache := NewThumbnailCache(tempDir)
@@ -48,7 +52,11 @@ func TestThumbnailCacheMultipleSizes(t *testing.T) {
 	// Create a temporary directory for the thumbnail cache
 	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temporary directory: %v", err)
+		}
+	}()
 
 	// Create a thumbnail cache
 	cache := NewThumbnailCache(tempDir)
@@ -94,7 +102,11 @@ func TestThumbnailCacheCleanup(t *testing.T) {
 	// Create a temporary directory for the thumbnail cache
 	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temporary directory: %v", err)
+		}
+	}()
 
 	// Create a thumbnail cache
 	cache := NewThumbnailCache(tempDir)
@@ -132,7 +144,11 @@ func TestThumbnailOperations(t *testing.T) {
 	// Create a temporary directory for the filesystem
 	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temporary directory: %v", err)
+		}
+	}()
 
 	// Create a filesystem
 	fs, err := NewFilesystem(auth, tempDir, 30)
@@ -142,7 +158,7 @@ func TestThumbnailOperations(t *testing.T) {
 	// Find an image file to test with
 	var imagePath string
 	var imageID string
-	fs.db.View(func(tx *bolt.Tx) error {
+	if err := fs.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketMetadata)
 		return b.ForEach(func(k, v []byte) error {
 			var item graph.DriveItem
@@ -158,7 +174,9 @@ func TestThumbnailOperations(t *testing.T) {
 			}
 			return nil
 		})
-	})
+	}); err != nil {
+		t.Fatalf("Failed to search for image files: %v", err)
+	}
 
 	if imagePath == "" {
 		t.Skip("Skipping test because no image file was found")

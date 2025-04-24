@@ -17,7 +17,10 @@ import (
 // This is called when a file with a special extension is accessed.
 // For example, if a file is accessed as "image.jpg.thumbnail.small",
 // this function will return the small thumbnail for image.jpg.
-func (f *Filesystem) HandleThumbnailRequest(cancel <-chan struct{}, in *fuse.OpenIn, name string, out *fuse.OpenOut) (fuse.Status, uint64) {
+//
+// The cancel parameter is required by the FUSE interface but not used in this implementation
+// as thumbnail operations are typically quick and don't need cancellation.
+func (f *Filesystem) HandleThumbnailRequest(_ <-chan struct{}, in *fuse.OpenIn, name string, out *fuse.OpenOut) (fuse.Status, uint64) {
 	// Parse the thumbnail request from the filename
 	originalPath, size, ok := parseThumbnailRequest(name)
 	if !ok {
@@ -57,16 +60,24 @@ func (f *Filesystem) HandleThumbnailRequest(cancel <-chan struct{}, in *fuse.Ope
 	err = f.GetThumbnailStream(fullPath, size, tempFile)
 	if err != nil {
 		ctx.Error().Err(err).Msg("Failed to get thumbnail")
-		tempFile.Close()
-		os.Remove(tempFile.Name())
+		if closeErr := tempFile.Close(); closeErr != nil {
+			ctx.Error().Err(closeErr).Msg("Failed to close temporary file")
+		}
+		if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
+			ctx.Error().Err(removeErr).Msg("Failed to remove temporary file")
+		}
 		return fuse.EIO, 0
 	}
 
 	// Reset the file position to the beginning
 	if _, err := tempFile.Seek(0, 0); err != nil {
 		ctx.Error().Err(err).Msg("Failed to reset file position")
-		tempFile.Close()
-		os.Remove(tempFile.Name())
+		if closeErr := tempFile.Close(); closeErr != nil {
+			ctx.Error().Err(closeErr).Msg("Failed to close temporary file")
+		}
+		if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
+			ctx.Error().Err(removeErr).Msg("Failed to remove temporary file")
+		}
 		return fuse.EIO, 0
 	}
 
@@ -94,7 +105,8 @@ type ThumbnailFileHandle struct {
 }
 
 // Read reads data from the thumbnail file
-func (fh *ThumbnailFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+// The ctx parameter is required by the FUSE interface but not used in this implementation
+func (fh *ThumbnailFileHandle) Read(_ context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// Seek to the offset
 	if _, err := fh.file.Seek(off, 0); err != nil {
 		log.Error().Err(err).
@@ -120,7 +132,8 @@ func (fh *ThumbnailFileHandle) Read(ctx context.Context, dest []byte, off int64)
 }
 
 // Release closes the thumbnail file and removes the temporary file
-func (fh *ThumbnailFileHandle) Release(ctx context.Context) syscall.Errno {
+// The ctx parameter is required by the FUSE interface but not used in this implementation
+func (fh *ThumbnailFileHandle) Release(_ context.Context) syscall.Errno {
 	// Close the file
 	if err := fh.file.Close(); err != nil {
 		log.Error().Err(err).

@@ -174,8 +174,14 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 		case <-ticker.C: // periodically start uploads, or remove them if done/failed
 			u.mutex.RLock()
 			sessionsCopy := make(map[string]*UploadSession)
+			prioritiesCopy := make(map[string]UploadPriority)
 			for id, session := range u.sessions {
 				sessionsCopy[id] = session
+				priority, exists := u.sessionPriorities[id]
+				if !exists {
+					priority = PriorityLow // Default to low priority if not specified
+				}
+				prioritiesCopy[id] = priority
 			}
 			u.mutex.RUnlock()
 
@@ -187,10 +193,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			}
 			prioritizedSessions := make([]sessionWithPriority, 0, len(sessionsCopy))
 			for id, session := range sessionsCopy {
-				priority, exists := u.sessionPriorities[id]
-				if !exists {
-					priority = PriorityLow // Default to low priority if not specified
-				}
+				priority := prioritiesCopy[id]
 				prioritizedSessions = append(prioritizedSessions, sessionWithPriority{
 					id:       id,
 					session:  session,

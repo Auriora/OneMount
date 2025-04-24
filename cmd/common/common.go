@@ -2,6 +2,7 @@
 package common
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,4 +100,39 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	if json.Unmarshal(resp, &inode) == nil {
 		filesystem.InsertID(inode.ID(), inode)
 	}
+}
+
+// IsUserAllowOtherEnabled checks if the 'user_allow_other' option is enabled in /etc/fuse.conf
+func IsUserAllowOtherEnabled() bool {
+	// Try to open /etc/fuse.conf
+	file, err := os.Open("/etc/fuse.conf")
+	if err != nil {
+		log.Debug().Err(err).Msg("Could not open /etc/fuse.conf, assuming user_allow_other is not enabled")
+		return false
+	}
+	defer file.Close()
+
+	// Scan the file line by line
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Remove comments and trim spaces
+		if idx := strings.Index(line, "#"); idx >= 0 {
+			line = line[:idx]
+		}
+		line = strings.TrimSpace(line)
+
+		// Check if the line contains user_allow_other
+		if line == "user_allow_other" {
+			log.Debug().Msg("Found user_allow_other in /etc/fuse.conf")
+			return true
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Debug().Err(err).Msg("Error reading /etc/fuse.conf, assuming user_allow_other is not enabled")
+	}
+
+	log.Debug().Msg("user_allow_other not found in /etc/fuse.conf")
+	return false
 }

@@ -115,15 +115,19 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Create mount options
+	mountOptions := &fuse.MountOptions{
+		Name:          "onedriver",
+		FsName:        "onedriver",
+		DisableXAttrs: false,
+		MaxBackground: 1024,
+	}
+
+	// Create the FUSE server
 	server, err := fuse.NewServer(
 		fs,
 		mountLoc,
-		&fuse.MountOptions{
-			Name:          "onedriver",
-			FsName:        "onedriver",
-			DisableXAttrs: true,
-			MaxBackground: 1024,
-		},
+		mountOptions,
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create FUSE server")
