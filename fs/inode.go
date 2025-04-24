@@ -27,13 +27,14 @@ import (
 // Flush. All modifications to the Inode are tracked and synchronized with OneDrive
 // when appropriate.
 type Inode struct {
-	sync.RWMutex             // Protects access to all fields
-	graph.DriveItem          // The underlying OneDrive item
-	nodeID          uint64   // Filesystem node ID used by the kernel
-	children        []string // Slice of child item IDs, nil when uninitialized
-	hasChanges      bool     // Flag to trigger an upload on flush
-	subdir          uint32   // Number of subdirectories, used by NLink()
-	mode            uint32   // File mode/permissions, do not set manually
+	sync.RWMutex                      // Protects access to all fields
+	graph.DriveItem                   // The underlying OneDrive item
+	nodeID          uint64            // Filesystem node ID used by the kernel
+	children        []string          // Slice of child item IDs, nil when uninitialized
+	hasChanges      bool              // Flag to trigger an upload on flush
+	subdir          uint32            // Number of subdirectories, used by NLink()
+	mode            uint32            // File mode/permissions, do not set manually
+	xattrs          map[string][]byte // Extended attributes
 }
 
 // SerializeableInode is like a Inode, but can be serialized for local storage
@@ -43,6 +44,7 @@ type SerializeableInode struct {
 	Children []string
 	Subdir   uint32
 	Mode     uint32
+	Xattrs   map[string][]byte
 }
 
 // NewInode creates a new Inode with the specified name, mode, and parent.
@@ -78,6 +80,7 @@ func NewInode(name string, mode uint32, parent *Inode) *Inode {
 		},
 		children: make([]string, 0),
 		mode:     mode,
+		xattrs:   make(map[string][]byte),
 	}
 }
 
@@ -92,6 +95,7 @@ func (i *Inode) AsJSON() []byte {
 		Children:  i.children,
 		Subdir:    i.subdir,
 		Mode:      i.mode,
+		Xattrs:    i.xattrs,
 	})
 	return data
 }
@@ -109,6 +113,7 @@ func NewInodeJSON(data []byte) (*Inode, error) {
 		children:  raw.Children,
 		mode:      raw.Mode,
 		subdir:    raw.Subdir,
+		xattrs:    raw.Xattrs,
 	}, nil
 }
 
@@ -128,6 +133,7 @@ func NewInodeDriveItem(item *graph.DriveItem) *Inode {
 	}
 	return &Inode{
 		DriveItem: *item,
+		xattrs:    make(map[string][]byte),
 	}
 }
 

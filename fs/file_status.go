@@ -234,23 +234,26 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	status := f.GetFileStatus(inode.ID())
 	statusStr := status.Status.String()
 
-	// Set the extended attribute
-	if err := syscall.Setxattr(path, "user.onedriver.status", []byte(statusStr), 0); err != nil {
-		// Only log if it's not a filesystem limitation error
-		if !isXattrNotSupportedError(err) {
-			log.Error().Err(err).Str("path", path).Msg("Failed to set status xattr")
-		}
+	// Set the extended attribute in the inode's xattrs map
+	inode.Lock()
+
+	// Initialize the xattrs map if it's nil
+	if inode.xattrs == nil {
+		inode.xattrs = make(map[string][]byte)
 	}
+
+	// Set the status xattr
+	inode.xattrs["user.onedriver.status"] = []byte(statusStr)
 
 	// If there's an error message, set it too
 	if status.ErrorMsg != "" {
-		if err := syscall.Setxattr(path, "user.onedriver.error", []byte(status.ErrorMsg), 0); err != nil {
-			// Only log if it's not a filesystem limitation error
-			if !isXattrNotSupportedError(err) {
-				log.Error().Err(err).Str("path", path).Msg("Failed to set error xattr")
-			}
-		}
+		inode.xattrs["user.onedriver.error"] = []byte(status.ErrorMsg)
+	} else {
+		// Remove the error xattr if it exists
+		delete(inode.xattrs, "user.onedriver.error")
 	}
+
+	inode.Unlock()
 
 	// Send D-Bus signal if server is available
 	if f.dbusServer != nil {
