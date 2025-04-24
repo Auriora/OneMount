@@ -60,7 +60,7 @@ func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int) *Downl
 		fs:         fs,
 		auth:       auth,
 		sessions:   make(map[string]*DownloadSession),
-		queue:      make(chan string, 100), // Buffer for 100 download requests
+		queue:      make(chan string, 500), // Buffer for 500 download requests
 		numWorkers: numWorkers,
 		stopChan:   make(chan struct{}),
 	}
