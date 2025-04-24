@@ -5,7 +5,6 @@ import sys
 import unittest
 import unittest.mock as mock
 import tempfile
-import time
 import pytest
 import dbus
 import dbus.mainloop.glib
@@ -22,9 +21,10 @@ class MockNemo:
     class OperationResult:
         COMPLETE = 0
 
-    @staticmethod
-    def FileInfo():
-        pass
+    class FileInfo:
+        @staticmethod
+        def invalidate_extension_info(location):
+            pass
 
 # Mock the Gio module
 class MockGio:
@@ -47,7 +47,7 @@ sys.modules['gi.repository.Gio'] = MockGio
 # Now we can import the nemo-onedriver module
 # Python module names can't have hyphens, so we need to use importlib
 import importlib.util
-spec = importlib.util.spec_from_file_location("nemo_onedriver", "nemo-onedriver.py")
+spec = importlib.util.spec_from_file_location("nemo_onedriver", "../src/nemo-onedriver.py")
 nemo_onedriver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(nemo_onedriver)
 

@@ -17,7 +17,6 @@ tmp/
 *.db
 *.test
 *.out
-*.txt
 *.coverage
 *.core
 *.gdb

@@ -17,4 +17,4 @@ else
     shift 1
 fi 
 
-curl -s -H "Authorization: bearer $TOKEN" $@ "https://graph.microsoft.com/v1.0$ENDPOINT" | jq .
+curl -s -H "Authorization: bearer $TOKEN" "$@" "https://graph.microsoft.com/v1.0$ENDPOINT" | jq .
