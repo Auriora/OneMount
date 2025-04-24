@@ -230,11 +230,22 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 		return
 	}
 
-	status := f.GetFileStatus(inode.ID())
+	// Get the ID before locking to avoid potential deadlocks
+	id := inode.ID()
+
+	// Store the path for D-Bus signal
+	pathCopy := path
+	var statusStrCopy string
+
+	// Lock the inode before getting the status to prevent race conditions
+	inode.Lock()
+
+	// Get the status after locking the inode
+	status := f.GetFileStatus(id)
 	statusStr := status.Status.String()
 
-	// Set the extended attribute in the inode's xattrs map
-	inode.Lock()
+	// Store the status string for D-Bus signal
+	statusStrCopy = statusStr
 
 	// Initialize the xattrs map if it's nil
 	if inode.xattrs == nil {
@@ -252,10 +263,11 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 		delete(inode.xattrs, "user.onedriver.error")
 	}
 
+	// Unlock the inode before sending D-Bus signal to avoid potential deadlocks
 	inode.Unlock()
 
 	// Send D-Bus signal if server is available
 	if f.dbusServer != nil {
-		f.dbusServer.SendFileStatusUpdate(path, statusStr)
+		f.dbusServer.SendFileStatusUpdate(pathCopy, statusStrCopy)
 	}
 }

@@ -34,6 +34,7 @@ func Dialog(msg string, messageType gtk.MessageType, parentWindow gtk.IWindow) {
 		gtk.DIALOG_DESTROY_WITH_PARENT,
 		messageType,
 		gtk.BUTTONS_CLOSE,
+		"%s",
 		msg,
 	)
 	messageDialog.Run()
@@ -52,7 +53,7 @@ func CancelDialog(parentWindow gtk.IWindow, primaryText, secondaryText string) b
 	)
 	dialog.SetMarkup(primaryText)
 	if secondaryText != "" {
-		dialog.FormatSecondaryMarkup(secondaryText)
+		dialog.FormatSecondaryMarkup("%s", secondaryText)
 	}
 	defer dialog.Destroy()
 	return dialog.Run() == gtk.RESPONSE_OK

@@ -170,6 +170,26 @@ func (f *Filesystem) Rename(cancel <-chan struct{}, in *fuse.RenameIn, name stri
 		return fuse.EREMOTEIO
 	}
 
+	// Check if there's already a file with the same name (case-insensitive) at the destination
+	existingChild, _ := f.GetChild(newParentID, newName, f.auth)
+	if existingChild != nil && existingChild.ID() != id {
+		// There's already a different file with the same name (case-insensitive)
+		// We need to remove it before we can rename our file to this name
+		ctx.Info().
+			Str("existingID", existingChild.ID()).
+			Str("newName", newName).
+			Msg("Found existing file with same name (case-insensitive) at destination, removing it first")
+
+		// Remove the existing file
+		if err = graph.Remove(existingChild.ID(), f.auth); err != nil {
+			ctx.Error().Err(err).Msg("Failed to remove existing file at destination.")
+			return fuse.EREMOTEIO
+		}
+
+		// Also remove it from the local cache
+		f.DeleteID(existingChild.ID())
+	}
+
 	// perform remote rename
 	if err = graph.Rename(id, newName, newParentID, f.auth); err != nil {
 		ctx.Error().Err(err).Msg("Failed to rename remote item.")

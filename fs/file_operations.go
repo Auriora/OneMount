@@ -35,19 +35,8 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 		Str("path", path).
 		Logger()
 	if f.IsOffline() {
-		// Instead of returning EROFS, log that we're in offline mode but allowing file creation
-		ctx.Info().Msg("Operating in offline mode with write access. File creation will sync when online.")
-
-		// Track this change for later synchronization
-		change := &OfflineChange{
-			ID:        parent.ID() + "-" + name, // Temporary ID until we get a real one
-			Type:      "create",
-			Timestamp: time.Now(),
-			Path:      filepath.Join(parent.Path(), name),
-		}
-		if err := f.TrackOfflineChange(change); err != nil {
-			ctx.Error().Err(err).Msg("Failed to track offline change")
-		}
+		ctx.Info().Msg("File creation not allowed in offline mode")
+		return fuse.EREMOTEIO
 	}
 
 	if child, _ := f.GetChild(parentID, name, f.auth); child != nil {
@@ -154,11 +143,11 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	flags := int(in.Flags)
 	if flags&os.O_RDWR+flags&os.O_WRONLY > 0 && f.IsOffline() {
-		// Instead of returning EROFS, log that we're in offline mode but allowing writes
 		ctx.Info().
 			Bool("readWrite", flags&os.O_RDWR > 0).
 			Bool("writeOnly", flags&os.O_WRONLY > 0).
-			Msg("Operating in offline mode with write access. Changes will sync when online.")
+			Msg("Write operations not allowed in offline mode")
+		return fuse.EREMOTEIO
 	}
 
 	ctx.Debug().Msg("")
@@ -177,6 +166,22 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	if isLocalID(id) {
 		// just use whatever's present if we're the only ones who have it
+		inode.Unlock()
+		return fuse.OK
+	}
+
+	// If we're in offline mode, use the cached content regardless of checksum
+	if f.IsOffline() {
+		ctx.Info().Msg("Using cached content in offline mode regardless of checksum.")
+
+		// we check size ourselves in case the API file sizes are WRONG (it happens)
+		st, err := fd.Stat()
+		if err != nil {
+			inode.Unlock()
+			ctx.Error().Err(err).Msg("Could not fetch file stats.")
+			return fuse.EIO
+		}
+		inode.DriveItem.Size = uint64(st.Size())
 		inode.Unlock()
 		return fuse.OK
 	}
@@ -254,19 +259,8 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 		Logger()
 
 	if f.IsOffline() {
-		// Instead of returning EROFS, log that we're in offline mode but allowing file deletion
-		ctx.Info().Msg("Operating in offline mode with write access. File deletion will sync when online.")
-
-		// Track this change for later synchronization
-		change := &OfflineChange{
-			ID:        id,
-			Type:      "delete",
-			Timestamp: time.Now(),
-			Path:      path,
-		}
-		if err := f.TrackOfflineChange(change); err != nil {
-			ctx.Error().Err(err).Msg("Failed to track offline change")
-		}
+		ctx.Info().Msg("File deletion not allowed in offline mode")
+		return fuse.EREMOTEIO
 	}
 
 	ctx.Debug().Msg("Unlinking inode.")
@@ -383,14 +377,17 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 		Logger()
 	ctx.Trace().Msg("")
 
+	// Prevent write operations in offline mode
+	if f.IsOffline() {
+		ctx.Info().Msg("Write operations not allowed in offline mode")
+		return 0, fuse.EREMOTEIO
+	}
+
 	fd, err := f.content.Open(id)
 	if err != nil {
 		ctx.Error().Msg("Cache Open() failed.")
 		return 0, fuse.EIO
 	}
-
-	// Get the path before acquiring the lock to avoid potential deadlocks
-	path := inode.Path()
 
 	inode.Lock()
 	n, err := fd.WriteAt(data, int64(offset))
@@ -410,19 +407,6 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 		Status:    StatusLocalModified,
 		Timestamp: time.Now(),
 	})
-
-	// Track this change if we're offline
-	if f.IsOffline() {
-		change := &OfflineChange{
-			ID:        id,
-			Type:      "modify",
-			Timestamp: time.Now(),
-			Path:      path,
-		}
-		if err := f.TrackOfflineChange(change); err != nil {
-			ctx.Error().Err(err).Str("id", id).Msg("Failed to track offline change")
-		}
-	}
 
 	return uint32(n), fuse.OK
 }
@@ -513,4 +497,17 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	// Update file status attributes after releasing the lock
 	f.updateFileStatus(inode)
 	return 0
+}
+
+// Poll implements the poll operation for the FUSE filesystem.
+// This method is called when the kernel wants to check if a file descriptor is ready for I/O.
+func (f *Filesystem) Poll(cancel <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
+	log.Trace().
+		Str("op", "Poll").
+		Uint64("nodeID", in.NodeId).
+		Msg("Poll operation")
+
+	// We don't need to do any special handling for polling
+	// Just return OK to indicate that the file is ready for I/O
+	return fuse.OK
 }

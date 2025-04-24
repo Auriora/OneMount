@@ -555,6 +555,17 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// Update file status attributes after releasing the lock
 			ctx.Debug().Msg("Updating file status attributes")
 			f.updateFileStatus(local)
+
+			// Queue a download for the file to ensure content is synced
+			if !delta.IsDir() {
+				ctx.Debug().Msg("Queueing download for changed file")
+				if _, err := f.downloads.QueueDownload(delta.ID); err != nil {
+					ctx.Error().Err(err).Msg("Failed to queue download for changed file")
+				} else {
+					ctx.Debug().Msg("Successfully queued download for changed file")
+				}
+			}
+
 			ctx.Debug().Msg("Successfully updated local item with remote metadata")
 
 			return nil

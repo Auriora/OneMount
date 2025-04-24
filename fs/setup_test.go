@@ -194,6 +194,22 @@ func TestMain(m *testing.M) {
 		}
 	}
 	fmt.Println("Successfully unmounted fuse server!")
+
+	// Clean up the test database directory by stopping all services
+	fs.StopCacheCleanup()
+	fs.StopDeltaLoop()
+	fs.StopDownloadManager()
+	fs.StopUploadManager()
+	fs.SerializeAll()
+
+	// Wait a moment to ensure all file handles are closed
+	time.Sleep(100 * time.Millisecond)
+
+	// Remove the test database directory
+	if rmErr := os.RemoveAll(testDBLoc); rmErr != nil {
+		log.Error().Err(rmErr).Msg("Failed to remove test database location")
+	}
+
 	os.Exit(code)
 }
 

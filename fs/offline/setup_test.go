@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs"
@@ -51,11 +52,6 @@ func TestMain(m *testing.M) {
 	auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
 	if err != nil {
 		fmt.Println("Authentication failed:", err)
-		os.Exit(1)
-	}
-	inode, err := graph.GetItem("root", auth)
-	if inode != nil || !graph.IsOffline(err) {
-		fmt.Println("These tests must be run offline.")
 		os.Exit(1)
 	}
 
@@ -103,9 +99,39 @@ func TestMain(m *testing.M) {
 	// mount fs in background thread
 	go server.Serve()
 
+	// Give the filesystem time to initialize
+	time.Sleep(2 * time.Second)
+
+	// Create the test directory and files before setting offline mode
+	// This is necessary because file creation is not allowed in offline mode
+	log.Info().Msg("Creating test files before entering offline mode")
+	if err := os.MkdirAll(TestDir, 0755); err != nil {
+		log.Error().Err(err).Msg("Failed to create test directory")
+		os.Exit(1)
+	}
+
+	// Create the bagels file with the expected content
+	bagelPath := filepath.Join(TestDir, "bagels")
+	if err := os.WriteFile(bagelPath, []byte("bagels\n"), 0644); err != nil {
+		log.Error().Err(err).Msg("Failed to create bagels file")
+		os.Exit(1)
+	}
+
+	// Set operational offline state to true to simulate offline mode
+	log.Info().Msg("Setting operational offline state to true")
+	graph.SetOperationalOffline(true)
+
+	// Also set the filesystem's offline mode
+	log.Info().Msg("Setting filesystem offline mode to ReadWrite")
+	filesystem.SetOfflineMode(fs.OfflineModeReadWrite)
+
 	log.Info().Msg("Start offline tests ------------------------------")
 	code := m.Run()
 	log.Info().Msg("Finish offline tests ------------------------------")
+
+	// Reset operational offline state to false before exiting
+	log.Info().Msg("Resetting operational offline state to false")
+	graph.SetOperationalOffline(false)
 
 	if server.Unmount() != nil {
 		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")
@@ -114,5 +140,16 @@ func TestMain(m *testing.M) {
 		}
 	}
 	fmt.Println("Successfully unmounted fuse server!")
+
+	// Clean up the test database directory by stopping all services
+	filesystem.StopCacheCleanup()
+	filesystem.StopDeltaLoop()
+	filesystem.StopDownloadManager()
+	filesystem.StopUploadManager()
+	filesystem.SerializeAll()
+
+	// Wait a moment to ensure all file handles are closed
+	time.Sleep(100 * time.Millisecond)
+
 	os.Exit(code)
 }

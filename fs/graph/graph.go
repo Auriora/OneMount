@@ -33,6 +33,10 @@ var (
 	responseCache    *ResponseCache
 	clientOnce       sync.Once
 	cacheOnce        sync.Once
+
+	// operationalOffline is a flag that can be set to force offline mode
+	operationalOffline      bool
+	operationalOfflineMutex sync.RWMutex
 )
 
 // getHTTPClient returns the shared HTTP client with connection pooling
@@ -88,6 +92,12 @@ func Request(resource string, auth *Auth, method string, content io.Reader, head
 
 // RequestWithContext performs an authenticated request to Microsoft Graph with context
 func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
+	// Check if we're in operational offline mode
+	if GetOperationalOffline() {
+		log.Debug().Str("method", method).Str("resource", resource).Msg("In operational offline mode, returning network error")
+		return nil, errors.New("network unavailable: operational offline mode is enabled")
+	}
+
 	if auth == nil || auth.AccessToken == "" {
 		// a catch all condition to avoid wiping our auth by accident
 		log.Error().Msg("Auth was empty and we attempted to make a request with it!")
@@ -412,8 +422,32 @@ func GetDrive(auth *Auth) (Drive, error) {
 	return drive, json.Unmarshal(resp, &drive)
 }
 
-// IsOffline checks if an error string from Request() is indicative of being offline.
+// SetOperationalOffline sets the operational offline state
+func SetOperationalOffline(offline bool) {
+	operationalOfflineMutex.Lock()
+	defer operationalOfflineMutex.Unlock()
+	operationalOffline = offline
+	log.Info().Bool("offline", offline).Msg("Set operational offline state")
+}
+
+// GetOperationalOffline returns the current operational offline state
+func GetOperationalOffline() bool {
+	operationalOfflineMutex.RLock()
+	defer operationalOfflineMutex.RUnlock()
+	return operationalOffline
+}
+
+// IsOffline checks if the system is offline.
+// It returns true if either:
+// 1. The operational offline state is set to true, or
+// 2. An error string from Request() is indicative of being offline.
 func IsOffline(err error) bool {
+	// Check operational offline state first
+	if GetOperationalOffline() {
+		return true
+	}
+
+	// Then check detected offline state based on error
 	if err == nil {
 		return false
 	}

@@ -123,7 +123,7 @@ func GetItemPath(path string, auth *Auth) (*DriveItem, error) {
 func GetItemContent(id string, auth *Auth) ([]byte, uint64, error) {
 	buf := bytes.NewBuffer(make([]byte, 0))
 	n, err := GetItemContentStream(id, auth, buf)
-	return buf.Bytes(), uint64(n), err
+	return buf.Bytes(), n, err
 }
 
 // GetItemContentStream is the same as GetItemContent, but writes data to an

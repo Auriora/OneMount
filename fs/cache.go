@@ -567,6 +567,20 @@ func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
 // be called before InsertID if being used to rename/move an item.
 func (f *Filesystem) DeleteID(id string) {
 	if inode := f.GetID(id); inode != nil {
+		// If this is a directory, recursively delete all its children first
+		if inode.IsDir() && inode.HasChildren() {
+			// Make a copy of the children slice to avoid concurrent modification issues
+			inode.RLock()
+			childrenCopy := make([]string, len(inode.children))
+			copy(childrenCopy, inode.children)
+			inode.RUnlock()
+
+			// Delete each child
+			for _, childID := range childrenCopy {
+				f.DeleteID(childID)
+			}
+		}
+
 		parent := f.GetID(inode.ParentID())
 		parent.Lock()
 		for i, childID := range parent.children {
