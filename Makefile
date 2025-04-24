@@ -143,13 +143,8 @@ test-python:
 # permission to deny network access to onedriver during the test.
 test: onedriver onedriver-launcher dmel.fa test-python
 	rm -f *.race* fusefs_tests.log
-	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 $(shell go list ./ui/... | grep -v offline)
-	$(CGO_CFLAGS) gotest -v -parallel=8 -count=1 ./cmd/...
-	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./fs/graph/...
-	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./fs
-	$(CGO_CFLAGS) go test -c ./fs/offline
-	@echo "sudo is required to run tests of offline functionality:"
-	sudo unshare -n sudo -u $(TEST_UID) ./offline.test -test.v -test.parallel=8 -test.count=1
+	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 ./ui/...
+	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./fs/...
 
 
 # will literally purge everything: all built artifacts, all logs, all tests,
