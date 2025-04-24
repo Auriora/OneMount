@@ -152,6 +152,17 @@ class OneDriverExtension(GObject.GObject, Nemo.InfoProvider):
             status_str = status.decode('utf-8')
             self.file_status_cache[path] = status_str
             return status_str
+        except OSError as e:
+            # Check if this is a filesystem limitation error (ENOTSUP, EOPNOTSUPP, ENOENT)
+            # Errno 95 is ENOTSUP/EOPNOTSUPP (Operation not supported)
+            # Errno 2 is ENOENT (No such file or directory)
+            if e.errno in (95, 2):
+                # Silently handle filesystem limitation errors
+                return "Unknown"
+            else:
+                # Log other types of errors
+                print(f"Error getting status for {path}: {e}")
+                return "Unknown"
         except Exception as e:
             print(f"Error getting status for {path}: {e}")
             return "Unknown"

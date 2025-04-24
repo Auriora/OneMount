@@ -236,13 +236,19 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 
 	// Set the extended attribute
 	if err := syscall.Setxattr(path, "user.onedriver.status", []byte(statusStr), 0); err != nil {
-		log.Error().Err(err).Str("path", path).Msg("Failed to set status xattr")
+		// Only log if it's not a filesystem limitation error
+		if !isXattrNotSupportedError(err) {
+			log.Error().Err(err).Str("path", path).Msg("Failed to set status xattr")
+		}
 	}
 
 	// If there's an error message, set it too
 	if status.ErrorMsg != "" {
 		if err := syscall.Setxattr(path, "user.onedriver.error", []byte(status.ErrorMsg), 0); err != nil {
-			log.Error().Err(err).Str("path", path).Msg("Failed to set error xattr")
+			// Only log if it's not a filesystem limitation error
+			if !isXattrNotSupportedError(err) {
+				log.Error().Err(err).Str("path", path).Msg("Failed to set error xattr")
+			}
 		}
 	}
 
@@ -250,4 +256,12 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	if f.dbusServer != nil {
 		f.dbusServer.SendFileStatusUpdate(path, statusStr)
 	}
+}
+
+// isXattrNotSupportedError checks if an error is related to xattr not being supported
+func isXattrNotSupportedError(err error) bool {
+	// ENOTSUP (95): Operation not supported
+	// ENOENT (2): No such file or directory
+	// EOPNOTSUPP (95): Operation not supported on transport endpoint
+	return err == syscall.ENOTSUP || err == syscall.ENOENT || err == syscall.EOPNOTSUPP
 }
