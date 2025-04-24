@@ -4,6 +4,7 @@
     <toRun name="FS Tests with Race Detection" type="GoTestRunConfiguration" />
     <toRun name="Graph Tests with Race Detection" type="GoTestRunConfiguration" />
     <toRun name="UI Tests" type="GoTestRunConfiguration" />
+    <toRun name="Test nemo_onedriver.py" type="tests" />
     <method v="2" />
   </configuration>
 </component>
