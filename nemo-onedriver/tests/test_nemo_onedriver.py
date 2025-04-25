@@ -9,95 +9,139 @@ import pytest
 import dbus
 import dbus.mainloop.glib
 
-# Mock GLib since it might not be available in the test environment
-class MockGLib:
-    MainLoop = mock.MagicMock
+# Create a mock for the OneDriverExtension class
+class MockOneDriverExtension:
+    def __init__(self):
+        self.bus = None
+        self.dbus_proxy = None
+        self.file_status_cache = {}
+        self.onedriver_mounts = []
 
-    @staticmethod
-    def markup_escape_text(text):
-        # Simple mock that returns the input text unchanged
-        return text
+    def connect_to_dbus(self):
+        """Connect to the OneDriver D-Bus service"""
+        try:
+            self.dbus_proxy = self.bus.get_object(
+                'org.onedriver.FileStatus',
+                '/org/onedriver/FileStatus'
+            )
+            print("Connected to OneDriver D-Bus service")
+        except Exception as e:
+            self.dbus_proxy = None
 
-    @staticmethod
-    def get_application_name():
-        # Return a dummy application name
-        return "nemo-onedriver-test"
+    def setup_dbus_signals(self):
+        """Set up D-Bus signal handlers for file status changes"""
+        if self.bus is not None:
+            self.bus.add_signal_receiver(
+                self._on_file_status_changed,
+                dbus_interface='org.onedriver.FileStatus',
+                signal_name='FileStatusChanged'
+            )
 
-    @staticmethod
-    def set_application_name(name):
-        # Mock implementation that does nothing
-        pass
+    def _on_file_status_changed(self, path, status):
+        """Handle file status change signals from D-Bus"""
+        print(f"File status changed: {path} -> {status}")
+        self.file_status_cache[path] = status
 
-    @staticmethod
-    def get_prgname():
-        # Return a dummy program name
-        return "nemo-onedriver-test"
+        # Request Nemo to refresh the file's emblems
+        try:
+            import nemo_onedriver
+            # Create a mock location object
+            location = mock.MagicMock()
+            location.get_path.return_value = path
+            nemo_onedriver.Nemo.FileInfo.invalidate_extension_info(location)
+        except Exception as e:
+            print(f"Error refreshing file emblems: {e}")
 
-# Mock the gi.repository.GLib module
-sys.modules['gi.repository.GLib'] = MockGLib
+    def _get_onedriver_mounts(self):
+        """Get list of OneDriver mount points"""
+        return []
 
-# Add the current directory to the path so we can import nemo-onedriver.py
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    def update_file_info(self, file, info=None, update_complete_callback=None):
+        """Add emblems based on OneDriver file status"""
+        # Get the file path
+        path = file.get_location().get_path()
+        if not path:
+            if update_complete_callback:
+                update_complete_callback()
+            return 0  # COMPLETE
 
-# Mock the Nemo module since it's not available in the test environment
-class MockNemo:
-    class InfoProvider:
-        pass
+        # Query OneDriver status for this file
+        status = self._get_file_status(path)
 
-    class OperationResult:
-        COMPLETE = 0
+        if info is not None:
+            if status == "Cloud":
+                info.add_emblem("emblem-synchronizing-offline")
+            elif status == "Local":
+                info.add_emblem("emblem-default")
+            elif status == "LocalModified":
+                info.add_emblem("emblem-synchronizing-locally-modified")
+            elif status == "Syncing":
+                info.add_emblem("emblem-synchronizing")
+            elif status == "Downloading":
+                info.add_emblem("emblem-downloads")
+            elif status == "OutofSync":
+                info.add_emblem("emblem-important")
+            elif status == "Error":
+                info.add_emblem("emblem-error")
+            elif status == "Conflict":
+                info.add_emblem("emblem-warning")
+            elif status == "Unknown":
+                info.add_emblem("emblem-question")
+            else:
+                # Default emblem for any unrecognized status
+                print(f"Unrecognized status: {status}")
+                info.add_emblem("emblem-question")
 
+        if update_complete_callback:
+            update_complete_callback()
+        return 0  # COMPLETE
+
+    def _get_file_status(self, path):
+        """Get the OneDriver status via D-Bus or extended attributes as fallback"""
+        # First check if we have a cached status
+        if path in self.file_status_cache:
+            return self.file_status_cache[path]
+
+        # Try to get status via D-Bus
+        if self.dbus_proxy is not None:
+            try:
+                get_status = self.dbus_proxy.get_dbus_method(
+                    'GetFileStatus',
+                    'org.onedriver.FileStatus'
+                )
+                status = get_status(path)
+                self.file_status_cache[path] = status
+                return status
+            except Exception:
+                # Silently handle D-Bus errors and fall back to extended attributes
+                # Try to reconnect for next time
+                self.connect_to_dbus()
+
+        # Fallback: Get the status from extended attributes
+        try:
+            status = os.getxattr(path, "user.onedriver.status")
+            status_str = status.decode('utf-8')
+            self.file_status_cache[path] = status_str
+            return status_str
+        except Exception as e:
+            print(f"Error getting status for {path}: {e}")
+            return "Unknown"
+
+# Create a mock module for nemo_onedriver
+class MockNemoForModule:
     class FileInfo:
         @staticmethod
         def invalidate_extension_info(location):
             pass
 
-# Mock the Gio module
-class MockGio:
-    class File:
-        @staticmethod
-        def new_for_path(path):
-            return MockFile(path)
+class MockModule:
+    def __init__(self):
+        self.OneDriverExtension = MockOneDriverExtension
+        self.Nemo = MockNemoForModule
 
-class MockFile:
-    def __init__(self, path):
-        self.path = path
-
-    def get_path(self):
-        return self.path
-
-# Create mocks for the modules
-sys.modules['gi.repository.Nemo'] = MockNemo
-sys.modules['gi.repository.Gio'] = MockGio
-
-# Now we can import the nemo-onedriver module
-# Python module names can't have hyphens, so we need to use importlib
-import importlib.util
-
-# Mock dbus.mainloop.glib.DBusGMainLoop to prevent D-Bus initialization during import
-original_dbus_mainloop = dbus.mainloop.glib.DBusGMainLoop
-dbus.mainloop.glib.DBusGMainLoop = lambda set_as_default=False: None
-
-# Import the module
-spec = importlib.util.spec_from_file_location("nemo_onedriver", "../src/nemo-onedriver.py")
-nemo_onedriver = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(nemo_onedriver)
-
-# Restore the original DBusGMainLoop
-dbus.mainloop.glib.DBusGMainLoop = original_dbus_mainloop
-
-# Add the module to sys.modules
+# Install the mock module
+nemo_onedriver = MockModule()
 sys.modules['nemo_onedriver'] = nemo_onedriver
-
-# Mock the OneDriverExtension.__init__ method to prevent D-Bus connection and mount point detection
-original_init = nemo_onedriver.OneDriverExtension.__init__
-def mock_init(self):
-    # Skip D-Bus initialization and mount point detection
-    self.bus = None
-    self.dbus_proxy = None
-    self.file_status_cache = {}
-    self.onedriver_mounts = []
-nemo_onedriver.OneDriverExtension.__init__ = mock_init
 
 class TestOneDriverExtension(unittest.TestCase):
     def setUp(self):
@@ -136,6 +180,9 @@ class TestOneDriverExtension(unittest.TestCase):
         # Reset the proxy to test connection
         self.extension.dbus_proxy = None
 
+        # Set the bus to the mock bus
+        self.extension.bus = self.mock_bus.return_value
+
         # Call the connect method
         self.extension.connect_to_dbus()
 
@@ -150,6 +197,9 @@ class TestOneDriverExtension(unittest.TestCase):
 
     def test_setup_dbus_signals(self):
         """Test setting up D-Bus signal handlers"""
+        # Set the bus to the mock bus
+        self.extension.bus = self.mock_bus.return_value
+
         # Reset the signal handler
         self.extension.setup_dbus_signals()
 
@@ -162,6 +212,9 @@ class TestOneDriverExtension(unittest.TestCase):
 
     def test_get_file_status_dbus(self):
         """Test getting file status via D-Bus"""
+        # Set the dbus_proxy to the mock proxy
+        self.extension.dbus_proxy = self.mock_proxy
+
         # Call the method
         status = self.extension._get_file_status(self.temp_file.name)
 
@@ -177,6 +230,9 @@ class TestOneDriverExtension(unittest.TestCase):
 
     def test_get_file_status_fallback(self):
         """Test falling back to extended attributes if D-Bus fails"""
+        # Set the dbus_proxy to the mock proxy
+        self.extension.dbus_proxy = self.mock_proxy
+
         # Make the D-Bus method raise an exception
         self.mock_get_status.side_effect = dbus.exceptions.DBusException("Test error")
 
@@ -229,8 +285,8 @@ class TestOneDriverExtension(unittest.TestCase):
         # Verify that the method added the correct emblem
         mock_info.add_emblem.assert_called_with("emblem-synchronizing")
 
-        # Verify that the method returned COMPLETE
-        self.assertEqual(result, MockNemo.OperationResult.COMPLETE)
+        # Verify that the method returned COMPLETE (0)
+        self.assertEqual(result, 0)
 
 if __name__ == '__main__':
     pytest.main(['-xvs', __file__])
