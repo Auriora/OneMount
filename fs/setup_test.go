@@ -38,7 +38,10 @@ var (
 // sessions.
 func TestMain(m *testing.M) {
 	// Set environment variable to indicate we're in a test environment
-	os.Setenv("ONEDRIVER_TEST", "1")
+	if err := os.Setenv("ONEDRIVER_TEST", "1"); err != nil {
+		fmt.Println("Failed to set ONEDRIVER_TEST environment variable:", err)
+		os.Exit(1)
+	}
 	// We used to skip paging test setup for single tests, but that caused issues
 	// when running TestListChildrenPaging individually
 
@@ -173,7 +176,9 @@ func TestMain(m *testing.M) {
 					testFile := filepath.Join(mountLoc, ".test-mount-ready")
 					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
 						// Successfully created test file, filesystem is mounted
-						os.Remove(testFile) // Clean up
+						if removeErr := os.Remove(testFile); removeErr != nil {
+							log.Warn().Err(removeErr).Msg("Failed to remove test file, but mount is confirmed")
+						}
 						mountDone <- true
 						return
 					} else {

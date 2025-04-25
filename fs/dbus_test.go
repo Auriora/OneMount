@@ -15,9 +15,17 @@ import (
 func TestDBusServerStartStop(t *testing.T) {
 	// Create a temporary filesystem for testing
 	tempDir := filepath.Join(testDBLoc, "test_dbus_start_stop")
-	os.RemoveAll(tempDir)
-	os.MkdirAll(tempDir, 0755)
-	defer os.RemoveAll(tempDir)
+	if err := os.RemoveAll(tempDir); err != nil {
+		t.Fatalf("Failed to remove temp directory: %v", err)
+	}
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory during cleanup: %v", err)
+		}
+	}()
 
 	// Create a new filesystem
 	fs, err := NewFilesystem(auth, tempDir, 30)
@@ -47,7 +55,11 @@ func TestDBusGetFileStatus(t *testing.T) {
 	testFilePath := filepath.Join(TestDir, "dbus_test_file.txt")
 	err := os.WriteFile(testFilePath, []byte("test content"), 0644)
 	require.NoError(t, err, "Failed to create test file")
-	defer os.Remove(testFilePath)
+	defer func() {
+		if err := os.Remove(testFilePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Failed to remove test file during cleanup: %v", err)
+		}
+	}()
 
 	// Wait for the file to be recognized by the filesystem
 	var inode *Inode
@@ -70,7 +82,11 @@ func TestDBusFileStatusSignal(t *testing.T) {
 	testFilePath := filepath.Join(TestDir, "dbus_test_signal.txt")
 	err := os.WriteFile(testFilePath, []byte("test content"), 0644)
 	require.NoError(t, err, "Failed to create test file")
-	defer os.Remove(testFilePath)
+	defer func() {
+		if err := os.Remove(testFilePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Failed to remove test file during cleanup: %v", err)
+		}
+	}()
 
 	// Wait for the file to be recognized by the filesystem
 	var inode *Inode
@@ -87,6 +103,13 @@ func TestDBusFileStatusSignal(t *testing.T) {
 	// Set up a signal handler
 	signalChan := make(chan *dbus.Signal, 10)
 	conn.Signal(signalChan)
+
+	// Ensure connection is properly closed
+	defer func() {
+		if err := conn.Close(); err != nil {
+			t.Logf("Failed to close D-Bus connection: %v", err)
+		}
+	}()
 
 	// Add a match rule for the FileStatusChanged signal
 	err = conn.AddMatchSignal(
@@ -133,9 +156,17 @@ signalFound:
 func TestDBusServerReconnect(t *testing.T) {
 	// Create a temporary filesystem for testing
 	tempDir := filepath.Join(testDBLoc, "test_dbus_reconnect")
-	os.RemoveAll(tempDir)
-	os.MkdirAll(tempDir, 0755)
-	defer os.RemoveAll(tempDir)
+	if err := os.RemoveAll(tempDir); err != nil {
+		t.Fatalf("Failed to remove temp directory: %v", err)
+	}
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory during cleanup: %v", err)
+		}
+	}()
 
 	// Create a new filesystem
 	testFS, err := NewFilesystem(auth, tempDir, 30)
@@ -153,7 +184,11 @@ func TestDBusServerReconnect(t *testing.T) {
 	testFilePath := filepath.Join(TestDir, "dbus_test_reconnect.txt")
 	err = os.WriteFile(testFilePath, []byte("test content"), 0644)
 	require.NoError(t, err, "Failed to create test file")
-	defer os.Remove(testFilePath)
+	defer func() {
+		if err := os.Remove(testFilePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Failed to remove test file during cleanup: %v", err)
+		}
+	}()
 
 	// Wait for the file to be recognized by the global filesystem
 	// We use the global fs variable here because the test file is created in the mounted filesystem
@@ -175,7 +210,11 @@ func TestDBusServerReconnect(t *testing.T) {
 	// Connect to the D-Bus service
 	conn, err := dbus.SessionBus()
 	require.NoError(t, err, "Failed to connect to D-Bus session bus")
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			t.Logf("Failed to close D-Bus connection: %v", err)
+		}
+	}()
 
 	// Get the D-Bus object
 	obj := conn.Object(DBusServiceName, DBusObjectPath)

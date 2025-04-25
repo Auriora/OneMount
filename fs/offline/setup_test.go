@@ -130,7 +130,9 @@ func TestMain(m *testing.M) {
 					testFile := filepath.Join(mountLoc, ".test-mount-ready")
 					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
 						// Successfully created test file, filesystem is mounted
-						os.Remove(testFile) // Clean up
+						if removeErr := os.Remove(testFile); removeErr != nil {
+							log.Warn().Err(removeErr).Msg("Failed to remove test file, but mount is confirmed")
+						}
 						mountDone <- true
 						return
 					} else {

@@ -293,8 +293,9 @@ func Patch(resource string, auth *Auth, content io.Reader, headers ...Header) ([
 }
 
 // PatchWithContext is a convenience wrapper around RequestWithContext
-// This function is kept for API completeness and potential future use.
-// nolint:unused
+// This function is intentionally kept for API completeness and potential future use.
+// It is currently unused but maintained for API consistency.
+// nolint:unused,deadcode
 func PatchWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
 	if err == nil {
@@ -313,8 +314,9 @@ func Post(resource string, auth *Auth, content io.Reader, headers ...Header) ([]
 }
 
 // PostWithContext is a convenience wrapper around RequestWithContext
-// This function is kept for API completeness and potential future use.
-// nolint:unused
+// This function is intentionally kept for API completeness and potential future use.
+// It is currently unused but maintained for API consistency.
+// nolint:unused,deadcode
 func PostWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "POST", content, headers...)
 	if err == nil {
@@ -333,8 +335,9 @@ func Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]b
 }
 
 // PutWithContext is a convenience wrapper around RequestWithContext
-// This function is kept for API completeness and potential future use.
-// nolint:unused
+// This function is intentionally kept for API completeness and potential future use.
+// It is currently unused but maintained for API consistency.
+// nolint:unused,deadcode
 func PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
 	if err == nil {
@@ -353,8 +356,9 @@ func Delete(resource string, auth *Auth, headers ...Header) error {
 }
 
 // DeleteWithContext performs an HTTP delete with context
-// This function is kept for API completeness and potential future use.
-// nolint:unused
+// This function is intentionally kept for API completeness and potential future use.
+// It is currently unused but maintained for API consistency.
+// nolint:unused,deadcode
 func DeleteWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) error {
 	_, err := RequestWithContext(ctx, resource, auth, "DELETE", nil, headers...)
 	if err == nil {

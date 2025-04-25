@@ -89,14 +89,18 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats boo
 			config.CacheDir = *cacheDir
 		}
 		log.Info().Str("path", config.CacheDir).Msg("Removing cache.")
-		os.RemoveAll(config.CacheDir)
+		if err := os.RemoveAll(config.CacheDir); err != nil {
+			log.Error().Err(err).Msg("Failed to remove cache directory")
+		}
 		os.Exit(0)
 	}
 
 	// determine and validate mountpoint
 	if len(flag.Args()) == 0 {
 		flag.Usage()
-		fmt.Fprintf(os.Stderr, "\nNo mountpoint provided, exiting.\n")
+		if _, err := fmt.Fprintf(os.Stderr, "\nNo mountpoint provided, exiting.\n"); err != nil {
+			log.Error().Err(err).Msg("Failed to write to stderr")
+		}
 		os.Exit(1)
 	}
 	mountpoint = flag.Arg(0)
@@ -127,14 +131,21 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats boo
 // initializeFilesystem sets up the filesystem and returns the filesystem, auth, server, and paths
 func initializeFilesystem(config *common.Config, mountpoint string, authOnly, headless, debugOn bool) (*fs.Filesystem, *graph.Auth, *fuse.Server, string, string, error) {
 	// compute cache name as systemd would
-	absMountPath, _ := filepath.Abs(mountpoint)
+	absMountPath, err := filepath.Abs(mountpoint)
+	if err != nil {
+		return nil, nil, nil, "", "", fmt.Errorf("failed to get absolute path for mountpoint: %w", err)
+	}
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
 
 	// authenticate/re-authenticate if necessary
-	os.MkdirAll(cachePath, 0700)
+	if err := os.MkdirAll(cachePath, 0700); err != nil {
+		return nil, nil, nil, "", "", fmt.Errorf("failed to create cache directory: %w", err)
+	}
 	authPath := filepath.Join(cachePath, "auth_tokens.json")
 	if authOnly {
-		os.Remove(authPath)
+		if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
+			log.Error().Err(err).Msg("Failed to remove auth tokens file")
+		}
 		_, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 		if err != nil {
 			log.Error().Err(err).Msg("Authentication failed")
