@@ -212,6 +212,18 @@ func TestMain(m *testing.M) {
 	log.Info().Msg("Resetting operational offline state to false")
 	graph.SetOperationalOffline(false)
 
+	// Clean up the test database directory by stopping all services first
+	// This is important to do before unmounting to ensure no active operations
+	log.Info().Msg("Stopping all filesystem services...")
+	filesystem.StopCacheCleanup()
+	filesystem.StopDeltaLoop()
+	filesystem.StopDownloadManager()
+	filesystem.StopUploadManager()
+	filesystem.SerializeAll()
+
+	// Wait a moment to ensure all file handles are closed
+	time.Sleep(500 * time.Millisecond)
+
 	// Stop the UnmountHandler goroutine
 	close(unmountDone)
 
@@ -221,23 +233,36 @@ func TestMain(m *testing.M) {
 	// Stop signal notifications
 	signal.Stop(sigChan)
 
-	if server.Unmount() != nil {
-		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")
-		if err := exec.Command("fusermount3", "-uz", "mount").Run(); err != nil {
-			log.Error().Err(err).Msg("Failed to perform lazy unmount")
+	// Attempt to unmount with retries
+	log.Info().Msg("Attempting to unmount filesystem...")
+	unmountSuccess := false
+
+	// First try normal unmount
+	unmountErr := server.Unmount()
+	if unmountErr == nil {
+		unmountSuccess = true
+		log.Info().Msg("Successfully unmounted filesystem")
+	} else {
+		log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
+
+		// Try lazy unmount with retries
+		for i := 0; i < 3; i++ {
+			if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err == nil {
+				unmountSuccess = true
+				log.Info().Msg("Successfully performed lazy unmount")
+				break
+			} else {
+				log.Error().Err(err).Int("attempt", i+1).Msg("Failed to perform lazy unmount")
+				time.Sleep(500 * time.Millisecond) // Wait before retrying
+			}
 		}
 	}
-	fmt.Println("Successfully unmounted fuse server!")
 
-	// Clean up the test database directory by stopping all services
-	filesystem.StopCacheCleanup()
-	filesystem.StopDeltaLoop()
-	filesystem.StopDownloadManager()
-	filesystem.StopUploadManager()
-	filesystem.SerializeAll()
-
-	// Wait a moment to ensure all file handles are closed
-	time.Sleep(100 * time.Millisecond)
+	if unmountSuccess {
+		fmt.Println("Successfully unmounted fuse server!")
+	} else {
+		fmt.Println("Warning: Failed to unmount fuse server. You may need to manually unmount with 'fusermount3 -uz mount'")
+	}
 
 	os.Exit(code)
 }
