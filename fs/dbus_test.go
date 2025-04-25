@@ -138,16 +138,16 @@ func TestDBusServerReconnect(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Create a new filesystem
-	fs, err := NewFilesystem(auth, tempDir, 30)
+	testFS, err := NewFilesystem(auth, tempDir, 30)
 	require.NoError(t, err, "Failed to create filesystem")
 
 	// The D-Bus server should be started automatically
-	assert.NotNil(t, fs.dbusServer, "D-Bus server should be initialized")
-	assert.True(t, fs.dbusServer.started, "D-Bus server should be started")
+	assert.NotNil(t, testFS.dbusServer, "D-Bus server should be initialized")
+	assert.True(t, testFS.dbusServer.started, "D-Bus server should be started")
 
 	// Stop the D-Bus server
-	fs.dbusServer.Stop()
-	assert.False(t, fs.dbusServer.started, "D-Bus server should be stopped")
+	testFS.dbusServer.Stop()
+	assert.False(t, testFS.dbusServer.started, "D-Bus server should be stopped")
 
 	// Create a test file
 	testFilePath := filepath.Join(TestDir, "dbus_test_reconnect.txt")
@@ -155,7 +155,8 @@ func TestDBusServerReconnect(t *testing.T) {
 	require.NoError(t, err, "Failed to create test file")
 	defer os.Remove(testFilePath)
 
-	// Wait for the file to be recognized by the filesystem
+	// Wait for the file to be recognized by the global filesystem
+	// We use the global fs variable here because the test file is created in the mounted filesystem
 	var inode *Inode
 	require.Eventually(t, func() bool {
 		inode, err = fs.GetPath(testFilePath, auth)
@@ -163,12 +164,13 @@ func TestDBusServerReconnect(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond, "Failed to get inode for test file")
 
 	// Updating file status should not cause an error even though the D-Bus server is stopped
-	fs.updateFileStatus(inode)
+	// We use the test filesystem's updateFileStatus method to test that it doesn't cause an error
+	testFS.updateFileStatus(inode)
 
 	// Start the D-Bus server again
-	err = fs.dbusServer.StartForTesting()
+	err = testFS.dbusServer.StartForTesting()
 	assert.NoError(t, err, "Failed to start D-Bus server")
-	assert.True(t, fs.dbusServer.started, "D-Bus server should be started")
+	assert.True(t, testFS.dbusServer.started, "D-Bus server should be started")
 
 	// Connect to the D-Bus service
 	conn, err := dbus.SessionBus()
@@ -179,7 +181,7 @@ func TestDBusServerReconnect(t *testing.T) {
 	obj := conn.Object(DBusServiceName, DBusObjectPath)
 	require.NotNil(t, obj, "Failed to get D-Bus object")
 
-	// Call the GetFileStatus method
+	// Call the GetFileStatus method on the test filesystem's D-Bus server
 	var status string
 	err = obj.Call(DBusInterface+".GetFileStatus", 0, testFilePath).Store(&status)
 	require.NoError(t, err, "Failed to call GetFileStatus method")
