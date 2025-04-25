@@ -240,7 +240,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 // Unlink deletes a child file.
 func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) fuse.Status {
 	parentID := f.TranslateID(in.NodeId)
-	child, _ := f.GetChild(parentID, name, nil)
+	child, _ := f.GetChild(parentID, name, f.auth)
 	if child == nil {
 		// the file we are unlinking never existed
 		return fuse.ENOENT
