@@ -8,7 +8,33 @@ import tempfile
 import pytest
 import dbus
 import dbus.mainloop.glib
-from gi.repository import GLib
+
+# Mock GLib since it might not be available in the test environment
+class MockGLib:
+    MainLoop = mock.MagicMock
+
+    @staticmethod
+    def markup_escape_text(text):
+        # Simple mock that returns the input text unchanged
+        return text
+
+    @staticmethod
+    def get_application_name():
+        # Return a dummy application name
+        return "nemo-onedriver-test"
+
+    @staticmethod
+    def set_application_name(name):
+        # Mock implementation that does nothing
+        pass
+
+    @staticmethod
+    def get_prgname():
+        # Return a dummy program name
+        return "nemo-onedriver-test"
+
+# Mock the gi.repository.GLib module
+sys.modules['gi.repository.GLib'] = MockGLib
 
 # Add the current directory to the path so we can import nemo-onedriver.py
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -47,12 +73,31 @@ sys.modules['gi.repository.Gio'] = MockGio
 # Now we can import the nemo-onedriver module
 # Python module names can't have hyphens, so we need to use importlib
 import importlib.util
+
+# Mock dbus.mainloop.glib.DBusGMainLoop to prevent D-Bus initialization during import
+original_dbus_mainloop = dbus.mainloop.glib.DBusGMainLoop
+dbus.mainloop.glib.DBusGMainLoop = lambda set_as_default=False: None
+
+# Import the module
 spec = importlib.util.spec_from_file_location("nemo_onedriver", "../src/nemo-onedriver.py")
 nemo_onedriver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(nemo_onedriver)
 
+# Restore the original DBusGMainLoop
+dbus.mainloop.glib.DBusGMainLoop = original_dbus_mainloop
+
 # Add the module to sys.modules
 sys.modules['nemo_onedriver'] = nemo_onedriver
+
+# Mock the OneDriverExtension.__init__ method to prevent D-Bus connection and mount point detection
+original_init = nemo_onedriver.OneDriverExtension.__init__
+def mock_init(self):
+    # Skip D-Bus initialization and mount point detection
+    self.bus = None
+    self.dbus_proxy = None
+    self.file_status_cache = {}
+    self.onedriver_mounts = []
+nemo_onedriver.OneDriverExtension.__init__ = mock_init
 
 class TestOneDriverExtension(unittest.TestCase):
     def setUp(self):
