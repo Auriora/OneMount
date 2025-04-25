@@ -75,6 +75,13 @@ func TestOfflineFileCreation(t *testing.T) {
 	donutsPath := filepath.Join(TestDir, "donuts")
 	donutsContent := []byte("donuts are tasty")
 
+	// Setup cleanup to run after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(donutsPath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", donutsPath, err)
+		}
+	})
+
 	// Write the file in offline mode
 	err := os.WriteFile(donutsPath, donutsContent, 0644)
 	require.NoError(t, err, "Writing a file while offline should succeed")
@@ -95,6 +102,13 @@ func TestOfflineFileModification(t *testing.T) {
 	originalContent, err := os.ReadFile(bagelPath)
 	require.NoError(t, err, "Reading the original file should succeed")
 
+	// Setup cleanup to restore the original content after test completes or fails
+	t.Cleanup(func() {
+		if err := os.WriteFile(bagelPath, originalContent, 0644); err != nil {
+			t.Logf("Warning: Failed to restore original content to %s: %v", bagelPath, err)
+		}
+	})
+
 	// Modify the file in offline mode
 	err = os.WriteFile(bagelPath, newContent, 0644)
 	require.NoError(t, err, "Modifying a file while offline should succeed")
@@ -112,8 +126,16 @@ func TestOfflineFileDeletion(t *testing.T) {
 
 	// Create a test file to delete
 	testFilePath := filepath.Join(TestDir, "file_to_delete.txt")
-	err := os.WriteFile(testFilePath, []byte("this file will be deleted"), 0644)
+	testContent := []byte("this file will be deleted")
+	err := os.WriteFile(testFilePath, testContent, 0644)
 	require.NoError(t, err, "Creating a test file should succeed")
+
+	// Setup cleanup to ensure the file is removed even if the test fails before deletion
+	t.Cleanup(func() {
+		if err := os.Remove(testFilePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", testFilePath, err)
+		}
+	})
 
 	// Verify the file exists
 	_, err = os.Stat(testFilePath)
@@ -134,6 +156,13 @@ func TestOfflineMkdir(t *testing.T) {
 	t.Parallel()
 	dirPath := filepath.Join(TestDir, "offline_dir")
 
+	// Setup cleanup to remove the directory after test completes or fails
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dirPath); err != nil {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
+		}
+	})
+
 	// Create the directory in offline mode
 	err := os.Mkdir(dirPath, 0755)
 	require.NoError(t, err, "Creating a directory while offline should succeed")
@@ -152,6 +181,13 @@ func TestOfflineRmdir(t *testing.T) {
 	dirPath := filepath.Join(TestDir, "dir_to_delete")
 	err := os.Mkdir(dirPath, 0755)
 	require.NoError(t, err, "Creating a test directory should succeed")
+
+	// Setup cleanup to ensure the directory is removed even if the test fails before deletion
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dirPath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
+		}
+	})
 
 	// Verify the directory exists
 	_, err = os.Stat(dirPath)
@@ -174,6 +210,14 @@ func TestOfflineChangesCached(t *testing.T) {
 	// Create a test file in offline mode
 	testFilePath := filepath.Join(TestDir, "cached_changes.txt")
 	testContent := []byte("this file was created in offline mode")
+
+	// Setup cleanup to remove the test file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(testFilePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", testFilePath, err)
+		}
+	})
+
 	err := os.WriteFile(testFilePath, testContent, 0644)
 	require.NoError(t, err, "Creating a file in offline mode should succeed")
 
@@ -194,6 +238,14 @@ func TestOfflineSynchronization(t *testing.T) {
 	// Create a test file in offline mode
 	syncFilePath := filepath.Join(TestDir, "sync_test.txt")
 	syncContent := []byte("this file will be synchronized when online")
+
+	// Setup cleanup to remove the test file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(syncFilePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", syncFilePath, err)
+		}
+	})
+
 	err := os.WriteFile(syncFilePath, syncContent, 0644)
 	require.NoError(t, err, "Creating a file in offline mode should succeed")
 

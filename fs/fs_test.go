@@ -53,6 +53,14 @@ func TestLs(t *testing.T) {
 // can touch create an empty file?
 func TestTouchCreate(t *testing.T) {
 	fname := filepath.Join(TestDir, "empty")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	syscall.Umask(022) // otherwise tests fail if default umask is 002
 	require.NoError(t, exec.Command("touch", fname).Run())
 	st, err := os.Stat(fname)
@@ -70,6 +78,14 @@ func TestTouchCreate(t *testing.T) {
 // does the touch command update modification time properly?
 func TestTouchUpdateTime(t *testing.T) {
 	fname := filepath.Join(TestDir, "modtime")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	require.NoError(t, exec.Command("touch", fname).Run())
 	st1, _ := os.Stat(fname)
 
@@ -86,6 +102,14 @@ func TestTouchUpdateTime(t *testing.T) {
 // chmod should *just work*
 func TestChmod(t *testing.T) {
 	fname := filepath.Join(TestDir, "chmod_tester")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	require.NoError(t, exec.Command("touch", fname).Run())
 	require.NoError(t, os.Chmod(fname, 0777))
 	st, _ := os.Stat(fname)
@@ -97,6 +121,13 @@ func TestChmod(t *testing.T) {
 // after rmdir
 func TestMkdirRmdir(t *testing.T) {
 	fname := filepath.Join(TestDir, "folder1")
+
+	// Setup cleanup to remove the directory after test completes or fails
+	t.Cleanup(func() {
+		if err := os.RemoveAll(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", fname, err)
+		}
+	})
 
 	// Remove the directory if it exists to ensure we start fresh
 	if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
@@ -116,6 +147,14 @@ func TestMkdirRmdir(t *testing.T) {
 // We shouldn't be able to rmdir nonempty directories
 func TestRmdirNonempty(t *testing.T) {
 	dir := filepath.Join(TestDir, "nonempty")
+
+	// Setup cleanup to remove the directory after test completes or fails
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", dir, err)
+		}
+	})
+
 	require.NoError(t, os.Mkdir(dir, 0755))
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "contents"), 0755))
 
@@ -128,6 +167,14 @@ func TestRmdirNonempty(t *testing.T) {
 // test that we can write to a file and read its contents back correctly
 func TestReadWrite(t *testing.T) {
 	fname := filepath.Join(TestDir, "write.txt")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	content := "my hands are typing words\n"
 	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
 	read, err := os.ReadFile(fname)
@@ -139,13 +186,28 @@ func TestReadWrite(t *testing.T) {
 // empty file
 func TestWriteOffset(t *testing.T) {
 	fname := filepath.Join(TestDir, "main.c")
+	outputFile := filepath.Join(TestDir, "main.o")
+
+	// Setup cleanup to remove the files after test completes or fails
+	t.Cleanup(func() {
+		// Clean up source file
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+
+		// Clean up compiled output
+		if err := os.Remove(outputFile); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", outputFile, err)
+		}
+	})
+
 	require.NoError(t, os.WriteFile(fname,
 		[]byte(`#include <stdio.h>
 
 int main(int argc, char **argv) {
 	printf("ld writes files in a funny manner!");
 }`), 0644))
-	require.NoError(t, exec.Command("gcc", "-o", filepath.Join(TestDir, "main.o"), fname).Run())
+	require.NoError(t, exec.Command("gcc", "-o", outputFile, fname).Run())
 }
 
 // test that we can create a file and rename it
@@ -153,16 +215,41 @@ int main(int argc, char **argv) {
 func TestRenameMove(t *testing.T) {
 	fname := filepath.Join(TestDir, "rename.txt")
 	dname := filepath.Join(TestDir, "new-destination-name.txt")
+	destDir := filepath.Join(TestDir, "dest")
+	dname2 := filepath.Join(destDir, "even-newer-name.txt")
+
+	// Setup cleanup to remove the files and directory after test completes or fails
+	t.Cleanup(func() {
+		// Clean up the final renamed file
+		if err := os.Remove(dname2); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", dname2, err)
+		}
+
+		// Clean up the destination directory
+		if err := os.RemoveAll(destDir); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", destDir, err)
+		}
+
+		// Clean up the intermediate file (in case the test fails before rename)
+		if err := os.Remove(dname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", dname, err)
+		}
+
+		// Clean up the original file (in case the test fails before rename)
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	require.NoError(t, os.WriteFile(fname, []byte("hopefully renames work\n"), 0644))
 	require.NoError(t, os.Rename(fname, dname))
 	st, err := os.Stat(dname)
 	require.NoError(t, err)
 	require.NotNil(t, st, "Renamed file does not exist.")
 
-	if err := os.Mkdir(filepath.Join(TestDir, "dest"), 0755); err != nil && !os.IsExist(err) {
+	if err := os.Mkdir(destDir, 0755); err != nil && !os.IsExist(err) {
 		t.Fatalf("Failed to create destination directory: %v", err)
 	}
-	dname2 := filepath.Join(TestDir, "dest/even-newer-name.txt")
 	require.NoError(t, os.Rename(dname, dname2))
 	st, err = os.Stat(dname2)
 	require.NoError(t, err)
@@ -173,6 +260,20 @@ func TestRenameMove(t *testing.T) {
 func TestCopy(t *testing.T) {
 	fname := filepath.Join(TestDir, "copy-start.txt")
 	dname := filepath.Join(TestDir, "copy-end.txt")
+
+	// Setup cleanup to remove the files after test completes or fails
+	t.Cleanup(func() {
+		// Clean up source file
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+
+		// Clean up destination file
+		if err := os.Remove(dname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", dname, err)
+		}
+	})
+
 	content := "and copies too!\n"
 	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
 	require.NoError(t, exec.Command("cp", fname, dname).Run())
@@ -185,6 +286,13 @@ func TestCopy(t *testing.T) {
 // do appends work correctly?
 func TestAppend(t *testing.T) {
 	fname := filepath.Join(TestDir, "append.txt")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
 
 	// Remove the file if it exists to ensure we start fresh
 	if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
@@ -220,6 +328,14 @@ func TestAppend(t *testing.T) {
 // identical to TestAppend, but truncates the file each time it is written to
 func TestTruncate(t *testing.T) {
 	fname := filepath.Join(TestDir, "truncate.txt")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	for i := 0; i < 5; i++ {
 		file, err := os.OpenFile(fname, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 		require.NoError(t, err, "Failed to open file for truncate: %v", err)
@@ -259,6 +375,14 @@ tortor. In tempus lacinia est, nec gravida ipsum viverra sed. In vel felis
 vitae odio pulvinar egestas. Sed ullamcorper, nulla non molestie dictum,
 massa lectus mattis dolor, in volutpat nulla lectus id neque.`
 	fname := filepath.Join(TestDir, "midfile.txt")
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
 	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
 
 	file, err := os.OpenFile(fname, os.O_RDWR, 0644)
