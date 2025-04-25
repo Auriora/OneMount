@@ -54,6 +54,31 @@ func captureFileSystemState() (map[string]os.FileInfo, error) {
 	return state, err
 }
 
+// TestMain is the entry point for all tests in this package.
+// It sets up the test environment, runs the tests, and cleans up afterward.
+//
+// The setup process:
+// 1. Sets the ONEDRIVER_TEST environment variable to indicate we're in a test environment
+// 2. Changes the working directory to the project root
+// 3. Checks if the mount point is already in use and unmounts it if necessary
+// 4. Creates the mount directory if it doesn't exist
+// 5. Wipes all cached data from previous tests
+// 6. Sets up logging
+// 7. Authenticates with Microsoft Graph API
+// 8. Initializes the filesystem
+// 9. Mounts the filesystem with FUSE
+// 10. Sets up signal handlers for graceful unmount
+// 11. Creates test directories and files
+// 12. Captures the initial state of the filesystem
+//
+// The teardown process:
+// 1. Waits for any remaining uploads to complete
+// 2. Stops the UnmountHandler goroutine
+// 3. Stops signal notifications
+// 4. Unmounts the filesystem with retries
+// 5. Stops all filesystem services
+// 6. Removes the test database directory
+//
 // Tests are done in the main project directory with a mounted filesystem to
 // avoid having to repeatedly recreate auth_tokens.json and juggle multiple auth
 // sessions.

@@ -48,7 +48,34 @@ func captureFileSystemState() (map[string]os.FileInfo, error) {
 	return state, err
 }
 
-// Like the graph package, but designed for running tests offline.
+// TestMain is the entry point for all tests in this package.
+// It sets up the test environment for offline testing, runs the tests, and cleans up afterward.
+//
+// The setup process:
+// 1. Changes the working directory to the project root
+// 2. Attempts to unmount any existing filesystem
+// 3. Creates the mount directory if it doesn't exist
+// 4. Authenticates with Microsoft Graph API
+// 5. Sets up logging
+// 6. Initializes the filesystem with cached data from previous tests
+// 7. Mounts the filesystem with FUSE
+// 8. Sets up signal handlers for graceful unmount
+// 9. Waits for the filesystem to be mounted
+// 10. Creates test files before entering offline mode
+// 11. Sets the operational offline state to true to simulate offline mode
+// 12. Sets the filesystem's offline mode to ReadWrite
+// 13. Verifies that files are accessible in offline mode
+// 14. Captures the initial state of the filesystem
+//
+// The teardown process:
+// 1. Resets the operational offline state to false
+// 2. Stops all filesystem services
+// 3. Stops the UnmountHandler goroutine
+// 4. Stops signal notifications
+// 5. Unmounts the filesystem with retries
+//
+// This package is designed for running tests in offline mode to verify that the filesystem
+// works correctly when network access is unavailable.
 func TestMain(m *testing.M) {
 	if wd, _ := os.Getwd(); strings.HasSuffix(wd, "/offline") {
 		// depending on how this test gets launched, the working directory can be wrong
