@@ -53,3 +53,4 @@ debian/files
 .idea/
 /.cache/
 /.config/
+__pycache__
