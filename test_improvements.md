@@ -62,7 +62,7 @@ if err := someOperation(); err != nil {
 - `ui/setup_test.go`: Added zerolog import, logging setup, and error handling for Chdir, Remove, and Mkdir operations
 - `ui/systemd/setup_test.go`: Added zerolog import, logging setup, and error handling for Chdir, Remove, and Mkdir operations
 
-### 2. Proper State Checking Before Tests Start
+### 2. Proper State Checking Before Tests Start (IN PROGRESS)
 
 Before starting tests, check if the environment is in the expected state:
 
@@ -104,6 +104,8 @@ if isMounted {
     }
 }
 ```
+
+**Implementation Status**: Attempted to implement in `fs/setup_test.go` and `fs/offline/setup_test.go`, but encountered compilation errors related to the `UnmountHandler` function. The error message "Too many arguments in call to 'UnmountHandler'" suggests a mismatch between the function signature and the calls in the test files. Further investigation is needed to resolve this issue before proceeding with the implementation.
 
 ### 3. Proper Cleanup After Tests Finish
 
