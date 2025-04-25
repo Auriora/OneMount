@@ -135,8 +135,11 @@ test-init: onedriver
 
 
 # Run Python tests for nemo-onedriver.py
+# PYTHONPATH is set to include the current directory and nemo-onedriver/src
+# to help pytest find modules and prevent import errors
+# The test file has been modified to mock D-Bus and GLib to prevent hanging during collection
 test-python:
-	pytest -xvs test_nemo_onedriver.py
+	PYTHONPATH=.:nemo-onedriver/src pytest -xvs nemo-onedriver/tests/test_nemo_onedriver.py
 
 # For offline tests, the test binary is built online, then network access is
 # disabled and tests are run. sudo is required - otherwise we don't have
