@@ -2,11 +2,33 @@ package common
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+// captureFileSystemState captures the current state of the filesystem
+// by listing all files and directories in the specified directory
+func captureFileSystemState(dir string) (map[string]os.FileInfo, error) {
+	state := make(map[string]os.FileInfo)
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip the directory itself
+		if path == dir {
+			return nil
+		}
+		// Store the file info in the state map
+		state[path] = info
+		return nil
+	})
+
+	return state, err
+}
 
 func TestMain(m *testing.M) {
 	if err := os.Chdir("../.."); err != nil {

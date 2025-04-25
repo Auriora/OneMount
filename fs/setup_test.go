@@ -93,12 +93,44 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	// attempt to unmount regardless of what happens (in case previous tests
-	// failed and didn't clean themselves up)
-	if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
-		fmt.Println("Warning: Failed to unmount:", unmountErr)
-		// Continue anyway as it might not be mounted
+	// Check if the mount point is already in use by another process
+	isMounted := false
+	if _, err := os.Stat(mountLoc); err == nil {
+		// Check if it's a mount point by trying to read from it
+		if _, err := os.ReadDir(mountLoc); err != nil {
+			// If we can't read the directory, it might be a stale mount point
+			log.Warn().Err(err).Msg("Mount point exists but can't be read, attempting to unmount")
+			isMounted = true
+		} else {
+			// Check if it's a mount point using findmnt
+			cmd := exec.Command("findmnt", "--noheadings", "--output", "TARGET", mountLoc)
+			if output, err := cmd.Output(); err == nil && len(output) > 0 {
+				log.Warn().Msg("Mount point is already mounted, attempting to unmount")
+				isMounted = true
+			}
+		}
 	}
+
+	// Attempt to unmount if necessary
+	if isMounted {
+		log.Info().Msg("Attempting to unmount previous instance")
+		// Try normal unmount first
+		if unmountErr := exec.Command("fusermount3", "-u", mountLoc).Run(); unmountErr != nil {
+			log.Warn().Err(unmountErr).Msg("Normal unmount failed, trying lazy unmount")
+			// Try lazy unmount
+			if lazyErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); lazyErr != nil {
+				log.Error().Err(lazyErr).Msg("Lazy unmount also failed, mount point may be in use by another process")
+				// Continue anyway, but warn the user
+				fmt.Println("WARNING: Failed to unmount existing filesystem. Tests may fail if mount point is in use.")
+			} else {
+				log.Info().Msg("Successfully performed lazy unmount")
+			}
+		} else {
+			log.Info().Msg("Successfully unmounted previous instance")
+		}
+	}
+
+	// Create mount directory if it doesn't exist
 	if mkdirErr := os.Mkdir(mountLoc, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
 		fmt.Println("Failed to create mount directory:", mkdirErr)
 		os.Exit(1)
@@ -364,14 +396,36 @@ func TestMain(m *testing.M) {
 	// Stop signal notifications
 	signal.Stop(sigChan)
 
-	// unmount
-	if server.Unmount() != nil {
-		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")
-		if unmountErr := exec.Command("fusermount3", "-zu", "mount").Run(); unmountErr != nil {
-			log.Error().Err(unmountErr).Msg("Failed to perform lazy unmount")
+	// Attempt to unmount with retries
+	log.Info().Msg("Attempting to unmount filesystem...")
+	unmountSuccess := false
+
+	// First try normal unmount
+	unmountErr := server.Unmount()
+	if unmountErr == nil {
+		unmountSuccess = true
+		log.Info().Msg("Successfully unmounted filesystem")
+	} else {
+		log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
+
+		// Try lazy unmount with retries
+		for i := 0; i < 3; i++ {
+			if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err == nil {
+				unmountSuccess = true
+				log.Info().Msg("Successfully performed lazy unmount")
+				break
+			} else {
+				log.Error().Err(err).Int("attempt", i+1).Msg("Failed to perform lazy unmount")
+				time.Sleep(500 * time.Millisecond) // Wait before retrying
+			}
 		}
 	}
-	fmt.Println("Successfully unmounted fuse server!")
+
+	if unmountSuccess {
+		fmt.Println("Successfully unmounted fuse server!")
+	} else {
+		fmt.Println("Warning: Failed to unmount fuse server. You may need to manually unmount with 'fusermount3 -uz mount'")
+	}
 
 	// Clean up the test database directory by stopping all services
 	fs.StopCacheCleanup()
