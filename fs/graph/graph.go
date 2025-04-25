@@ -105,7 +105,9 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	}
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting auth refresh")
-	auth.Refresh(ctx)
+	if err := auth.Refresh(ctx); err != nil {
+		log.Warn().Err(err).Str("method", method).Str("resource", resource).Msg("Auth refresh failed, continuing with current token")
+	}
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Auth refresh completed")
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Using shared HTTP client with connection pooling")
@@ -148,11 +150,17 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	}
 	log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Successfully read response body")
 
-	response.Body.Close()
+	if err := response.Body.Close(); err != nil {
+		log.Warn().Err(err).Str("method", method).Str("resource", resource).Msg("Error closing response body")
+	}
 
 	if response.StatusCode == 401 {
 		var err graphError
-		json.Unmarshal(body, &err)
+		if unmarshalErr := json.Unmarshal(body, &err); unmarshalErr != nil {
+			log.Warn().Err(unmarshalErr).Str("method", method).Str("resource", resource).Msg("Failed to unmarshal error response, using default error message")
+			err.Error.Code = "UnknownError"
+			err.Error.Message = "Failed to parse error response"
+		}
 		log.Warn().
 			Str("method", method).
 			Str("resource", resource).
@@ -167,7 +175,10 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 			log.Error().Err(authErr).Str("method", method).Str("resource", resource).Msg("Reauth failed")
 			return nil, fmt.Errorf("reauth failed: %w", authErr)
 		}
-		mergo.Merge(auth, reauth, mergo.WithOverride)
+		if mergeErr := mergo.Merge(auth, reauth, mergo.WithOverride); mergeErr != nil {
+			log.Error().Err(mergeErr).Str("method", method).Str("resource", resource).Msg("Failed to merge auth data")
+			return nil, fmt.Errorf("failed to merge auth data: %w", mergeErr)
+		}
 		request.Header.Set("Authorization", "bearer "+auth.AccessToken)
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Reauth process completed")
 	}
@@ -191,7 +202,9 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		}
 		log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Successfully read retry response body")
 
-		response.Body.Close()
+		if err := response.Body.Close(); err != nil {
+			log.Warn().Err(err).Str("method", method).Str("resource", resource).Msg("Error closing retry response body")
+		}
 	}
 
 	if response.StatusCode >= 400 {
@@ -280,6 +293,8 @@ func Patch(resource string, auth *Auth, content io.Reader, headers ...Header) ([
 }
 
 // PatchWithContext is a convenience wrapper around RequestWithContext
+// This function is kept for API completeness and potential future use.
+// nolint:unused
 func PatchWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
 	if err == nil {
@@ -298,6 +313,8 @@ func Post(resource string, auth *Auth, content io.Reader, headers ...Header) ([]
 }
 
 // PostWithContext is a convenience wrapper around RequestWithContext
+// This function is kept for API completeness and potential future use.
+// nolint:unused
 func PostWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "POST", content, headers...)
 	if err == nil {
@@ -316,6 +333,8 @@ func Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]b
 }
 
 // PutWithContext is a convenience wrapper around RequestWithContext
+// This function is kept for API completeness and potential future use.
+// nolint:unused
 func PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
 	if err == nil {
@@ -334,6 +353,8 @@ func Delete(resource string, auth *Auth, headers ...Header) error {
 }
 
 // DeleteWithContext performs an HTTP delete with context
+// This function is kept for API completeness and potential future use.
+// nolint:unused
 func DeleteWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) error {
 	_, err := RequestWithContext(ctx, resource, auth, "DELETE", nil, headers...)
 	if err == nil {

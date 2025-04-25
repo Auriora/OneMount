@@ -94,13 +94,76 @@ func TestMain(m *testing.M) {
 	// setup sigint handler for graceful unmount on interrupt/terminate
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
-	go fs.UnmountHandler(sigChan, server)
+	unmountDone := make(chan struct{})
+	go fs.UnmountHandler(sigChan, server, filesystem, unmountDone)
 
 	// mount fs in background thread
 	go server.Serve()
 
-	// Give the filesystem time to initialize
-	time.Sleep(2 * time.Second)
+	// Wait for the filesystem to be mounted with improved error handling
+	log.Info().Msg("Waiting for filesystem to be mounted...")
+	mounted := false
+	var lastError error
+
+	// Define a context with timeout for mount operation
+	mountCtx, mountCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer mountCancel()
+
+	// Create a ticker for periodic checks
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	// Use a channel to signal when mounting is complete
+	mountDone := make(chan bool, 1)
+
+	// Start a goroutine to check mount status
+	go func() {
+		for {
+			select {
+			case <-mountCtx.Done():
+				// Context timeout or cancellation
+				return
+			case <-ticker.C:
+				// Check if mount point exists
+				if _, err := os.Stat(mountLoc); err == nil {
+					// Try to create a test file to verify the filesystem is working
+					testFile := filepath.Join(mountLoc, ".test-mount-ready")
+					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
+						// Successfully created test file, filesystem is mounted
+						os.Remove(testFile) // Clean up
+						mountDone <- true
+						return
+					} else {
+						lastError = err
+						log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
+					}
+				} else {
+					lastError = err
+					log.Debug().Err(err).Msg("Mount point not accessible yet")
+				}
+			}
+		}
+	}()
+
+	// Wait for mounting to complete or timeout
+	select {
+	case <-mountDone:
+		mounted = true
+	case <-mountCtx.Done():
+		// Timeout or cancellation
+		log.Error().Err(mountCtx.Err()).Msg("Mount operation timed out")
+	}
+
+	if !mounted {
+		log.Error().Err(lastError).Msg("Filesystem failed to mount within timeout")
+		// Attempt to clean up
+		if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
+			log.Error().Err(unmountErr).Msg("Failed to unmount during cleanup after mount failure")
+		}
+		os.Exit(1)
+	}
+
+	log.Info().Msg("Filesystem mounted successfully")
 
 	// Create the test directory and files before setting offline mode
 	// This is necessary because file creation is not allowed in offline mode
@@ -125,6 +188,22 @@ func TestMain(m *testing.M) {
 	log.Info().Msg("Setting filesystem offline mode to ReadWrite")
 	filesystem.SetOfflineMode(fs.OfflineModeReadWrite)
 
+	// Ensure the filesystem is fully initialized before running tests
+	// This helps prevent race conditions when tests start immediately
+	log.Info().Msg("Ensuring filesystem is fully initialized before running tests...")
+
+	// Verify that the bagels file is accessible in offline mode
+	readPath := filepath.Join(TestDir, "bagels")
+	if _, err := os.ReadFile(readPath); err != nil {
+		log.Error().Err(err).Msg("Failed to read bagels file in offline mode")
+		os.Exit(1)
+	}
+
+	// Give the filesystem a moment to stabilize after initialization
+	time.Sleep(500 * time.Millisecond)
+
+	log.Info().Msg("Filesystem is fully initialized in offline mode, starting tests...")
+
 	log.Info().Msg("Start offline tests ------------------------------")
 	code := m.Run()
 	log.Info().Msg("Finish offline tests ------------------------------")
@@ -132,6 +211,15 @@ func TestMain(m *testing.M) {
 	// Reset operational offline state to false before exiting
 	log.Info().Msg("Resetting operational offline state to false")
 	graph.SetOperationalOffline(false)
+
+	// Stop the UnmountHandler goroutine
+	close(unmountDone)
+
+	// Give the UnmountHandler a moment to exit
+	time.Sleep(100 * time.Millisecond)
+
+	// Stop signal notifications
+	signal.Stop(sigChan)
 
 	if server.Unmount() != nil {
 		log.Error().Msg("Failed to unmount test fuse server, attempting lazy unmount")

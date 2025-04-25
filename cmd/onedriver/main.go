@@ -459,8 +459,10 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server) {
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to unmount filesystem cleanly after multiple attempts! " +
 				"Run \"fusermount3 -uz /MOUNTPOINT/GOES/HERE\" to unmount.")
+			os.Exit(1) // Exit with error code 1 to indicate failure
+		} else {
+			log.Info().Msg("Filesystem unmounted successfully.")
+			os.Exit(0) // Exit with success code 0
 		}
-
-		os.Exit(128)
 	}()
 }

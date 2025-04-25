@@ -75,6 +75,9 @@ func (d *DriveItem) IsDir() bool {
 
 // ModTimeUnix returns the modification time as a unix uint64 time
 func (d *DriveItem) ModTimeUnix() uint64 {
+	if d.ModTime == nil {
+		return 0
+	}
 	return uint64(d.ModTime.Unix())
 }
 

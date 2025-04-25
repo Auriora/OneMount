@@ -137,31 +137,75 @@ func TestMain(m *testing.M) {
 	// setup sigint handler for graceful unmount on interrupt/terminate
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
-	go UnmountHandler(sigChan, server)
+	unmountDone := make(chan struct{})
+	go UnmountHandler(sigChan, server, fs, unmountDone)
 
 	// mount fs in background thread
 	go server.Serve()
 
-	// Wait for the filesystem to be mounted
+	// Wait for the filesystem to be mounted with improved error handling
 	log.Info().Msg("Waiting for filesystem to be mounted...")
 	mounted := false
-	for i := 0; i < 300; i++ { // 30 seconds timeout
-		if _, err := os.Stat(mountLoc); err == nil {
-			// Try to create a test file to verify the filesystem is working
-			testFile := filepath.Join(mountLoc, ".test-mount-ready")
-			if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
-				// Successfully created test file, filesystem is mounted
-				os.Remove(testFile) // Clean up
-				mounted = true
-				break
+	var lastError error
+
+	// Define a context with timeout for mount operation
+	mountCtx, mountCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer mountCancel()
+
+	// Create a ticker for periodic checks
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	// Use a channel to signal when mounting is complete
+	mountDone := make(chan bool, 1)
+
+	// Start a goroutine to check mount status
+	go func() {
+		for {
+			select {
+			case <-mountCtx.Done():
+				// Context timeout or cancellation
+				return
+			case <-ticker.C:
+				// Check if mount point exists
+				if _, err := os.Stat(mountLoc); err == nil {
+					// Try to create a test file to verify the filesystem is working
+					testFile := filepath.Join(mountLoc, ".test-mount-ready")
+					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
+						// Successfully created test file, filesystem is mounted
+						os.Remove(testFile) // Clean up
+						mountDone <- true
+						return
+					} else {
+						lastError = err
+						log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
+					}
+				} else {
+					lastError = err
+					log.Debug().Err(err).Msg("Mount point not accessible yet")
+				}
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
+	}()
+
+	// Wait for mounting to complete or timeout
+	select {
+	case <-mountDone:
+		mounted = true
+	case <-mountCtx.Done():
+		// Timeout or cancellation
+		log.Error().Err(mountCtx.Err()).Msg("Mount operation timed out")
 	}
+
 	if !mounted {
-		log.Error().Msg("Filesystem failed to mount within timeout")
+		log.Error().Err(lastError).Msg("Filesystem failed to mount within timeout")
+		// Attempt to clean up
+		if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
+			log.Error().Err(unmountErr).Msg("Failed to unmount during cleanup after mount failure")
+		}
 		os.Exit(1)
 	}
+
 	log.Info().Msg("Filesystem mounted successfully")
 
 	// cleanup from last run
@@ -197,6 +241,34 @@ func TestMain(m *testing.M) {
 	// unmount with "device or resource busy"
 	log.Info().Msg("Test session start ---------------------------------")
 
+	// Ensure the filesystem is fully initialized before running tests
+	// This helps prevent race conditions when tests start immediately
+	log.Info().Msg("Ensuring filesystem is fully initialized before running tests...")
+
+	// Create a readiness file to verify the filesystem is fully operational
+	readinessFile := filepath.Join(TestDir, ".readiness-check")
+	if err := os.WriteFile(readinessFile, []byte("readiness check"), 0644); err != nil {
+		log.Error().Err(err).Msg("Failed to create readiness check file")
+		os.Exit(1)
+	}
+
+	// Read the file back to ensure it's accessible
+	if _, err := os.ReadFile(readinessFile); err != nil {
+		log.Error().Err(err).Msg("Failed to read readiness check file")
+		os.Exit(1)
+	}
+
+	// Clean up the readiness file
+	if err := os.Remove(readinessFile); err != nil {
+		log.Warn().Err(err).Msg("Failed to remove readiness check file")
+		// Not fatal, continue with tests
+	}
+
+	// Give the filesystem a moment to stabilize after initialization
+	time.Sleep(500 * time.Millisecond)
+
+	log.Info().Msg("Filesystem is fully initialized, starting tests...")
+
 	// run tests
 	code := m.Run()
 
@@ -207,6 +279,15 @@ func TestMain(m *testing.M) {
 		fmt.Printf(".")
 	}
 	fmt.Printf("\n")
+
+	// Stop the UnmountHandler goroutine
+	close(unmountDone)
+
+	// Give the UnmountHandler a moment to exit
+	time.Sleep(100 * time.Millisecond)
+
+	// Stop signal notifications
+	signal.Stop(sigChan)
 
 	// unmount
 	if server.Unmount() != nil {
@@ -241,9 +322,20 @@ func createPagingTestFiles() {
 	fmt.Println("Setting up paging test files.")
 	var group sync.WaitGroup
 	var errCounter int64
+
+	// Create a semaphore to limit concurrent goroutines
+	// This prevents resource exhaustion and potential deadlocks
+	semaphore := make(chan struct{}, 20) // Limit to 20 concurrent goroutines
+
 	for i := 0; i < 250; i++ {
 		group.Add(1)
+		semaphore <- struct{}{} // Acquire semaphore
 		go func(n int, wg *sync.WaitGroup) {
+			defer func() {
+				<-semaphore // Release semaphore
+				wg.Done()
+			}()
+
 			_, err := graph.Put(
 				graph.ResourcePath(fmt.Sprintf("/onedriver_tests/paging/%d.txt", n))+":/content",
 				auth,
@@ -253,7 +345,6 @@ func createPagingTestFiles() {
 				log.Error().Err(err).Msg("Paging upload fail.")
 				atomic.AddInt64(&errCounter, 1)
 			}
-			wg.Done()
 		}(i, &group)
 	}
 	group.Wait()
