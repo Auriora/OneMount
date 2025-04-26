@@ -9,6 +9,7 @@ import (
 )
 
 func TestAuthCodeFormat(t *testing.T) {
+	t.Parallel()
 	// arbitrary regext test
 	code, err := parseAuthCode("codecode=asd-965198osATYjfb._knlwoieurow*sdjf")
 	assert.NoError(t, err)

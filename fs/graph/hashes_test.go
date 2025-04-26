@@ -52,6 +52,7 @@ func BenchmarkQuickXORHashStream(b *testing.B) {
 }
 
 func TestSha1HashReader(t *testing.T) {
+	t.Parallel()
 	content := []byte("this is some text to hash")
 	expected := SHA1Hash(&content)
 
@@ -61,6 +62,7 @@ func TestSha1HashReader(t *testing.T) {
 }
 
 func TestQuickXORHashReader(t *testing.T) {
+	t.Parallel()
 	content := []byte("this is some text to hash")
 	expected := QuickXORHash(&content)
 

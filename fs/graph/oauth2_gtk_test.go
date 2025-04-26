@@ -10,6 +10,7 @@ import (
 )
 
 func TestURIGetHost(t *testing.T) {
+	t.Parallel()
 	host := uriGetHost("this won't work")
 	assert.Equal(t, "", host, "Func should return NULL if not a valid URI")
 
