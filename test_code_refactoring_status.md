@@ -95,7 +95,7 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Update fs/offline package tests:
      - ✓ Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
      - ✓ Add context to error messages in all tests in fs/offline/offline_test.go
-     - Replace defer with t.Cleanup() in setup_test.go
+     - ✓ Replace defer with t.Cleanup() in setup_test.go (No changes needed - defer in TestMain is correct)
 
 2. Continue implementing test reliability improvements:
    - Replace more fixed timeouts with dynamic waiting:
