@@ -93,6 +93,7 @@ func TestMountpointIsValid(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Check if the mountpoint is valid
 			isValid := MountpointIsValid(tc.mountpoint)
 
@@ -145,8 +146,10 @@ func TestHomeEscapeUnescape(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Test escaping home directory
 			t.Run("Escape", func(t *testing.T) {
+				t.Parallel()
 				escaped := EscapeHome(tc.unescaped)
 				require.Equal(t, tc.escaped, escaped,
 					"Failed to correctly escape home in %q (%s)", tc.unescaped, tc.desc)
@@ -154,6 +157,7 @@ func TestHomeEscapeUnescape(t *testing.T) {
 
 			// Test unescaping home directory
 			t.Run("Unescape", func(t *testing.T) {
+				t.Parallel()
 				unescaped := UnescapeHome(tc.escaped)
 				require.Equal(t, tc.unescaped, unescaped,
 					"Failed to correctly unescape home in %q (%s)", tc.escaped, tc.desc)

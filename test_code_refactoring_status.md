@@ -11,16 +11,19 @@ This document summarizes the status of the recommendations from the [test_code_r
 - Added test fixtures in `testutil/fixtures.go` with functions for creating standard test data and fixtures for DriveItem and related types
 - Added async operation utilities in `testutil/async.go` with functions for waiting for conditions, retrying operations with backoff, and handling timeouts
 
-### 2. Standardize Test Patterns (IN PROGRESS)
+### 2. Standardize Test Patterns (COMPLETED)
 
 **Implementation**: Update tests to use consistent patterns:
-- Implement consistent use of `t.Parallel()` (PARTIALLY COMPLETED)
+- Implement consistent use of `t.Parallel()` (COMPLETED)
   - Added `t.Parallel()` to all appropriate tests in the fs/graph package
   - Added `t.Parallel()` to all appropriate tests in the cmd/common package
   - Identified tests that should not use `t.Parallel()` due to shared state (e.g., offline_test.go, fs_test.go)
-  - Reviewed ui package tests and found that some tests already use `t.Parallel()` while others need to be updated
+  - Updated ui package tests to use `t.Parallel()` consistently:
+    - Added `t.Parallel()` to all subtests in TestMountpointIsValid
+    - Added `t.Parallel()` to all subtests and nested subtests in TestHomeEscapeUnescape
+    - Verified that TestGetAccountName already uses `t.Parallel()` in all subtests
   - Reviewed fs/offline package tests and found that most tests already use `t.Parallel()` with comments explaining why some don't
-- Implement consistent resource cleanup with `t.Cleanup()` (PARTIALLY COMPLETED)
+- Implement consistent resource cleanup with `t.Cleanup()` (COMPLETED)
   - Replaced all `defer` statements with `t.Cleanup()` in the fs/graph package tests
   - Reviewed fs package tests and found they already use `t.Cleanup()` for most resource cleanup
   - Added improved error handling in cleanup functions
@@ -29,6 +32,7 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Verified that defer is only used in the TestMain functions where `t.Cleanup()` is not available
   - Reviewed fs/offline package tests and found they already use `t.Cleanup()` for resource cleanup in all test functions
   - Verified that defer is only used in the TestMain function where `t.Cleanup()` is not available
+  - Reviewed ui/systemd package tests and found they already use `t.Cleanup()` appropriately for resource cleanup
 - Implement consistent assertion style using `require` and `assert` (COMPLETED)
   - Updated all tests in the fs/graph package to use `require` for critical assertions and `assert` for non-critical assertions
   - Reviewed fs package tests and found they already use a mix of `require` and `assert` appropriately
