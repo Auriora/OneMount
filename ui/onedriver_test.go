@@ -8,12 +8,24 @@ import (
 
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// Can we detect a mountpoint as valid appropriately?
+// TestMountpointIsValid tests that we can detect a mountpoint as valid appropriately
 func TestMountpointIsValid(t *testing.T) {
-	os.Mkdir("_test", 0755)
-	os.WriteFile("_test/.example", []byte("some text\n"), 0644)
+	// Create a test directory and file
+	err := os.Mkdir("_test", 0755)
+	require.NoError(t, err, "Failed to create test directory")
+
+	err = os.WriteFile("_test/.example", []byte("some text\n"), 0644)
+	require.NoError(t, err, "Failed to create test file")
+
+	// Setup cleanup to remove the test directory after test completes or fails
+	t.Cleanup(func() {
+		if err := os.RemoveAll("_test"); err != nil {
+			t.Logf("Warning: Failed to clean up test directory: %v", err)
+		}
+	})
 
 	// Check if the "mount" directory is empty
 	dirents, err := os.ReadDir("mount")
@@ -26,43 +38,120 @@ func TestMountpointIsValid(t *testing.T) {
 		t.Logf("Error reading mount directory: %v", err)
 	}
 
+	// Define test cases
 	tests := []struct {
+		name       string
 		mountpoint string
 		expected   bool
+		reason     string
 	}{
-		{"", false},
-		{"fs", false},
-		{"does_not_exist", false},
-		{"mount", true}, // Changed back to true since the mount directory appears to be empty
-		{"_test", false},
-		{"_test/.example", false},
-	}
-	for _, test := range tests {
-		assert.Equalf(t, test.expected, MountpointIsValid(test.mountpoint),
-			"Did not correctly determine if mountpoint \"%s\" was valid.\n",
-			test.mountpoint,
-		)
+		{
+			name:       "EmptyPath",
+			mountpoint: "",
+			expected:   false,
+			reason:     "Empty path should not be valid",
+		},
+		{
+			name:       "FsDirectory",
+			mountpoint: "fs",
+			expected:   false,
+			reason:     "fs directory should not be a valid mountpoint",
+		},
+		{
+			name:       "NonexistentPath",
+			mountpoint: "does_not_exist",
+			expected:   false,
+			reason:     "Nonexistent path should not be valid",
+		},
+		{
+			name:       "MountDirectory",
+			mountpoint: "mount",
+			expected:   true,
+			reason:     "mount directory should be a valid mountpoint",
+		},
+		{
+			name:       "TestDirectory",
+			mountpoint: "_test",
+			expected:   false,
+			reason:     "Test directory should not be a valid mountpoint",
+		},
+		{
+			name:       "TestFile",
+			mountpoint: "_test/.example",
+			expected:   false,
+			reason:     "File should not be a valid mountpoint",
+		},
 	}
 
-	os.RemoveAll("_test")
+	// Run each test case as a subtest
+	for _, tc := range tests {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Check if the mountpoint is valid
+			isValid := MountpointIsValid(tc.mountpoint)
+
+			// Assert the result
+			if tc.expected {
+				require.True(t, isValid, 
+					"Expected mountpoint %q to be valid: %s", tc.mountpoint, tc.reason)
+			} else {
+				require.False(t, isValid, 
+					"Expected mountpoint %q to be invalid: %s", tc.mountpoint, tc.reason)
+			}
+		})
+	}
 }
 
-// Can we convert paths from ~/some_path to /home/username/some_path and back?
+// TestHomeEscapeUnescape tests that we can convert paths from ~/some_path to /home/username/some_path and back
 func TestHomeEscapeUnescape(t *testing.T) {
-	homedir, _ := os.UserHomeDir()
+	homedir, err := os.UserHomeDir()
+	require.NoError(t, err, "Failed to get user home directory")
+
+	// Define test cases
 	tests := []struct {
-		unescaped, escaped string
+		name      string
+		unescaped string
+		escaped   string
+		desc      string
 	}{
-		{homedir + "/test", "~/test"},
-		{"/opt/test", "/opt/test"},
-		{"/opt/test/~test.lock#", "/opt/test/~test.lock#"},
+		{
+			name:      "HomeDirectory",
+			unescaped: homedir + "/test",
+			escaped:   "~/test",
+			desc:      "Path in home directory",
+		},
+		{
+			name:      "NonHomeDirectory",
+			unescaped: "/opt/test",
+			escaped:   "/opt/test",
+			desc:      "Path outside home directory",
+		},
+		{
+			name:      "PathWithTilde",
+			unescaped: "/opt/test/~test.lock#",
+			escaped:   "/opt/test/~test.lock#",
+			desc:      "Path with tilde character",
+		},
 	}
 
-	for _, test := range tests {
-		assert.Equal(t, test.escaped, EscapeHome(test.unescaped),
-			"Did not correctly escape home.")
-		assert.Equal(t, test.unescaped, UnescapeHome(test.escaped),
-			"Did not correctly unescape home.")
+	// Run each test case as a subtest
+	for _, tc := range tests {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Test escaping home directory
+			t.Run("Escape", func(t *testing.T) {
+				escaped := EscapeHome(tc.unescaped)
+				require.Equal(t, tc.escaped, escaped,
+					"Failed to correctly escape home in %q (%s)", tc.unescaped, tc.desc)
+			})
+
+			// Test unescaping home directory
+			t.Run("Unescape", func(t *testing.T) {
+				unescaped := UnescapeHome(tc.escaped)
+				require.Equal(t, tc.unescaped, unescaped,
+					"Failed to correctly unescape home in %q (%s)", tc.escaped, tc.desc)
+			})
+		})
 	}
 }
 

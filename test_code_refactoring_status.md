@@ -57,6 +57,9 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Converted TestChmod to TestFilePermissions using table-driven tests with subtests
   - Added unique filenames for each subtest to avoid conflicts
   - Added proper cleanup for each subtest
+  - Converted TestMountpointIsValid in ui/onedriver_test.go to use table-driven tests with subtests
+  - Converted TestHomeEscapeUnescape in ui/onedriver_test.go to use table-driven tests with subtests
+  - Added nested subtests for testing related operations
 
 ### 4. Improve Error Handling (NOT STARTED)
 
@@ -88,9 +91,9 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Update TestLibreOfficeSavePattern in fs/fs_test.go to use WaitForCondition instead of assert.Eventually
      - Update any remaining fixed sleeps in other packages
    - Isolate tests from each other by using subtests and proper cleanup:
-     - Convert TestMountpointIsValid in ui/onedriver_test.go to use table-driven tests with subtests
-     - Convert TestHomeEscapeUnescape in ui/onedriver_test.go to use table-driven tests with subtests
      - Convert more tests to use table-driven tests with subtests where appropriate
+     - Add parallel execution to subtests where possible
+     - Ensure proper cleanup for all tests
 
 3. Begin implementing error handling improvements:
    - Add context to error messages in fs/offline/offline_test.go
