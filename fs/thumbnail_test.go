@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
 	"github.com/stretchr/testify/assert"
@@ -187,42 +188,135 @@ func TestThumbnailCacheOperations(t *testing.T) {
 	}
 }
 
+// TestThumbnailCacheCleanup tests the cleanup functionality of the thumbnail cache
 func TestThumbnailCacheCleanup(t *testing.T) {
-	// Create a temporary directory for the thumbnail cache
-	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
-	assert.NoError(t, err)
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temporary directory: %v", err)
-		}
-	}()
+	t.Parallel()
 
-	// Create a thumbnail cache
-	cache := NewThumbnailCache(tempDir)
-	assert.NotNil(t, cache)
+	// Define test cases
+	testCases := []struct {
+		name           string
+		setupFunc      func(t *testing.T, cache *ThumbnailCache) (string, string, []byte)
+		expirationTime int
+		expectedCount  int
+		description    string
+	}{
+		{
+			name: "ExpiredThumbnail_ShouldBeRemoved",
+			setupFunc: func(t *testing.T, cache *ThumbnailCache) (string, string, []byte) {
+				id := "test-id-expired"
+				size := "small"
+				content := []byte("test thumbnail content for expired item")
+				err := cache.Insert(id, size, content)
+				assert.NoError(t, err, "Failed to insert thumbnail")
 
-	// Test inserting thumbnails
-	id := "test-id"
-	size := "small"
-	content := []byte("test thumbnail content")
-	err = cache.Insert(id, size, content)
-	assert.NoError(t, err)
+				// Set the last cleanup time to a long time ago to force cleanup
+				cache.lastCleanup = cache.lastCleanup.AddDate(-1, 0, 0)
 
-	// Check if the thumbnail exists
-	assert.True(t, cache.HasThumbnail(id, size))
+				return id, size, content
+			},
+			expirationTime: 0, // Immediate expiration
+			expectedCount:  1, // One thumbnail should be removed
+			description:    "Tests that expired thumbnails are removed during cleanup",
+		},
+		{
+			name: "NonExpiredThumbnail_ShouldRemain",
+			setupFunc: func(t *testing.T, cache *ThumbnailCache) (string, string, []byte) {
+				id := "test-id-not-expired"
+				size := "medium"
+				content := []byte("test thumbnail content for non-expired item")
+				err := cache.Insert(id, size, content)
+				assert.NoError(t, err, "Failed to insert thumbnail")
 
-	// Set the last cleanup time to a long time ago to force cleanup
-	cache.lastCleanup = cache.lastCleanup.AddDate(-1, 0, 0)
+				// Set the last cleanup time to a long time ago to force cleanup
+				cache.lastCleanup = cache.lastCleanup.AddDate(-1, 0, 0)
 
-	// Run cleanup with a short expiration time
-	count, err := cache.CleanupCache(0)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
+				return id, size, content
+			},
+			expirationTime: 3600, // 1 hour expiration
+			expectedCount:  0,    // No thumbnails should be removed
+			description:    "Tests that non-expired thumbnails are not removed during cleanup",
+		},
+		{
+			name: "MultipleThumbnails_ShouldRemoveOnlyExpired",
+			setupFunc: func(t *testing.T, cache *ThumbnailCache) (string, string, []byte) {
+				// Insert first thumbnail (will be expired)
+				id1 := "test-id-multi-expired"
+				size1 := "small"
+				content1 := []byte("test thumbnail content for expired item in multi-test")
+				err := cache.Insert(id1, size1, content1)
+				assert.NoError(t, err, "Failed to insert first thumbnail")
 
-	// Check that the thumbnail no longer exists
-	assert.False(t, cache.HasThumbnail(id, size))
+				// Insert second thumbnail (will not be expired)
+				id2 := "test-id-multi-not-expired"
+				size2 := "large"
+				content2 := []byte("test thumbnail content for non-expired item in multi-test")
+				err = cache.Insert(id2, size2, content2)
+				assert.NoError(t, err, "Failed to insert second thumbnail")
+
+				// Set the last cleanup time to a long time ago to force cleanup
+				cache.lastCleanup = cache.lastCleanup.AddDate(-1, 0, 0)
+
+				// Set the modification time of the first thumbnail to a long time ago
+				thumbnailPath := cache.thumbnailPath(id1, size1)
+				oldTime := time.Now().AddDate(0, 0, -2) // 2 days ago
+				err = os.Chtimes(thumbnailPath, oldTime, oldTime)
+				assert.NoError(t, err, "Failed to set old modification time")
+
+				return id1, size1, content1
+			},
+			expirationTime: 86400, // 1 day expiration
+			expectedCount:  1,     // One thumbnail should be removed
+			description:    "Tests that only expired thumbnails are removed during cleanup with multiple thumbnails",
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a temporary directory for the thumbnail cache
+			tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
+			assert.NoError(t, err, "Failed to create temporary directory")
+
+			// Setup cleanup to remove the temp directory after test completes or fails
+			t.Cleanup(func() {
+				if err := os.RemoveAll(tempDir); err != nil {
+					t.Logf("Warning: Failed to clean up temp directory %s: %v", tempDir, err)
+				}
+			})
+
+			// Create a thumbnail cache
+			cache := NewThumbnailCache(tempDir)
+			assert.NotNil(t, cache, "Thumbnail cache should not be nil")
+
+			// Setup test data
+			id, size, _ := tc.setupFunc(t, cache)
+
+			// Verify the thumbnail exists before cleanup
+			assert.True(t, cache.HasThumbnail(id, size), 
+				"Thumbnail should exist before cleanup")
+
+			// Run cleanup with the specified expiration time
+			count, err := cache.CleanupCache(tc.expirationTime)
+			assert.NoError(t, err, "Cleanup should not return an error")
+			assert.Equal(t, tc.expectedCount, count, 
+				"Number of removed thumbnails should match expected count")
+
+			// Verify the thumbnail exists or not based on expected count
+			if tc.expectedCount > 0 {
+				assert.False(t, cache.HasThumbnail(id, size), 
+					"Thumbnail should not exist after cleanup")
+			} else {
+				assert.True(t, cache.HasThumbnail(id, size), 
+					"Thumbnail should still exist after cleanup")
+			}
+		})
+	}
 }
 
+// TestThumbnailOperations tests various operations on thumbnails in the filesystem
 func TestThumbnailOperations(t *testing.T) {
 	// Skip this test if we're not running with a valid auth token
 	auth, err := graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
@@ -230,59 +324,133 @@ func TestThumbnailOperations(t *testing.T) {
 		t.Skip("Skipping test because no valid auth token is available")
 	}
 
-	// Create a temporary directory for the filesystem
-	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
-	assert.NoError(t, err)
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temporary directory: %v", err)
-		}
-	}()
+	t.Parallel()
 
-	// Create a filesystem
-	fs, err := NewFilesystem(auth, tempDir, 30)
-	assert.NoError(t, err)
-	// No Close method on Filesystem
+	// Define test cases
+	testCases := []struct {
+		name        string
+		size        string
+		description string
+		testFunc    func(t *testing.T, fs *Filesystem, imagePath string, imageID string, size string)
+	}{
+		{
+			name:        "GetThumbnail_ShouldReturnAndCacheThumbnail",
+			size:        "small",
+			description: "Tests that getting a thumbnail returns the thumbnail and caches it",
+			testFunc: func(t *testing.T, fs *Filesystem, imagePath string, imageID string, size string) {
+				// Test getting a thumbnail
+				thumbnail, err := fs.GetThumbnail(imagePath, size)
+				assert.NoError(t, err, "Failed to get thumbnail")
+				assert.NotEmpty(t, thumbnail, "Thumbnail should not be empty")
 
-	// Find an image file to test with
-	var imagePath string
-	var imageID string
-	if err := fs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucketMetadata)
-		return b.ForEach(func(k, v []byte) error {
-			var item graph.DriveItem
-			if err := json.Unmarshal(v, &item); err != nil {
-				return nil
+				// Check that the thumbnail was cached
+				assert.True(t, fs.thumbnails.HasThumbnail(imageID, size), 
+					"Thumbnail should be cached after getting it")
+			},
+		},
+		{
+			name:        "DeleteThumbnail_ShouldRemoveThumbnail",
+			size:        "medium",
+			description: "Tests that deleting a thumbnail removes it from the cache",
+			testFunc: func(t *testing.T, fs *Filesystem, imagePath string, imageID string, size string) {
+				// First get the thumbnail to ensure it's cached
+				thumbnail, err := fs.GetThumbnail(imagePath, size)
+				assert.NoError(t, err, "Failed to get thumbnail")
+				assert.NotEmpty(t, thumbnail, "Thumbnail should not be empty")
+
+				// Check that the thumbnail was cached
+				assert.True(t, fs.thumbnails.HasThumbnail(imageID, size), 
+					"Thumbnail should be cached after getting it")
+
+				// Delete the thumbnail
+				err = fs.DeleteThumbnail(imagePath, size)
+				assert.NoError(t, err, "Failed to delete thumbnail")
+
+				// Check that the thumbnail no longer exists
+				assert.False(t, fs.thumbnails.HasThumbnail(imageID, size), 
+					"Thumbnail should not exist after deletion")
+			},
+		},
+		{
+			name:        "GetMultipleSizes_ShouldCacheEachSize",
+			size:        "large",
+			description: "Tests that getting thumbnails of different sizes caches each size separately",
+			testFunc: func(t *testing.T, fs *Filesystem, imagePath string, imageID string, size string) {
+				// Get thumbnails of different sizes
+				sizes := []string{"small", "medium", size}
+				for _, s := range sizes {
+					thumbnail, err := fs.GetThumbnail(imagePath, s)
+					assert.NoError(t, err, "Failed to get thumbnail of size %s", s)
+					assert.NotEmpty(t, thumbnail, "Thumbnail of size %s should not be empty", s)
+
+					// Check that the thumbnail was cached
+					assert.True(t, fs.thumbnails.HasThumbnail(imageID, s), 
+						"Thumbnail of size %s should be cached after getting it", s)
+				}
+
+				// Delete all thumbnails
+				for _, s := range sizes {
+					err := fs.DeleteThumbnail(imagePath, s)
+					assert.NoError(t, err, "Failed to delete thumbnail of size %s", s)
+
+					// Check that the thumbnail no longer exists
+					assert.False(t, fs.thumbnails.HasThumbnail(imageID, s), 
+						"Thumbnail of size %s should not exist after deletion", s)
+				}
+			},
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a temporary directory for the filesystem
+			tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
+			assert.NoError(t, err, "Failed to create temporary directory")
+
+			// Setup cleanup to remove the temp directory after test completes or fails
+			t.Cleanup(func() {
+				if err := os.RemoveAll(tempDir); err != nil {
+					t.Logf("Warning: Failed to clean up temp directory %s: %v", tempDir, err)
+				}
+			})
+
+			// Create a filesystem
+			fs, err := NewFilesystem(auth, tempDir, 30)
+			assert.NoError(t, err, "Failed to create filesystem")
+
+			// Find an image file to test with
+			var imagePath string
+			var imageID string
+			if err := fs.db.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket(bucketMetadata)
+				return b.ForEach(func(k, v []byte) error {
+					var item graph.DriveItem
+					if err := json.Unmarshal(v, &item); err != nil {
+						return nil
+					}
+					if item.File != nil && filepath.Ext(item.Name) == ".jpg" {
+						// Create an Inode from the DriveItem to get the path
+						inode := NewInodeDriveItem(&item)
+						imagePath = inode.Path()
+						imageID = item.ID
+						return nil
+					}
+					return nil
+				})
+			}); err != nil {
+				t.Fatalf("Failed to search for image files: %v", err)
 			}
-			if item.File != nil && filepath.Ext(item.Name) == ".jpg" {
-				// Create an Inode from the DriveItem to get the path
-				inode := NewInodeDriveItem(&item)
-				imagePath = inode.Path()
-				imageID = item.ID
-				return nil
+
+			if imagePath == "" {
+				t.Skip("Skipping test because no image file was found")
 			}
-			return nil
+
+			// Run the test
+			tc.testFunc(t, fs, imagePath, imageID, tc.size)
 		})
-	}); err != nil {
-		t.Fatalf("Failed to search for image files: %v", err)
 	}
-
-	if imagePath == "" {
-		t.Skip("Skipping test because no image file was found")
-	}
-
-	// Test getting a thumbnail
-	thumbnail, err := fs.GetThumbnail(imagePath, "small")
-	assert.NoError(t, err)
-	assert.NotEmpty(t, thumbnail)
-
-	// Check that the thumbnail was cached
-	assert.True(t, fs.thumbnails.HasThumbnail(imageID, "small"))
-
-	// Delete the thumbnail
-	err = fs.DeleteThumbnail(imagePath, "small")
-	assert.NoError(t, err)
-
-	// Check that the thumbnail no longer exists
-	assert.False(t, fs.thumbnails.HasThumbnail(imageID, "small"))
 }

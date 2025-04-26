@@ -315,6 +315,22 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Used t.Cleanup() for proper resource cleanup
     - Improved error handling with descriptive error messages
     - Added a description field for each test case
+  - Refactored TestThumbnailCacheCleanup in fs/thumbnail_test.go to a table-driven test:
+    - Added test cases for expired thumbnails, non-expired thumbnails, and multiple thumbnails
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution for both top level and subtests
+    - Created separate setup functions for each test case
+    - Used t.Cleanup() for proper resource cleanup
+    - Improved error handling with descriptive error messages
+    - Added a description field for each test case
+  - Refactored TestThumbnailOperations in fs/thumbnail_test.go to a table-driven test:
+    - Added test cases for getting thumbnails, deleting thumbnails, and handling multiple sizes
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution for both top level and subtests
+    - Created separate test functions for each test case
+    - Used t.Cleanup() for proper resource cleanup
+    - Improved error handling with descriptive error messages
+    - Added a description field for each test case
   - Combined TestUploadSession, TestUploadSessionSmallFS, and TestUploadSessionLargeFS in fs/upload_session_test.go into a single table-driven test TestUploadSessionOperations:
     - Added test cases for direct uploads, small file uploads, and large file uploads
     - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
