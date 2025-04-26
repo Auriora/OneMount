@@ -9,6 +9,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +29,13 @@ func TestMode(t *testing.T) {
 	docDir := "mount/Documents"
 	if _, err := os.Stat(docDir); os.IsNotExist(err) {
 		require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
-		// Give the filesystem time to process the directory creation
-		time.Sleep(2 * time.Second)
+
+		// Wait for the filesystem to process the directory creation
+		testutil.WaitForCondition(t, func() bool {
+			// Check if the directory exists and is accessible
+			_, err := os.Stat(docDir)
+			return err == nil
+		}, 5*time.Second, 100*time.Millisecond, "Documents directory was not created within timeout")
 	}
 
 	// Test directory mode
@@ -60,8 +66,12 @@ func TestMode(t *testing.T) {
 	// Create the test file
 	require.NoError(t, os.WriteFile(fullPath, []byte("test"), 0644))
 
-	// Give the filesystem time to process the file creation
-	time.Sleep(2 * time.Second)
+	// Wait for the filesystem to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		// Check if the file exists and is accessible
+		_, err := os.Stat(fullPath)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Test file was not created within timeout")
 
 	// Retry getting the test file
 	assert.Eventually(t, func() bool {
@@ -82,8 +92,13 @@ func TestIsDir(t *testing.T) {
 	docDir := "mount/Documents"
 	if _, err := os.Stat(docDir); os.IsNotExist(err) {
 		require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
-		// Give the filesystem time to process the directory creation
-		time.Sleep(2 * time.Second)
+
+		// Wait for the filesystem to process the directory creation
+		testutil.WaitForCondition(t, func() bool {
+			// Check if the directory exists and is accessible
+			_, err := os.Stat(docDir)
+			return err == nil
+		}, 5*time.Second, 100*time.Millisecond, "Documents directory was not created within timeout")
 	}
 
 	// Test directory detection
