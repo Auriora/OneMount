@@ -11,7 +11,9 @@ import (
 func TestOperationalOfflineState(t *testing.T) {
 	// Reset operational offline state before and after test
 	SetOperationalOffline(false)
-	defer SetOperationalOffline(false)
+	t.Cleanup(func() {
+		SetOperationalOffline(false)
+	})
 
 	// Test default state
 	assert.False(t, GetOperationalOffline(), "Default operational offline state should be false")
@@ -28,7 +30,9 @@ func TestOperationalOfflineState(t *testing.T) {
 func TestIsOfflineWithOperationalState(t *testing.T) {
 	// Reset operational offline state before and after test
 	SetOperationalOffline(false)
-	defer SetOperationalOffline(false)
+	t.Cleanup(func() {
+		SetOperationalOffline(false)
+	})
 
 	// Test with operational offline set to true
 	SetOperationalOffline(true)
@@ -49,7 +53,9 @@ func TestIsOfflineWithOperationalState(t *testing.T) {
 func TestIsOffline(t *testing.T) {
 	// Reset operational offline state before test
 	SetOperationalOffline(false)
-	defer SetOperationalOffline(false)
+	t.Cleanup(func() {
+		SetOperationalOffline(false)
+	})
 
 	tests := []struct {
 		name     string

@@ -77,7 +77,11 @@ func TestHashSeekPosition(t *testing.T) {
 	// Create a temporary file for testing
 	tmp, err := os.CreateTemp("", "onedriverHashTest")
 	assert.NoError(t, err, "Failed to create temporary file")
-	defer os.Remove(tmp.Name())
+	t.Cleanup(func() {
+		if err := os.Remove(tmp.Name()); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", tmp.Name(), err)
+		}
+	})
 
 	// Write some content to the file
 	content := []byte("some test content")
@@ -88,7 +92,11 @@ func TestHashSeekPosition(t *testing.T) {
 	// Open the file for reading
 	file, err := os.Open(tmp.Name())
 	assert.NoError(t, err, "Failed to open temporary file")
-	defer file.Close()
+	t.Cleanup(func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Warning: Failed to close file: %v", err)
+		}
+	})
 
 	// Read a portion of the file to move the seek position
 	buffer := make([]byte, 5)
