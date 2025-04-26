@@ -133,19 +133,21 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Convert more tests to use table-driven tests with subtests where appropriate
      - Add parallel execution to subtests where possible
      - Ensure proper cleanup for all tests
-   - Fix race conditions in tests:
-     - Identify and fix any remaining race conditions in tests
-     - Run tests with the -race flag to detect race conditions
 
 2. Continue implementing test organization improvements:
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestDeltaMkdir, TestDeltaRmdir, TestDeltaRename, and TestDeltaMoveParent in fs/delta_test.go
-       - TestUntemplateUnit in ui/systemd/systemd_test.go
+       - TestReadWrite, TestAppend, and TestTruncate in fs/fs_test.go
+       - TestXattrOperations and TestFilesystemXattrOperations in fs/xattr_operations_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
    - Improve test naming conventions:
      - Use descriptive names that indicate what is being tested
      - Follow a consistent naming pattern across all tests
+
+3. Document best practices for future test development:
+   - Create a document outlining the patterns and practices established during this refactoring
+   - Include examples of table-driven tests, proper cleanup, and error handling
+   - Provide guidelines for when to use t.Parallel() and when not to
