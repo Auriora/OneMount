@@ -77,12 +77,18 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Converted TestGetAccountName to use table-driven tests with subtests
   - Added proper error handling and descriptive error messages
 
-### 5. Improve Test Organization (NOT STARTED)
+### 5. Improve Test Organization (IN PROGRESS)
 
 **Implementation**: Better organize tests:
-- Convert appropriate tests to table-driven tests
-- Group related tests
-- Use clear test names
+- Convert appropriate tests to table-driven tests (PARTIALLY COMPLETED)
+  - Reviewed fs/graph package tests and found that many tests already use table-driven approach:
+    - TestIDPath, TestChildrenPath, and TestChildrenPathID in path_test.go
+    - TestSHA256Hash, TestSHA256HashStream, TestSHA1Hash, TestSHA1HashStream, TestQuickXORHash, and TestQuickXORHashStream in hash_functions_test.go
+  - Reviewed ui package tests and found that several tests already use table-driven approach:
+    - TestMountpointIsValid, TestHomeEscapeUnescape, and TestGetAccountName in ui/onedriver_test.go
+  - Converted TestChmod to TestFilePermissions using table-driven tests with subtests in fs/fs_test.go
+- Group related tests (NOT STARTED)
+- Use clear test names (NOT STARTED)
 
 ## Next Steps
 
@@ -95,10 +101,12 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Identify and fix any remaining race conditions in tests
      - Run tests with the -race flag to detect race conditions
 
-2. Begin implementing test organization improvements:
-   - Convert appropriate tests to table-driven tests:
-     - Identify tests with multiple similar test cases that could benefit from table-driven approach
-     - Convert these tests to use table-driven tests with subtests
+2. Continue implementing test organization improvements:
+   - Convert more appropriate tests to table-driven tests:
+     - Focus on tests in fs package that test similar functionality with different inputs
+     - Potential candidates include:
+       - TestDeltaMkdir, TestDeltaRmdir, TestDeltaRename, and TestDeltaMoveParent in fs/delta_test.go
+       - TestUntemplateUnit in ui/systemd/systemd_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
