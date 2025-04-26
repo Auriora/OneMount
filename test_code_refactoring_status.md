@@ -18,16 +18,22 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Added `t.Parallel()` to all appropriate tests in the fs/graph package
   - Added `t.Parallel()` to all appropriate tests in the cmd/common package
   - Identified tests that should not use `t.Parallel()` due to shared state (e.g., offline_test.go, fs_test.go)
+  - Reviewed ui package tests and found that some tests already use `t.Parallel()` while others need to be updated
+  - Reviewed fs/offline package tests and found that most tests already use `t.Parallel()` with comments explaining why some don't
 - Implement consistent resource cleanup with `t.Cleanup()` (PARTIALLY COMPLETED)
   - Replaced all `defer` statements with `t.Cleanup()` in the fs/graph package tests
   - Reviewed fs package tests and found they already use `t.Cleanup()` for most resource cleanup
   - Added improved error handling in cleanup functions
   - Updated cmd/common package tests to use `t.Cleanup()` for resource cleanup
+  - Identified that ui package tests need to be updated to use `t.Cleanup()` instead of defer
+  - Identified that fs/offline package tests mostly use `t.Cleanup()` but some still use defer
 - Implement consistent assertion style using `require` and `assert` (PARTIALLY COMPLETED)
   - Updated all tests in the fs/graph package to use `require` for critical assertions and `assert` for non-critical assertions
   - Reviewed fs package tests and found they already use a mix of `require` and `assert` appropriately
   - Updated cmd/common package tests to use `require` for critical assertions and `assert` for non-critical assertions
   - Added clear error messages to all assertions
+  - Identified that ui package tests need to be updated to use `require` for critical assertions
+  - Identified that fs/offline package tests mostly use `require` but some still use t.Fatal/t.Error
 
 ### 3. Improve Test Reliability (NOT STARTED)
 
@@ -51,8 +57,19 @@ This document summarizes the status of the recommendations from the [test_code_r
 
 ## Next Steps
 
-1. Continue standardizing test patterns in remaining packages (ui, fs/offline, etc.)
+1. Continue standardizing test patterns in remaining packages:
+   - Update ui package tests:
+     - Add t.Parallel() to TestMountpointIsValid and TestHomeEscapeUnescape in ui/onedriver_test.go
+     - Replace defer with t.Cleanup() in ui/setup_test.go and ui/systemd/setup_test.go
+     - Update TestMountpointIsValid to use require instead of assert for critical assertions
+     - Convert TestMountpointIsValid and TestHomeEscapeUnescape to use proper subtests
+   - Update fs/offline package tests:
+     - Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
+     - Replace defer with t.Cleanup() in setup_test.go
+
 2. Begin implementing test reliability improvements:
-   - Replace fixed timeouts with dynamic waiting using the new testutil/async.go utilities
+   - Replace fixed timeouts with dynamic waiting using the new testutil/async.go utilities:
+     - Update TestUnitActive in ui/systemd/systemd_test.go to use WaitForCondition instead of fixed timeout
+     - Update setup_test.go in fs/offline to use WaitForCondition for mount point checks
    - Fix race conditions in tests, particularly in TestUploadDiskSerialization
    - Isolate tests from each other by using subtests and proper cleanup
