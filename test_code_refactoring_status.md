@@ -82,9 +82,25 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Reviewed fs/offline/offline_test.go and determined that the tests are not good candidates for conversion to table-driven tests:
     - Each test focuses on a specific, distinct functionality and doesn't have multiple similar test cases that could be parameterized
     - They already use t.Parallel() where appropriate, t.Cleanup() for resource cleanup, and require with descriptive error messages
-  - Reviewed fs/inode_test.go and found that TestInodeProperties is already a table-driven test, and the other tests (TestConstructor, TestFilenameEscape, and TestDoubleCreate) are not good candidates for conversion to table-driven tests:
-    - Each test focuses on a specific, distinct functionality and doesn't have multiple similar test cases that could be parameterized
-    - They already use appropriate error handling with descriptive error messages
+  - Reviewed and refactored fs/inode_test.go:
+    - Converted TestConstructor to TestInodeCreation using table-driven tests with subtests:
+      - Added test cases for regular files, directories, and executable files
+      - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+      - Added parallel execution for each test case
+      - Added comprehensive verification of inode properties
+    - Converted TestFilenameEscape to TestFilenameEscaping using table-driven tests with subtests:
+      - Added test cases for different special characters (hash, question mark, asterisk)
+      - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+      - Added parallel execution for each test case
+      - Added proper cleanup with t.Cleanup()
+      - Improved error handling with descriptive error messages
+    - Converted TestDoubleCreate to TestFileCreationBehavior using table-driven tests with subtests:
+      - Added test cases for creating files twice with same mode, different mode, and after writing content
+      - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+      - Added parallel execution for each test case
+      - Added proper cleanup with t.Cleanup()
+      - Improved error handling with descriptive error messages
+      - Added verification of file truncation behavior
 
 ### 4. Improve Error Handling (IN PROGRESS)
 
