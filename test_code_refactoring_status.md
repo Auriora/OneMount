@@ -274,7 +274,6 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Focus on tests in fs package that test similar functionality with different inputs
      - Note: All tests in the ui package have already been refactored to use a table-driven approach
      - Potential candidates include:
-       - TestDisallowedFilenames in fs/fs_test.go
        - Tests in fs/cache_test.go (TestRootGet, TestRootChildrenUpdate, etc.)
        - Tests in fs/inode_test.go (TestConstructor, TestMode, etc.)
        - Tests in fs/dbus_test.go (TestDBusServerStartStop, etc.)
