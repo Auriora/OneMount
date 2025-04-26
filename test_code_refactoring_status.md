@@ -279,6 +279,16 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Used t.Cleanup() for proper resource cleanup
     - Improved error handling with descriptive error messages
     - Added a description field for each test case
+  - Combined TestUploadSession, TestUploadSessionSmallFS, and TestUploadSessionLargeFS in fs/upload_session_test.go into a single table-driven test TestUploadSessionOperations:
+    - Added test cases for direct uploads, small file uploads, and large file uploads
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution for each test case
+    - Created separate setup and test functions for each test case
+    - Used t.Cleanup() for proper resource cleanup
+    - Improved error handling with descriptive error messages
+    - Added a description field for each test case
+    - Added a skipCheck function to conditionally skip tests (e.g., when large test file is not available)
+    - Created unique filenames for each test to avoid conflicts
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit

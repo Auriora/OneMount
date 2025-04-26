@@ -13,149 +13,258 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUploadSession verifies that the basic functionality of uploads works correctly.
-func TestUploadSession(t *testing.T) {
-	testDir, err := fs.GetPath("/onedriver_tests", auth)
-	require.NoError(t, err)
+// TestUploadSessionOperations tests various upload session operations
+func TestUploadSessionOperations(t *testing.T) {
+	t.Parallel()
 
-	inode := NewInode("uploadSessionSmall.txt", 0644, testDir)
-	data := []byte("our super special data")
-	inode.setContent(fs, data)
-	mtime := inode.ModTime()
+	// Define test cases
+	testCases := []struct {
+		name        string
+		description string
+		setupFunc   func(t *testing.T) (string, []byte, func())
+		testFunc    func(t *testing.T, filePath string, initialData []byte)
+		skipCheck   func() bool
+	}{
+		{
+			name:        "DirectUpload_ShouldSucceed",
+			description: "Tests the basic functionality of uploads using internal functions directly",
+			setupFunc: func(t *testing.T) (string, []byte, func()) {
+				fileName := "uploadSessionSmall_" + t.Name() + ".txt"
+				data := []byte("our super special data for " + t.Name())
 
-	session, err := NewUploadSession(inode, &data)
-	require.NoError(t, err)
-	err = session.Upload(auth)
-	require.NoError(t, err)
-	require.False(t, isLocalID(session.ID),
-		"The session's ID was somehow still local following an upload: %s",
-		session.ID)
-	sessionMtime := uint64(session.ModTime.Unix())
-	assert.Equal(t, mtime, sessionMtime, "session modtime changed - before: %d - after: %d", mtime, sessionMtime)
+				// Create a cleanup function
+				cleanup := func() {
+					// No cleanup needed for this test as it doesn't create files on disk
+				}
 
-	resp, _, err := graph.GetItemContent(session.ID, auth)
-	require.NoError(t, err)
-	require.True(t, bytes.Equal(data, resp),
-		"Data mismatch. Original content: %s\nRemote content: %s", data, resp)
+				return fileName, data, cleanup
+			},
+			testFunc: func(t *testing.T, fileName string, data []byte) {
+				testDir, err := fs.GetPath("/onedriver_tests", auth)
+				require.NoError(t, err, "Failed to get test directory")
 
-	// item now has a new id following the upload. We just change the ID here
-	// because thats part of the UploadManager functionality and gets tested elsewhere.
-	inode.DriveItem.ID = session.ID
+				inode := NewInode(fileName, 0644, testDir)
+				inode.setContent(fs, data)
+				mtime := inode.ModTime()
 
-	// we overwrite and upload again to test uploading with the new remote id
-	newData := []byte("new data is extra long so it covers the old one completely")
-	inode.setContent(fs, newData)
+				// Create and upload the session
+				session, err := NewUploadSession(inode, &data)
+				require.NoError(t, err, "Failed to create upload session")
+				err = session.Upload(auth)
+				require.NoError(t, err, "Failed to upload session")
 
-	session2, err := NewUploadSession(inode, &newData)
-	require.NoError(t, err)
-	err = session2.Upload(auth)
-	require.NoError(t, err)
+				// Verify the upload was successful
+				require.False(t, isLocalID(session.ID),
+					"The session's ID was somehow still local following an upload: %s",
+					session.ID)
+				sessionMtime := uint64(session.ModTime.Unix())
+				assert.Equal(t, mtime, sessionMtime, 
+					"Session modtime changed - before: %d - after: %d", mtime, sessionMtime)
 
-	resp, _, err = graph.GetItemContent(session.ID, auth)
-	require.NoError(t, err)
-	require.True(t, bytes.Equal(newData, resp),
-		"Data mismatch. Original content: %s\nRemote content: %s", newData, resp)
-}
+				// Verify the content was uploaded correctly
+				resp, _, err := graph.GetItemContent(session.ID, auth)
+				require.NoError(t, err, "Failed to get item content")
+				require.True(t, bytes.Equal(data, resp),
+					"Data mismatch. Original content: %s\nRemote content: %s", data, resp)
 
-// TestUploadSessionSmallFS verifies is the same test as TestUploadSessionSmall, but uses
-// the filesystem itself to perform the uploads instead of testing the internal upload
-// functions directly
-func TestUploadSessionSmallFS(t *testing.T) {
-	filePath := filepath.Join(TestDir, "uploadSessionSmallFS.txt")
-	data := []byte("super special data for upload test 2")
-	err := os.WriteFile(filePath, data, 0644)
-	require.NoError(t, err)
+				// Update the inode ID to the new remote ID
+				inode.DriveItem.ID = session.ID
 
-	// Wait for the file to be uploaded and available on the server
-	testutil.WaitForCondition(t, func() bool {
-		item, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
-		return err == nil && item != nil
-	}, 30*time.Second, time.Second, "File was not uploaded to server within timeout")
+				// Test overwriting with new data
+				newData := []byte("new data is extra long so it covers the old one completely - " + t.Name())
+				inode.setContent(fs, newData)
 
-	// Now get the item for content verification
-	item, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
-	require.NoError(t, err)
-	require.NotNil(t, item, "Item not found")
+				// Create and upload a new session
+				session2, err := NewUploadSession(inode, &newData)
+				require.NoError(t, err, "Failed to create second upload session")
+				err = session2.Upload(auth)
+				require.NoError(t, err, "Failed to upload second session")
 
-	content, _, err := graph.GetItemContent(item.ID, auth)
-	require.NoError(t, err)
-	require.True(t, bytes.Equal(content, data),
-		"Data mismatch. Original content: %s\nRemote content: %s", data, content)
+				// Verify the content was updated correctly
+				resp, _, err = graph.GetItemContent(session.ID, auth)
+				require.NoError(t, err, "Failed to get updated item content")
+				require.True(t, bytes.Equal(newData, resp),
+					"Data mismatch after update. Original content: %s\nRemote content: %s", newData, resp)
+			},
+			skipCheck: func() bool {
+				return false
+			},
+		},
+		{
+			name:        "SmallFileUpload_ShouldSucceed",
+			description: "Tests small file uploads using the filesystem interface",
+			setupFunc: func(t *testing.T) (string, []byte, func()) {
+				fileName := "uploadSessionSmallFS_" + t.Name() + ".txt"
+				filePath := filepath.Join(TestDir, fileName)
+				data := []byte("super special data for upload test - " + t.Name())
 
-	// upload it again to ensure uploads with an existing remote id succeed
-	data = []byte("more super special data")
-	err = os.WriteFile(filePath, data, 0644)
-	require.NoError(t, err)
+				// Create a cleanup function
+				cleanup := func() {
+					if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+					}
+				}
 
-	// Wait for the file to be uploaded again and available on the server with updated content
-	testutil.WaitForCondition(t, func() bool {
-		updatedItem, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
-		if err != nil || updatedItem == nil {
-			return false
-		}
+				return filePath, data, cleanup
+			},
+			testFunc: func(t *testing.T, filePath string, data []byte) {
+				// Write the initial data to the file
+				err := os.WriteFile(filePath, data, 0644)
+				require.NoError(t, err, "Failed to write initial data to file")
 
-		// Check if the content has been updated
-		content, _, err := graph.GetItemContent(updatedItem.ID, auth)
-		return err == nil && bytes.Equal(content, data)
-	}, 30*time.Second, time.Second, "File was not re-uploaded to server with updated content within timeout")
+				// Get the file name from the path
+				fileName := filepath.Base(filePath)
+				remotePath := "/onedriver_tests/" + fileName
 
-	// Now get the item for final verification
-	item2, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
-	require.NoError(t, err)
-	require.NotNil(t, item2, "Item not found")
+				// Wait for the file to be uploaded and available on the server
+				testutil.WaitForCondition(t, func() bool {
+					item, err := graph.GetItemPath(remotePath, auth)
+					return err == nil && item != nil
+				}, 30*time.Second, time.Second, "File was not uploaded to server within timeout")
 
-	content, _, err = graph.GetItemContent(item2.ID, auth)
-	require.NoError(t, err)
-	require.True(t, bytes.Equal(content, data),
-		"Data mismatch. Original content: %s\nRemote content: %s", data, content)
-}
+				// Now get the item for content verification
+				item, err := graph.GetItemPath(remotePath, auth)
+				require.NoError(t, err, "Failed to get item from server")
+				require.NotNil(t, item, "Item not found on server")
 
-// copy large file inside onedrive mount, then verify that we can still
-// access selected lines
-func TestUploadSessionLargeFS(t *testing.T) {
-	// Check if the source file exists
-	_, err := os.Stat("dmel.fa")
-	if err != nil {
-		t.Skip("dmel.fa file not found, skipping test")
+				// Verify the content was uploaded correctly
+				content, _, err := graph.GetItemContent(item.ID, auth)
+				require.NoError(t, err, "Failed to get item content")
+				require.True(t, bytes.Equal(content, data),
+					"Data mismatch. Original content: %s\nRemote content: %s", data, content)
+
+				// Test uploading again with new data
+				newData := []byte("more super special data for - " + t.Name())
+				err = os.WriteFile(filePath, newData, 0644)
+				require.NoError(t, err, "Failed to write updated data to file")
+
+				// Wait for the file to be uploaded again and available on the server with updated content
+				testutil.WaitForCondition(t, func() bool {
+					updatedItem, err := graph.GetItemPath(remotePath, auth)
+					if err != nil || updatedItem == nil {
+						return false
+					}
+
+					// Check if the content has been updated
+					content, _, err := graph.GetItemContent(updatedItem.ID, auth)
+					return err == nil && bytes.Equal(content, newData)
+				}, 30*time.Second, time.Second, "File was not re-uploaded to server with updated content within timeout")
+
+				// Now get the item for final verification
+				item2, err := graph.GetItemPath(remotePath, auth)
+				require.NoError(t, err, "Failed to get updated item from server")
+				require.NotNil(t, item2, "Updated item not found on server")
+
+				// Verify the content was updated correctly
+				content, _, err = graph.GetItemContent(item2.ID, auth)
+				require.NoError(t, err, "Failed to get updated item content")
+				require.True(t, bytes.Equal(content, newData),
+					"Data mismatch after update. Original content: %s\nRemote content: %s", newData, content)
+			},
+			skipCheck: func() bool {
+				return false
+			},
+		},
+		{
+			name:        "LargeFileUpload_ShouldSucceed",
+			description: "Tests large file uploads using the filesystem interface",
+			setupFunc: func(t *testing.T) (string, []byte, func()) {
+				// Check if the source file exists
+				_, err := os.Stat("dmel.fa")
+				if err != nil {
+					return "", nil, func() {}
+				}
+
+				// Read the source file
+				sourceData, err := os.ReadFile("dmel.fa")
+				require.NoError(t, err, "Failed to read source file")
+
+				fileName := "dmel_" + t.Name() + ".fa"
+				filePath := filepath.Join(TestDir, fileName)
+
+				// Create a cleanup function
+				cleanup := func() {
+					if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+					}
+				}
+
+				return filePath, sourceData, cleanup
+			},
+			testFunc: func(t *testing.T, filePath string, sourceData []byte) {
+				// Write the data to the file
+				err := os.WriteFile(filePath, sourceData, 0644)
+				require.NoError(t, err, "Failed to write to destination file")
+
+				// Read the file to verify it was written correctly
+				contents, err := os.ReadFile(filePath)
+				require.NoError(t, err, "Failed to read file after writing")
+
+				// Verify the file header
+				header := ">X dna:chromosome chromosome:BDGP6.22:X:1:23542271:1 REF"
+				require.Equal(t, header, string(contents[:len(header)]),
+					"Could not read FASTA header. Wanted \"%s\", got \"%s\"",
+					header, string(contents[:len(header)]))
+
+				// Verify the file footer
+				final := "AAATAAAATAC\n" // makes yucky test output, but is the final line
+				match := string(contents[len(contents)-len(final):])
+				require.Equal(t, final, match,
+					"Could not read final line of FASTA. Wanted \"%s\", got \"%s\"",
+					final, match)
+
+				// Verify the file size
+				st, _ := os.Stat(filePath)
+				require.NotZero(t, st.Size(), "File size cannot be 0.")
+
+				// Get the file name from the path
+				fileName := filepath.Base(filePath)
+				remotePath := "/onedriver_tests/" + fileName
+
+				// Poll endpoint to make sure it has a size greater than 0
+				size := uint64(len(contents))
+				var item *graph.DriveItem
+				assert.Eventually(t, func() bool {
+					item, _ = graph.GetItemPath(remotePath, auth)
+					if item == nil {
+						return false
+					}
+					inode := NewInodeDriveItem(item)
+					return inode.Size() == size
+				}, 120*time.Second, time.Second, "Upload session did not complete successfully!")
+
+				// Test multipart downloads
+				downloaded, _, err := graph.GetItemContent(item.ID, auth)
+				assert.NoError(t, err, "Failed to download content")
+				assert.Equal(t, graph.QuickXORHash(&contents), graph.QuickXORHash(&downloaded),
+					"Downloaded content did not match original content.")
+			},
+			skipCheck: func() bool {
+				_, err := os.Stat("dmel.fa")
+				return err != nil
+			},
+		},
 	}
 
-	// Use os.ReadFile and os.WriteFile instead of exec.Command("cp")
-	sourceData, err := os.ReadFile("dmel.fa")
-	require.NoError(t, err, "Failed to read source file")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	fname := filepath.Join(TestDir, "dmel.fa")
-	err = os.WriteFile(fname, sourceData, 0644)
-	require.NoError(t, err, "Failed to write to destination file")
+			// Check if the test should be skipped
+			if tc.skipCheck() {
+				t.Skip("Skipping test: " + tc.description)
+			}
 
-	contents, err := os.ReadFile(fname)
-	require.NoError(t, err)
+			// Setup test resources
+			filePath, initialData, cleanup := tc.setupFunc(t)
 
-	header := ">X dna:chromosome chromosome:BDGP6.22:X:1:23542271:1 REF"
-	require.Equal(t, header, string(contents[:len(header)]),
-		"Could not read FASTA header. Wanted \"%s\", got \"%s\"",
-		header, string(contents[:len(header)]))
+			// Register cleanup
+			t.Cleanup(cleanup)
 
-	final := "AAATAAAATAC\n" // makes yucky test output, but is the final line
-	match := string(contents[len(contents)-len(final):])
-	require.Equal(t, final, match,
-		"Could not read final line of FASTA. Wanted \"%s\", got \"%s\"",
-		final, match)
-
-	st, _ := os.Stat(fname)
-	require.NotZero(t, st.Size(), "File size cannot be 0.")
-
-	// poll endpoint to make sure it has a size greater than 0
-	size := uint64(len(contents))
-	var item *graph.DriveItem
-	assert.Eventually(t, func() bool {
-		item, _ = graph.GetItemPath("/onedriver_tests/dmel.fa", auth)
-		inode := NewInodeDriveItem(item)
-		return item != nil && inode.Size() == size
-	}, 120*time.Second, time.Second, "Upload session did not complete successfully!")
-
-	// test multipart downloads as a bonus part of the test
-	downloaded, _, err := graph.GetItemContent(item.ID, auth)
-	assert.NoError(t, err)
-	assert.Equal(t, graph.QuickXORHash(&contents), graph.QuickXORHash(&downloaded),
-		"Downloaded content did not match original content.")
+			// Run the test
+			tc.testFunc(t, filePath, initialData)
+		})
+	}
 }
