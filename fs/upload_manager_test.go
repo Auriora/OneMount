@@ -3,7 +3,6 @@ package fs
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
@@ -20,51 +20,70 @@ import (
 // Test that new uploads are written to disk to support resuming them later if
 // the user shuts down their computer.
 func TestUploadDiskSerialization(t *testing.T) {
-	// write a file and get its id - we do this as a goroutine because uploads are
-	// blocking now
-	cmd := exec.Command("cp", "dmel.fa", filepath.Join(TestDir, "upload_to_disk.fa"))
-	go func() {
-		if err := cmd.Run(); err != nil {
-			t.Logf("Error copying file: %v", err)
-		}
-	}()
-	time.Sleep(time.Second)
-	inode, err := fs.GetPath("/onedriver_tests/upload_to_disk.fa", nil)
-	require.NoError(t, err)
+	// Create a file path for our test file
+	filePath := filepath.Join(TestDir, "upload_to_disk.fa")
 
-	// we can find the in-progress upload because there is a several second
-	// delay on new uploads
-	session := UploadSession{}
-	err = fs.db.Batch(func(tx *bolt.Tx) error {
-		b, _ := tx.CreateBucketIfNotExists(bucketUploads)
-		diskSession := b.Get([]byte(inode.ID()))
-		if diskSession == nil {
-			return errors.New("item to upload not found on disk")
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
 		}
-		return json.Unmarshal(diskSession, &session)
 	})
-	if err != nil {
-		t.Log(err)
-		t.Log("This test sucks and should be rewritten to be less race-y!")
-		t.SkipNow()
-	}
 
-	// kill the session before it gets uploaded
+	// Copy the file synchronously to avoid race conditions
+	cmd := exec.Command("cp", "dmel.fa", filePath)
+	require.NoError(t, cmd.Run(), "Failed to copy test file")
+
+	// Wait for the file to be recognized by the filesystem
+	var inode *Inode
+	testutil.WaitForCondition(t, func() bool {
+		var err error
+		inode, err = fs.GetPath("/onedriver_tests/upload_to_disk.fa", nil)
+		return err == nil && inode != nil
+	}, 10*time.Second, 500*time.Millisecond, "File was not recognized by filesystem")
+
+	// Wait for the upload session to be created and serialized to disk
+	var session UploadSession
+	var found bool
+	testutil.WaitForCondition(t, func() bool {
+		session, found = findUploadSession(fs.db, inode.ID())
+		return found
+	}, 10*time.Second, 500*time.Millisecond, "Upload session was not created")
+
+	// Now that we have a valid upload session, cancel it before it gets uploaded
 	fs.uploads.CancelUpload(session.ID)
 
-	// confirm that the file didn't get uploaded yet (just in case!)
-	driveItem, err := graph.GetItemPath("/onedriver_tests/upload_to_disk.fa", auth)
-	if err == nil && driveItem != nil {
-		if driveItem.Size > 0 {
-			t.Fatal("This test should be rewritten, the file was uploaded before " +
-				"the upload could be canceled.")
-		}
-	}
+	// Confirm that the file didn't get uploaded yet
+	// Use WaitForCondition with a short timeout to give any in-progress upload a chance to complete
+	var driveItem *graph.DriveItem
+	var err error
+	testutil.WaitForCondition(t, func() bool {
+		driveItem, err = graph.GetItemPath("/onedriver_tests/upload_to_disk.fa", auth)
+		// If we can't find the item or it has no content, the test can proceed
+		return err != nil || driveItem == nil || driveItem.Size == 0
+	}, 5*time.Second, 500*time.Millisecond, "File was uploaded before the upload could be canceled")
 
-	// now we create a new UploadManager from scratch, with the file injected
-	// into its db and confirm that the file gets uploaded
-	db, err := bolt.Open(filepath.Join(testDBLoc, "test_upload_disk_serialization.db"), 0644, nil)
-	require.NoError(t, err)
+	// Now create a new UploadManager from scratch with the file injected into its db
+	dbPath := filepath.Join(testDBLoc, "test_upload_disk_serialization.db")
+
+	// Setup cleanup to remove the database file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(dbPath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up database file %s: %v", dbPath, err)
+		}
+	})
+
+	db, err := bolt.Open(dbPath, 0644, nil)
+	require.NoError(t, err, "Failed to open database")
+
+	// Setup cleanup to close the database after test completes or fails
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Logf("Warning: Failed to close database: %v", err)
+		}
+	})
+
+	// Create a bucket and store the upload session
 	err = db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucket(bucketUploads)
 		if err != nil {
@@ -76,56 +95,92 @@ func TestUploadDiskSerialization(t *testing.T) {
 		}
 		return b.Put([]byte(session.ID), payload)
 	})
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to store upload session in database")
 
+	// Create a new upload manager and wait for it to upload the file
 	NewUploadManager(time.Second, db, fs, auth)
-	assert.Eventually(t, func() bool {
+
+	// Wait for the file to be uploaded
+	testutil.WaitForCondition(t, func() bool {
 		driveItem, err = graph.GetItemPath("/onedriver_tests/upload_to_disk.fa", auth)
-		if driveItem != nil && err == nil {
-			return true
+		return err == nil && driveItem != nil && driveItem.Size > 0
+	}, 30*time.Second, 1*time.Second, "Could not find uploaded file after unserializing from disk and resuming upload")
+}
+
+// Helper function to find an upload session in the database
+func findUploadSession(db *bolt.DB, inodeID string) (UploadSession, bool) {
+	var session UploadSession
+	var found bool
+
+	_ = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketUploads)
+		if b == nil {
+			return nil
 		}
-		return false
-	}, 100*time.Second, 5*time.Second,
-		"Could not find uploaded file after unserializing from disk and resuming upload.",
-	)
+
+		diskSession := b.Get([]byte(inodeID))
+		if diskSession == nil {
+			return nil
+		}
+
+		if err := json.Unmarshal(diskSession, &session); err != nil {
+			return err
+		}
+
+		found = true
+		return nil
+	})
+
+	return session, found
 }
 
 // Make sure that uploading the same file multiple times works exactly as it should.
 func TestRepeatedUploads(t *testing.T) {
-
 	// test setup
 	fname := filepath.Join(TestDir, "repeated_upload.txt")
-	require.NoError(t, os.WriteFile(fname, []byte("initial content"), 0644))
+
+	// Setup cleanup to remove the file after test completes or fails
+	t.Cleanup(func() {
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+		}
+	})
+
+	// Create initial file
+	require.NoError(t, os.WriteFile(fname, []byte("initial content"), 0644), "Failed to write initial content")
+
+	// Wait for the file to be recognized and uploaded
 	var inode *Inode
-	require.Eventually(t, func() bool {
+	testutil.WaitForCondition(t, func() bool {
 		var err error
 		inode, err = fs.GetPath("/onedriver_tests/repeated_upload.txt", auth)
 		if err != nil || inode == nil {
 			return false
 		}
 		return !isLocalID(inode.ID())
-	}, retrySeconds, 2*time.Second, "ID was local after upload.")
+	}, retrySeconds, 2*time.Second, "ID was local after upload")
 
+	// Test multiple uploads of the same file
 	for i := 0; i < 5; i++ {
+		// Create new content for this iteration
 		uploadme := []byte(fmt.Sprintf("iteration: %d", i))
-		require.NoError(t, os.WriteFile(fname, uploadme, 0644))
+		require.NoError(t, os.WriteFile(fname, uploadme, 0644), "Failed to write iteration content")
 
-		time.Sleep(5 * time.Second)
-
-		item, err := graph.GetItemPath("/onedriver_tests/repeated_upload.txt", auth)
-		require.NoError(t, err)
-
-		content, _, err := graph.GetItemContent(item.ID, auth)
-		require.NoError(t, err)
-
-		if !bytes.Equal(content, uploadme) {
-			// wait and retry once
-			time.Sleep(5 * time.Second)
-			content, _, err := graph.GetItemContent(item.ID, auth)
-			require.NoError(t, err)
-			if !bytes.Equal(content, uploadme) {
-				t.Fatalf("Upload failed - got \"%s\", wanted \"%s\"", content, uploadme)
+		// Wait for the file to be uploaded
+		testutil.WaitForCondition(t, func() bool {
+			// Get the item from the server
+			item, err := graph.GetItemPath("/onedriver_tests/repeated_upload.txt", auth)
+			if err != nil || item == nil {
+				return false
 			}
-		}
+
+			// Get the content and verify it matches what we uploaded
+			content, _, err := graph.GetItemContent(item.ID, auth)
+			if err != nil {
+				return false
+			}
+
+			return bytes.Equal(content, uploadme)
+		}, 30*time.Second, 1*time.Second, fmt.Sprintf("Upload failed for iteration %d", i))
 	}
 }
