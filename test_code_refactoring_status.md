@@ -43,6 +43,13 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Updated TestUnitActive in ui/systemd/systemd_test.go to use WaitForCondition instead of fixed timeout
   - Updated setup_test.go in fs/offline to use WaitForCondition for mount point checks and other waiting operations
   - Added RetryWithBackoff utility in testutil/async.go for operations that need multiple attempts
+  - Replaced all fixed sleeps in fs/fs_test.go with WaitForCondition:
+    - Updated TestTouchUpdateTime to wait for file modification time to change
+    - Updated TestMkdirRmdir to wait for directory removal
+    - Updated TestNTFSIsABadFilesystem and its variants to wait for file operations
+    - Updated TestEchoWritesToFile to wait for file content
+    - Updated TestStat to wait for directory creation
+    - Updated TestGIOTrash to wait for file creation and deletion
 - Fix race conditions in tests (PARTIALLY COMPLETED)
   - Fixed race conditions in TestUploadDiskSerialization by making the test more deterministic
   - Improved TestRepeatedUploads to use dynamic waiting instead of fixed sleeps
@@ -75,10 +82,8 @@ This document summarizes the status of the recommendations from the [test_code_r
 
 2. Continue implementing test reliability improvements:
    - Replace more fixed timeouts with dynamic waiting:
-     - Update TestTouchUpdateTime in fs/fs_test.go to use WaitForCondition instead of fixed sleep
-     - Update TestMkdirRmdir in fs/fs_test.go to use WaitForCondition instead of fixed sleep
-     - Update TestNTFSIsABadFilesystem in fs/fs_test.go to use WaitForCondition instead of fixed sleeps
-     - Update TestEchoWritesToFile in fs/fs_test.go to use WaitForCondition instead of fixed sleep
+     - Update TestLibreOfficeSavePattern in fs/fs_test.go to use WaitForCondition instead of assert.Eventually
+     - Update any remaining fixed sleeps in other packages
    - Isolate tests from each other by using subtests and proper cleanup:
      - Convert TestFilePermissions in fs/fs_test.go to use table-driven tests with subtests
      - Convert TestMountpointIsValid in ui/onedriver_test.go to use table-driven tests with subtests

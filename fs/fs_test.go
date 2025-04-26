@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,16 +88,29 @@ func TestTouchUpdateTime(t *testing.T) {
 	})
 
 	require.NoError(t, exec.Command("touch", fname).Run())
-	st1, _ := os.Stat(fname)
+	st1, err := os.Stat(fname)
+	require.NoError(t, err, "Failed to stat file after first touch")
+	initialModTime := st1.ModTime()
 
-	time.Sleep(2 * time.Second)
-
+	// Run the second touch command
 	require.NoError(t, exec.Command("touch", fname).Run())
-	st2, _ := os.Stat(fname)
 
-	require.False(t, st2.ModTime().Equal(st1.ModTime()) || st2.ModTime().Before(st1.ModTime()),
+	// Wait for the modification time to change
+	testutil.WaitForCondition(t, func() bool {
+		st2, err := os.Stat(fname)
+		if err != nil {
+			t.Logf("Error stating file: %v", err)
+			return false
+		}
+		return !st2.ModTime().Equal(initialModTime) && !st2.ModTime().Before(initialModTime)
+	}, 5*time.Second, 100*time.Millisecond, "File modification time was not updated by touch")
+
+	// Verify the modification time has changed
+	st2, err := os.Stat(fname)
+	require.NoError(t, err, "Failed to stat file after second touch")
+	require.False(t, st2.ModTime().Equal(initialModTime) || st2.ModTime().Before(initialModTime),
 		"File modification time was not updated by touch:\nBefore: %d\nAfter: %d\n",
-		st1.ModTime().Unix(), st2.ModTime().Unix())
+		initialModTime.Unix(), st2.ModTime().Unix())
 }
 
 // chmod should *just work*
@@ -138,8 +152,12 @@ func TestMkdirRmdir(t *testing.T) {
 	require.NoError(t, os.Mkdir(fname, 0755))
 	require.NoError(t, os.Remove(fname))
 
-	// Give the filesystem time to process the removal
-	time.Sleep(1 * time.Second)
+	// Wait for the filesystem to process the removal
+	// This ensures the directory is fully removed before we try to recreate it
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(fname)
+		return os.IsNotExist(err) // Return true when the directory no longer exists
+	}, 5*time.Second, 100*time.Millisecond, "Directory was not removed within timeout")
 
 	require.NoError(t, os.Mkdir(fname, 0755))
 }
@@ -431,15 +449,21 @@ func TestNTFSIsABadFilesystem(t *testing.T) {
 	file1 := filepath.Join(TestDir, "case-sensitive.txt")
 	require.NoError(t, os.WriteFile(file1, []byte("NTFS is bad"), 0644))
 
-	// Give the filesystem time to process the file creation
-	time.Sleep(1 * time.Second)
+	// Wait for the filesystem to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(file1)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
 
 	// Create the second file with different case
 	file2 := filepath.Join(TestDir, "CASE-SENSITIVE.txt")
 	require.NoError(t, os.WriteFile(file2, []byte("yep"), 0644))
 
-	// Give the filesystem time to process the file creation
-	time.Sleep(1 * time.Second)
+	// Wait for the filesystem to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(file2)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Second file was not created within timeout")
 
 	// Try to read the file with a third case variant
 	file3 := filepath.Join(TestDir, "Case-Sensitive.TXT")
@@ -488,8 +512,12 @@ func TestNTFSIsABadFilesystem2(t *testing.T) {
 		t.Logf("Warning: Failed to remove file2: %v", err)
 	}
 
-	// Give the filesystem time to process the removals
-	time.Sleep(1 * time.Second)
+	// Wait for the filesystem to process the removals
+	testutil.WaitForCondition(t, func() bool {
+		_, err1 := os.Stat(file1Path)
+		_, err2 := os.Stat(file2Path)
+		return os.IsNotExist(err1) && os.IsNotExist(err2)
+	}, 5*time.Second, 100*time.Millisecond, "Files were not removed within timeout")
 
 	// Create the first file
 	file1, err := os.OpenFile(file1Path, os.O_CREATE|os.O_EXCL, 0644)
@@ -503,8 +531,11 @@ func TestNTFSIsABadFilesystem2(t *testing.T) {
 		t.Skip("Could not create the first test file, skipping test")
 	}
 
-	// Give the filesystem time to process the file creation
-	time.Sleep(1 * time.Second)
+	// Wait for the filesystem to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(file1Path)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
 
 	// Try to create the second file with different case
 	file2, err := os.OpenFile(file2Path, os.O_CREATE|os.O_EXCL, 0644)
@@ -535,18 +566,30 @@ func TestNTFSIsABadFilesystem2(t *testing.T) {
 func TestNTFSIsABadFilesystem3(t *testing.T) {
 	fname := filepath.Join(TestDir, "original_NAME.txt")
 	require.NoError(t, os.WriteFile(fname, []byte("original"), 0644))
-	// Give the DeltaLoop time to process the file creation
-	time.Sleep(2 * time.Second)
+
+	// Wait for the DeltaLoop to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(fname)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
 
 	// should work
 	secondName := filepath.Join(TestDir, "new_name.txt")
 	require.NoError(t, os.WriteFile(secondName, []byte("new"), 0644))
-	// Give the DeltaLoop time to process the file creation
-	time.Sleep(2 * time.Second)
+
+	// Wait for the DeltaLoop to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(secondName)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Second file was not created within timeout")
 
 	require.NoError(t, os.Rename(secondName, fname))
-	// Give the DeltaLoop time to process the rename
-	time.Sleep(2 * time.Second)
+
+	// Wait for the DeltaLoop to process the rename and for the file content to be updated
+	testutil.WaitForCondition(t, func() bool {
+		content, err := os.ReadFile(fname)
+		return err == nil && string(content) == "new"
+	}, 5*time.Second, 100*time.Millisecond, "File content was not updated after rename")
 
 	contents, err := os.ReadFile(fname)
 	require.NoError(t, err)
@@ -555,13 +598,21 @@ func TestNTFSIsABadFilesystem3(t *testing.T) {
 	// should fail
 	thirdName := filepath.Join(TestDir, "new_name2.txt")
 	require.NoError(t, os.WriteFile(thirdName, []byte("this rename should work"), 0644))
-	// Give the DeltaLoop time to process the file creation
-	time.Sleep(2 * time.Second)
+
+	// Wait for the DeltaLoop to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(thirdName)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Third file was not created within timeout")
 
 	err = os.Rename(thirdName, filepath.Join(TestDir, "original_name.txt"))
 	require.NoError(t, err, "Rename failed.")
-	// Give the DeltaLoop time to process the rename
-	time.Sleep(2 * time.Second)
+
+	// Wait for the DeltaLoop to process the rename
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(filepath.Join(TestDir, "original_name.txt"))
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Renamed file was not created within timeout")
 
 	_, err = os.Stat(fname)
 	require.NoErrorf(t, err, "\"%s\" does not exist after the rename.", fname)
@@ -585,8 +636,11 @@ func TestEchoWritesToFile(t *testing.T) {
 	out, err := exec.Command("bash", "-c", "echo bagels > "+fname).CombinedOutput()
 	require.NoError(t, err, out)
 
-	// Give the DeltaLoop time to process the file creation
-	time.Sleep(2 * time.Second)
+	// Wait for the DeltaLoop to process the file creation and for the file to contain the expected content
+	testutil.WaitForCondition(t, func() bool {
+		content, err := os.ReadFile(fname)
+		return err == nil && strings.Contains(string(content), "bagels")
+	}, 5*time.Second, 100*time.Millisecond, "File was not created or did not contain expected content within timeout")
 
 	content, err := os.ReadFile(fname)
 	require.NoError(t, err)
@@ -600,8 +654,12 @@ func TestStat(t *testing.T) {
 	docDir := "mount/Documents"
 	if _, err := os.Stat(docDir); os.IsNotExist(err) {
 		require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
-		// Give the filesystem time to process the directory creation
-		time.Sleep(1 * time.Second)
+
+		// Wait for the filesystem to process the directory creation
+		testutil.WaitForCondition(t, func() bool {
+			stat, err := os.Stat(docDir)
+			return err == nil && stat.IsDir()
+		}, 5*time.Second, 100*time.Millisecond, "Documents directory was not created within timeout")
 	}
 
 	stat, err := os.Stat(docDir)
@@ -633,8 +691,11 @@ func TestGIOTrash(t *testing.T) {
 	fname := filepath.Join(TestDir, "trash_me.txt")
 	require.NoError(t, os.WriteFile(fname, []byte("i should be trashed"), 0644))
 
-	// Give the DeltaLoop time to process the file creation
-	time.Sleep(2 * time.Second)
+	// Wait for the DeltaLoop to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(fname)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
 
 	// Check if gio is installed
 	_, err = exec.LookPath("gio")
@@ -657,8 +718,11 @@ func TestGIOTrash(t *testing.T) {
 	require.False(t, strings.Contains(string(out), "Unable to find or create trash directory"),
 		"Error creating trash directory: %s", string(out))
 
-	// Give the DeltaLoop time to process the file deletion
-	time.Sleep(2 * time.Second)
+	// Wait for the DeltaLoop to process the file deletion
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(fname)
+		return os.IsNotExist(err) // Return true when the file no longer exists
+	}, 5*time.Second, 100*time.Millisecond, "File was not deleted within timeout")
 }
 
 // Test that we are able to work around onedrive paging limits when
