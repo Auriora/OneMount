@@ -257,8 +257,16 @@ This document summarizes the status of the recommendations from the [test_code_r
 2. Continue implementing test organization improvements:
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
+     - Note: All tests in the ui package have already been refactored to use a table-driven approach
      - Potential candidates include:
-       - TestMountpointIsValid in ui/onedriver_test.go
+       - TestStatFs and TestUnlink in fs/fs_test.go
+       - TestDisallowedFilenames in fs/fs_test.go
+       - Tests in fs/cache_test.go (TestRootGet, TestRootChildrenUpdate, etc.)
+       - Tests in fs/inode_test.go (TestConstructor, TestMode, etc.)
+       - Tests in fs/dbus_test.go (TestDBusServerStartStop, etc.)
+       - Tests in fs/thumbnail_test.go (TestThumbnailCache, etc.)
+       - Tests in fs/upload_session_test.go (TestUploadSession, etc.)
+       - Tests in fs/offline/offline_test.go (TestOfflineReaddir, etc.)
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
