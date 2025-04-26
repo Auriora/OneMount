@@ -19,19 +19,58 @@ func TestTemplateUnit(t *testing.T) {
 	require.Equal(t, "onedriver@this-is-a-test.service", escaped, "Templating did not work.")
 }
 
-// Does systemd unit untemplating work?
+// TestUntemplateUnit tests that systemd unit untemplating works correctly
 func TestUntemplateUnit(t *testing.T) {
 	t.Parallel()
-	_, err := UntemplateUnit("this-wont-work")
-	assert.Error(t, err, "Untemplating \"this-wont-work\" shouldn't have worked.")
 
-	unescaped, err := UntemplateUnit("onedriver@home-some-path")
-	assert.NoError(t, err, "Failed to untemplate unit.")
-	assert.Equal(t, "home-some-path", unescaped, "Did not untemplate systemd unit correctly.")
+	// Define test cases
+	testCases := []struct {
+		name           string
+		input          string
+		expectedOutput string
+		expectError    bool
+		errorMessage   string
+	}{
+		{
+			name:         "InvalidUnitName_ShouldReturnError",
+			input:        "this-wont-work",
+			expectError:  true,
+			errorMessage: "Untemplating \"this-wont-work\" shouldn't have worked",
+		},
+		{
+			name:           "ValidUnitNameWithoutSuffix_ShouldUntemplate",
+			input:          "onedriver@home-some-path",
+			expectedOutput: "home-some-path",
+			expectError:    false,
+			errorMessage:   "Failed to untemplate unit",
+		},
+		{
+			name:           "ValidUnitNameWithSuffix_ShouldUntemplate",
+			input:          "onedriver@opt-other.service",
+			expectedOutput: "opt-other",
+			expectError:    false,
+			errorMessage:   "Failed to untemplate unit",
+		},
+	}
 
-	unescaped, err = UntemplateUnit("onedriver@opt-other.service")
-	assert.NoError(t, err, "Failed to untemplate unit.")
-	assert.Equal(t, "opt-other", unescaped, "Did not untemplate systemd unit correctly.")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Call the function being tested
+			output, err := UntemplateUnit(tc.input)
+
+			// Check if error behavior matches expectations
+			if tc.expectError {
+				assert.Error(t, err, tc.errorMessage)
+			} else {
+				assert.NoError(t, err, tc.errorMessage)
+				assert.Equal(t, tc.expectedOutput, output, "Did not untemplate systemd unit correctly")
+			}
+		})
+	}
 }
 
 // can we enable and disable systemd units? (and correctly check if the units are

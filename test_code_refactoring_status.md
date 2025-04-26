@@ -92,6 +92,10 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Used descriptive test case names that clearly indicate what is being tested
     - Added proper setup and cleanup for each test case
     - Improved error handling with descriptive error messages
+  - Converted TestUntemplateUnit in ui/systemd/systemd_test.go to a table-driven test:
+    - Added multiple test cases with descriptive names
+    - Used parallel execution for each test case
+    - Improved error handling with descriptive error messages
 - Group related tests (NOT STARTED)
 - Use clear test names (NOT STARTED)
 
