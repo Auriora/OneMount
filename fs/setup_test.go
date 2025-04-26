@@ -184,10 +184,19 @@ func TestMain(m *testing.M) {
 	}()
 
 	var err error
-	auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
-	if err != nil {
-		fmt.Println("Authentication failed:", err)
-		os.Exit(1)
+	// Check if we should use mock authentication
+	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+		// Use mock authentication
+		mockClient := graph.NewMockGraphClient()
+		auth = &mockClient.Auth
+		log.Info().Msg("Using mock authentication for tests")
+	} else {
+		// Use real authentication
+		auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
+		if err != nil {
+			fmt.Println("Authentication failed:", err)
+			os.Exit(1)
+		}
 	}
 	var fsErr error
 	fs, fsErr = NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
@@ -196,100 +205,136 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// Create mount options
-	mountOptions := &fuse.MountOptions{
-		Name:          "onedriver",
-		FsName:        "onedriver",
-		DisableXAttrs: false,
-		MaxBackground: 1024,
-	}
+	var server *fuse.Server
+	var sigChan chan os.Signal
+	var unmountDone chan struct{}
+	var mounted bool = false
 
-	// Create the FUSE server
-	server, err := fuse.NewServer(
-		fs,
-		mountLoc,
-		mountOptions,
-	)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to create FUSE server")
-		os.Exit(1)
-	}
+	// Check if we should skip FUSE mounting
+	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+		// Skip FUSE mounting when using mock authentication
+		log.Info().Msg("Skipping FUSE mounting for tests with mock authentication")
 
-	// setup sigint handler for graceful unmount on interrupt/terminate
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
-	unmountDone := make(chan struct{})
-	go UnmountHandler(sigChan, server, fs, unmountDone)
+		// Create the mount directory structure manually
+		if err := os.MkdirAll(mountLoc, 0755); err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Msg("Failed to create mount directory")
+			os.Exit(1)
+		}
 
-	// mount fs in background thread
-	go server.Serve()
+		// Create test directories
+		if err := os.MkdirAll(TestDir, 0755); err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Msg("Failed to create test directory")
+			os.Exit(1)
+		}
+		if err := os.MkdirAll(DeltaDir, 0755); err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Msg("Failed to create delta directory")
+			os.Exit(1)
+		}
+		if err := os.MkdirAll(filepath.Join(TestDir, "paging"), 0755); err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Msg("Failed to create paging directory")
+			os.Exit(1)
+		}
+		if err := os.MkdirAll(filepath.Join(mountLoc, "Documents"), 0755); err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Msg("Failed to create Documents directory")
+		}
 
-	// Wait for the filesystem to be mounted with improved error handling
-	log.Info().Msg("Waiting for filesystem to be mounted...")
-	mounted := false
-	var lastError error
+		mounted = true
+	} else {
+		// Create mount options
+		mountOptions := &fuse.MountOptions{
+			Name:          "onedriver",
+			FsName:        "onedriver",
+			DisableXAttrs: false,
+			MaxBackground: 1024,
+		}
 
-	// Define a context with timeout for mount operation
-	mountCtx, mountCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer mountCancel()
+		// Create the FUSE server
+		var err error
+		server, err = fuse.NewServer(
+			fs,
+			mountLoc,
+			mountOptions,
+		)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create FUSE server")
+			os.Exit(1)
+		}
 
-	// Create a ticker for periodic checks
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+		// setup sigint handler for graceful unmount on interrupt/terminate
+		sigChan = make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
+		unmountDone = make(chan struct{})
+		go UnmountHandler(sigChan, server, fs, unmountDone)
 
-	// Use a channel to signal when mounting is complete
-	mountDone := make(chan bool, 1)
+		// mount fs in background thread
+		go server.Serve()
 
-	// Start a goroutine to check mount status
-	go func() {
-		for {
-			select {
-			case <-mountCtx.Done():
-				// Context timeout or cancellation
-				return
-			case <-ticker.C:
-				// Check if mount point exists
-				if _, err := os.Stat(mountLoc); err == nil {
-					// Try to create a test file to verify the filesystem is working
-					testFile := filepath.Join(mountLoc, ".test-mount-ready")
-					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
-						// Successfully created test file, filesystem is mounted
-						if removeErr := os.Remove(testFile); removeErr != nil {
-							log.Warn().Err(removeErr).Msg("Failed to remove test file, but mount is confirmed")
+		// Wait for the filesystem to be mounted with improved error handling
+		log.Info().Msg("Waiting for filesystem to be mounted...")
+		var lastError error
+
+		// Define a context with timeout for mount operation
+		mountCtx, mountCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer mountCancel()
+
+		// Create a ticker for periodic checks
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		// Use a channel to signal when mounting is complete
+		mountDone := make(chan bool, 1)
+
+		// Start a goroutine to check mount status
+		go func() {
+			for {
+				select {
+				case <-mountCtx.Done():
+					// Context timeout or cancellation
+					return
+				case <-ticker.C:
+					// Check if mount point exists
+					if _, err := os.Stat(mountLoc); err == nil {
+						// Try to create a test file to verify the filesystem is working
+						testFile := filepath.Join(mountLoc, ".test-mount-ready")
+						if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
+							// Successfully created test file, filesystem is mounted
+							if removeErr := os.Remove(testFile); removeErr != nil {
+								log.Warn().Err(removeErr).Msg("Failed to remove test file, but mount is confirmed")
+							}
+							mountDone <- true
+							return
+						} else {
+							lastError = err
+							log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
 						}
-						mountDone <- true
-						return
 					} else {
 						lastError = err
-						log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
+						log.Debug().Err(err).Msg("Mount point not accessible yet")
 					}
-				} else {
-					lastError = err
-					log.Debug().Err(err).Msg("Mount point not accessible yet")
 				}
 			}
+		}()
+
+		// Wait for mounting to complete or timeout
+		select {
+		case <-mountDone:
+			mounted = true
+		case <-mountCtx.Done():
+			// Timeout or cancellation
+			log.Error().Err(mountCtx.Err()).Msg("Mount operation timed out")
 		}
-	}()
 
-	// Wait for mounting to complete or timeout
-	select {
-	case <-mountDone:
-		mounted = true
-	case <-mountCtx.Done():
-		// Timeout or cancellation
-		log.Error().Err(mountCtx.Err()).Msg("Mount operation timed out")
-	}
-
-	if !mounted {
-		log.Error().Err(lastError).Msg("Filesystem failed to mount within timeout")
-		// Attempt to clean up
-		if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
-			log.Error().Err(unmountErr).Msg("Failed to unmount during cleanup after mount failure")
+		if !mounted {
+			log.Error().Err(lastError).Msg("Filesystem failed to mount within timeout")
+			// Attempt to clean up
+			if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
+				log.Error().Err(unmountErr).Msg("Failed to unmount during cleanup after mount failure")
+			}
+			os.Exit(1)
 		}
-		os.Exit(1)
-	}
 
-	log.Info().Msg("Filesystem mounted successfully")
+		log.Info().Msg("Filesystem mounted successfully")
+	}
 
 	// cleanup from last run
 	log.Info().Msg("Setup test environment ---------------------------------")
@@ -412,36 +457,44 @@ func TestMain(m *testing.M) {
 	}
 	fmt.Printf("\n")
 
-	// Stop the UnmountHandler goroutine
-	close(unmountDone)
-
-	// Give the UnmountHandler a moment to exit
-	time.Sleep(100 * time.Millisecond)
-
-	// Stop signal notifications
-	signal.Stop(sigChan)
-
-	// Attempt to unmount with retries
-	log.Info().Msg("Attempting to unmount filesystem...")
 	unmountSuccess := false
 
-	// First try normal unmount
-	unmountErr := server.Unmount()
-	if unmountErr == nil {
+	// Check if we're using mock authentication
+	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+		// Skip unmounting when using mock authentication
+		log.Info().Msg("Skipping FUSE unmounting for tests with mock authentication")
 		unmountSuccess = true
-		log.Info().Msg("Successfully unmounted filesystem")
 	} else {
-		log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
+		// Stop the UnmountHandler goroutine
+		close(unmountDone)
 
-		// Try lazy unmount with retries
-		for i := 0; i < 3; i++ {
-			if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err == nil {
-				unmountSuccess = true
-				log.Info().Msg("Successfully performed lazy unmount")
-				break
-			} else {
-				log.Error().Err(err).Int("attempt", i+1).Msg("Failed to perform lazy unmount")
-				time.Sleep(500 * time.Millisecond) // Wait before retrying
+		// Give the UnmountHandler a moment to exit
+		time.Sleep(100 * time.Millisecond)
+
+		// Stop signal notifications
+		signal.Stop(sigChan)
+
+		// Attempt to unmount with retries
+		log.Info().Msg("Attempting to unmount filesystem...")
+
+		// First try normal unmount
+		unmountErr := server.Unmount()
+		if unmountErr == nil {
+			unmountSuccess = true
+			log.Info().Msg("Successfully unmounted filesystem")
+		} else {
+			log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
+
+			// Try lazy unmount with retries
+			for i := 0; i < 3; i++ {
+				if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err == nil {
+					unmountSuccess = true
+					log.Info().Msg("Successfully performed lazy unmount")
+					break
+				} else {
+					log.Error().Err(err).Int("attempt", i+1).Msg("Failed to perform lazy unmount")
+					time.Sleep(500 * time.Millisecond) // Wait before retrying
+				}
 			}
 		}
 	}

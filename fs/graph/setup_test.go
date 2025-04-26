@@ -47,19 +47,44 @@ func TestMain(m *testing.M) {
 	defer f.Close()
 
 	// auth and log account metadata so we're extra sure who we're testing against
-	auth, err := Authenticate(context.Background(), AuthConfig{}, ".auth_tokens.json", false)
-	if err != nil {
-		log.Error().Err(err).Msg("Authentication failed")
-		os.Exit(1)
-	}
-	user, userErr := GetUser(auth)
-	if userErr != nil {
-		log.Warn().Err(userErr).Msg("Failed to get user information, continuing anyway")
-	}
+	var auth *Auth
+	var user User
+	var userErr error
+	var drive Drive
+	var driveErr error
 
-	drive, driveErr := GetDrive(auth)
-	if driveErr != nil {
-		log.Warn().Err(driveErr).Msg("Failed to get drive information, continuing anyway")
+	// Check if we should use mock authentication
+	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+		// Use mock authentication
+		mockClient := NewMockGraphClient()
+		auth = &mockClient.Auth
+		log.Info().Msg("Using mock authentication for tests")
+
+		// Create mock user and drive for consistent logging
+		user = User{
+			UserPrincipalName: "mock@example.com",
+		}
+		drive = Drive{
+			ID:        "mock-drive-id",
+			DriveType: "mock",
+		}
+	} else {
+		// Use real authentication
+		var err error
+		auth, err = Authenticate(context.Background(), AuthConfig{}, ".auth_tokens.json", false)
+		if err != nil {
+			log.Error().Err(err).Msg("Authentication failed")
+			os.Exit(1)
+		}
+		user, userErr = GetUser(auth)
+		if userErr != nil {
+			log.Warn().Err(userErr).Msg("Failed to get user information, continuing anyway")
+		}
+
+		drive, driveErr = GetDrive(auth)
+		if driveErr != nil {
+			log.Warn().Err(driveErr).Msg("Failed to get drive information, continuing anyway")
+		}
 	}
 
 	logEvent := log.Info()
