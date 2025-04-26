@@ -1654,34 +1654,118 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 		t.Skip("LibreOffice not found, skipping test")
 	}
 
-	content := []byte("This will break things.")
-	fname := filepath.Join(TestDir, "libreoffice.txt")
-	require.NoError(t, os.WriteFile(fname, content, 0644))
+	// Ensure the test directory exists
+	err = os.MkdirAll(TestDir, 0755)
+	require.NoError(t, err, "Failed to create test directory")
 
-	out, err := exec.Command(
-		"libreoffice",
-		"--headless",
-		"--convert-to", "docx",
-		"--outdir", TestDir,
-		fname,
-	).CombinedOutput()
-	require.NoError(t, err, out)
-	// libreoffice document conversion can fail with an exit code of 0,
-	// so we need to actually check the command output
-	require.NotContains(t, string(out), "Error:")
+	testCases := []struct {
+		name           string
+		sourceContent  []byte
+		sourceFileName string
+		sourceFileExt  string
+		targetFormat   string
+		expectedSize   uint64 // Minimum expected size in bytes, 0 means just check for non-zero
+	}{
+		{
+			name:           "TextToDocx_ShouldCreateNonEmptyFile",
+			sourceContent:  []byte("This will break things."),
+			sourceFileName: "libreoffice",
+			sourceFileExt:  "txt",
+			targetFormat:   "docx",
+			expectedSize:   0, // Just check for non-zero
+		},
+		{
+			name:           "TextToOdt_ShouldCreateNonEmptyFile",
+			sourceContent:  []byte("Converting to OpenDocument format."),
+			sourceFileName: "libreoffice_odt",
+			sourceFileExt:  "txt",
+			targetFormat:   "odt",
+			expectedSize:   0, // Just check for non-zero
+		},
+		{
+			name:           "TextToPdf_ShouldCreateNonEmptyFile",
+			sourceContent:  []byte("Converting to PDF format."),
+			sourceFileName: "libreoffice_pdf",
+			sourceFileExt:  "txt",
+			targetFormat:   "pdf",
+			expectedSize:   0, // Just check for non-zero
+		},
+		{
+			name:           "LargerTextToDocx_ShouldCreateLargerFile",
+			sourceContent:  []byte("This is a larger text document with multiple lines.\nIt should create a larger output file.\nThis helps test that the file content is properly preserved during conversion."),
+			sourceFileName: "libreoffice_large",
+			sourceFileExt:  "txt",
+			targetFormat:   "docx",
+			expectedSize:   1000, // Expect at least 1KB
+		},
+	}
 
-	// Use WaitForCondition to wait for the file to be uploaded and available
-	testutil.WaitForCondition(t, func() bool {
-		item, err := graph.GetItemPath("/onedriver_tests/libreoffice.docx", auth)
-		if err == nil && item != nil {
-			// Check that the file size is not zero
-			if item.Size > 0 {
-				return true
-			}
-			t.Logf("File found but size is 0, waiting for upload to complete...")
-		}
-		return false
-	}, retrySeconds, 3*time.Second, "Could not find /onedriver_tests/libreoffice.docx post-upload or file size was 0")
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Create unique source and target filenames for this test case
+			sourceFileName := fmt.Sprintf("%s_%s.%s", tc.sourceFileName, t.Name(), tc.sourceFileExt)
+			sourcePath := filepath.Join(TestDir, sourceFileName)
+			targetFileName := fmt.Sprintf("%s_%s.%s", tc.sourceFileName, t.Name(), tc.targetFormat)
+			targetPath := filepath.Join(TestDir, targetFileName)
+
+			// Create the source file
+			require.NoError(t, os.WriteFile(sourcePath, tc.sourceContent, 0644),
+				"Failed to create source file: %s", sourcePath)
+
+			// Clean up the files after the test
+			t.Cleanup(func() {
+				// Try to remove the source and target files if they exist
+				_ = os.Remove(sourcePath)
+				_ = os.Remove(targetPath)
+			})
+
+			// Run LibreOffice to convert the file
+			out, err := exec.Command(
+				"libreoffice",
+				"--headless",
+				"--convert-to", tc.targetFormat,
+				"--outdir", TestDir,
+				sourcePath,
+			).CombinedOutput()
+
+			require.NoError(t, err, "LibreOffice conversion failed: %v\nOutput: %s", err, out)
+
+			// LibreOffice document conversion can fail with an exit code of 0,
+			// so we need to actually check the command output
+			require.NotContains(t, string(out), "Error:", 
+				"LibreOffice reported an error in its output: %s", out)
+
+			// Log the conversion output for debugging
+			t.Logf("LibreOffice conversion output: %s", out)
+
+			// Construct the API path for the target file
+			apiPath := fmt.Sprintf("/onedriver_tests/%s", targetFileName)
+
+			// Format the error message before passing it to WaitForCondition
+			errorMessage := fmt.Sprintf("Could not find %s post-upload or file size was too small", apiPath)
+
+			// Use WaitForCondition to wait for the file to be uploaded and available
+			testutil.WaitForCondition(t, func() bool {
+				item, err := graph.GetItemPath(apiPath, auth)
+				if err == nil && item != nil {
+					// Check that the file size meets the expected minimum
+					if tc.expectedSize > 0 {
+						if item.Size >= tc.expectedSize {
+							return true
+						}
+						t.Logf("File found but size is smaller than expected. Got: %d, Expected: at least %d bytes", 
+							item.Size, tc.expectedSize)
+					} else if item.Size > 0 {
+						// Just check for non-zero size
+						return true
+					}
+					t.Logf("File found but size is 0, waiting for upload to complete...")
+				}
+				return false
+			}, retrySeconds, 3*time.Second, errorMessage)
+		})
+	}
 }
 
 // TestDisallowedFilenames verifies that we can't create any of the disallowed filenames

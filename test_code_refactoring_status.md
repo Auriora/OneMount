@@ -203,6 +203,14 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Added support for checking both expected and unexpected items
     - Improved error handling with descriptive error messages
     - Added more detailed logging for debugging
+  - Converted TestLibreOfficeSavePattern in fs/fs_test.go to a table-driven test:
+    - Added multiple test cases for different file types, content, and conversion formats
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique filenames for each test case to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+    - Added more detailed logging for debugging
+    - Added support for checking different expected file sizes
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -228,7 +236,7 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestLibreOfficeSavePattern in fs/fs_test.go
+       - TestRmdirNonempty in fs/fs_test.go
        - TestTouchCreate in fs/fs_test.go
        - TestTouchUpdateTime in fs/fs_test.go
    - Group related tests:
