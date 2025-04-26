@@ -225,6 +225,14 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Added proper cleanup with t.Cleanup()
     - Improved error handling with descriptive error messages
     - Added waiting for directory creation and removal with WaitForCondition
+  - Converted TestMkdirRmdir in fs/fs_test.go to a table-driven test TestDirectoryOperations:
+    - Added test cases for creating directories, removing directories, and the mkdir->rmdir->mkdir chain
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique directory names for each test case to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+    - Added waiting for directory creation and removal with WaitForCondition
+    - Added a test case for creating directories with specific permissions
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -250,8 +258,6 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestMkdirRmdir in fs/fs_test.go
-       - TestMkdir in fs/fs_test.go
        - TestMountpointIsValid in ui/onedriver_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details

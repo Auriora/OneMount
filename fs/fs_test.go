@@ -336,36 +336,122 @@ func TestFilePermissions(t *testing.T) {
 	}
 }
 
-// test that both mkdir and rmdir work, as well as the potentially failing
-// mkdir->rmdir->mkdir chain that fails if the cache hangs on to an old copy
-// after rmdir
-func TestMkdirRmdir(t *testing.T) {
-	fname := filepath.Join(TestDir, "folder1")
+// TestDirectoryOperations tests various directory operations using a table-driven approach
+func TestDirectoryOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		operations  func(t *testing.T, dirPath string)
+		verifyFunc  func(t *testing.T, dirPath string)
+		description string
+	}{
+		{
+			name:        "CreateDirectory_ShouldExist",
+			description: "Create a directory and verify it exists",
+			operations: func(t *testing.T, dirPath string) {
+				require.NoError(t, os.Mkdir(dirPath, 0755), "Failed to create directory")
+			},
+			verifyFunc: func(t *testing.T, dirPath string) {
+				// Verify the directory exists
+				st, err := os.Stat(dirPath)
+				require.NoError(t, err, "Failed to stat directory")
+				require.True(t, st.IsDir(), "Path is not a directory")
+			},
+		},
+		{
+			name:        "CreateAndRemoveDirectory_ShouldNotExist",
+			description: "Create a directory, remove it, and verify it's gone",
+			operations: func(t *testing.T, dirPath string) {
+				require.NoError(t, os.Mkdir(dirPath, 0755), "Failed to create directory")
+				require.NoError(t, os.Remove(dirPath), "Failed to remove directory")
 
-	// Setup cleanup to remove the directory after test completes or fails
-	t.Cleanup(func() {
-		if err := os.RemoveAll(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test directory %s: %v", fname, err)
-		}
-	})
+				// Wait for the filesystem to process the removal
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(dirPath)
+					return os.IsNotExist(err) // Return true when the directory no longer exists
+				}, 5*time.Second, 100*time.Millisecond, "Directory was not removed within timeout")
+			},
+			verifyFunc: func(t *testing.T, dirPath string) {
+				// Verify the directory doesn't exist
+				_, err := os.Stat(dirPath)
+				require.True(t, os.IsNotExist(err), "Directory still exists after removal")
+			},
+		},
+		{
+			name:        "CreateRemoveRecreate_ShouldHandleCacheCorrectly",
+			description: "Create a directory, remove it, create it again (tests cache handling)",
+			operations: func(t *testing.T, dirPath string) {
+				// Create the directory
+				require.NoError(t, os.Mkdir(dirPath, 0755), "Failed to create directory")
 
-	// Remove the directory if it exists to ensure we start fresh
-	if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-		t.Logf("Warning: Failed to remove directory: %v", err)
+				// Remove the directory
+				require.NoError(t, os.Remove(dirPath), "Failed to remove directory")
+
+				// Wait for the filesystem to process the removal
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(dirPath)
+					return os.IsNotExist(err) // Return true when the directory no longer exists
+				}, 5*time.Second, 100*time.Millisecond, "Directory was not removed within timeout")
+
+				// Create the directory again
+				require.NoError(t, os.Mkdir(dirPath, 0755), "Failed to recreate directory")
+			},
+			verifyFunc: func(t *testing.T, dirPath string) {
+				// Verify the directory exists again
+				st, err := os.Stat(dirPath)
+				require.NoError(t, err, "Failed to stat recreated directory")
+				require.True(t, st.IsDir(), "Recreated path is not a directory")
+			},
+		},
+		{
+			name:        "CreateDirectoryWithPermissions_ShouldHaveCorrectMode",
+			description: "Create a directory with specific permissions and verify the mode",
+			operations: func(t *testing.T, dirPath string) {
+				// Set a specific permission mode
+				mode := os.FileMode(0750) // rwxr-x---
+				require.NoError(t, os.Mkdir(dirPath, mode), "Failed to create directory with specific mode")
+			},
+			verifyFunc: func(t *testing.T, dirPath string) {
+				// Verify the directory has the correct permissions
+				st, err := os.Stat(dirPath)
+				require.NoError(t, err, "Failed to stat directory")
+				require.True(t, st.IsDir(), "Path is not a directory")
+
+				// Check the permission bits (mask with 0777 to ignore other bits)
+				expectedMode := os.FileMode(0750)
+				require.Equal(t, expectedMode, st.Mode()&0777, 
+					"Directory mode is not correct. Expected %o, got %o", 
+					expectedMode, st.Mode()&0777)
+			},
+		},
 	}
 
-	// Create, remove, and recreate the directory
-	require.NoError(t, os.Mkdir(fname, 0755))
-	require.NoError(t, os.Remove(fname))
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique directory name for this test case to avoid conflicts
+			dirPath := filepath.Join(TestDir, fmt.Sprintf("dir_ops_%s", t.Name()))
 
-	// Wait for the filesystem to process the removal
-	// This ensures the directory is fully removed before we try to recreate it
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(fname)
-		return os.IsNotExist(err) // Return true when the directory no longer exists
-	}, 5*time.Second, 100*time.Millisecond, "Directory was not removed within timeout")
+			// Setup cleanup to remove the directory after test completes or fails
+			t.Cleanup(func() {
+				if err := os.RemoveAll(dirPath); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
+				}
+			})
 
-	require.NoError(t, os.Mkdir(fname, 0755))
+			// Remove the directory if it exists to ensure we start fresh
+			if err := os.RemoveAll(dirPath); err != nil && !os.IsNotExist(err) {
+				t.Logf("Warning: Failed to remove directory: %v", err)
+			}
+
+			// Execute the operations
+			tc.operations(t, dirPath)
+
+			// Verify the results
+			tc.verifyFunc(t, dirPath)
+		})
+	}
 }
 
 // TestDirectoryRemoval tests various directory removal operations using a table-driven approach
