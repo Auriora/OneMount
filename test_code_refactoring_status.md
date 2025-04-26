@@ -69,7 +69,13 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Updated TestOfflineBagelDetection in fs/offline/offline_test.go to use require with descriptive error messages
   - Added better error reporting with context about what's being tested
   - Added proper error handling for previously ignored errors
-- Test error conditions explicitly
+- Test error conditions explicitly (PARTIALLY COMPLETED)
+  - Updated TestGetAccountName in ui/onedriver_test.go to test error conditions:
+    - Added test case for nonexistent auth_tokens.json file
+    - Added test case for invalid JSON in auth_tokens.json file
+    - Added test case for empty Account field in auth_tokens.json file
+  - Converted TestGetAccountName to use table-driven tests with subtests
+  - Added proper error handling and descriptive error messages
 
 ### 5. Improve Test Organization (NOT STARTED)
 

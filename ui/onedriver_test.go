@@ -155,23 +155,152 @@ func TestHomeEscapeUnescape(t *testing.T) {
 	}
 }
 
+// TestGetAccountName tests the GetAccountName function with various scenarios
 func TestGetAccountName(t *testing.T) {
 	t.Parallel()
 
-	wd, _ := os.Getwd()
+	// Get current working directory and create escaped path for test instance
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
 	escaped := unit.UnitNamePathEscape(filepath.Join(wd, "mount"))
 
-	// we compute the cache directory manually to avoid an import cycle
-	cacheDir, _ := os.UserCacheDir()
+	// Get user cache directory
+	cacheDir, err := os.UserCacheDir()
+	require.NoError(t, err, "Failed to get user cache directory")
 
-	// copy auth tokens to cache dir if it doesn't already exist
+	// Create test directory structure
+	testCacheDir := filepath.Join(cacheDir, "onedriver")
+	testInstanceDir := filepath.Join(testCacheDir, escaped)
+	err = os.MkdirAll(testInstanceDir, 0700)
+	require.NoError(t, err, "Failed to create test instance directory")
+
+	// Define paths for test files
+	validTokensPath := filepath.Join(testInstanceDir, "auth_tokens.json")
+	invalidTokensPath := filepath.Join(testInstanceDir, "invalid_tokens.json")
+	emptyAccountPath := filepath.Join(testInstanceDir, "empty_account.json")
+
+	// Setup cleanup to remove test files after test completes or fails
+	t.Cleanup(func() {
+		// Only remove the files we create in this test, not the valid tokens file
+		// that might be used by other tests
+		if err := os.Remove(invalidTokensPath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up invalid tokens file: %v", err)
+		}
+		if err := os.Remove(emptyAccountPath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up empty account file: %v", err)
+		}
+	})
+
+	// Copy auth tokens to cache dir if it doesn't already exist
 	// (CI runners will not have this file yet)
-	os.MkdirAll(filepath.Join(cacheDir, "onedriver", escaped), 0700)
-	dest := filepath.Join(cacheDir, "onedriver", escaped, "auth_tokens.json")
-	if _, err := os.Stat(dest); err != nil {
-		exec.Command("cp", ".auth_tokens.json", dest).Run()
+	if _, err := os.Stat(validTokensPath); err != nil {
+		cmd := exec.Command("cp", ".auth_tokens.json", validTokensPath)
+		err = cmd.Run()
+		require.NoError(t, err, "Failed to copy auth tokens file")
 	}
 
-	_, err := GetAccountName(filepath.Join(cacheDir, "onedriver"), escaped)
-	assert.NoError(t, err)
+	// Create invalid JSON file
+	err = os.WriteFile(invalidTokensPath, []byte("this is not valid json"), 0644)
+	require.NoError(t, err, "Failed to create invalid tokens file")
+
+	// Create JSON file with empty account
+	err = os.WriteFile(emptyAccountPath, []byte(`{"Account":"","AccessToken":"test","RefreshToken":"test","ExpiresAt":0}`), 0644)
+	require.NoError(t, err, "Failed to create empty account file")
+
+	// Define test cases
+	tests := []struct {
+		name          string
+		instance      string
+		tokenFile     string
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name:          "ValidTokens",
+			instance:      escaped,
+			tokenFile:     "auth_tokens.json",
+			expectedError: false,
+		},
+		{
+			name:          "InvalidJSON",
+			instance:      escaped,
+			tokenFile:     "invalid_tokens.json",
+			expectedError: true,
+			errorContains: "invalid",
+		},
+		{
+			name:          "EmptyAccount",
+			instance:      escaped,
+			tokenFile:     "empty_account.json",
+			expectedError: false, // Not an error, just returns empty string
+		},
+		{
+			name:          "NonexistentFile",
+			instance:      escaped,
+			tokenFile:     "nonexistent.json",
+			expectedError: true,
+			errorContains: "no such file",
+		},
+	}
+
+	// Run each test case as a subtest
+	for _, tc := range tests {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a custom instance path for this test
+			customInstance := escaped
+			if tc.tokenFile != "auth_tokens.json" {
+				// For non-default token files, we need to modify the instance path
+				// to point to a directory with the specific token file
+				customInstance = escaped + "_" + tc.tokenFile
+				customInstanceDir := filepath.Join(testCacheDir, customInstance)
+				err := os.MkdirAll(customInstanceDir, 0700)
+				require.NoError(t, err, "Failed to create custom instance directory")
+
+				// Copy the test token file to the standard auth_tokens.json name in the custom instance directory
+				srcPath := filepath.Join(testInstanceDir, tc.tokenFile)
+				destPath := filepath.Join(customInstanceDir, "auth_tokens.json")
+
+				if tc.tokenFile != "nonexistent.json" {
+					// Only try to copy if the source file exists
+					err = os.WriteFile(destPath, []byte{}, 0644) // Create empty file first
+					require.NoError(t, err, "Failed to create empty destination file")
+
+					srcData, err := os.ReadFile(srcPath)
+					require.NoError(t, err, "Failed to read source token file")
+
+					err = os.WriteFile(destPath, srcData, 0644)
+					require.NoError(t, err, "Failed to write to destination token file")
+				}
+
+				// Setup cleanup for this custom instance
+				t.Cleanup(func() {
+					if err := os.RemoveAll(customInstanceDir); err != nil {
+						t.Logf("Warning: Failed to clean up custom instance directory: %v", err)
+					}
+				})
+			}
+
+			// Call the function being tested
+			account, err := GetAccountName(testCacheDir, customInstance)
+
+			// Check if the result matches expectations
+			if tc.expectedError {
+				require.Error(t, err, "Expected an error but got none")
+				if tc.errorContains != "" {
+					assert.Contains(t, err.Error(), tc.errorContains, 
+						"Error message did not contain expected text")
+				}
+			} else {
+				require.NoError(t, err, "Got unexpected error")
+				if tc.name == "EmptyAccount" {
+					assert.Empty(t, account, "Expected empty account but got: %s", account)
+				} else {
+					assert.NotEmpty(t, account, "Expected non-empty account but got empty string")
+				}
+			}
+		})
+	}
 }
