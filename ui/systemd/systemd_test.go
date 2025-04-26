@@ -7,6 +7,7 @@ import (
 
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/godbus/dbus/v5"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,7 +69,11 @@ func TestUnitActive(t *testing.T) {
 	if err != nil {
 		t.Skip("Could not connect to session bus:", err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() {
+		if err := conn.Close(); err != nil {
+			t.Logf("Warning: Failed to close dbus connection: %v", err)
+		}
+	})
 
 	obj := conn.Object(SystemdBusName, SystemdObjectPath)
 	call := obj.Call("org.freedesktop.systemd1.Manager.GetUnit", 0, unitName)
@@ -85,21 +90,15 @@ func TestUnitActive(t *testing.T) {
 
 	require.NoError(t, UnitSetActive(unitName, true), "Failed to start unit.")
 
-	// Wait up to 5 seconds for the unit to become active
-	startTime := time.Now()
-	timeout := 5 * time.Second
-	var lastErr error
+	// Use WaitForCondition to wait for the unit to become active
+	// This replaces the fixed timeout with dynamic waiting
 	var isActive bool
+	testutil.WaitForCondition(t, func() bool {
+		var err error
+		isActive, err = UnitIsActive(unitName)
+		return err == nil && isActive
+	}, 5*time.Second, 500*time.Millisecond, "Unit did not become active within timeout")
 
-	for time.Since(startTime) < timeout {
-		isActive, lastErr = UnitIsActive(unitName)
-		if lastErr == nil && isActive {
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	require.NoError(t, lastErr, "Failed to check unit active state.")
 	require.True(t, isActive, "Could not detect unit as active following start.")
 
 	require.NoError(t, UnitSetActive(unitName, false), "Failed to stop unit.")
