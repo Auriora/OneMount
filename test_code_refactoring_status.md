@@ -140,6 +140,12 @@ This document summarizes the status of the recommendations from the [test_code_r
       - Added parallel execution for each test case
       - Improved error handling with descriptive error messages
       - Added better verification of item properties
+    - Converted TestAuthCodeFormat in fs/graph/oauth2_test.go to a table-driven test:
+      - Added test cases for arbitrary format, personal auth code, business auth code, and invalid format
+      - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+      - Added parallel execution for each test case
+      - Improved error handling with descriptive error messages
+      - Added explicit test for error condition with invalid format
   - Reviewed ui package tests and found that several tests already use table-driven approach:
     - TestMountpointIsValid, TestHomeEscapeUnescape, and TestGetAccountName in ui/onedriver_test.go
   - Converted TestChmod to TestFilePermissions using table-driven tests with subtests in fs/fs_test.go
