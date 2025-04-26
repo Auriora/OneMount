@@ -35,7 +35,7 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Updated cmd/common package tests to use `require` for critical assertions and `assert` for non-critical assertions
   - Added clear error messages to all assertions
   - Identified that ui package tests need to be updated to use `require` for critical assertions
-  - Identified that fs/offline package tests mostly use `require` but some still use t.Fatal/t.Error
+  - Reviewed fs/offline package tests and found they already use `require` for critical assertions instead of t.Fatal/t.Error
 
 ### 3. Improve Test Reliability (IN PROGRESS)
 
