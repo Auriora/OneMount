@@ -93,7 +93,8 @@ This document summarizes the status of the recommendations from the [test_code_r
      - ✓ Update TestMountpointIsValid to use require instead of assert for critical assertions (Already using require)
      - ✓ Convert TestMountpointIsValid and TestHomeEscapeUnescape to use proper subtests (Already using subtests)
    - Update fs/offline package tests:
-     - Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
+     - ✓ Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
+     - ✓ Add context to error messages in all tests in fs/offline/offline_test.go
      - Replace defer with t.Cleanup() in setup_test.go
 
 2. Continue implementing test reliability improvements:
