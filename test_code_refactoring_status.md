@@ -61,10 +61,14 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Converted TestHomeEscapeUnescape in ui/onedriver_test.go to use table-driven tests with subtests
   - Added nested subtests for testing related operations
 
-### 4. Improve Error Handling (NOT STARTED)
+### 4. Improve Error Handling (IN PROGRESS)
 
 **Implementation**: Enhance error handling in tests:
-- Add context to error messages
+- Add context to error messages (PARTIALLY COMPLETED)
+  - Updated TestOfflineReaddir in fs/offline/offline_test.go to use require with descriptive error messages
+  - Updated TestOfflineBagelDetection in fs/offline/offline_test.go to use require with descriptive error messages
+  - Added better error reporting with context about what's being tested
+  - Added proper error handling for previously ignored errors
 - Test error conditions explicitly
 
 ### 5. Improve Test Organization (NOT STARTED)

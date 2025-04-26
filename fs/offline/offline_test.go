@@ -13,51 +13,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// We should see more than zero items when we run ls.
+// TestOfflineReaddir verifies that we can read directory contents in offline mode
 func TestOfflineReaddir(t *testing.T) {
 	t.Parallel()
-	files, err := os.ReadDir(TestDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	if len(files) == 0 {
-		t.Fatal("Expected more than 0 files in the test directory.")
-	}
+	// Read the test directory
+	files, err := os.ReadDir(TestDir)
+	require.NoError(t, err, "Failed to read test directory %s in offline mode", TestDir)
+
+	// Verify that the directory is not empty
+	require.Greater(t, len(files), 0,
+		"Expected more than 0 files in the test directory %s when in offline mode", TestDir)
 }
 
-// We should find the file named bagels (from TestEchoWritesToFile)
+// TestOfflineBagelDetection verifies that we can find and access the "bagels" file in offline mode
 func TestOfflineBagelDetection(t *testing.T) {
 	// Not running in parallel to ensure this test runs after the file is fully created
-	files, err := os.ReadDir(TestDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 
+	// Read the test directory
+	files, err := os.ReadDir(TestDir)
+	require.NoError(t, err, "Failed to read test directory %s in offline mode", TestDir)
+
+	// Collect all file names for better error reporting
 	found := false
-	allFiles := make([]string, 0)
+	allFiles := make([]string, 0, len(files))
+
+	// Look for the "bagels" file
 	for _, f := range files {
 		allFiles = append(allFiles, f.Name())
 
 		if f.Name() == "bagels" {
 			found = true
-			if f.IsDir() {
-				t.Fatal("\"bagels\" should be an ordinary file, not a directory")
-			}
-			info, _ := f.Info()
+
+			// Verify it's a regular file, not a directory
+			require.False(t, f.IsDir(),
+				"\"bagels\" should be an ordinary file, not a directory")
+
+			// Check file permissions
+			info, err := f.Info()
+			require.NoError(t, err, "Failed to get file info for \"bagels\"")
+
 			octal := fs.Octal(uint32(info.Mode().Perm()))
-			if octal[0] != '6' || int(octal[1])-4 < 0 || octal[2] != '4' {
-				// middle bit just needs to be higher than 4
-				// for compatibility with 022 / 002 umasks on different distros
-				t.Fatalf("\"bagels\" permissions bits wrong, got %s, expected 644", octal)
-			}
+			// middle bit just needs to be higher than 4
+			// for compatibility with 022 / 002 umasks on different distros
+			require.True(t, octal[0] == '6' && int(octal[1])-4 >= 0 && octal[2] == '4',
+				"\"bagels\" permissions bits wrong, got %s, expected 644", octal)
+
 			break
 		}
 	}
-	if !found {
-		t.Error("\"bagels\" not found! Expected file not present.")
-		t.Errorf("Got: %+v", allFiles)
-	}
+
+	// Verify the file was found
+	require.True(t, found,
+		"\"bagels\" file not found in offline mode! Available files: %v", allFiles)
 }
 
 // Does the contents of the bagels file match what it should?
