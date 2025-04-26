@@ -263,6 +263,14 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Used t.Cleanup() for proper resource cleanup
     - Improved error handling with descriptive error messages
     - Added comprehensive assertions to verify both Mode() and IsDir() functionality
+  - Refactored TestDBusServerStartStop in fs/dbus_test.go into a table-driven test TestDBusServerOperations:
+    - Added test cases for checking initial state, stopping the server, starting the server, and stopping again
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution at the top level (but not for subtests due to sequential nature)
+    - Created operation functions for each test case
+    - Used t.Cleanup() for proper resource cleanup
+    - Improved error handling with descriptive error messages
+    - Added comments explaining why parallel execution is not used in subtests
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit

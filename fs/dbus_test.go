@@ -11,42 +11,97 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDBusServerStartStop tests starting and stopping the D-Bus server
-func TestDBusServerStartStop(t *testing.T) {
+// TestDBusServerOperations tests various operations on the D-Bus server
+func TestDBusServerOperations(t *testing.T) {
+	t.Parallel()
+
 	// Create a temporary filesystem for testing
-	tempDir := filepath.Join(testDBLoc, "test_dbus_start_stop")
-	if err := os.RemoveAll(tempDir); err != nil {
-		t.Fatalf("Failed to remove temp directory: %v", err)
-	}
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer func() {
+	tempDir := filepath.Join(testDBLoc, "test_dbus_operations_"+t.Name())
+	err := os.RemoveAll(tempDir)
+	require.NoError(t, err, "Failed to remove temp directory")
+
+	err = os.MkdirAll(tempDir, 0755)
+	require.NoError(t, err, "Failed to create temp directory")
+
+	// Setup cleanup to remove the temp directory after test completes or fails
+	t.Cleanup(func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temp directory during cleanup: %v", err)
+			t.Logf("Warning: Failed to clean up temp directory %s: %v", tempDir, err)
 		}
-	}()
+	})
 
 	// Create a new filesystem
 	fs, err := NewFilesystem(auth, tempDir, 30)
 	require.NoError(t, err, "Failed to create filesystem")
 
-	// The D-Bus server should be started automatically
-	assert.NotNil(t, fs.dbusServer, "D-Bus server should be initialized")
-	assert.True(t, fs.dbusServer.started, "D-Bus server should be started")
+	// Define test cases
+	testCases := []struct {
+		name           string
+		operation      func(t *testing.T, fs *Filesystem) error
+		expectedState  bool
+		errorExpected  bool
+	}{
+		{
+			name: "InitialState_ShouldBeStarted",
+			operation: func(t *testing.T, fs *Filesystem) error {
+				// No operation, just check initial state
+				return nil
+			},
+			expectedState: true,
+			errorExpected: false,
+		},
+		{
+			name: "StopServer_ShouldBeStopped",
+			operation: func(t *testing.T, fs *Filesystem) error {
+				fs.dbusServer.Stop()
+				return nil
+			},
+			expectedState: false,
+			errorExpected: false,
+		},
+		{
+			name: "StartServer_ShouldBeStarted",
+			operation: func(t *testing.T, fs *Filesystem) error {
+				return fs.dbusServer.StartForTesting()
+			},
+			expectedState: true,
+			errorExpected: false,
+		},
+		{
+			name: "StopAgain_ShouldBeStopped",
+			operation: func(t *testing.T, fs *Filesystem) error {
+				fs.dbusServer.Stop()
+				return nil
+			},
+			expectedState: false,
+			errorExpected: false,
+		},
+	}
 
-	// Stop the D-Bus server
-	fs.dbusServer.Stop()
-	assert.False(t, fs.dbusServer.started, "D-Bus server should be stopped")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// We don't use t.Parallel() here because we need to run these tests in sequence
+			// to properly test the start/stop functionality on the same server instance
 
-	// Start the D-Bus server again
-	err = fs.dbusServer.StartForTesting()
-	assert.NoError(t, err, "Failed to start D-Bus server")
-	assert.True(t, fs.dbusServer.started, "D-Bus server should be started")
+			// Perform the operation
+			err := tc.operation(t, fs)
 
-	// Stop the D-Bus server again
-	fs.dbusServer.Stop()
-	assert.False(t, fs.dbusServer.started, "D-Bus server should be stopped")
+			// Check if error behavior matches expectations
+			if tc.errorExpected {
+				require.Error(t, err, "Expected an error but got none")
+			} else {
+				require.NoError(t, err, "Got unexpected error")
+			}
+
+			// Verify the server state
+			require.NotNil(t, fs.dbusServer, "D-Bus server should be initialized")
+			require.Equal(t, tc.expectedState, fs.dbusServer.started, 
+				"D-Bus server state does not match expected state. Expected: %v, Got: %v", 
+				tc.expectedState, fs.dbusServer.started)
+		})
+	}
 }
 
 // TestDBusGetFileStatus tests the GetFileStatus method
