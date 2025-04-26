@@ -216,9 +216,9 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestNoQuestionMarks in fs/fs_test.go
-       - TestGIOTrash in fs/fs_test.go
-       - TestListChildrenPaging in fs/fs_test.go
+       - TestLibreOfficeSavePattern in fs/fs_test.go
+       - TestReaddir in fs/fs_test.go
+       - TestLs in fs/fs_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
