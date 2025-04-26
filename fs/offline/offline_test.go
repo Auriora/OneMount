@@ -13,73 +13,101 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOfflineReaddir verifies that we can read directory contents in offline mode
-func TestOfflineReaddir(t *testing.T) {
-	t.Parallel()
+// TestOfflineFileAccess verifies that we can access files and directories in offline mode
+func TestOfflineFileAccess(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		description string
+		skipParallel bool
+		testFunc    func(t *testing.T)
+	}{
+		{
+			name:        "ReadDirectory_ShouldSucceed",
+			description: "Reading directory contents should succeed in offline mode",
+			skipParallel: false,
+			testFunc: func(t *testing.T) {
+				// Read the test directory
+				files, err := os.ReadDir(TestDir)
+				require.NoError(t, err, "Failed to read test directory %s in offline mode", TestDir)
 
-	// Read the test directory
-	files, err := os.ReadDir(TestDir)
-	require.NoError(t, err, "Failed to read test directory %s in offline mode", TestDir)
+				// Verify that the directory is not empty
+				require.Greater(t, len(files), 0,
+					"Expected more than 0 files in the test directory %s when in offline mode", TestDir)
+			},
+		},
+		{
+			name:        "BagelFileDetection_ShouldSucceed",
+			description: "Finding and accessing the bagels file should succeed in offline mode",
+			skipParallel: true, // Not running in parallel to ensure this test runs after the file is fully created
+			testFunc: func(t *testing.T) {
+				// Read the test directory
+				files, err := os.ReadDir(TestDir)
+				require.NoError(t, err, "Failed to read test directory %s in offline mode", TestDir)
 
-	// Verify that the directory is not empty
-	require.Greater(t, len(files), 0,
-		"Expected more than 0 files in the test directory %s when in offline mode", TestDir)
-}
+				// Collect all file names for better error reporting
+				found := false
+				allFiles := make([]string, 0, len(files))
 
-// TestOfflineBagelDetection verifies that we can find and access the "bagels" file in offline mode
-func TestOfflineBagelDetection(t *testing.T) {
-	// Not running in parallel to ensure this test runs after the file is fully created
+				// Look for the "bagels" file
+				for _, f := range files {
+					allFiles = append(allFiles, f.Name())
 
-	// Read the test directory
-	files, err := os.ReadDir(TestDir)
-	require.NoError(t, err, "Failed to read test directory %s in offline mode", TestDir)
+					if f.Name() == "bagels" {
+						found = true
 
-	// Collect all file names for better error reporting
-	found := false
-	allFiles := make([]string, 0, len(files))
+						// Verify it's a regular file, not a directory
+						require.False(t, f.IsDir(),
+							"\"bagels\" should be an ordinary file, not a directory")
 
-	// Look for the "bagels" file
-	for _, f := range files {
-		allFiles = append(allFiles, f.Name())
+						// Check file permissions
+						info, err := f.Info()
+						require.NoError(t, err, "Failed to get file info for \"bagels\"")
 
-		if f.Name() == "bagels" {
-			found = true
+						octal := fs.Octal(uint32(info.Mode().Perm()))
+						// middle bit just needs to be higher than 4
+						// for compatibility with 022 / 002 umasks on different distros
+						require.True(t, octal[0] == '6' && int(octal[1])-4 >= 0 && octal[2] == '4',
+							"\"bagels\" permissions bits wrong, got %s, expected 644", octal)
 
-			// Verify it's a regular file, not a directory
-			require.False(t, f.IsDir(),
-				"\"bagels\" should be an ordinary file, not a directory")
+						break
+					}
+				}
 
-			// Check file permissions
-			info, err := f.Info()
-			require.NoError(t, err, "Failed to get file info for \"bagels\"")
+				// Verify the file was found
+				require.True(t, found,
+					"\"bagels\" file not found in offline mode! Available files: %v", allFiles)
+			},
+		},
+		{
+			name:        "BagelFileContents_ShouldMatchExpected",
+			description: "The contents of the bagels file should match what was written",
+			skipParallel: true, // Not running in parallel to ensure this test runs before TestOfflineFileModification
+			testFunc: func(t *testing.T) {
+				bagelPath := filepath.Join(TestDir, "bagels")
+				contents, err := os.ReadFile(bagelPath)
+				require.NoError(t, err, "Failed to read bagels file at %s in offline mode", bagelPath)
 
-			octal := fs.Octal(uint32(info.Mode().Perm()))
-			// middle bit just needs to be higher than 4
-			// for compatibility with 022 / 002 umasks on different distros
-			require.True(t, octal[0] == '6' && int(octal[1])-4 >= 0 && octal[2] == '4',
-				"\"bagels\" permissions bits wrong, got %s, expected 644", octal)
-
-			break
-		}
+				expectedContent := []byte("bagels\n")
+				require.Equal(t, expectedContent, contents, 
+					"Offline file contents did not match expected content. Got %q, expected %q", 
+					string(contents), string(expectedContent))
+			},
+		},
 	}
 
-	// Verify the file was found
-	require.True(t, found,
-		"\"bagels\" file not found in offline mode! Available files: %v", allFiles)
-}
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			if !tc.skipParallel {
+				t.Parallel()
+			}
 
-// Does the contents of the bagels file match what it should?
-// (File contents generated by TestEchoWritesToFile in previous tests.)
-func TestOfflineBagelContents(t *testing.T) {
-	// Not running in parallel to ensure this test runs before TestOfflineFileModification
-	bagelPath := filepath.Join(TestDir, "bagels")
-	contents, err := os.ReadFile(bagelPath)
-	require.NoError(t, err, "Failed to read bagels file at %s in offline mode", bagelPath)
-
-	expectedContent := []byte("bagels\n")
-	require.Equal(t, expectedContent, contents, 
-		"Offline file contents did not match expected content. Got %q, expected %q", 
-		string(contents), string(expectedContent))
+			// Run the test
+			tc.testFunc(t)
+		})
+	}
 }
 
 // TestOfflineFileSystemOperations tests various file and directory operations in offline mode

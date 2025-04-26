@@ -88,7 +88,14 @@ This document summarizes the status of the recommendations from the [test_code_r
       - Used t.Cleanup() for proper resource cleanup
       - Improved error handling with descriptive error messages
       - Added a description field for each test case
-    - Kept TestOfflineReaddir, TestOfflineBagelDetection, TestOfflineBagelContents, TestOfflineChangesCached, and TestOfflineSynchronization as separate tests:
+    - Combined TestOfflineReaddir, TestOfflineBagelDetection, and TestOfflineBagelContents into a single table-driven test TestOfflineFileAccess:
+      - Added test cases for reading directory contents, detecting the bagels file, and verifying file contents
+      - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+      - Added parallel execution where appropriate (with a skipParallel flag for tests that can't run in parallel)
+      - Created separate test functions for each test case
+      - Improved error handling with descriptive error messages
+      - Added a description field for each test case
+    - Kept TestOfflineChangesCached and TestOfflineSynchronization as separate tests:
       - These tests focus on specific, distinct functionality and don't have multiple similar test cases that could be parameterized
       - They already use t.Parallel() where appropriate, t.Cleanup() for resource cleanup, and require with descriptive error messages
   - Reviewed and refactored fs/inode_test.go:
@@ -387,12 +394,11 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Note: All tests in the ui package have already been refactored to use a table-driven approach
+     - Note: Tests in fs/inode_test.go, fs/dbus_test.go, fs/thumbnail_test.go, fs/upload_session_test.go have already been refactored
+     - Note: Many tests in fs/graph package already use table-driven approach
+     - Note: Most tests in fs/offline/offline_test.go have been refactored to use table-driven approach
      - Potential candidates include:
-       - Tests in fs/inode_test.go (TestConstructor, TestMode, etc.)
-       - Tests in fs/dbus_test.go (TestDBusServerStartStop, etc.)
-       - Tests in fs/thumbnail_test.go (TestThumbnailCache, etc.)
-       - Tests in fs/upload_session_test.go (TestUploadSession, etc.)
-       - Tests in fs/offline/offline_test.go (TestOfflineReaddir, etc.)
+       - TestOfflineChangesCached and TestOfflineSynchronization in fs/offline/offline_test.go (if more test cases are added)
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
@@ -405,7 +411,10 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Check for any remaining fixed sleeps or timeouts that could be replaced with dynamic waiting
    - Verify that all tests have proper cleanup mechanisms
    - Consider adding more descriptive comments to explain test purpose and behavior
-   - Focus on tests in the fs/graph and ui packages that haven't been reviewed yet
+   - Minor improvements to consider:
+     - Use require.Equal() instead of assert.Equal() for critical assertions
+     - Add more descriptive error messages that include the actual and expected values
+     - Follow the "Operation_ShouldExpectedResult" naming pattern for test cases
 
 4. Document best practices for future test development (COMPLETED):
    - Created test_best_practices.md document outlining the patterns and practices established during this refactoring
