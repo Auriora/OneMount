@@ -827,16 +827,18 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 	// so we need to actually check the command output
 	require.NotContains(t, string(out), "Error:")
 
-	assert.Eventually(t, func() bool {
+	// Use WaitForCondition to wait for the file to be uploaded and available
+	testutil.WaitForCondition(t, func() bool {
 		item, err := graph.GetItemPath("/onedriver_tests/libreoffice.docx", auth)
 		if err == nil && item != nil {
-			require.NotZero(t, item.Size, "Item size was 0!")
-			return true
+			// Check that the file size is not zero
+			if item.Size > 0 {
+				return true
+			}
+			t.Logf("File found but size is 0, waiting for upload to complete...")
 		}
 		return false
-	}, retrySeconds, 3*time.Second,
-		"Could not find /onedriver_tests/libreoffice.docx post-upload!",
-	)
+	}, retrySeconds, 3*time.Second, "Could not find /onedriver_tests/libreoffice.docx post-upload or file size was 0")
 }
 
 // TestDisallowedFilenames verifies that we can't create any of the disallowed filenames

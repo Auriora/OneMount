@@ -98,7 +98,7 @@ This document summarizes the status of the recommendations from the [test_code_r
 
 2. Continue implementing test reliability improvements:
    - Replace more fixed timeouts with dynamic waiting:
-     - Update TestLibreOfficeSavePattern in fs/fs_test.go to use WaitForCondition instead of assert.Eventually
+     - ✓ Update TestLibreOfficeSavePattern in fs/fs_test.go to use WaitForCondition instead of assert.Eventually
      - Update any remaining fixed sleeps in other packages
    - Isolate tests from each other by using subtests and proper cleanup:
      - Convert more tests to use table-driven tests with subtests where appropriate
