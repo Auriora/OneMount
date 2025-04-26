@@ -38,7 +38,7 @@ This document summarizes the status of the recommendations from the [test_code_r
 ### 3. Improve Test Reliability (IN PROGRESS)
 
 **Implementation**: Make tests more reliable:
-- Replace fixed timeouts with dynamic waiting (PARTIALLY COMPLETED)
+- Replace fixed timeouts with dynamic waiting (COMPLETED)
   - Added WaitForCondition utility in testutil/async.go to replace fixed timeouts with dynamic waiting
   - Updated TestUnitActive in ui/systemd/systemd_test.go to use WaitForCondition instead of fixed timeout
   - Updated setup_test.go in fs/offline to use WaitForCondition for mount point checks and other waiting operations
@@ -86,38 +86,22 @@ This document summarizes the status of the recommendations from the [test_code_r
 
 ## Next Steps
 
-1. Continue standardizing test patterns in remaining packages:
-   - Update ui package tests:
-     - ✓ Add t.Parallel() to TestMountpointIsValid and TestHomeEscapeUnescape in ui/onedriver_test.go
-     - ✓ Replace defer with t.Cleanup() in ui/setup_test.go and ui/systemd/setup_test.go (No changes needed - defer in TestMain is correct)
-     - ✓ Update TestMountpointIsValid to use require instead of assert for critical assertions (Already using require)
-     - ✓ Convert TestMountpointIsValid and TestHomeEscapeUnescape to use proper subtests (Already using subtests)
-   - Update fs/offline package tests:
-     - ✓ Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
-     - ✓ Add context to error messages in all tests in fs/offline/offline_test.go
-     - ✓ Replace defer with t.Cleanup() in setup_test.go (No changes needed - defer in TestMain is correct)
-
-2. Continue implementing test reliability improvements:
-   - Replace more fixed timeouts with dynamic waiting:
-     - ✓ Update TestLibreOfficeSavePattern in fs/fs_test.go to use WaitForCondition instead of assert.Eventually
-     - ✓ Replace all fixed sleeps in fs/inode_test.go with WaitForCondition:
-       - Updated TestMode to wait for directory and file creation
-       - Updated TestIsDir to wait for directory and file creation
-       - Updated TestFilenameEscape to wait for file creation
-     - ✓ Replace all fixed sleeps in fs/delta_test.go with WaitForCondition:
-       - Updated TestDeltaMoveParent to wait for file creation
-       - Removed unnecessary sleep in TestDeltaContentChangeRemote
-       - Updated TestDeltaNoModTimeUpdate to wait for DeltaLoop to run multiple times
-       - Updated TestDeltaMissingHash to wait for file insertion
-     - ✓ Replace all fixed sleeps in fs/upload_session_test.go with WaitForCondition:
-       - Updated TestUploadSessionSmallFS to wait for file upload and content verification
-       - Added content verification to ensure the file was properly uploaded
-     - Update any remaining fixed sleeps in other packages
+1. Continue implementing test reliability improvements:
    - Isolate tests from each other by using subtests and proper cleanup:
      - Convert more tests to use table-driven tests with subtests where appropriate
      - Add parallel execution to subtests where possible
      - Ensure proper cleanup for all tests
+   - Fix race conditions in tests:
+     - Identify and fix any remaining race conditions in tests
+     - Run tests with the -race flag to detect race conditions
 
-3. Begin implementing error handling improvements:
-   - Add context to error messages in fs/offline/offline_test.go
-   - Test error conditions explicitly in ui/onedriver_test.go
+2. Begin implementing test organization improvements:
+   - Convert appropriate tests to table-driven tests:
+     - Identify tests with multiple similar test cases that could benefit from table-driven approach
+     - Convert these tests to use table-driven tests with subtests
+   - Group related tests:
+     - Organize tests by functionality rather than by implementation details
+     - Use clear naming conventions for test functions
+   - Improve test naming conventions:
+     - Use descriptive names that indicate what is being tested
+     - Follow a consistent naming pattern across all tests
