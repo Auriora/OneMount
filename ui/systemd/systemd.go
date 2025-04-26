@@ -16,7 +16,9 @@ const (
 
 // TemplateUnit templates a unit name as systemd would
 func TemplateUnit(template, instance string) string {
-	return strings.Replace(template, "@.", fmt.Sprintf("@%s.", instance), 1)
+	// Replace forward slashes with hyphens to ensure valid systemd unit name
+	escapedInstance := strings.ReplaceAll(instance, "/", "-")
+	return strings.Replace(template, "@.", fmt.Sprintf("@%s.", escapedInstance), 1)
 }
 
 // UntemplateUnit reverses the templating done by SystemdTemplateUnit
