@@ -15,6 +15,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs"
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -150,68 +151,40 @@ func TestMain(m *testing.M) {
 
 	// Wait for the filesystem to be mounted with improved error handling
 	log.Info().Msg("Waiting for filesystem to be mounted...")
-	mounted := false
-	var lastError error
 
-	// Define a context with timeout for mount operation
-	mountCtx, mountCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer mountCancel()
+	// Use WaitForCondition to wait for the filesystem to be mounted
+	// This replaces the complex goroutine with a simpler, more reliable approach
 
-	// Create a ticker for periodic checks
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	// Define a timeout for the mount operation
+	timeout := 30 * time.Second
+	pollInterval := 100 * time.Millisecond
 
-	// Use a channel to signal when mounting is complete
-	mountDone := make(chan bool, 1)
-
-	// Start a goroutine to check mount status
-	go func() {
-		for {
-			select {
-			case <-mountCtx.Done():
-				// Context timeout or cancellation
-				return
-			case <-ticker.C:
-				// Check if mount point exists
-				if _, err := os.Stat(mountLoc); err == nil {
-					// Try to create a test file to verify the filesystem is working
-					testFile := filepath.Join(mountLoc, ".test-mount-ready")
-					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
-						// Successfully created test file, filesystem is mounted
-						if removeErr := os.Remove(testFile); removeErr != nil {
-							log.Warn().Err(removeErr).Msg("Failed to remove test file, but mount is confirmed")
-						}
-						mountDone <- true
-						return
-					} else {
-						lastError = err
-						log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
-					}
-				} else {
-					lastError = err
-					log.Debug().Err(err).Msg("Mount point not accessible yet")
-				}
-			}
+	// Create a function that checks if the mount point is ready
+	isMountReady := func() bool {
+		// Check if mount point exists
+		if _, err := os.Stat(mountLoc); err != nil {
+			log.Debug().Err(err).Msg("Mount point not accessible yet")
+			return false
 		}
-	}()
 
-	// Wait for mounting to complete or timeout
-	select {
-	case <-mountDone:
-		mounted = true
-	case <-mountCtx.Done():
-		// Timeout or cancellation
-		log.Error().Err(mountCtx.Err()).Msg("Mount operation timed out")
+		// Try to create a test file to verify the filesystem is working
+		testFile := filepath.Join(mountLoc, ".test-mount-ready")
+		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+			log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
+			return false
+		}
+
+		// Successfully created test file, filesystem is mounted
+		if removeErr := os.Remove(testFile); removeErr != nil {
+			log.Warn().Err(removeErr).Msg("Failed to remove test file, but mount is confirmed")
+		}
+
+		return true
 	}
 
-	if !mounted {
-		log.Error().Err(lastError).Msg("Filesystem failed to mount within timeout")
-		// Attempt to clean up
-		if unmountErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); unmountErr != nil {
-			log.Error().Err(unmountErr).Msg("Failed to unmount during cleanup after mount failure")
-		}
-		os.Exit(1)
-	}
+	// Use WaitForCondition to wait for the mount point to be ready
+	// If the condition is not met within the timeout, it will fail the test
+	testutil.WaitForCondition(nil, isMountReady, timeout, pollInterval, "Filesystem failed to mount within timeout")
 
 	log.Info().Msg("Filesystem mounted successfully")
 
@@ -244,13 +217,14 @@ func TestMain(m *testing.M) {
 
 	// Verify that the bagels file is accessible in offline mode
 	readPath := filepath.Join(TestDir, "bagels")
-	if _, err := os.ReadFile(readPath); err != nil {
-		log.Error().Err(err).Msg("Failed to read bagels file in offline mode")
-		os.Exit(1)
-	}
 
-	// Give the filesystem a moment to stabilize after initialization
-	time.Sleep(500 * time.Millisecond)
+	// Use WaitForCondition to wait for the bagels file to be accessible
+	// This replaces the fixed sleep with a more reliable approach
+	log.Info().Msg("Waiting for filesystem to stabilize in offline mode...")
+	testutil.WaitForCondition(nil, func() bool {
+		_, err := os.ReadFile(readPath)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Bagels file not accessible within timeout")
 
 	log.Info().Msg("Filesystem is fully initialized in offline mode, starting tests...")
 
@@ -320,14 +294,35 @@ func TestMain(m *testing.M) {
 	filesystem.StopUploadManager()
 	filesystem.SerializeAll()
 
-	// Wait a moment to ensure all file handles are closed
-	time.Sleep(500 * time.Millisecond)
+	// Use a context with timeout to ensure we don't wait indefinitely
+	log.Info().Msg("Waiting for file handles to be closed...")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Create a ticker for periodic checks
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	// Wait for a short period to allow file handles to close
+	// This is a best-effort approach as we can't directly check if all handles are closed
+	select {
+	case <-ctx.Done():
+		log.Warn().Msg("Timeout waiting for file handles to close")
+	case <-ticker.C:
+		// Just wait for one tick
+	}
 
 	// Stop the UnmountHandler goroutine
 	close(unmountDone)
 
-	// Give the UnmountHandler a moment to exit
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the UnmountHandler to exit
+	// This is a best-effort approach as we can't directly check if the handler has exited
+	select {
+	case <-ctx.Done():
+		log.Warn().Msg("Timeout waiting for UnmountHandler to exit")
+	case <-time.After(100 * time.Millisecond):
+		// Just wait for a short period
+	}
 
 	// Stop signal notifications
 	signal.Stop(sigChan)
@@ -344,16 +339,16 @@ func TestMain(m *testing.M) {
 	} else {
 		log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
 
-		// Try lazy unmount with retries
-		for i := 0; i < 3; i++ {
-			if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err == nil {
-				unmountSuccess = true
-				log.Info().Msg("Successfully performed lazy unmount")
-				break
-			} else {
-				log.Error().Err(err).Int("attempt", i+1).Msg("Failed to perform lazy unmount")
-				time.Sleep(500 * time.Millisecond) // Wait before retrying
-			}
+		// Try lazy unmount with retries using exponential backoff
+		err := testutil.RetryWithBackoff(nil, func() error {
+			return exec.Command("fusermount3", "-uz", mountLoc).Run()
+		}, 3, 500*time.Millisecond, 2*time.Second, "Lazy unmount")
+
+		if err == nil {
+			unmountSuccess = true
+			log.Info().Msg("Successfully performed lazy unmount")
+		} else {
+			log.Error().Err(err).Msg("Failed to perform lazy unmount after retries")
 		}
 	}
 
