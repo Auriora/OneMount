@@ -50,9 +50,19 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Updated TestEchoWritesToFile to wait for file content
     - Updated TestStat to wait for directory creation
     - Updated TestGIOTrash to wait for file creation and deletion
-- Fix race conditions in tests (PARTIALLY COMPLETED)
-  - Fixed race conditions in TestUploadDiskSerialization by making the test more deterministic
-  - Improved TestRepeatedUploads to use dynamic waiting instead of fixed sleeps
+- Fix race conditions in tests (COMPLETED)
+  - Fixed race conditions in TestUploadDiskSerialization by making the test more deterministic:
+    - Used synchronous file copy to avoid race conditions
+    - Added WaitForCondition to wait for the file to be recognized by the filesystem
+    - Added WaitForCondition to wait for the upload session to be created
+    - Added proper cleanup with t.Cleanup()
+  - Improved TestRepeatedUploads to use dynamic waiting instead of fixed sleeps:
+    - Added WaitForCondition to wait for the file to be uploaded
+    - Used proper assertions to verify the upload was successful
+  - Fixed potential race conditions in ui/systemd/systemd_test.go:
+    - Added comments explaining why some subtests cannot use t.Parallel()
+    - Used WaitForCondition to wait for unit state changes
+    - Added proper cleanup to ensure resources are released
 - Isolate tests from each other (PARTIALLY COMPLETED)
   - Converted TestChmod to TestFilePermissions using table-driven tests with subtests
   - Added unique filenames for each subtest to avoid conflicts
