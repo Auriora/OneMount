@@ -79,6 +79,12 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Converted TestUnitEnabled and TestUnitActive in ui/systemd/systemd_test.go to use table-driven tests with subtests
   - Added proper cleanup using t.Cleanup() to ensure resources are released
   - Added comments explaining why some subtests cannot use t.Parallel()
+  - Reviewed fs/offline/offline_test.go and determined that the tests are not good candidates for conversion to table-driven tests:
+    - Each test focuses on a specific, distinct functionality and doesn't have multiple similar test cases that could be parameterized
+    - They already use t.Parallel() where appropriate, t.Cleanup() for resource cleanup, and require with descriptive error messages
+  - Reviewed fs/inode_test.go and found that TestInodeProperties is already a table-driven test, and the other tests (TestConstructor, TestFilenameEscape, and TestDoubleCreate) are not good candidates for conversion to table-driven tests:
+    - Each test focuses on a specific, distinct functionality and doesn't have multiple similar test cases that could be parameterized
+    - They already use appropriate error handling with descriptive error messages
 
 ### 4. Improve Error Handling (IN PROGRESS)
 
