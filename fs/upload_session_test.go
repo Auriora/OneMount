@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -60,11 +61,18 @@ func TestUploadSession(t *testing.T) {
 // the filesystem itself to perform the uploads instead of testing the internal upload
 // functions directly
 func TestUploadSessionSmallFS(t *testing.T) {
+	filePath := filepath.Join(TestDir, "uploadSessionSmallFS.txt")
 	data := []byte("super special data for upload test 2")
-	err := os.WriteFile(filepath.Join(TestDir, "uploadSessionSmallFS.txt"), data, 0644)
+	err := os.WriteFile(filePath, data, 0644)
 	require.NoError(t, err)
 
-	time.Sleep(10 * time.Second)
+	// Wait for the file to be uploaded and available on the server
+	testutil.WaitForCondition(t, func() bool {
+		item, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
+		return err == nil && item != nil
+	}, 30*time.Second, time.Second, "File was not uploaded to server within timeout")
+
+	// Now get the item for content verification
 	item, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
 	require.NoError(t, err)
 	require.NotNil(t, item, "Item not found")
@@ -76,10 +84,22 @@ func TestUploadSessionSmallFS(t *testing.T) {
 
 	// upload it again to ensure uploads with an existing remote id succeed
 	data = []byte("more super special data")
-	err = os.WriteFile(filepath.Join(TestDir, "uploadSessionSmallFS.txt"), data, 0644)
+	err = os.WriteFile(filePath, data, 0644)
 	require.NoError(t, err)
 
-	time.Sleep(15 * time.Second)
+	// Wait for the file to be uploaded again and available on the server with updated content
+	testutil.WaitForCondition(t, func() bool {
+		updatedItem, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
+		if err != nil || updatedItem == nil {
+			return false
+		}
+
+		// Check if the content has been updated
+		content, _, err := graph.GetItemContent(updatedItem.ID, auth)
+		return err == nil && bytes.Equal(content, data)
+	}, 30*time.Second, time.Second, "File was not re-uploaded to server with updated content within timeout")
+
+	// Now get the item for final verification
 	item2, err := graph.GetItemPath("/onedriver_tests/uploadSessionSmallFS.txt", auth)
 	require.NoError(t, err)
 	require.NotNil(t, item2, "Item not found")

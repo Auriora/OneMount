@@ -109,6 +109,9 @@ This document summarizes the status of the recommendations from the [test_code_r
        - Removed unnecessary sleep in TestDeltaContentChangeRemote
        - Updated TestDeltaNoModTimeUpdate to wait for DeltaLoop to run multiple times
        - Updated TestDeltaMissingHash to wait for file insertion
+     - ✓ Replace all fixed sleeps in fs/upload_session_test.go with WaitForCondition:
+       - Updated TestUploadSessionSmallFS to wait for file upload and content verification
+       - Added content verification to ensure the file was properly uploaded
      - Update any remaining fixed sleeps in other packages
    - Isolate tests from each other by using subtests and proper cleanup:
      - Convert more tests to use table-driven tests with subtests where appropriate
