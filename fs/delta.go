@@ -18,6 +18,10 @@ import (
 func (f *Filesystem) DeltaLoop(interval time.Duration) {
 	log.Info().Msg("Starting delta goroutine.")
 
+	subsc := newSubscription(f.subscribeChanges)
+	go subsc.Start()
+	defer subsc.Stop()
+
 	// Add to wait group to track this goroutine
 	f.deltaLoopWg.Add(1)
 	defer func() {
@@ -158,6 +162,8 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			}
 		}
 
+		waitDur := interval
+
 		// Check if we should stop before second pass
 		select {
 		case <-f.deltaLoopStop:
@@ -248,11 +254,14 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			if currentTicker == ticker {
 				currentTicker = offlineTicker
 			}
+			waitDur = 2 * time.Second
 		}
 
 	nextCycle:
 		// Wait for next interval or stop signal
 		select {
+		case <-time.After(waitDur):
+		case <-subsc.C:
 		case <-currentTicker.C:
 			// Time to run the next cycle
 			log.Debug().Msg("Ticker triggered, starting next delta cycle")
