@@ -12,11 +12,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Does systemd unit name templating work correctly?
+// TestTemplateUnit tests that systemd unit name templating works correctly
 func TestTemplateUnit(t *testing.T) {
 	t.Parallel()
-	escaped := TemplateUnit(OnedriverServiceTemplate, "this-is-a-test")
-	require.Equal(t, "onedriver@this-is-a-test.service", escaped, "Templating did not work.")
+
+	// Define test cases
+	testCases := []struct {
+		name           string
+		template       string
+		input          string
+		expectedOutput string
+	}{
+		{
+			name:           "StandardTemplate_ShouldCreateCorrectUnitName",
+			template:       OnedriverServiceTemplate,
+			input:          "this-is-a-test",
+			expectedOutput: "onedriver@this-is-a-test.service",
+		},
+		{
+			name:           "PathWithSpecialChars_ShouldCreateCorrectUnitName",
+			template:       OnedriverServiceTemplate,
+			input:          "path/with-special_chars",
+			expectedOutput: "onedriver@path-with-special_chars.service",
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Call the function being tested
+			result := TemplateUnit(tc.template, tc.input)
+
+			// Verify the result
+			require.Equal(t, tc.expectedOutput, result, 
+				"Templating did not work correctly for input: %s", tc.input)
+		})
+	}
 }
 
 // TestUntemplateUnit tests that systemd unit untemplating works correctly

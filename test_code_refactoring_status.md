@@ -96,8 +96,22 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Added multiple test cases with descriptive names
     - Used parallel execution for each test case
     - Improved error handling with descriptive error messages
-- Group related tests (NOT STARTED)
-- Use clear test names (NOT STARTED)
+  - Converted TestTemplateUnit in ui/systemd/systemd_test.go to a table-driven test:
+    - Added multiple test cases with descriptive names
+    - Used parallel execution for each test case
+    - Added test case for path with special characters
+- Group related tests (PARTIALLY COMPLETED)
+  - Grouped related tests in ui/systemd/systemd_test.go:
+    - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
+    - Used consistent naming conventions for test cases
+    - Organized test cases in a logical order
+- Use clear test names (PARTIALLY COMPLETED)
+  - Improved test names in fs/delta_test.go:
+    - Used descriptive names like "CreateDirectoryOnServer_ShouldSyncToClient" instead of generic names
+    - Added clear indication of what is being tested and what the expected outcome is
+  - Improved test names in ui/systemd/systemd_test.go:
+    - Used descriptive names like "StandardTemplate_ShouldCreateCorrectUnitName"
+    - Added clear indication of what is being tested and what the expected outcome is
 
 ## Next Steps
 
