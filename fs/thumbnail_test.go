@@ -12,89 +12,178 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func TestThumbnailCache(t *testing.T) {
-	// Create a temporary directory for the thumbnail cache
-	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
-	assert.NoError(t, err)
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temporary directory: %v", err)
-		}
-	}()
+// TestThumbnailCacheOperations tests various operations on the thumbnail cache
+func TestThumbnailCacheOperations(t *testing.T) {
+	t.Parallel()
 
-	// Create a thumbnail cache
-	cache := NewThumbnailCache(tempDir)
-	assert.NotNil(t, cache)
+	// Define test cases
+	testCases := []struct {
+		name        string
+		setupFunc   func(t *testing.T, cache *ThumbnailCache) (string, []string, map[string][]byte)
+		testFunc    func(t *testing.T, cache *ThumbnailCache, id string, sizes []string, contents map[string][]byte)
+		description string
+	}{
+		{
+			name: "SingleThumbnail_BasicOperations",
+			setupFunc: func(t *testing.T, cache *ThumbnailCache) (string, []string, map[string][]byte) {
+				id := "test-id-single"
+				sizes := []string{"small"}
+				contents := map[string][]byte{
+					"small": []byte("test thumbnail content"),
+				}
+				return id, sizes, contents
+			},
+			testFunc: func(t *testing.T, cache *ThumbnailCache, id string, sizes []string, contents map[string][]byte) {
+				size := sizes[0]
+				content := contents[size]
 
-	// Test inserting and retrieving a thumbnail
-	id := "test-id"
-	size := "small"
-	content := []byte("test thumbnail content")
-	err = cache.Insert(id, size, content)
-	assert.NoError(t, err)
+				// Insert the thumbnail
+				err := cache.Insert(id, size, content)
+				assert.NoError(t, err, "Failed to insert thumbnail")
 
-	// Check if the thumbnail exists
-	assert.True(t, cache.HasThumbnail(id, size))
+				// Check if the thumbnail exists
+				assert.True(t, cache.HasThumbnail(id, size), "Thumbnail should exist after insertion")
 
-	// Retrieve the thumbnail
-	retrieved := cache.Get(id, size)
-	assert.Equal(t, content, retrieved)
+				// Retrieve the thumbnail
+				retrieved := cache.Get(id, size)
+				assert.Equal(t, content, retrieved, "Retrieved thumbnail content should match inserted content")
 
-	// Delete the thumbnail
-	err = cache.Delete(id, size)
-	assert.NoError(t, err)
+				// Delete the thumbnail
+				err = cache.Delete(id, size)
+				assert.NoError(t, err, "Failed to delete thumbnail")
 
-	// Check that the thumbnail no longer exists
-	assert.False(t, cache.HasThumbnail(id, size))
-}
+				// Check that the thumbnail no longer exists
+				assert.False(t, cache.HasThumbnail(id, size), "Thumbnail should not exist after deletion")
+			},
+			description: "Tests basic operations (insert, has, get, delete) on a single thumbnail",
+		},
+		{
+			name: "MultipleSizes_AllOperations",
+			setupFunc: func(t *testing.T, cache *ThumbnailCache) (string, []string, map[string][]byte) {
+				id := "test-id-multiple"
+				sizes := []string{"small", "medium", "large"}
+				contents := map[string][]byte{
+					"small":  []byte("small thumbnail content"),
+					"medium": []byte("medium thumbnail content"),
+					"large":  []byte("large thumbnail content"),
+				}
+				return id, sizes, contents
+			},
+			testFunc: func(t *testing.T, cache *ThumbnailCache, id string, sizes []string, contents map[string][]byte) {
+				// Insert thumbnails of different sizes
+				for _, size := range sizes {
+					err := cache.Insert(id, size, contents[size])
+					assert.NoError(t, err, "Failed to insert thumbnail of size %s", size)
+				}
 
-func TestThumbnailCacheMultipleSizes(t *testing.T) {
-	// Create a temporary directory for the thumbnail cache
-	tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
-	assert.NoError(t, err)
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temporary directory: %v", err)
-		}
-	}()
+				// Check if the thumbnails exist
+				for _, size := range sizes {
+					assert.True(t, cache.HasThumbnail(id, size), 
+						"Thumbnail of size %s should exist after insertion", size)
+				}
 
-	// Create a thumbnail cache
-	cache := NewThumbnailCache(tempDir)
-	assert.NotNil(t, cache)
+				// Retrieve the thumbnails
+				for _, size := range sizes {
+					retrieved := cache.Get(id, size)
+					assert.Equal(t, contents[size], retrieved, 
+						"Retrieved thumbnail content for size %s should match inserted content", size)
+				}
 
-	// Test inserting and retrieving thumbnails of different sizes
-	id := "test-id"
-	sizes := []string{"small", "medium", "large"}
-	contents := map[string][]byte{
-		"small":  []byte("small thumbnail content"),
-		"medium": []byte("medium thumbnail content"),
-		"large":  []byte("large thumbnail content"),
+				// Delete all thumbnails
+				err := cache.DeleteAll(id)
+				assert.NoError(t, err, "Failed to delete all thumbnails")
+
+				// Check that the thumbnails no longer exist
+				for _, size := range sizes {
+					assert.False(t, cache.HasThumbnail(id, size), 
+						"Thumbnail of size %s should not exist after deletion", size)
+				}
+			},
+			description: "Tests operations on thumbnails of multiple sizes, including DeleteAll",
+		},
+		{
+			name: "MultipleSizes_IndividualDelete",
+			setupFunc: func(t *testing.T, cache *ThumbnailCache) (string, []string, map[string][]byte) {
+				id := "test-id-individual-delete"
+				sizes := []string{"small", "medium", "large"}
+				contents := map[string][]byte{
+					"small":  []byte("small thumbnail content"),
+					"medium": []byte("medium thumbnail content"),
+					"large":  []byte("large thumbnail content"),
+				}
+				return id, sizes, contents
+			},
+			testFunc: func(t *testing.T, cache *ThumbnailCache, id string, sizes []string, contents map[string][]byte) {
+				// Insert thumbnails of different sizes
+				for _, size := range sizes {
+					err := cache.Insert(id, size, contents[size])
+					assert.NoError(t, err, "Failed to insert thumbnail of size %s", size)
+				}
+
+				// Delete thumbnails individually
+				for _, size := range sizes {
+					err := cache.Delete(id, size)
+					assert.NoError(t, err, "Failed to delete thumbnail of size %s", size)
+
+					// Check that this thumbnail no longer exists
+					assert.False(t, cache.HasThumbnail(id, size), 
+						"Thumbnail of size %s should not exist after deletion", size)
+
+					// Check that other thumbnails still exist (if any)
+					for _, otherSize := range sizes {
+						if otherSize == size {
+							continue
+						}
+						// If we've already deleted this size in a previous iteration, it shouldn't exist
+						alreadyDeleted := false
+						for _, deletedSize := range sizes {
+							if deletedSize == otherSize && deletedSize < size {
+								alreadyDeleted = true
+								break
+							}
+						}
+
+						if alreadyDeleted {
+							assert.False(t, cache.HasThumbnail(id, otherSize), 
+								"Thumbnail of size %s should not exist after deletion", otherSize)
+						} else {
+							assert.True(t, cache.HasThumbnail(id, otherSize), 
+								"Thumbnail of size %s should still exist", otherSize)
+						}
+					}
+				}
+			},
+			description: "Tests deleting thumbnails of multiple sizes individually",
+		},
 	}
 
-	// Insert thumbnails of different sizes
-	for _, size := range sizes {
-		err = cache.Insert(id, size, contents[size])
-		assert.NoError(t, err)
-	}
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Check if the thumbnails exist
-	for _, size := range sizes {
-		assert.True(t, cache.HasThumbnail(id, size))
-	}
+			// Create a temporary directory for the thumbnail cache
+			tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
+			assert.NoError(t, err, "Failed to create temporary directory")
 
-	// Retrieve the thumbnails
-	for _, size := range sizes {
-		retrieved := cache.Get(id, size)
-		assert.Equal(t, contents[size], retrieved)
-	}
+			// Setup cleanup to remove the temp directory after test completes or fails
+			t.Cleanup(func() {
+				if err := os.RemoveAll(tempDir); err != nil {
+					t.Logf("Warning: Failed to clean up temp directory %s: %v", tempDir, err)
+				}
+			})
 
-	// Delete all thumbnails
-	err = cache.DeleteAll(id)
-	assert.NoError(t, err)
+			// Create a thumbnail cache
+			cache := NewThumbnailCache(tempDir)
+			assert.NotNil(t, cache, "Thumbnail cache should not be nil")
 
-	// Check that the thumbnails no longer exist
-	for _, size := range sizes {
-		assert.False(t, cache.HasThumbnail(id, size))
+			// Setup test data
+			id, sizes, contents := tc.setupFunc(t, cache)
+
+			// Run the test
+			tc.testFunc(t, cache, id, sizes, contents)
+		})
 	}
 }
 

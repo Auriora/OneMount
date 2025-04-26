@@ -271,6 +271,14 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Used t.Cleanup() for proper resource cleanup
     - Improved error handling with descriptive error messages
     - Added comments explaining why parallel execution is not used in subtests
+  - Combined TestThumbnailCache and TestThumbnailCacheMultipleSizes in fs/thumbnail_test.go into a single table-driven test TestThumbnailCacheOperations:
+    - Added test cases for single thumbnail operations, multiple size operations, and individual deletion
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution for both top level and subtests
+    - Created separate setup and test functions for each test case
+    - Used t.Cleanup() for proper resource cleanup
+    - Improved error handling with descriptive error messages
+    - Added a description field for each test case
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
