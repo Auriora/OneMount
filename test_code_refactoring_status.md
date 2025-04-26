@@ -87,6 +87,11 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Reviewed ui package tests and found that several tests already use table-driven approach:
     - TestMountpointIsValid, TestHomeEscapeUnescape, and TestGetAccountName in ui/onedriver_test.go
   - Converted TestChmod to TestFilePermissions using table-driven tests with subtests in fs/fs_test.go
+  - Converted delta tests in fs/delta_test.go to a table-driven approach:
+    - Combined TestDeltaMkdir, TestDeltaRmdir, TestDeltaRename, and TestDeltaMoveParent into a single TestDeltaOperations test
+    - Used descriptive test case names that clearly indicate what is being tested
+    - Added proper setup and cleanup for each test case
+    - Improved error handling with descriptive error messages
 - Group related tests (NOT STARTED)
 - Use clear test names (NOT STARTED)
 

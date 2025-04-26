@@ -4,7 +4,6 @@ package fs
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,112 +35,166 @@ func (i *Inode) setContent(f *Filesystem, newContent []byte) error {
 	return nil
 }
 
-// In this test, we create a directory through the API, and wait to see if
-// the cache picks it up post-creation.
-func TestDeltaMkdir(t *testing.T) {
-	parent, err := graph.GetItemPath("/onedriver_tests/delta", auth)
-	require.NoError(t, err)
+// TestDeltaOperations tests various delta operations using a table-driven approach
+func TestDeltaOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name           string
+		setup          func(t *testing.T) (string, *graph.DriveItem, error)
+		operation      func(t *testing.T, item *graph.DriveItem) error
+		expectedPath   string
+		verifyContent  bool
+		expectedContent []byte
+		verifyExists    bool
+	}{
+		{
+			name: "CreateDirectoryOnServer_ShouldSyncToClient",
+			setup: func(t *testing.T) (string, *graph.DriveItem, error) {
+				parent, err := graph.GetItemPath("/onedriver_tests/delta", auth)
+				if err != nil {
+					return "", nil, err
+				}
+				return filepath.Join(DeltaDir, "first"), parent, nil
+			},
+			operation: func(t *testing.T, item *graph.DriveItem) error {
+				_, err := graph.Mkdir("first", item.ID, auth)
+				return err
+			},
+			expectedPath: filepath.Join(DeltaDir, "first"),
+			verifyExists: true,
+		},
+		{
+			name: "DeleteDirectoryOnServer_ShouldSyncToClient",
+			setup: func(t *testing.T) (string, *graph.DriveItem, error) {
+				fname := filepath.Join(DeltaDir, "delete_me")
+				err := os.Mkdir(fname, 0755)
+				if err != nil {
+					return "", nil, err
+				}
 
-	// create the directory directly through the API and bypass the cache
-	_, err = graph.Mkdir("first", parent.ID, auth)
-	require.NoError(t, err)
-	fname := filepath.Join(DeltaDir, "first")
+				// Wait for the directory to be recognized by the server
+				var item *graph.DriveItem
+				testutil.WaitForCondition(t, func() bool {
+					item, err = graph.GetItemPath("/onedriver_tests/delta/delete_me", auth)
+					return err == nil && item != nil
+				}, 10*time.Second, time.Second, "Directory was not recognized by server")
 
-	// give the delta thread time to fetch the item
-	assert.Eventuallyf(t, func() bool {
-		st, err := os.Stat(fname)
-		if err == nil {
-			if st.Mode().IsDir() {
-				return true
+				return fname, item, nil
+			},
+			operation: func(t *testing.T, item *graph.DriveItem) error {
+				return graph.Remove(item.ID, auth)
+			},
+			expectedPath: filepath.Join(DeltaDir, "delete_me"),
+			verifyExists: false,
+		},
+		{
+			name: "RenameFileOnServer_ShouldSyncToClient",
+			setup: func(t *testing.T) (string, *graph.DriveItem, error) {
+				filePath := filepath.Join(DeltaDir, "delta_rename_start")
+				err := os.WriteFile(filePath, []byte("cheesecake"), 0644)
+				if err != nil {
+					return "", nil, err
+				}
+
+				// Wait for the file to be recognized by the server
+				var item *graph.DriveItem
+				testutil.WaitForCondition(t, func() bool {
+					item, err = graph.GetItemPath("/onedriver_tests/delta/delta_rename_start", auth)
+					return err == nil && item != nil
+				}, 10*time.Second, time.Second, "File was not recognized by server")
+
+				return filepath.Join(DeltaDir, "delta_rename_end"), item, nil
+			},
+			operation: func(t *testing.T, item *graph.DriveItem) error {
+				return graph.Rename(item.ID, "delta_rename_end", item.Parent.ID, auth)
+			},
+			expectedPath: filepath.Join(DeltaDir, "delta_rename_end"),
+			verifyContent: true,
+			expectedContent: []byte("cheesecake"),
+			verifyExists: true,
+		},
+		{
+			name: "MoveFileToNewParentOnServer_ShouldSyncToClient",
+			setup: func(t *testing.T) (string, *graph.DriveItem, error) {
+				filePath := filepath.Join(DeltaDir, "delta_move_start")
+				err := os.WriteFile(filePath, []byte("carrotcake"), 0644)
+				if err != nil {
+					return "", nil, err
+				}
+
+				// Wait for the file to be recognized by the server
+				var item *graph.DriveItem
+				testutil.WaitForCondition(t, func() bool {
+					item, err = graph.GetItemPath("/onedriver_tests/delta/delta_move_start", auth)
+					return err == nil && item != nil
+				}, 10*time.Second, time.Second, "File was not recognized by server")
+
+				return filepath.Join(TestDir, "delta_rename_end"), item, nil
+			},
+			operation: func(t *testing.T, item *graph.DriveItem) error {
+				newParent, err := graph.GetItemPath("/onedriver_tests/", auth)
+				if err != nil {
+					return err
+				}
+				return graph.Rename(item.ID, "delta_rename_end", newParent.ID, auth)
+			},
+			expectedPath: filepath.Join(TestDir, "delta_rename_end"),
+			verifyContent: true,
+			expectedContent: []byte("carrotcake"),
+			verifyExists: true,
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup
+			expectedPath, item, err := tc.setup(t)
+			require.NoError(t, err, "Setup failed")
+			require.NotNil(t, item, "Setup did not return a valid item")
+
+			// Perform the operation
+			err = tc.operation(t, item)
+			require.NoError(t, err, "Operation failed")
+
+			// Verify the result
+			if tc.verifyExists {
+				// Wait for the item to exist and verify its content if needed
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(expectedPath)
+					if err != nil {
+						return false
+					}
+
+					if tc.verifyContent {
+						content, err := os.ReadFile(expectedPath)
+						if err != nil {
+							return false
+						}
+						return bytes.Contains(content, tc.expectedContent)
+					}
+
+					// For directories, verify it's a directory
+					if !tc.verifyContent {
+						info, err := os.Stat(expectedPath)
+						if err != nil {
+							return false
+						}
+						return info.IsDir()
+					}
+
+					return true
+				}, retrySeconds, time.Second, "Expected item was not found or had incorrect content")
+			} else {
+				// Wait for the item to not exist
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(expectedPath)
+					return os.IsNotExist(err)
+				}, retrySeconds, time.Second, "Item still exists but should have been deleted")
 			}
-			require.Fail(t, fmt.Sprintf("%s was not a directory", fname))
-		}
-		return false
-	}, retrySeconds, time.Second, "%s not found", fname)
-}
-
-// We create a directory through the cache, then delete through the API and see
-// if the cache picks it up.
-func TestDeltaRmdir(t *testing.T) {
-	fname := filepath.Join(DeltaDir, "delete_me")
-	require.NoError(t, os.Mkdir(fname, 0755))
-
-	item, err := graph.GetItemPath("/onedriver_tests/delta/delete_me", auth)
-	require.NoError(t, err)
-	require.NoError(t, graph.Remove(item.ID, auth))
-
-	// wait for delta sync
-	assert.Eventually(t, func() bool {
-		_, err := os.Stat(fname)
-		return os.IsNotExist(err)
-	}, retrySeconds, time.Second, "File deletion not picked up by client")
-}
-
-// Create a file locally, then rename it remotely and verify that the renamed
-// file still has the correct content under the new parent.
-func TestDeltaRename(t *testing.T) {
-	require.NoError(t, os.WriteFile(
-		filepath.Join(DeltaDir, "delta_rename_start"),
-		[]byte("cheesecake"),
-		0644,
-	))
-
-	var item *graph.DriveItem
-	var err error
-	require.Eventually(t, func() bool {
-		item, err = graph.GetItemPath("/onedriver_tests/delta/delta_rename_start", auth)
-		return err == nil
-	}, 10*time.Second, time.Second, "Could not prepare /onedriver_test/delta/delta_rename_start")
-	inode := NewInodeDriveItem(item)
-
-	require.NoError(t, graph.Rename(inode.ID(), "delta_rename_end", inode.ParentID(), auth))
-	fpath := filepath.Join(DeltaDir, "delta_rename_end")
-	assert.Eventually(t, func() bool {
-		if _, err := os.Stat(fpath); err == nil {
-			content, err := os.ReadFile(fpath)
-			require.NoError(t, err)
-			return bytes.Contains(content, []byte("cheesecake"))
-		}
-		return false
-	}, retrySeconds, time.Second, "Rename not detected by client.")
-}
-
-// Create a file locally, then move it on the server to a new directory. Check
-// to see if the cache picks it up.
-func TestDeltaMoveParent(t *testing.T) {
-	filePath := filepath.Join(DeltaDir, "delta_move_start")
-	require.NoError(t, os.WriteFile(
-		filePath,
-		[]byte("carrotcake"),
-		0644,
-	))
-
-	// Wait for the file to be recognized by the filesystem
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(filePath)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
-
-	var item *graph.DriveItem
-	var err error
-	require.Eventually(t, func() bool {
-		item, err = graph.GetItemPath("/onedriver_tests/delta/delta_move_start", auth)
-		return err == nil
-	}, 10*time.Second, time.Second)
-
-	newParent, err := graph.GetItemPath("/onedriver_tests/", auth)
-	require.NoError(t, err)
-
-	require.NoError(t, graph.Rename(item.ID, "delta_rename_end", newParent.ID, auth))
-	fpath := filepath.Join(TestDir, "delta_rename_end")
-	assert.Eventually(t, func() bool {
-		if _, err := os.Stat(fpath); err == nil {
-			content, err := os.ReadFile(fpath)
-			require.NoError(t, err)
-			return bytes.Contains(content, []byte("carrotcake"))
-		}
-		return false
-	}, retrySeconds, time.Second, "Rename not detected by client")
+		})
+	}
 }
 
 // Change the content remotely on the server, and verify it gets propagated to
