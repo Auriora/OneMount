@@ -29,7 +29,7 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Verified that defer is only used in the TestMain functions where `t.Cleanup()` is not available
   - Reviewed fs/offline package tests and found they already use `t.Cleanup()` for resource cleanup in all test functions
   - Verified that defer is only used in the TestMain function where `t.Cleanup()` is not available
-- Implement consistent assertion style using `require` and `assert` (PARTIALLY COMPLETED)
+- Implement consistent assertion style using `require` and `assert` (COMPLETED)
   - Updated all tests in the fs/graph package to use `require` for critical assertions and `assert` for non-critical assertions
   - Reviewed fs package tests and found they already use a mix of `require` and `assert` appropriately
   - Updated cmd/common package tests to use `require` for critical assertions and `assert` for non-critical assertions
