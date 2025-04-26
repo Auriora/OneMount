@@ -127,8 +127,11 @@ func TestIsDir(t *testing.T) {
 	// Create the test file
 	require.NoError(t, os.WriteFile(fullPath, []byte("test"), 0644))
 
-	// Give the filesystem time to process the file creation
-	time.Sleep(2 * time.Second)
+	// Wait for the filesystem to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(fullPath)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Test file was not created within timeout")
 
 	// Retry getting the test file
 	assert.Eventually(t, func() bool {
@@ -161,8 +164,11 @@ func TestFilenameEscape(t *testing.T) {
 	// Create the test file
 	require.NoError(t, os.WriteFile(filePath, []byte("argl bargl"), 0644))
 
-	// Give the filesystem time to process the file creation
-	time.Sleep(2 * time.Second)
+	// Wait for the filesystem to process the file creation
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(filePath)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "Test file was not created within timeout")
 
 	// Make sure it made it to the server
 	// Increase timeout and add more detailed logging
