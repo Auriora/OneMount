@@ -687,181 +687,243 @@ func TestUnlink(t *testing.T) {
 	require.NotContains(t, string(stdout), "unlink_tester", "Deleting %s did not work.", fname)
 }
 
-// OneDrive is case-insensitive due to limitations imposed by Windows NTFS
-// filesystem. Make sure we prevent users of normal systems from running into
-// issues with OneDrive's case-insensitivity.
-func TestNTFSIsABadFilesystem(t *testing.T) {
-	// Create the first file
-	file1 := filepath.Join(TestDir, "case-sensitive.txt")
-	require.NoError(t, os.WriteFile(file1, []byte("NTFS is bad"), 0644))
+// TestCaseSensitivityHandling tests how the filesystem handles case-sensitivity issues
+// with OneDrive (which uses NTFS, a case-insensitive filesystem).
+func TestCaseSensitivityHandling(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		description string
+		testFunc    func(t *testing.T)
+	}{
+		{
+			name:        "BasicCaseSensitivity_ShouldHandleFilesWithDifferentCase",
+			description: "Tests basic case-sensitivity by creating two files with different case variants",
+			testFunc: func(t *testing.T) {
+				// Create unique filenames for this test to avoid conflicts
+				file1 := filepath.Join(TestDir, fmt.Sprintf("case-sensitive-%s.txt", t.Name()))
+				file2 := filepath.Join(TestDir, fmt.Sprintf("CASE-SENSITIVE-%s.txt", t.Name()))
+				file3 := filepath.Join(TestDir, fmt.Sprintf("Case-Sensitive-%s.TXT", t.Name()))
 
-	// Wait for the filesystem to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(file1)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
+				// Setup cleanup to remove the files after test completes or fails
+				t.Cleanup(func() {
+					for _, file := range []string{file1, file2, file3} {
+						if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+							t.Logf("Warning: Failed to clean up test file %s: %v", file, err)
+						}
+					}
+				})
 
-	// Create the second file with different case
-	file2 := filepath.Join(TestDir, "CASE-SENSITIVE.txt")
-	require.NoError(t, os.WriteFile(file2, []byte("yep"), 0644))
+				// Create the first file
+				require.NoError(t, os.WriteFile(file1, []byte("NTFS is bad"), 0644))
 
-	// Wait for the filesystem to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(file2)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "Second file was not created within timeout")
+				// Wait for the filesystem to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(file1)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
 
-	// Try to read the file with a third case variant
-	file3 := filepath.Join(TestDir, "Case-Sensitive.TXT")
-	content, err := os.ReadFile(file3)
+				// Create the second file with different case
+				require.NoError(t, os.WriteFile(file2, []byte("yep"), 0644))
 
-	// If the read fails, check if either of the original files exists
-	if err != nil {
-		t.Logf("Could not read %s: %v", file3, err)
+				// Wait for the filesystem to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(file2)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "Second file was not created within timeout")
 
-		// Try reading the original files
-		content1, err1 := os.ReadFile(file1)
-		content2, err2 := os.ReadFile(file2)
+				// Try to read the file with a third case variant
+				content, err := os.ReadFile(file3)
 
-		if err1 == nil {
-			t.Logf("Successfully read %s: %s", file1, content1)
-			require.Equal(t, "NTFS is bad", string(content1), "Content of %s was not as expected", file1)
-		} else {
-			t.Logf("Could not read %s: %v", file1, err1)
-		}
+				// If the read fails, check if either of the original files exists
+				if err != nil {
+					t.Logf("Could not read %s: %v", file3, err)
 
-		if err2 == nil {
-			t.Logf("Successfully read %s: %s", file2, content2)
-			require.Equal(t, "yep", string(content2), "Content of %s was not as expected", file2)
-			// Use the content from file2 for the test
-			content = content2
-			err = nil
-		} else {
-			t.Logf("Could not read %s: %v", file2, err2)
-		}
+					// Try reading the original files
+					content1, err1 := os.ReadFile(file1)
+					content2, err2 := os.ReadFile(file2)
+
+					if err1 == nil {
+						t.Logf("Successfully read %s: %s", file1, content1)
+						require.Equal(t, "NTFS is bad", string(content1), 
+							"Content of %s was not as expected", file1)
+					} else {
+						t.Logf("Could not read %s: %v", file1, err1)
+					}
+
+					if err2 == nil {
+						t.Logf("Successfully read %s: %s", file2, content2)
+						require.Equal(t, "yep", string(content2), 
+							"Content of %s was not as expected", file2)
+						// Use the content from file2 for the test
+						content = content2
+						err = nil
+					} else {
+						t.Logf("Could not read %s: %v", file2, err2)
+					}
+				}
+
+				// At least one of the files should be readable
+				require.NoError(t, err, "Could not read any of the case-sensitive test files")
+				require.Equal(t, "yep", string(content), "Did not find expected output.")
+			},
+		},
+		{
+			name:        "ExclusiveCreate_ShouldHandleCaseSensitivityWithExclusiveCreate",
+			description: "Tests case-sensitivity with exclusive create calls",
+			testFunc: func(t *testing.T) {
+				// Create unique filenames for this test to avoid conflicts
+				file1Path := filepath.Join(TestDir, fmt.Sprintf("case-sensitive2-%s.txt", t.Name()))
+				file2Path := filepath.Join(TestDir, fmt.Sprintf("CASE-SENSITIVE2-%s.txt", t.Name()))
+
+				// Setup cleanup to remove the files after test completes or fails
+				t.Cleanup(func() {
+					for _, file := range []string{file1Path, file2Path} {
+						if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+							t.Logf("Warning: Failed to clean up test file %s: %v", file, err)
+						}
+					}
+				})
+
+				// Remove any existing test files to ensure a clean state
+				if err := os.Remove(file1Path); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to remove file1: %v", err)
+				}
+				if err := os.Remove(file2Path); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to remove file2: %v", err)
+				}
+
+				// Wait for the filesystem to process the removals
+				testutil.WaitForCondition(t, func() bool {
+					_, err1 := os.Stat(file1Path)
+					_, err2 := os.Stat(file2Path)
+					return os.IsNotExist(err1) && os.IsNotExist(err2)
+				}, 5*time.Second, 100*time.Millisecond, "Files were not removed within timeout")
+
+				// Create the first file
+				file1, err := os.OpenFile(file1Path, os.O_CREATE|os.O_EXCL, 0644)
+				if err == nil {
+					if closeErr := file1.Close(); closeErr != nil {
+						t.Logf("Warning: Failed to close file1: %v", closeErr)
+					}
+				} else {
+					t.Logf("Failed to create first file: %v", err)
+					// If we can't create the first file, skip the test
+					t.Skip("Could not create the first test file, skipping test")
+				}
+
+				// Wait for the filesystem to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(file1Path)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
+
+				// Try to create the second file with different case
+				file2, err := os.OpenFile(file2Path, os.O_CREATE|os.O_EXCL, 0644)
+				if err == nil {
+					if closeErr := file2.Close(); closeErr != nil {
+						t.Logf("Warning: Failed to close file2: %v", closeErr)
+					}
+
+					// Check if both files exist now
+					_, err1 := os.Stat(file1Path)
+					_, err2 := os.Stat(file2Path)
+
+					if err1 == nil && err2 == nil {
+						t.Log("Both files with different case exist simultaneously")
+						// This is acceptable if the filesystem doesn't enforce case-insensitivity
+					}
+				} else {
+					// This is the expected behavior for a case-insensitive filesystem
+					t.Logf("Got expected error when creating second file: %v", err)
+				}
+
+				// The test passes either way - we're just documenting the behavior
+			},
+		},
+		{
+			name:        "RenameHandling_ShouldHandleCaseSensitivityWithRenames",
+			description: "Tests case-sensitivity with renames",
+			testFunc: func(t *testing.T) {
+				// Create unique filenames for this test to avoid conflicts
+				fname := filepath.Join(TestDir, fmt.Sprintf("original_NAME-%s.txt", t.Name()))
+				secondName := filepath.Join(TestDir, fmt.Sprintf("new_name-%s.txt", t.Name()))
+				thirdName := filepath.Join(TestDir, fmt.Sprintf("new_name2-%s.txt", t.Name()))
+				fourthName := filepath.Join(TestDir, fmt.Sprintf("original_name-%s.txt", t.Name()))
+
+				// Setup cleanup to remove the files after test completes or fails
+				t.Cleanup(func() {
+					for _, file := range []string{fname, secondName, thirdName, fourthName} {
+						if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+							t.Logf("Warning: Failed to clean up test file %s: %v", file, err)
+						}
+					}
+				})
+
+				require.NoError(t, os.WriteFile(fname, []byte("original"), 0644))
+
+				// Wait for the DeltaLoop to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(fname)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
+
+				// should work
+				require.NoError(t, os.WriteFile(secondName, []byte("new"), 0644))
+
+				// Wait for the DeltaLoop to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(secondName)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "Second file was not created within timeout")
+
+				require.NoError(t, os.Rename(secondName, fname))
+
+				// Wait for the DeltaLoop to process the rename and for the file content to be updated
+				testutil.WaitForCondition(t, func() bool {
+					content, err := os.ReadFile(fname)
+					return err == nil && string(content) == "new"
+				}, 5*time.Second, 100*time.Millisecond, "File content was not updated after rename")
+
+				contents, err := os.ReadFile(fname)
+				require.NoError(t, err)
+				require.Equal(t, "new", string(contents), "Contents did not match expected output.")
+
+				// should fail
+				require.NoError(t, os.WriteFile(thirdName, []byte("this rename should work"), 0644))
+
+				// Wait for the DeltaLoop to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(thirdName)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "Third file was not created within timeout")
+
+				err = os.Rename(thirdName, fourthName)
+				require.NoError(t, err, "Rename failed.")
+
+				// Wait for the DeltaLoop to process the rename
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(fourthName)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "Renamed file was not created within timeout")
+
+				_, err = os.Stat(fname)
+				require.NoErrorf(t, err, "\"%s\" does not exist after the rename.", fname)
+			},
+		},
 	}
 
-	// At least one of the files should be readable
-	require.NoError(t, err, "Could not read any of the case-sensitive test files")
-	require.Equal(t, "yep", string(content), "Did not find expected output.")
-}
+	// Run each test case as a subtest
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Note: We don't use t.Parallel() here because these tests might interfere with each other
+			// due to their nature of testing case-sensitivity in the same filesystem
 
-// same as last test, but with exclusive create() calls.
-func TestNTFSIsABadFilesystem2(t *testing.T) {
-	// Remove any existing test files to ensure a clean state
-	file1Path := filepath.Join(TestDir, "case-sensitive2.txt")
-	file2Path := filepath.Join(TestDir, "CASE-SENSITIVE2.txt")
-	if err := os.Remove(file1Path); err != nil && !os.IsNotExist(err) {
-		t.Logf("Warning: Failed to remove file1: %v", err)
+			// Run the test function
+			tc.testFunc(t)
+		})
 	}
-	if err := os.Remove(file2Path); err != nil && !os.IsNotExist(err) {
-		t.Logf("Warning: Failed to remove file2: %v", err)
-	}
-
-	// Wait for the filesystem to process the removals
-	testutil.WaitForCondition(t, func() bool {
-		_, err1 := os.Stat(file1Path)
-		_, err2 := os.Stat(file2Path)
-		return os.IsNotExist(err1) && os.IsNotExist(err2)
-	}, 5*time.Second, 100*time.Millisecond, "Files were not removed within timeout")
-
-	// Create the first file
-	file1, err := os.OpenFile(file1Path, os.O_CREATE|os.O_EXCL, 0644)
-	if err == nil {
-		if closeErr := file1.Close(); closeErr != nil {
-			t.Logf("Warning: Failed to close file1: %v", closeErr)
-		}
-	} else {
-		t.Logf("Failed to create first file: %v", err)
-		// If we can't create the first file, skip the test
-		t.Skip("Could not create the first test file, skipping test")
-	}
-
-	// Wait for the filesystem to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(file1Path)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
-
-	// Try to create the second file with different case
-	file2, err := os.OpenFile(file2Path, os.O_CREATE|os.O_EXCL, 0644)
-	if err == nil {
-		if closeErr := file2.Close(); closeErr != nil {
-			t.Logf("Warning: Failed to close file2: %v", closeErr)
-		}
-
-		// Check if both files exist now
-		_, err1 := os.Stat(file1Path)
-		_, err2 := os.Stat(file2Path)
-
-		if err1 == nil && err2 == nil {
-			t.Log("Both case-sensitive2.txt and CASE-SENSITIVE2.txt exist simultaneously")
-			// This is acceptable if the filesystem doesn't enforce case-insensitivity
-		}
-	} else {
-		// This is the expected behavior for a case-insensitive filesystem
-		t.Logf("Got expected error when creating second file: %v", err)
-	}
-
-	// The test passes either way - we're just documenting the behavior
-}
-
-// Ensure that case-sensitivity collisions due to renames are handled properly
-// (allow rename/overwrite for exact matches, deny when case-sensitivity would
-// normally allow success)
-func TestNTFSIsABadFilesystem3(t *testing.T) {
-	fname := filepath.Join(TestDir, "original_NAME.txt")
-	require.NoError(t, os.WriteFile(fname, []byte("original"), 0644))
-
-	// Wait for the DeltaLoop to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(fname)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "First file was not created within timeout")
-
-	// should work
-	secondName := filepath.Join(TestDir, "new_name.txt")
-	require.NoError(t, os.WriteFile(secondName, []byte("new"), 0644))
-
-	// Wait for the DeltaLoop to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(secondName)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "Second file was not created within timeout")
-
-	require.NoError(t, os.Rename(secondName, fname))
-
-	// Wait for the DeltaLoop to process the rename and for the file content to be updated
-	testutil.WaitForCondition(t, func() bool {
-		content, err := os.ReadFile(fname)
-		return err == nil && string(content) == "new"
-	}, 5*time.Second, 100*time.Millisecond, "File content was not updated after rename")
-
-	contents, err := os.ReadFile(fname)
-	require.NoError(t, err)
-	require.Equal(t, "new", string(contents), "Contents did not match expected output.")
-
-	// should fail
-	thirdName := filepath.Join(TestDir, "new_name2.txt")
-	require.NoError(t, os.WriteFile(thirdName, []byte("this rename should work"), 0644))
-
-	// Wait for the DeltaLoop to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(thirdName)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "Third file was not created within timeout")
-
-	err = os.Rename(thirdName, filepath.Join(TestDir, "original_name.txt"))
-	require.NoError(t, err, "Rename failed.")
-
-	// Wait for the DeltaLoop to process the rename
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(filepath.Join(TestDir, "original_name.txt"))
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "Renamed file was not created within timeout")
-
-	_, err = os.Stat(fname)
-	require.NoErrorf(t, err, "\"%s\" does not exist after the rename.", fname)
 }
 
 // This test is insurance to prevent tests (and the fs) from accidentally not
@@ -1044,78 +1106,141 @@ func TestDisallowedFilenames(t *testing.T) {
 	// OneDrive has restrictions on certain characters and names:
 	// https://support.microsoft.com/en-us/office/restrictions-and-limitations-in-onedrive-and-sharepoint-64883a5d-228e-48f5-b3d2-eb39e07630fa
 
-	contents := []byte("this should not work")
-	filesToCleanup := []string{}
-	dirsToCleanup := []string{}
-
-	// Test creating files with disallowed names
-	testCases := []struct {
-		name  string
-		path  string
-		isDir bool
+	// Define test cases for creating files/directories with disallowed names
+	createTestCases := []struct {
+		name        string
+		path        string
+		isDir       bool
+		description string
 	}{
-		{"File with colon", filepath.Join(TestDir, "disallowed: filename.txt"), false},
-		{"File with _vti_", filepath.Join(TestDir, "disallowed_vti_text.txt"), false},
-		{"File with <", filepath.Join(TestDir, "disallowed_<_text.txt"), false},
-		{"Reserved name COM0", filepath.Join(TestDir, "COM0"), false},
-		{"Directory with colon", filepath.Join(TestDir, "disallowed:folder"), true},
-		{"Directory with _vti_", filepath.Join(TestDir, "disallowed_vti_folder"), true},
-		{"Directory with >", filepath.Join(TestDir, "disallowed>folder"), true},
-		{"Reserved name desktop.ini", filepath.Join(TestDir, "desktop.ini"), true},
+		{
+			name:        "FileWithColon_ShouldBeRejected",
+			path:        filepath.Join(TestDir, fmt.Sprintf("disallowed-colon-%s: filename.txt", t.Name())),
+			isDir:       false,
+			description: "File with colon character in name",
+		},
+		{
+			name:        "FileWithVtiPrefix_ShouldBeRejected",
+			path:        filepath.Join(TestDir, fmt.Sprintf("disallowed-vti-%s_vti_text.txt", t.Name())),
+			isDir:       false,
+			description: "File with _vti_ prefix (reserved by SharePoint)",
+		},
+		{
+			name:        "FileWithLessThan_ShouldBeRejected",
+			path:        filepath.Join(TestDir, fmt.Sprintf("disallowed-lt-%s_<_text.txt", t.Name())),
+			isDir:       false,
+			description: "File with < character in name",
+		},
+		{
+			name:        "ReservedNameCOM0_ShouldBeRejected",
+			path:        filepath.Join(TestDir, "COM0"),
+			isDir:       false,
+			description: "Reserved Windows device name COM0",
+		},
+		{
+			name:        "DirectoryWithColon_ShouldBeRejected",
+			path:        filepath.Join(TestDir, fmt.Sprintf("disallowed-dir-colon-%s:folder", t.Name())),
+			isDir:       true,
+			description: "Directory with colon character in name",
+		},
+		{
+			name:        "DirectoryWithVtiPrefix_ShouldBeRejected",
+			path:        filepath.Join(TestDir, fmt.Sprintf("disallowed-dir-vti-%s_vti_folder", t.Name())),
+			isDir:       true,
+			description: "Directory with _vti_ prefix (reserved by SharePoint)",
+		},
+		{
+			name:        "DirectoryWithGreaterThan_ShouldBeRejected",
+			path:        filepath.Join(TestDir, fmt.Sprintf("disallowed-dir-gt-%s>folder", t.Name())),
+			isDir:       true,
+			description: "Directory with > character in name",
+		},
+		{
+			name:        "ReservedNameDesktopIni_ShouldBeRejected",
+			path:        filepath.Join(TestDir, "desktop.ini"),
+			isDir:       true,
+			description: "Reserved Windows configuration file desktop.ini",
+		},
 	}
 
-	for _, tc := range testCases {
-		var err error
-		if tc.isDir {
-			err = os.Mkdir(tc.path, 0755)
-			if err == nil {
-				dirsToCleanup = append(dirsToCleanup, tc.path)
-			}
-		} else {
-			err = os.WriteFile(tc.path, contents, 0644)
-			if err == nil {
-				filesToCleanup = append(filesToCleanup, tc.path)
-			}
-		}
+	// Run each create test case as a subtest
+	for _, tc := range createTestCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// We can use t.Parallel() here since each test uses a unique path
+			t.Parallel()
 
-		if err != nil {
-			t.Logf("✓ %s: Got expected error: %v", tc.name, err)
-		} else {
-			t.Logf("✗ %s: No error when creating with disallowed name", tc.name)
-		}
+			// Setup cleanup to remove the file/directory after test completes or fails
+			t.Cleanup(func() {
+				if tc.isDir {
+					if err := os.RemoveAll(tc.path); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up directory %s: %v", tc.path, err)
+					}
+				} else {
+					if err := os.Remove(tc.path); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up file %s: %v", tc.path, err)
+					}
+				}
+			})
+
+			// Attempt to create the file/directory
+			var err error
+			if tc.isDir {
+				err = os.Mkdir(tc.path, 0755)
+			} else {
+				err = os.WriteFile(tc.path, []byte("this should not work"), 0644)
+			}
+
+			// Check if the operation was rejected as expected
+			if err != nil {
+				t.Logf("Got expected error: %v", err)
+			} else {
+				fileType := "file"
+				if tc.isDir {
+					fileType = "directory"
+				}
+				t.Errorf("No error when creating %s with disallowed name: %s", fileType, tc.path)
+			}
+		})
 	}
 
 	// Test renaming to disallowed name
-	validDir := filepath.Join(TestDir, "valid-directory")
-	invalidDir := filepath.Join(TestDir, "invalid_vti_directory")
+	t.Run("RenameToDisallowedName_ShouldBeRejected", func(t *testing.T) {
+		t.Parallel()
 
-	// Create a valid directory
-	if err := os.Mkdir(validDir, 0755); err != nil {
-		t.Logf("Failed to create valid directory: %v", err)
-	} else {
-		dirsToCleanup = append(dirsToCleanup, validDir)
+		// Create unique directory names for this test
+		validDir := filepath.Join(TestDir, fmt.Sprintf("valid-directory-%s", t.Name()))
+		invalidDir := filepath.Join(TestDir, fmt.Sprintf("invalid-vti-directory-%s_vti_dir", t.Name()))
+
+		// Setup cleanup to remove the directories after test completes or fails
+		t.Cleanup(func() {
+			for _, dir := range []string{validDir, invalidDir} {
+				if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up directory %s: %v", dir, err)
+				}
+			}
+		})
+
+		// Create a valid directory
+		err := os.Mkdir(validDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create valid directory: %v", err)
+		}
+
+		// Wait for the filesystem to process the directory creation
+		testutil.WaitForCondition(t, func() bool {
+			_, err := os.Stat(validDir)
+			return err == nil
+		}, 5*time.Second, 100*time.Millisecond, "Directory was not created within timeout")
 
 		// Try to rename it to an invalid name
-		err := os.Rename(validDir, invalidDir)
+		err = os.Rename(validDir, invalidDir)
 		if err != nil {
-			t.Logf("✓ Rename to invalid name: Got expected error: %v", err)
+			t.Logf("Got expected error when renaming to disallowed name: %v", err)
 		} else {
-			t.Logf("✗ Rename to invalid name: No error when renaming to disallowed name")
-			dirsToCleanup = append(dirsToCleanup, invalidDir)
+			t.Errorf("No error when renaming to disallowed name: %s", invalidDir)
 		}
-	}
-
-	// Clean up any files/directories that were created
-	for _, file := range filesToCleanup {
-		if err := os.Remove(file); err != nil {
-			t.Logf("Warning: Failed to clean up file %s: %v", file, err)
-		}
-	}
-	for _, dir := range dirsToCleanup {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Logf("Warning: Failed to clean up directory %s: %v", dir, err)
-		}
-	}
+	})
 
 	t.Log("Note: This test is informational. OneDrive may reject these files later during upload.")
 }

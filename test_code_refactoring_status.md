@@ -143,6 +143,18 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Added multiple test cases with descriptive names
     - Used parallel execution for each test case
     - Added test case for path with special characters
+  - Converted TestNTFSIsABadFilesystem and its variants to a table-driven test:
+    - Combined three related tests into a single TestCaseSensitivityHandling test
+    - Added descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique filenames for each test to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Added comments explaining why parallel execution is not used
+  - Converted TestDisallowedFilenames to use subtests:
+    - Added descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Used parallel execution for each test case
+    - Created unique filenames for each test to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -168,8 +180,9 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestNTFSIsABadFilesystem and its variants in fs/fs_test.go
-       - TestDisallowedFilenames in fs/fs_test.go
+       - TestChildrenAreCasedProperly in fs/fs_test.go
+       - TestEchoWritesToFile in fs/fs_test.go
+       - TestStat in fs/fs_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
@@ -181,6 +194,7 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Ensure all tests follow the established patterns and best practices
    - Check for any remaining fixed sleeps or timeouts that could be replaced with dynamic waiting
    - Verify that all tests have proper cleanup mechanisms
+   - Consider adding more descriptive comments to explain test purpose and behavior
 
 4. Document best practices for future test development (COMPLETED):
    - Created test_best_practices.md document outlining the patterns and practices established during this refactoring
