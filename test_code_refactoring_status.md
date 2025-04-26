@@ -255,6 +255,14 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Improved error handling with descriptive error messages
     - Added more detailed logging for debugging
     - Better organized with clear separation of setup and verification
+  - Combined TestMode and TestIsDir in fs/inode_test.go into a single table-driven test TestInodeProperties:
+    - Added test cases for both directories and files
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution for each test case
+    - Created separate setup and cleanup functions for each test case
+    - Used t.Cleanup() for proper resource cleanup
+    - Improved error handling with descriptive error messages
+    - Added comprehensive assertions to verify both Mode() and IsDir() functionality
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
