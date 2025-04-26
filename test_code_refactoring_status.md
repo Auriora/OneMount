@@ -233,6 +233,15 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Improved error handling with descriptive error messages
     - Added waiting for directory creation and removal with WaitForCondition
     - Added a test case for creating directories with specific permissions
+  - Combined TestStatFs and TestUnlink in fs/fs_test.go into a single table-driven test TestBasicFileSystemOperations:
+    - Added test cases for filesystem statistics and file deletion operations
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added parallel execution for the unlink test case (but not for statfs since it operates on the shared TestDir)
+    - Created unique filenames for the unlink test case to avoid conflicts
+    - Added proper cleanup with t.Cleanup() for the unlink test case
+    - Improved error handling with descriptive error messages
+    - Added waiting for file creation and deletion with WaitForCondition
+    - Added more detailed logging for debugging
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -259,7 +268,6 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Focus on tests in fs package that test similar functionality with different inputs
      - Note: All tests in the ui package have already been refactored to use a table-driven approach
      - Potential candidates include:
-       - TestStatFs and TestUnlink in fs/fs_test.go
        - TestDisallowedFilenames in fs/fs_test.go
        - Tests in fs/cache_test.go (TestRootGet, TestRootChildrenUpdate, etc.)
        - Tests in fs/inode_test.go (TestConstructor, TestMode, etc.)

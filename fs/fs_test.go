@@ -986,21 +986,99 @@ fermentum ut, sodales a nunc. Phasellus eget mattis purus.`,
 	}
 }
 
-// Statfs should succeed
-func TestStatFs(t *testing.T) {
-	var st syscall.Statfs_t
-	err := syscall.Statfs(TestDir, &st)
-	require.NoError(t, err)
-	require.NotZero(t, st.Blocks, "StatFs failed, got 0 blocks!")
-}
+// TestBasicFileSystemOperations tests various basic filesystem operations using a table-driven approach
+func TestBasicFileSystemOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		operation   string // "statfs" or "unlink"
+		setupFunc   func(t *testing.T) string // Returns a path for operations that need it
+		verifyFunc  func(t *testing.T, path string)
+		description string
+	}{
+		{
+			name:        "StatFs_ShouldReturnValidStats",
+			operation:   "statfs",
+			description: "Verify that statfs returns valid filesystem statistics",
+			setupFunc: func(t *testing.T) string {
+				return TestDir // Return the test directory path
+			},
+			verifyFunc: func(t *testing.T, path string) {
+				var st syscall.Statfs_t
+				err := syscall.Statfs(path, &st)
+				require.NoError(t, err, "StatFs operation failed with error")
+				require.NotZero(t, st.Blocks, "StatFs failed, got 0 blocks!")
 
-// does unlink work? (because apparently we weren't testing that before...)
-func TestUnlink(t *testing.T) {
-	fname := filepath.Join(TestDir, "unlink_tester")
-	require.NoError(t, exec.Command("touch", fname).Run())
-	require.NoError(t, os.Remove(fname))
-	stdout, _ := exec.Command("ls", "mount").Output()
-	require.NotContains(t, string(stdout), "unlink_tester", "Deleting %s did not work.", fname)
+				// Log some useful information about the filesystem
+				t.Logf("Filesystem stats for %s: Blocks=%d, BlockSize=%d, Free=%d", 
+					path, st.Blocks, st.Bsize, st.Bfree)
+			},
+		},
+		{
+			name:        "Unlink_ShouldRemoveFile",
+			operation:   "unlink",
+			description: "Verify that unlink (remove) operation works correctly",
+			setupFunc: func(t *testing.T) string {
+				// Create a unique filename for this test to avoid conflicts
+				fname := filepath.Join(TestDir, fmt.Sprintf("unlink_test_%s", t.Name()))
+
+				// Create the file
+				require.NoError(t, exec.Command("touch", fname).Run(), 
+					"Failed to create test file for unlink operation")
+
+				// Wait for the filesystem to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(fname)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
+
+				return fname
+			},
+			verifyFunc: func(t *testing.T, path string) {
+				// Remove the file
+				require.NoError(t, os.Remove(path), "Failed to remove file with unlink operation")
+
+				// Wait for the filesystem to process the file deletion
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(path)
+					return os.IsNotExist(err) // Return true when the file no longer exists
+				}, 5*time.Second, 100*time.Millisecond, "File was not removed within timeout")
+
+				// Verify the file is no longer in the directory listing
+				stdout, err := exec.Command("ls", filepath.Dir(path)).Output()
+				require.NoError(t, err, "Failed to list directory contents")
+				require.NotContains(t, string(stdout), filepath.Base(path), 
+					"Deleting %s did not work, file still appears in directory listing", path)
+			},
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// For unlink tests, we can run in parallel
+			if tc.operation == "unlink" {
+				t.Parallel()
+			}
+			// For statfs, we don't run in parallel as it operates on the shared TestDir
+
+			// Setup the test
+			path := tc.setupFunc(t)
+
+			// For unlink operation, setup cleanup in case the test fails
+			if tc.operation == "unlink" {
+				t.Cleanup(func() {
+					if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test file %s: %v", path, err)
+					}
+				})
+			}
+
+			// Run the verification
+			tc.verifyFunc(t, path)
+		})
+	}
 }
 
 // TestCaseSensitivityHandling tests how the filesystem handles case-sensitivity issues
