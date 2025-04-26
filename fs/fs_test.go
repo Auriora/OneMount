@@ -232,22 +232,121 @@ func TestRmdirNonempty(t *testing.T) {
 		"Could not remove a nonempty directory the correct way!")
 }
 
-// test that we can write to a file and read its contents back correctly
-func TestReadWrite(t *testing.T) {
-	fname := filepath.Join(TestDir, "write.txt")
+// TestFileOperations tests various file operations using a table-driven approach
+func TestFileOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		operation   string
+		content     string
+		iterations  int
+		fileMode    int
+		verifyFunc  func(t *testing.T, filePath string, content string, iterations int)
+	}{
+		{
+			name:       "WriteAndRead_ShouldPreserveContent",
+			operation:  "write",
+			content:    "my hands are typing words\n",
+			iterations: 1,
+			fileMode:   os.O_CREATE|os.O_RDWR,
+			verifyFunc: func(t *testing.T, filePath string, content string, iterations int) {
+				read, err := os.ReadFile(filePath)
+				require.NoError(t, err, "Failed to read file")
+				assert.Equal(t, content, string(read), "File content was not correct")
+			},
+		},
+		{
+			name:       "AppendMultipleTimes_ShouldHaveMultipleLines",
+			operation:  "append",
+			content:    "append\n",
+			iterations: 5,
+			fileMode:   os.O_APPEND|os.O_CREATE|os.O_RDWR,
+			verifyFunc: func(t *testing.T, filePath string, content string, iterations int) {
+				file, err := os.Open(filePath)
+				require.NoError(t, err, "Failed to open file for verification")
+				defer func() {
+					if closeErr := file.Close(); closeErr != nil {
+						t.Logf("Warning: Failed to close file: %v", closeErr)
+					}
+				}()
 
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
+				scanner := bufio.NewScanner(file)
+				var counter int
+				for scanner.Scan() {
+					counter++
+					scanned := scanner.Text()
+					require.Equal(t, strings.TrimSuffix(content, "\n"), scanned, 
+						"File text was wrong. Got %q, wanted %q", scanned, strings.TrimSuffix(content, "\n"))
+				}
+				require.Equal(t, iterations, counter, "Got wrong number of lines (%d), expected %d", counter, iterations)
+			},
+		},
+		{
+			name:       "TruncateMultipleTimes_ShouldHaveOneLine",
+			operation:  "truncate",
+			content:    "append\n",
+			iterations: 5,
+			fileMode:   os.O_TRUNC|os.O_CREATE|os.O_RDWR,
+			verifyFunc: func(t *testing.T, filePath string, content string, iterations int) {
+				file, err := os.Open(filePath)
+				require.NoError(t, err, "Failed to open file for verification")
+				defer func() {
+					if closeErr := file.Close(); closeErr != nil {
+						t.Logf("Warning: Failed to close file: %v", closeErr)
+					}
+				}()
 
-	content := "my hands are typing words\n"
-	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
-	read, err := os.ReadFile(fname)
-	require.NoError(t, err)
-	assert.Equal(t, content, string(read), "File content was not correct.")
+				scanner := bufio.NewScanner(file)
+				var counter int
+				for scanner.Scan() {
+					counter++
+					assert.Equal(t, strings.TrimSuffix(content, "\n"), scanner.Text(), "File text was wrong")
+				}
+				require.Equal(t, 1, counter, "Got wrong number of lines (%d), expected 1", counter)
+			},
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel() // Run subtests in parallel
+			// Create a unique filename for this test case to avoid conflicts
+			filePath := filepath.Join(TestDir, fmt.Sprintf("%s_%s.txt", tc.operation, t.Name()))
+
+			// Setup cleanup to remove the file after test completes or fails
+			t.Cleanup(func() {
+				if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+				}
+			})
+
+			// Remove the file if it exists to ensure we start fresh
+			if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+				t.Logf("Warning: Failed to remove file: %v", err)
+			}
+
+			// Perform the operation
+			if tc.operation == "write" {
+				// Simple write operation
+				require.NoError(t, os.WriteFile(filePath, []byte(tc.content), 0644), 
+					"Failed to write to file")
+			} else {
+				// Append or truncate operations
+				for i := 0; i < tc.iterations; i++ {
+					file, err := os.OpenFile(filePath, tc.fileMode, 0644)
+					require.NoError(t, err, "Failed to open file for %s: %v", tc.operation, err)
+					_, err = file.WriteString(tc.content)
+					require.NoError(t, err, "Failed to write to file: %v", err)
+					require.NoError(t, file.Close(), "Failed to close file: %v", err)
+				}
+			}
+
+			// Verify the results
+			tc.verifyFunc(t, filePath, tc.content, tc.iterations)
+		})
+	}
 }
 
 // ld can crash the filesystem because it starts writing output at byte 64 in previously
@@ -351,83 +450,7 @@ func TestCopy(t *testing.T) {
 	assert.Equal(t, content, string(read), "File content was not correct.")
 }
 
-// do appends work correctly?
-func TestAppend(t *testing.T) {
-	fname := filepath.Join(TestDir, "append.txt")
-
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
-
-	// Remove the file if it exists to ensure we start fresh
-	if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-		t.Logf("Warning: Failed to remove file: %v", err)
-	}
-
-	for i := 0; i < 5; i++ {
-		file, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		require.NoError(t, err, "Failed to open file for append: %v", err)
-		_, err = file.WriteString("append\n")
-		require.NoError(t, err, "Failed to write to file: %v", err)
-		require.NoError(t, file.Close(), "Failed to close file: %v", err)
-	}
-
-	file, err := os.Open(fname)
-	require.NoError(t, err)
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			t.Logf("Warning: Failed to close file: %v", closeErr)
-		}
-	}()
-
-	scanner := bufio.NewScanner(file)
-	var counter int
-	for scanner.Scan() {
-		counter++
-		scanned := scanner.Text()
-		require.Equal(t, "append", scanned, "File text was wrong. Got \"%s\", wanted \"append\"", scanned)
-	}
-	require.Equal(t, 5, counter, "Got wrong number of lines (%d), expected 5", counter)
-}
-
-// identical to TestAppend, but truncates the file each time it is written to
-func TestTruncate(t *testing.T) {
-	fname := filepath.Join(TestDir, "truncate.txt")
-
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
-
-	for i := 0; i < 5; i++ {
-		file, err := os.OpenFile(fname, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
-		require.NoError(t, err, "Failed to open file for truncate: %v", err)
-		_, err = file.WriteString("append\n")
-		require.NoError(t, err, "Failed to write to file: %v", err)
-		require.NoError(t, file.Close(), "Failed to close file: %v", err)
-	}
-
-	file, err := os.Open(fname)
-	require.NoError(t, err)
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			t.Logf("Warning: Failed to close file: %v", closeErr)
-		}
-	}()
-
-	scanner := bufio.NewScanner(file)
-	var counter int
-	for scanner.Scan() {
-		counter++
-		assert.Equal(t, "append", scanner.Text(), "File text was wrong.")
-	}
-	require.Equal(t, 1, counter, "Got wrong number of lines (%d), expected 1", counter)
-}
+// Note: TestAppend and TestTruncate have been refactored into the table-driven TestFileOperations above
 
 // can we seek to the middle of a file and do writes there correctly?
 func TestReadWriteMidfile(t *testing.T) {

@@ -1,6 +1,9 @@
 package fs
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,82 +18,97 @@ func TestXattrOperations(t *testing.T) {
 	inode := NewInode("test_xattr", 0644|fuse.S_IFREG, nil)
 	require.NotNil(t, inode, "Failed to create test inode")
 
-	// Test SetXAttr
-	t.Run("SetXAttr", func(t *testing.T) {
-		inode.Lock()
-		// Initialize the xattrs map if it's nil
-		if inode.xattrs == nil {
-			inode.xattrs = make(map[string][]byte)
-		}
+	// Initialize the xattrs map
+	inode.Lock()
+	if inode.xattrs == nil {
+		inode.xattrs = make(map[string][]byte)
+	}
+	inode.Unlock()
 
+	// Define constants for test data
+	const (
+		attrName1 = "user.test.attr"
+		attrName2 = "user.test.attr2"
+	)
+	attrValue1 := []byte("test value")
+	attrValue2 := []byte("another value")
+
+	// Test SetXAttr
+	t.Run("SetXAttr_ShouldStoreAttributeValue", func(t *testing.T) {
 		// Set an xattr
-		attrName := "user.test.attr"
-		attrValue := []byte("test value")
-		inode.xattrs[attrName] = attrValue
+		inode.Lock()
+		inode.xattrs[attrName1] = attrValue1
 		inode.Unlock()
 
 		// Verify the xattr was set
 		inode.RLock()
-		value, exists := inode.xattrs[attrName]
+		value, exists := inode.xattrs[attrName1]
 		inode.RUnlock()
 
-		assert.True(t, exists, "Xattr was not set")
-		assert.Equal(t, attrValue, value, "Xattr value does not match")
+		require.True(t, exists, "Xattr was not set: %s", attrName1)
+		assert.Equal(t, attrValue1, value, "Xattr value does not match. Got %v, expected %v", value, attrValue1)
 	})
 
 	// Test GetXAttr
-	t.Run("GetXAttr", func(t *testing.T) {
+	t.Run("GetXAttr_ShouldRetrieveAttributeValue", func(t *testing.T) {
+		// Verify the xattr exists and has the correct value
 		inode.RLock()
-		attrName := "user.test.attr"
-		value, exists := inode.xattrs[attrName]
+		value, exists := inode.xattrs[attrName1]
 		inode.RUnlock()
 
-		assert.True(t, exists, "Xattr does not exist")
-		assert.Equal(t, []byte("test value"), value, "Xattr value does not match")
+		require.True(t, exists, "Xattr does not exist: %s", attrName1)
+		assert.Equal(t, attrValue1, value, "Xattr value does not match. Got %v, expected %v", value, attrValue1)
 	})
 
 	// Test ListXAttr
-	t.Run("ListXAttr", func(t *testing.T) {
+	t.Run("ListXAttr_ShouldReturnAllAttributes", func(t *testing.T) {
 		// Add another xattr
 		inode.Lock()
-		inode.xattrs["user.test.attr2"] = []byte("another value")
+		inode.xattrs[attrName2] = attrValue2
 		inode.Unlock()
 
 		// List xattrs
 		inode.RLock()
 		attrCount := len(inode.xattrs)
-		hasAttr1 := false
-		hasAttr2 := false
-		for name := range inode.xattrs {
-			if name == "user.test.attr" {
-				hasAttr1 = true
-			}
-			if name == "user.test.attr2" {
-				hasAttr2 = true
-			}
+		attributes := make(map[string][]byte)
+		for name, value := range inode.xattrs {
+			attributes[name] = value
 		}
 		inode.RUnlock()
 
-		assert.Equal(t, 2, attrCount, "Wrong number of xattrs")
-		assert.True(t, hasAttr1, "First xattr not found")
-		assert.True(t, hasAttr2, "Second xattr not found")
+		// Verify both xattrs are present
+		require.Equal(t, 2, attrCount, "Wrong number of xattrs. Got %d, expected 2", attrCount)
+
+		value1, exists1 := attributes[attrName1]
+		require.True(t, exists1, "First xattr not found: %s", attrName1)
+		assert.Equal(t, attrValue1, value1, "First xattr value does not match. Got %v, expected %v", value1, attrValue1)
+
+		value2, exists2 := attributes[attrName2]
+		require.True(t, exists2, "Second xattr not found: %s", attrName2)
+		assert.Equal(t, attrValue2, value2, "Second xattr value does not match. Got %v, expected %v", value2, attrValue2)
 	})
 
 	// Test RemoveXAttr
-	t.Run("RemoveXAttr", func(t *testing.T) {
+	t.Run("RemoveXAttr_ShouldDeleteAttribute", func(t *testing.T) {
 		// Remove an xattr
 		inode.Lock()
-		delete(inode.xattrs, "user.test.attr")
+		delete(inode.xattrs, attrName1)
 		inode.Unlock()
 
 		// Verify it was removed
 		inode.RLock()
-		_, exists := inode.xattrs["user.test.attr"]
+		_, exists := inode.xattrs[attrName1]
 		attrCount := len(inode.xattrs)
+		remainingAttrs := make([]string, 0, attrCount)
+		for name := range inode.xattrs {
+			remainingAttrs = append(remainingAttrs, name)
+		}
 		inode.RUnlock()
 
-		assert.False(t, exists, "Xattr was not removed")
-		assert.Equal(t, 1, attrCount, "Wrong number of xattrs after removal")
+		require.False(t, exists, "Xattr was not removed: %s", attrName1)
+		require.Equal(t, 1, attrCount, "Wrong number of xattrs after removal. Got %d, expected 1", attrCount)
+		assert.Equal(t, attrName2, remainingAttrs[0], "Remaining xattr is not the expected one. Got %s, expected %s", 
+			remainingAttrs[0], attrName2)
 	})
 }
 
@@ -179,9 +197,19 @@ func TestFileStatusXattr(t *testing.T) {
 
 // TestFilesystemXattrOperations tests the FUSE xattr operations on the Filesystem struct
 func TestFilesystemXattrOperations(t *testing.T) {
+	// Create a unique test directory path
+	testDir := filepath.Join("tmp", fmt.Sprintf("test_fs_xattr_%d", time.Now().UnixNano()))
+
 	// Create a test filesystem
-	testFS, err := NewFilesystem(auth, "tmp/test_fs_xattr", 30)
+	testFS, err := NewFilesystem(auth, testDir, 30)
 	require.NoError(t, err, "Failed to create test filesystem")
+
+	// Setup cleanup to remove the test directory after test completes or fails
+	t.Cleanup(func() {
+		if err := os.RemoveAll(testDir); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", testDir, err)
+		}
+	})
 
 	// Create a test inode
 	inode := NewInode("test_fs_xattr", 0644|fuse.S_IFREG, nil)
@@ -191,62 +219,71 @@ func TestFilesystemXattrOperations(t *testing.T) {
 	nodeID := testFS.InsertChild("root", inode)
 	require.NotZero(t, nodeID, "Failed to insert inode into filesystem")
 
+	// Define constants for test data
+	const (
+		attrName1 = "user.test.fs.attr"
+		attrName2 = "user.test.fs.attr2"
+	)
+	attrValue1 := []byte("test filesystem value")
+	attrValue2 := []byte("another value")
+
 	// Test SetXAttr
-	t.Run("SetXAttr", func(t *testing.T) {
+	t.Run("SetXAttr_ShouldStoreAttributeInFilesystem", func(t *testing.T) {
 		// Create input parameters
 		in := &fuse.SetXAttrIn{InHeader: fuse.InHeader{NodeId: nodeID}}
-		attrName := "user.test.fs.attr"
-		attrValue := []byte("test filesystem value")
 
 		// Call SetXAttr
-		status := testFS.SetXAttr(nil, in, attrName, attrValue)
-		assert.Equal(t, fuse.OK, status, "SetXAttr failed")
+		status := testFS.SetXAttr(nil, in, attrName1, attrValue1)
+		require.Equal(t, fuse.OK, status, "SetXAttr failed with status: %v", status)
 
 		// Verify the xattr was set
 		inode.RLock()
-		value, exists := inode.xattrs[attrName]
+		value, exists := inode.xattrs[attrName1]
 		inode.RUnlock()
 
-		assert.True(t, exists, "Xattr was not set")
-		assert.Equal(t, attrValue, value, "Xattr value does not match")
+		require.True(t, exists, "Xattr was not set: %s", attrName1)
+		assert.Equal(t, attrValue1, value, "Xattr value does not match. Got %v, expected %v", value, attrValue1)
 	})
 
 	// Test GetXAttr
-	t.Run("GetXAttr", func(t *testing.T) {
+	t.Run("GetXAttr_ShouldRetrieveAttributeFromFilesystem", func(t *testing.T) {
 		// Create input parameters
 		header := &fuse.InHeader{NodeId: nodeID}
-		attrName := "user.test.fs.attr"
 
 		// First call with zero buffer to get size
 		buf := make([]byte, 0)
-		size, status := testFS.GetXAttr(nil, header, attrName, buf)
-		assert.Equal(t, fuse.OK, status, "GetXAttr size query failed")
-		assert.Equal(t, uint32(len([]byte("test filesystem value"))), size, "GetXAttr returned wrong size")
+		size, status := testFS.GetXAttr(nil, header, attrName1, buf)
+		require.Equal(t, fuse.OK, status, "GetXAttr size query failed with status: %v", status)
+		require.Equal(t, uint32(len(attrValue1)), size, 
+			"GetXAttr returned wrong size. Got %d, expected %d", size, len(attrValue1))
 
 		// Call with properly sized buffer
 		buf = make([]byte, size)
-		size, status = testFS.GetXAttr(nil, header, attrName, buf)
-		assert.Equal(t, fuse.OK, status, "GetXAttr failed")
-		assert.Equal(t, uint32(len([]byte("test filesystem value"))), size, "GetXAttr returned wrong size")
-		assert.Equal(t, []byte("test filesystem value"), buf, "GetXAttr returned wrong value")
+		size, status = testFS.GetXAttr(nil, header, attrName1, buf)
+		require.Equal(t, fuse.OK, status, "GetXAttr failed with status: %v", status)
+		require.Equal(t, uint32(len(attrValue1)), size, 
+			"GetXAttr returned wrong size. Got %d, expected %d", size, len(attrValue1))
+		assert.Equal(t, attrValue1, buf, 
+			"GetXAttr returned wrong value. Got %v, expected %v", buf, attrValue1)
 	})
 
 	// Test ListXAttr
-	t.Run("ListXAttr", func(t *testing.T) {
+	t.Run("ListXAttr_ShouldReturnAllAttributesFromFilesystem", func(t *testing.T) {
 		// Set another xattr
 		in := &fuse.SetXAttrIn{InHeader: fuse.InHeader{NodeId: nodeID}}
-		testFS.SetXAttr(nil, in, "user.test.fs.attr2", []byte("another value"))
+		status := testFS.SetXAttr(nil, in, attrName2, attrValue2)
+		require.Equal(t, fuse.OK, status, "Failed to set second xattr with status: %v", status)
 
 		// First call with zero buffer to get size
 		buf := make([]byte, 0)
 		size, status := testFS.ListXAttr(nil, &in.InHeader, buf)
-		assert.Equal(t, fuse.OK, status, "ListXAttr size query failed")
-		assert.Greater(t, size, uint32(0), "ListXAttr returned zero size")
+		require.Equal(t, fuse.OK, status, "ListXAttr size query failed with status: %v", status)
+		require.Greater(t, size, uint32(0), "ListXAttr returned zero size")
 
 		// Call with properly sized buffer
 		buf = make([]byte, size)
 		size, status = testFS.ListXAttr(nil, &in.InHeader, buf)
-		assert.Equal(t, fuse.OK, status, "ListXAttr failed")
+		require.Equal(t, fuse.OK, status, "ListXAttr failed with status: %v", status)
 
 		// Parse the null-terminated list of attribute names
 		var attrs []string
@@ -258,30 +295,36 @@ func TestFilesystemXattrOperations(t *testing.T) {
 			}
 		}
 
-		assert.Contains(t, attrs, "user.test.fs.attr", "ListXAttr did not return first attribute")
-		assert.Contains(t, attrs, "user.test.fs.attr2", "ListXAttr did not return second attribute")
+		// Verify both attributes are present
+		require.GreaterOrEqual(t, len(attrs), 2, 
+			"ListXAttr returned too few attributes. Got %d, expected at least 2", len(attrs))
+		assert.Contains(t, attrs, attrName1, 
+			"ListXAttr did not return first attribute: %s. Got attributes: %v", attrName1, attrs)
+		assert.Contains(t, attrs, attrName2, 
+			"ListXAttr did not return second attribute: %s. Got attributes: %v", attrName2, attrs)
 	})
 
 	// Test RemoveXAttr
-	t.Run("RemoveXAttr", func(t *testing.T) {
+	t.Run("RemoveXAttr_ShouldDeleteAttributeFromFilesystem", func(t *testing.T) {
 		// Create input parameters
 		header := &fuse.InHeader{NodeId: nodeID}
-		attrName := "user.test.fs.attr"
 
 		// Call RemoveXAttr
-		status := testFS.RemoveXAttr(nil, header, attrName)
-		assert.Equal(t, fuse.OK, status, "RemoveXAttr failed")
+		status := testFS.RemoveXAttr(nil, header, attrName1)
+		require.Equal(t, fuse.OK, status, "RemoveXAttr failed with status: %v", status)
 
 		// Verify the xattr was removed
 		inode.RLock()
-		_, exists := inode.xattrs[attrName]
+		_, exists := inode.xattrs[attrName1]
 		inode.RUnlock()
 
-		assert.False(t, exists, "Xattr was not removed")
+		require.False(t, exists, "Xattr was not removed: %s", attrName1)
 
 		// Try to get the removed xattr
 		buf := make([]byte, 100)
-		_, status = testFS.GetXAttr(nil, header, attrName, buf)
-		assert.NotEqual(t, fuse.OK, status, "GetXAttr succeeded for removed attribute")
+		_, status = testFS.GetXAttr(nil, header, attrName1, buf)
+		assert.NotEqual(t, fuse.OK, status, 
+			"GetXAttr succeeded for removed attribute: %s. Expected failure but got status: %v", 
+			attrName1, status)
 	})
 }

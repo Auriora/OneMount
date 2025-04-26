@@ -105,6 +105,19 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Used descriptive test case names that clearly indicate what is being tested
     - Added proper setup and cleanup for each test case
     - Improved error handling with descriptive error messages
+  - Converted file operation tests in fs/fs_test.go to a table-driven approach:
+    - Combined TestReadWrite, TestAppend, and TestTruncate into a single TestFileOperations test
+    - Used descriptive test case names that clearly indicate what is being tested
+    - Added parallel execution for each test case
+    - Created unique filenames for each test case to avoid conflicts
+    - Added proper cleanup for each test case
+    - Improved error handling with descriptive error messages
+  - Improved xattr operation tests in fs/xattr_operations_test.go:
+    - Added descriptive test names using the format "Operation_ShouldExpectedResult"
+    - Added proper cleanup for test resources
+    - Made the test structure more consistent
+    - Added better error messages with more context
+    - Improved verification to provide more detailed information
   - Converted TestUntemplateUnit in ui/systemd/systemd_test.go to a table-driven test:
     - Added multiple test cases with descriptive names
     - Used parallel execution for each test case
@@ -138,8 +151,8 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestReadWrite, TestAppend, and TestTruncate in fs/fs_test.go
-       - TestXattrOperations and TestFilesystemXattrOperations in fs/xattr_operations_test.go
+       - TestReadWriteMidfile in fs/fs_test.go
+       - TestRenameMove and TestCopy in fs/fs_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
