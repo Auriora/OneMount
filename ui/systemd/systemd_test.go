@@ -1,6 +1,7 @@
 package systemd
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -107,34 +108,82 @@ func TestUntemplateUnit(t *testing.T) {
 	}
 }
 
-// can we enable and disable systemd units? (and correctly check if the units are
-// enabled/disabled?)
+// TestUnitEnabled tests that we can enable and disable systemd units
+// and correctly check if the units are enabled/disabled
 func TestUnitEnabled(t *testing.T) {
 	t.Parallel()
-	testDir, _ := os.Getwd()
+
+	// Get the current directory and create a unit name for testing
+	testDir, err := os.Getwd()
+	require.NoError(t, err, "Failed to get current directory")
 	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testDir+"/mount"))
 
-	// make sure everything is disabled before we start
-	require.NoError(t, UnitSetEnabled(unitName, false))
+	// Define test cases
+	testCases := []struct {
+		name          string
+		setEnabled    bool
+		expectedState bool
+	}{
+		{
+			name:          "DisableUnit_ShouldBeDisabled",
+			setEnabled:    false,
+			expectedState: false,
+		},
+		{
+			name:          "EnableUnit_ShouldBeEnabled",
+			setEnabled:    true,
+			expectedState: true,
+		},
+		{
+			name:          "DisableAgain_ShouldBeDisabled",
+			setEnabled:    false,
+			expectedState: false,
+		},
+	}
+
+	// Make sure everything is disabled before we start
+	err = UnitSetEnabled(unitName, false)
+	require.NoError(t, err, "Failed to disable unit before test")
 	enabled, err := UnitIsEnabled(unitName)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to check if unit is enabled")
 	require.False(t, enabled, "Unit was enabled before test started and we couldn't disable it!")
 
-	// actual test content
-	require.NoError(t, UnitSetEnabled(unitName, true))
-	enabled, err = UnitIsEnabled(unitName)
-	require.NoError(t, err)
-	require.True(t, enabled, "Could not detect unit as enabled.")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// We don't use t.Parallel() here because we need to run these tests in sequence
+			// to properly test the enable/disable functionality
 
-	require.NoError(t, UnitSetEnabled(unitName, false))
-	enabled, err = UnitIsEnabled(unitName)
-	require.NoError(t, err)
-	require.False(t, enabled, "Unit was still enabled after disabling it.")
+			// Set the unit to the desired state
+			err := UnitSetEnabled(unitName, tc.setEnabled)
+			require.NoError(t, err, "Failed to set unit enabled state to %v", tc.setEnabled)
+
+			// Check if the unit is in the expected state
+			enabled, err := UnitIsEnabled(unitName)
+			require.NoError(t, err, "Failed to check if unit is enabled")
+			require.Equal(t, tc.expectedState, enabled, 
+				"Unit enabled state does not match expected state. Expected: %v, Got: %v", 
+				tc.expectedState, enabled)
+		})
+	}
+
+	// Ensure cleanup: disable the unit after all tests
+	t.Cleanup(func() {
+		if err := UnitSetEnabled(unitName, false); err != nil {
+			t.Logf("Warning: Failed to disable unit during cleanup: %v", err)
+		}
+	})
 }
 
+// TestUnitActive tests that we can start and stop systemd units
+// and correctly check if the units are active/inactive
 func TestUnitActive(t *testing.T) {
 	t.Parallel()
-	testDir, _ := os.Getwd()
+
+	// Get the current directory and create a unit name for testing
+	testDir, err := os.Getwd()
+	require.NoError(t, err, "Failed to get current directory")
 	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testDir+"/mount"))
 
 	// Check if the unit exists before proceeding
@@ -155,27 +204,73 @@ func TestUnitActive(t *testing.T) {
 		t.Skipf("Unit %s not found, skipping test", unitName)
 	}
 
-	// make extra sure things are off before we start
-	require.NoError(t, UnitSetActive(unitName, false))
+	// Define test cases
+	testCases := []struct {
+		name          string
+		setActive     bool
+		expectedState bool
+		waitForState  bool // Whether to wait for the state to change
+	}{
+		{
+			name:          "StopUnit_ShouldBeInactive",
+			setActive:     false,
+			expectedState: false,
+			waitForState:  false, // No need to wait for stopping as it's usually quick
+		},
+		{
+			name:          "StartUnit_ShouldBeActive",
+			setActive:     true,
+			expectedState: true,
+			waitForState:  true, // Need to wait for the unit to start
+		},
+		{
+			name:          "StopAgain_ShouldBeInactive",
+			setActive:     false,
+			expectedState: false,
+			waitForState:  false,
+		},
+	}
+
+	// Make sure everything is stopped before we start
+	err = UnitSetActive(unitName, false)
+	require.NoError(t, err, "Failed to stop unit before test")
 	active, err := UnitIsActive(unitName)
-	require.NoError(t, err)
-	require.False(t, active, "Unit was active before job start and we could not stop it!")
+	require.NoError(t, err, "Failed to check if unit is active")
+	require.False(t, active, "Unit was active before test started and we could not stop it!")
 
-	require.NoError(t, UnitSetActive(unitName, true), "Failed to start unit.")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// We don't use t.Parallel() here because we need to run these tests in sequence
+			// to properly test the start/stop functionality
 
-	// Use WaitForCondition to wait for the unit to become active
-	// This replaces the fixed timeout with dynamic waiting
-	var isActive bool
-	testutil.WaitForCondition(t, func() bool {
-		var err error
-		isActive, err = UnitIsActive(unitName)
-		return err == nil && isActive
-	}, 5*time.Second, 500*time.Millisecond, "Unit did not become active within timeout")
+			// Set the unit to the desired state
+			err := UnitSetActive(unitName, tc.setActive)
+			require.NoError(t, err, "Failed to set unit active state to %v", tc.setActive)
 
-	require.True(t, isActive, "Could not detect unit as active following start.")
+			// If we need to wait for the state to change (e.g., for starting the unit)
+			if tc.waitForState {
+				message := fmt.Sprintf("Unit did not reach expected state (%v) within timeout", tc.expectedState)
+				testutil.WaitForCondition(t, func() bool {
+					active, err := UnitIsActive(unitName)
+					return err == nil && active == tc.expectedState
+				}, 5*time.Second, 500*time.Millisecond, message)
+			}
 
-	require.NoError(t, UnitSetActive(unitName, false), "Failed to stop unit.")
-	active, err = UnitIsActive(unitName)
-	require.NoError(t, err, "Failed to check unit active state.")
-	require.False(t, active, "Did not detect unit as stopped.")
+			// Check if the unit is in the expected state
+			active, err := UnitIsActive(unitName)
+			require.NoError(t, err, "Failed to check if unit is active")
+			require.Equal(t, tc.expectedState, active, 
+				"Unit active state does not match expected state. Expected: %v, Got: %v", 
+				tc.expectedState, active)
+		})
+	}
+
+	// Ensure cleanup: stop the unit after all tests
+	t.Cleanup(func() {
+		if err := UnitSetActive(unitName, false); err != nil {
+			t.Logf("Warning: Failed to stop unit during cleanup: %v", err)
+		}
+	})
 }

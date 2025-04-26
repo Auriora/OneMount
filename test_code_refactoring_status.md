@@ -60,6 +60,9 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Converted TestMountpointIsValid in ui/onedriver_test.go to use table-driven tests with subtests
   - Converted TestHomeEscapeUnescape in ui/onedriver_test.go to use table-driven tests with subtests
   - Added nested subtests for testing related operations
+  - Converted TestUnitEnabled and TestUnitActive in ui/systemd/systemd_test.go to use table-driven tests with subtests
+  - Added proper cleanup using t.Cleanup() to ensure resources are released
+  - Added comments explaining why some subtests cannot use t.Parallel()
 
 ### 4. Improve Error Handling (IN PROGRESS)
 
