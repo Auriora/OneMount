@@ -26,7 +26,8 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Added improved error handling in cleanup functions
   - Updated cmd/common package tests to use `t.Cleanup()` for resource cleanup
   - Identified that ui package tests need to be updated to use `t.Cleanup()` instead of defer
-  - Identified that fs/offline package tests mostly use `t.Cleanup()` but some still use defer
+  - Reviewed fs/offline package tests and found they already use `t.Cleanup()` for resource cleanup in all test functions
+  - Verified that defer is only used in the TestMain function where `t.Cleanup()` is not available
 - Implement consistent assertion style using `require` and `assert` (PARTIALLY COMPLETED)
   - Updated all tests in the fs/graph package to use `require` for critical assertions and `assert` for non-critical assertions
   - Reviewed fs package tests and found they already use a mix of `require` and `assert` appropriately
