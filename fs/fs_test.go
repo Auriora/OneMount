@@ -2124,22 +2124,17 @@ func TestDisallowedFilenames(t *testing.T) {
 
 			// Attempt to create the file/directory
 			var err error
+			fileType := "file"
 			if tc.isDir {
+				fileType = "directory"
 				err = os.Mkdir(tc.path, 0755)
 			} else {
 				err = os.WriteFile(tc.path, []byte("this should not work"), 0644)
 			}
 
 			// Check if the operation was rejected as expected
-			if err != nil {
-				t.Logf("Got expected error: %v", err)
-			} else {
-				fileType := "file"
-				if tc.isDir {
-					fileType = "directory"
-				}
-				t.Errorf("No error when creating %s with disallowed name: %s", fileType, tc.path)
-			}
+			require.Error(t, err, "No error when creating %s with disallowed name: %s", fileType, tc.path)
+			t.Logf("Got expected error: %v", err)
 		})
 	}
 
@@ -2162,9 +2157,7 @@ func TestDisallowedFilenames(t *testing.T) {
 
 		// Create a valid directory
 		err := os.Mkdir(validDir, 0755)
-		if err != nil {
-			t.Fatalf("Failed to create valid directory: %v", err)
-		}
+		require.NoError(t, err, "Failed to create valid directory: %v", err)
 
 		// Wait for the filesystem to process the directory creation
 		testutil.WaitForCondition(t, func() bool {
@@ -2174,11 +2167,8 @@ func TestDisallowedFilenames(t *testing.T) {
 
 		// Try to rename it to an invalid name
 		err = os.Rename(validDir, invalidDir)
-		if err != nil {
-			t.Logf("Got expected error when renaming to disallowed name: %v", err)
-		} else {
-			t.Errorf("No error when renaming to disallowed name: %s", invalidDir)
-		}
+		require.Error(t, err, "No error when renaming to disallowed name: %s", invalidDir)
+		t.Logf("Got expected error when renaming to disallowed name: %v", err)
 	})
 
 	t.Log("Note: This test is informational. OneDrive may reject these files later during upload.")

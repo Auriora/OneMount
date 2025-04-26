@@ -242,6 +242,12 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Improved error handling with descriptive error messages
     - Added waiting for file creation and deletion with WaitForCondition
     - Added more detailed logging for debugging
+  - Improved TestDisallowedFilenames in fs/fs_test.go:
+    - Kept the existing table-driven structure for file/directory creation tests
+    - Improved error checking by using require.Error() instead of manual if/else
+    - Added more descriptive error messages
+    - Enhanced the rename test with proper error handling
+    - Maintained parallel execution, unique paths, and cleanup
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
