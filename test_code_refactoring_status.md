@@ -35,11 +35,17 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Identified that ui package tests need to be updated to use `require` for critical assertions
   - Identified that fs/offline package tests mostly use `require` but some still use t.Fatal/t.Error
 
-### 3. Improve Test Reliability (NOT STARTED)
+### 3. Improve Test Reliability (IN PROGRESS)
 
 **Implementation**: Make tests more reliable:
-- Replace fixed timeouts with dynamic waiting
-- Fix race conditions in tests
+- Replace fixed timeouts with dynamic waiting (PARTIALLY COMPLETED)
+  - Added WaitForCondition utility in testutil/async.go to replace fixed timeouts with dynamic waiting
+  - Updated TestUnitActive in ui/systemd/systemd_test.go to use WaitForCondition instead of fixed timeout
+  - Updated setup_test.go in fs/offline to use WaitForCondition for mount point checks and other waiting operations
+  - Added RetryWithBackoff utility in testutil/async.go for operations that need multiple attempts
+- Fix race conditions in tests (PARTIALLY COMPLETED)
+  - Fixed race conditions in TestUploadDiskSerialization by making the test more deterministic
+  - Improved TestRepeatedUploads to use dynamic waiting instead of fixed sleeps
 - Isolate tests from each other
 
 ### 4. Improve Error Handling (NOT STARTED)
@@ -67,9 +73,17 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
      - Replace defer with t.Cleanup() in setup_test.go
 
-2. Begin implementing test reliability improvements:
-   - Replace fixed timeouts with dynamic waiting using the new testutil/async.go utilities:
-     - Update TestUnitActive in ui/systemd/systemd_test.go to use WaitForCondition instead of fixed timeout
-     - Update setup_test.go in fs/offline to use WaitForCondition for mount point checks
-   - Fix race conditions in tests, particularly in TestUploadDiskSerialization
-   - Isolate tests from each other by using subtests and proper cleanup
+2. Continue implementing test reliability improvements:
+   - Replace more fixed timeouts with dynamic waiting:
+     - Update TestTouchUpdateTime in fs/fs_test.go to use WaitForCondition instead of fixed sleep
+     - Update TestMkdirRmdir in fs/fs_test.go to use WaitForCondition instead of fixed sleep
+     - Update TestNTFSIsABadFilesystem in fs/fs_test.go to use WaitForCondition instead of fixed sleeps
+     - Update TestEchoWritesToFile in fs/fs_test.go to use WaitForCondition instead of fixed sleep
+   - Isolate tests from each other by using subtests and proper cleanup:
+     - Convert TestFilePermissions in fs/fs_test.go to use table-driven tests with subtests
+     - Convert TestMountpointIsValid in ui/onedriver_test.go to use table-driven tests with subtests
+     - Convert TestHomeEscapeUnescape in ui/onedriver_test.go to use table-driven tests with subtests
+
+3. Begin implementing error handling improvements:
+   - Add context to error messages in fs/offline/offline_test.go
+   - Test error conditions explicitly in ui/onedriver_test.go
