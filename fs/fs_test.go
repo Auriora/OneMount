@@ -175,66 +175,98 @@ func TestLs(t *testing.T) {
 	}
 }
 
-// can touch create an empty file?
-func TestTouchCreate(t *testing.T) {
-	fname := filepath.Join(TestDir, "empty")
+// TestTouchOperations tests various operations with the touch command using a table-driven approach
+func TestTouchOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		operation   string // "create" or "update"
+		verifyFunc  func(t *testing.T, filePath string)
+		description string
+	}{
+		{
+			name:        "CreateEmptyFile_ShouldHaveCorrectProperties",
+			operation:   "create",
+			description: "Create an empty file and verify its properties",
+			verifyFunc: func(t *testing.T, filePath string) {
+				st, err := os.Stat(filePath)
+				require.NoError(t, err, "Failed to stat file")
 
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
+				require.Zero(t, st.Size(), "Size should be zero")
+				// Check that the file is at least readable and writable by the owner, and readable by group and others
+				// Some systems might use umask 002 instead of 022, resulting in 664 instead of 644
+				mode := st.Mode()
+				require.True(t, mode&0600 == 0600, "File should be readable and writable by owner")
+				require.True(t, mode&0044 == 0044, "File should be readable by group and others")
+				require.False(t, st.IsDir(), "New file detected as directory")
+			},
+		},
+		{
+			name:        "UpdateModificationTime_ShouldChangeTimestamp",
+			operation:   "update",
+			description: "Update the modification time of an existing file",
+			verifyFunc: func(t *testing.T, filePath string) {
+				// First touch to create the file
+				require.NoError(t, exec.Command("touch", filePath).Run(), "Failed to create file with touch")
 
-	syscall.Umask(022) // otherwise tests fail if default umask is 002
-	require.NoError(t, exec.Command("touch", fname).Run())
-	st, err := os.Stat(fname)
-	require.NoError(t, err)
+				st1, err := os.Stat(filePath)
+				require.NoError(t, err, "Failed to stat file after first touch")
+				initialModTime := st1.ModTime()
 
-	require.Zero(t, st.Size(), "Size should be zero.")
-	// Check that the file is at least readable and writable by the owner, and readable by group and others
-	// Some systems might use umask 002 instead of 022, resulting in 664 instead of 644
-	mode := st.Mode()
-	require.True(t, mode&0600 == 0600, "File should be readable and writable by owner")
-	require.True(t, mode&0044 == 0044, "File should be readable by group and others")
-	require.False(t, st.IsDir(), "New file detected as directory.")
-}
+				// Wait a moment to ensure the second touch will have a different timestamp
+				time.Sleep(100 * time.Millisecond)
 
-// does the touch command update modification time properly?
-func TestTouchUpdateTime(t *testing.T) {
-	fname := filepath.Join(TestDir, "modtime")
+				// Run the second touch command
+				require.NoError(t, exec.Command("touch", filePath).Run(), "Failed to update file with touch")
 
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
+				// Wait for the modification time to change
+				testutil.WaitForCondition(t, func() bool {
+					st2, err := os.Stat(filePath)
+					if err != nil {
+						t.Logf("Error stating file: %v", err)
+						return false
+					}
+					return !st2.ModTime().Equal(initialModTime) && !st2.ModTime().Before(initialModTime)
+				}, 5*time.Second, 100*time.Millisecond, "File modification time was not updated by touch")
 
-	require.NoError(t, exec.Command("touch", fname).Run())
-	st1, err := os.Stat(fname)
-	require.NoError(t, err, "Failed to stat file after first touch")
-	initialModTime := st1.ModTime()
+				// Verify the modification time has changed
+				st2, err := os.Stat(filePath)
+				require.NoError(t, err, "Failed to stat file after second touch")
+				require.False(t, st2.ModTime().Equal(initialModTime) || st2.ModTime().Before(initialModTime),
+					"File modification time was not updated by touch:\nBefore: %s\nAfter: %s",
+					initialModTime.String(), st2.ModTime().String())
+			},
+		},
+	}
 
-	// Run the second touch command
-	require.NoError(t, exec.Command("touch", fname).Run())
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique filename for this test case to avoid conflicts
+			filePath := filepath.Join(TestDir, fmt.Sprintf("touch_%s_%s", tc.operation, t.Name()))
 
-	// Wait for the modification time to change
-	testutil.WaitForCondition(t, func() bool {
-		st2, err := os.Stat(fname)
-		if err != nil {
-			t.Logf("Error stating file: %v", err)
-			return false
-		}
-		return !st2.ModTime().Equal(initialModTime) && !st2.ModTime().Before(initialModTime)
-	}, 5*time.Second, 100*time.Millisecond, "File modification time was not updated by touch")
+			// Setup cleanup to remove the file after test completes or fails
+			t.Cleanup(func() {
+				if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+				}
+			})
 
-	// Verify the modification time has changed
-	st2, err := os.Stat(fname)
-	require.NoError(t, err, "Failed to stat file after second touch")
-	require.False(t, st2.ModTime().Equal(initialModTime) || st2.ModTime().Before(initialModTime),
-		"File modification time was not updated by touch:\nBefore: %d\nAfter: %d\n",
-		initialModTime.Unix(), st2.ModTime().Unix())
+			// Set umask for consistent permissions
+			if tc.operation == "create" {
+				syscall.Umask(022) // otherwise tests fail if default umask is 002
+			}
+
+			// For create operation, run touch and then verify
+			if tc.operation == "create" {
+				require.NoError(t, exec.Command("touch", filePath).Run(), "Failed to create file with touch")
+			}
+
+			// Run the verification function
+			tc.verifyFunc(t, filePath)
+		})
+	}
 }
 
 // TestFilePermissions tests that chmod works correctly with different permission modes
@@ -336,24 +368,98 @@ func TestMkdirRmdir(t *testing.T) {
 	require.NoError(t, os.Mkdir(fname, 0755))
 }
 
-// We shouldn't be able to rmdir nonempty directories
-func TestRmdirNonempty(t *testing.T) {
-	dir := filepath.Join(TestDir, "nonempty")
+// TestDirectoryRemoval tests various directory removal operations using a table-driven approach
+func TestDirectoryRemoval(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name           string
+		setupFunc      func(t *testing.T, dirPath string) error
+		removalFunc    func(dirPath string) error
+		expectedResult string // "success" or "error"
+		description    string
+	}{
+		{
+			name: "EmptyDirectory_ShouldBeRemovable",
+			setupFunc: func(t *testing.T, dirPath string) error {
+				return os.Mkdir(dirPath, 0755)
+			},
+			removalFunc: func(dirPath string) error {
+				return os.Remove(dirPath)
+			},
+			expectedResult: "success",
+			description:    "An empty directory should be removable with os.Remove",
+		},
+		{
+			name: "NonEmptyDirectory_ShouldNotBeRemovableWithRemove",
+			setupFunc: func(t *testing.T, dirPath string) error {
+				if err := os.Mkdir(dirPath, 0755); err != nil {
+					return err
+				}
+				return os.Mkdir(filepath.Join(dirPath, "contents"), 0755)
+			},
+			removalFunc: func(dirPath string) error {
+				return os.Remove(dirPath)
+			},
+			expectedResult: "error",
+			description:    "A non-empty directory should not be removable with os.Remove",
+		},
+		{
+			name: "NonEmptyDirectory_ShouldBeRemovableWithRemoveAll",
+			setupFunc: func(t *testing.T, dirPath string) error {
+				if err := os.Mkdir(dirPath, 0755); err != nil {
+					return err
+				}
+				return os.Mkdir(filepath.Join(dirPath, "contents"), 0755)
+			},
+			removalFunc: func(dirPath string) error {
+				return os.RemoveAll(dirPath)
+			},
+			expectedResult: "success",
+			description:    "A non-empty directory should be removable with os.RemoveAll",
+		},
+	}
 
-	// Setup cleanup to remove the directory after test completes or fails
-	t.Cleanup(func() {
-		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test directory %s: %v", dir, err)
-		}
-	})
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique directory name for this test case to avoid conflicts
+			dirPath := filepath.Join(TestDir, fmt.Sprintf("dir_removal_%s", t.Name()))
 
-	require.NoError(t, os.Mkdir(dir, 0755))
-	require.NoError(t, os.Mkdir(filepath.Join(dir, "contents"), 0755))
+			// Setup cleanup to remove the directory after test completes or fails
+			t.Cleanup(func() {
+				if err := os.RemoveAll(dirPath); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
+				}
+			})
 
-	require.Error(t, os.Remove(dir), "We somehow removed a nonempty directory!")
+			// Setup the directory according to the test case
+			err := tc.setupFunc(t, dirPath)
+			require.NoError(t, err, "Failed to setup directory for test")
 
-	require.NoError(t, os.RemoveAll(dir),
-		"Could not remove a nonempty directory the correct way!")
+			// Wait for the directory to be created
+			testutil.WaitForCondition(t, func() bool {
+				_, err := os.Stat(dirPath)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond, "Directory was not created within timeout")
+
+			// Attempt to remove the directory
+			err = tc.removalFunc(dirPath)
+
+			// Check the result
+			if tc.expectedResult == "success" {
+				require.NoError(t, err, "Expected directory removal to succeed, but got error: %v", err)
+
+				// Verify the directory was actually removed
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(dirPath)
+					return os.IsNotExist(err)
+				}, 5*time.Second, 100*time.Millisecond, "Directory was not removed within timeout")
+			} else {
+				require.Error(t, err, "Expected directory removal to fail, but it succeeded")
+			}
+		})
+	}
 }
 
 // TestFileOperations tests various file operations using a table-driven approach

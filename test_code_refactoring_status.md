@@ -211,6 +211,20 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Improved error handling with descriptive error messages
     - Added more detailed logging for debugging
     - Added support for checking different expected file sizes
+  - Combined TestTouchCreate and TestTouchUpdateTime in fs/fs_test.go into a single table-driven test TestTouchOperations:
+    - Added test cases for creating empty files and updating modification times
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique filenames for each test case to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+    - Added better verification of file properties
+  - Converted TestRmdirNonempty in fs/fs_test.go to a table-driven test TestDirectoryRemoval:
+    - Added test cases for removing empty directories and non-empty directories with different methods
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique directory names for each test case to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+    - Added waiting for directory creation and removal with WaitForCondition
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -236,9 +250,9 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestRmdirNonempty in fs/fs_test.go
-       - TestTouchCreate in fs/fs_test.go
-       - TestTouchUpdateTime in fs/fs_test.go
+       - TestMkdirRmdir in fs/fs_test.go
+       - TestMkdir in fs/fs_test.go
+       - TestMountpointIsValid in ui/onedriver_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
