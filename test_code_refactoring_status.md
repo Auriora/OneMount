@@ -53,7 +53,10 @@ This document summarizes the status of the recommendations from the [test_code_r
 - Fix race conditions in tests (PARTIALLY COMPLETED)
   - Fixed race conditions in TestUploadDiskSerialization by making the test more deterministic
   - Improved TestRepeatedUploads to use dynamic waiting instead of fixed sleeps
-- Isolate tests from each other
+- Isolate tests from each other (PARTIALLY COMPLETED)
+  - Converted TestChmod to TestFilePermissions using table-driven tests with subtests
+  - Added unique filenames for each subtest to avoid conflicts
+  - Added proper cleanup for each subtest
 
 ### 4. Improve Error Handling (NOT STARTED)
 
@@ -85,9 +88,9 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Update TestLibreOfficeSavePattern in fs/fs_test.go to use WaitForCondition instead of assert.Eventually
      - Update any remaining fixed sleeps in other packages
    - Isolate tests from each other by using subtests and proper cleanup:
-     - Convert TestFilePermissions in fs/fs_test.go to use table-driven tests with subtests
      - Convert TestMountpointIsValid in ui/onedriver_test.go to use table-driven tests with subtests
      - Convert TestHomeEscapeUnescape in ui/onedriver_test.go to use table-driven tests with subtests
+     - Convert more tests to use table-driven tests with subtests where appropriate
 
 3. Begin implementing error handling improvements:
    - Add context to error messages in fs/offline/offline_test.go

@@ -113,21 +113,71 @@ func TestTouchUpdateTime(t *testing.T) {
 		initialModTime.Unix(), st2.ModTime().Unix())
 }
 
-// chmod should *just work*
-func TestChmod(t *testing.T) {
-	fname := filepath.Join(TestDir, "chmod_tester")
+// TestFilePermissions tests that chmod works correctly with different permission modes
+func TestFilePermissions(t *testing.T) {
+	// Define test cases with different permission modes
+	testCases := []struct {
+		name        string
+		permissions os.FileMode
+		description string
+	}{
+		{
+			name:        "ReadOnly",
+			permissions: 0444,
+			description: "read-only",
+		},
+		{
+			name:        "ReadWrite",
+			permissions: 0644,
+			description: "read-write",
+		},
+		{
+			name:        "ReadWriteExecute",
+			permissions: 0755,
+			description: "read-write-execute",
+		},
+		{
+			name:        "AllPermissions",
+			permissions: 0777,
+			description: "all permissions",
+		},
+	}
 
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
+	// Run each test case as a subtest
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique filename for this subtest to avoid conflicts
+			fname := filepath.Join(TestDir, fmt.Sprintf("chmod_test_%s", tc.name))
 
-	require.NoError(t, exec.Command("touch", fname).Run())
-	require.NoError(t, os.Chmod(fname, 0777))
-	st, _ := os.Stat(fname)
-	require.Equal(t, os.FileMode(0777), st.Mode(), "Mode of file was not 0777, got %o instead!", st.Mode())
+			// Setup cleanup to remove the file after test completes or fails
+			t.Cleanup(func() {
+				if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+				}
+			})
+
+			// Create the test file
+			require.NoError(t, exec.Command("touch", fname).Run(), "Failed to create test file")
+
+			// Wait for the file to be created
+			testutil.WaitForCondition(t, func() bool {
+				_, err := os.Stat(fname)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
+
+			// Change the file permissions
+			require.NoError(t, os.Chmod(fname, tc.permissions), 
+				"Failed to change permissions to %o (%s)", tc.permissions, tc.description)
+
+			// Verify the permissions were set correctly
+			st, err := os.Stat(fname)
+			require.NoError(t, err, "Failed to stat file")
+			require.Equal(t, tc.permissions, st.Mode()&0777, 
+				"Mode of file was not %o (%s), got %o instead!", 
+				tc.permissions, tc.description, st.Mode()&0777)
+		})
+	}
 }
 
 // test that both mkdir and rmdir work, as well as the potentially failing
