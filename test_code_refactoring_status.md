@@ -174,6 +174,23 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Added proper cleanup with t.Cleanup()
     - Improved error handling with descriptive error messages
     - Added comprehensive verification of file attributes
+  - Converted TestNoQuestionMarks in fs/fs_test.go to a table-driven test:
+    - Added multiple test cases for different directories and ls options
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Improved error handling with descriptive error messages
+    - Added better error output for debugging
+  - Converted TestGIOTrash in fs/fs_test.go to a table-driven test:
+    - Added multiple test cases for different file types (regular text file, binary file, executable file, empty directory)
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique filenames for each test case to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+  - Converted TestListChildrenPaging in fs/fs_test.go to a table-driven test:
+    - Added multiple test cases for different directories (paging directory and root directory)
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Improved error handling with descriptive error messages
+    - Added more detailed logging for debugging
+    - Added comprehensive assertions to verify both API and filesystem results
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit

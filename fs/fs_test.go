@@ -1306,79 +1306,218 @@ func TestFileInfo(t *testing.T) {
 // but subsequently not found by lookup. Also is a nice catch-all for fs
 // metadata corruption, as `ls` will exit with 1 if something bad happens.
 func TestNoQuestionMarks(t *testing.T) {
-	out, err := exec.Command("ls", "-l", "mount/").CombinedOutput()
-	require.False(t, strings.Contains(string(out), "??????????") || err != nil,
-		"A Lookup() failed on an inode found by Readdir()\n%s", string(out))
+	testCases := []struct {
+		name      string
+		directory string
+		options   []string // Additional ls options
+	}{
+		{
+			name:      "RootDirectory_ShouldNotHaveQuestionMarks",
+			directory: "mount/",
+			options:   []string{"-l"},
+		},
+		{
+			name:      "TestDirectory_ShouldNotHaveQuestionMarks",
+			directory: "mount/onedriver_tests/",
+			options:   []string{"-l"},
+		},
+		{
+			name:      "RootDirectoryWithAllFiles_ShouldNotHaveQuestionMarks",
+			directory: "mount/",
+			options:   []string{"-la"}, // Include hidden files
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Build the command arguments
+			args := append(tc.options, tc.directory)
+
+			// Execute the ls command
+			out, err := exec.Command("ls", args...).CombinedOutput()
+
+			// Check for error in command execution
+			if err != nil {
+				t.Logf("Command output: %s", string(out))
+				require.NoError(t, err, "ls command failed for directory %s with options %v", 
+					tc.directory, tc.options)
+			}
+
+			// Check for question marks in the output
+			require.False(t, strings.Contains(string(out), "??????????"),
+				"A Lookup() failed on an inode found by Readdir() in directory %s\nCommand output:\n%s", 
+				tc.directory, string(out))
+		})
+	}
 }
 
 // Trashing items through nautilus or other Linux file managers is done via
 // "gio trash". Make an item then trash it to verify that this works.
 func TestGIOTrash(t *testing.T) {
-	// Ensure the test directory exists
-	err := os.MkdirAll(TestDir, 0755)
-	require.NoError(t, err, "Failed to create test directory")
-
-	fname := filepath.Join(TestDir, "trash_me.txt")
-	require.NoError(t, os.WriteFile(fname, []byte("i should be trashed"), 0644))
-
-	// Wait for the DeltaLoop to process the file creation
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(fname)
-		return err == nil
-	}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
-
 	// Check if gio is installed
-	_, err = exec.LookPath("gio")
+	_, err := exec.LookPath("gio")
 	if err != nil {
 		t.Skip("gio command not found, skipping test")
 	}
 
-	out, err := exec.Command("gio", "trash", fname).CombinedOutput()
-	if err != nil {
-		t.Log(string(out))
-		t.Log(err)
-		if st, err2 := os.Stat(fname); err2 == nil {
-			if !st.IsDir() && strings.Contains(string(out), "Is a directory") {
-				t.Skip("This is a GIO bug (it complains about test file being " +
-					"a directory despite correct metadata from onedriver), skipping.")
-			}
-			require.Fail(t, fmt.Sprintf("%s still exists after deletion!", fname))
-		}
-	}
-	require.False(t, strings.Contains(string(out), "Unable to find or create trash directory"),
-		"Error creating trash directory: %s", string(out))
+	// Ensure the test directory exists
+	err = os.MkdirAll(TestDir, 0755)
+	require.NoError(t, err, "Failed to create test directory")
 
-	// Wait for the DeltaLoop to process the file deletion
-	testutil.WaitForCondition(t, func() bool {
-		_, err := os.Stat(fname)
-		return os.IsNotExist(err) // Return true when the file no longer exists
-	}, 5*time.Second, 100*time.Millisecond, "File was not deleted within timeout")
+	testCases := []struct {
+		name        string
+		fileType    string // "file" or "directory"
+		content     []byte
+		permissions os.FileMode
+	}{
+		{
+			name:        "RegularTextFile_ShouldBeTrashable",
+			fileType:    "file",
+			content:     []byte("i should be trashed"),
+			permissions: 0644,
+		},
+		{
+			name:        "BinaryFile_ShouldBeTrashable",
+			fileType:    "file",
+			content:     []byte{0x00, 0x01, 0x02, 0x03, 0x04}, // Binary content
+			permissions: 0644,
+		},
+		{
+			name:        "ExecutableFile_ShouldBeTrashable",
+			fileType:    "file",
+			content:     []byte("#!/bin/sh\necho 'Hello, world!'"),
+			permissions: 0755,
+		},
+		{
+			name:        "EmptyDirectory_ShouldBeTrashable",
+			fileType:    "directory",
+			content:     nil,
+			permissions: 0755,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique filename for this test case to avoid conflicts
+			fname := filepath.Join(TestDir, fmt.Sprintf("trash_me_%s", t.Name()))
+
+			// Create the file or directory based on the test case
+			if tc.fileType == "file" {
+				require.NoError(t, os.WriteFile(fname, tc.content, tc.permissions),
+					"Failed to create test file")
+			} else if tc.fileType == "directory" {
+				require.NoError(t, os.MkdirAll(fname, tc.permissions),
+					"Failed to create test directory")
+			}
+
+			// Clean up the file/directory after the test
+			t.Cleanup(func() {
+				// Try to remove the file/directory if it still exists
+				_ = os.RemoveAll(fname)
+			})
+
+			// Wait for the DeltaLoop to process the file/directory creation
+			testutil.WaitForCondition(t, func() bool {
+				_, err := os.Stat(fname)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond, "Item was not created within timeout")
+
+			// Trash the file/directory
+			out, err := exec.Command("gio", "trash", fname).CombinedOutput()
+			if err != nil {
+				t.Log(string(out))
+				t.Log(err)
+				if st, err2 := os.Stat(fname); err2 == nil {
+					if !st.IsDir() && strings.Contains(string(out), "Is a directory") {
+						t.Skip("This is a GIO bug (it complains about test file being " +
+							"a directory despite correct metadata from onedriver), skipping.")
+					}
+					require.Fail(t, fmt.Sprintf("%s still exists after deletion!", fname))
+				}
+			}
+			require.False(t, strings.Contains(string(out), "Unable to find or create trash directory"),
+				"Error creating trash directory: %s", string(out))
+
+			// Wait for the DeltaLoop to process the file/directory deletion
+			testutil.WaitForCondition(t, func() bool {
+				_, err := os.Stat(fname)
+				return os.IsNotExist(err) // Return true when the file no longer exists
+			}, 5*time.Second, 100*time.Millisecond, "Item was not deleted within timeout")
+		})
+	}
 }
 
 // Test that we are able to work around onedrive paging limits when
 // listing a folder's children.
 func TestListChildrenPaging(t *testing.T) {
-	// files have been prepopulated during test setup to avoid being picked up by
-	// the delta thread
-	items, err := graph.GetItemChildrenPath("/onedriver_tests/paging", auth)
-	require.NoError(t, err)
-	entries, err := os.ReadDir(filepath.Join(TestDir, "paging"))
-	require.NoError(t, err)
-	files := make([]os.FileInfo, 0, len(entries))
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err == nil {
-			files = append(files, info)
-		}
+	testCases := []struct {
+		name           string
+		dirPath        string
+		minExpectedAPI int // Minimum expected number of items from API
+		minExpectedFS  int // Minimum expected number of files in filesystem
+	}{
+		{
+			name:           "PagingDirectory_ShouldHandleMoreThan200Items",
+			dirPath:        "paging",
+			minExpectedAPI: 201,
+			minExpectedFS:  201,
+		},
+		{
+			name:           "RootDirectory_ShouldListAllItems",
+			dirPath:        "",
+			minExpectedAPI: 1, // At least one item should be present in root
+			minExpectedFS:  1,
+		},
 	}
-	if len(files) < 201 {
-		if len(items) < 201 {
-			t.Logf("Skipping test, number of paging files from the API were also less than 201.\nAPI: %d\nFS: %d\n",
-				len(items), len(files),
-			)
-			t.SkipNow()
-		}
-		require.GreaterOrEqual(t, len(files), 201, "Paging limit failed. Got %d files, wanted at least 201.", len(files))
+
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// files have been prepopulated during test setup to avoid being picked up by
+			// the delta thread
+			apiPath := "/onedriver_tests"
+			if tc.dirPath != "" {
+				apiPath = filepath.Join(apiPath, tc.dirPath)
+			}
+
+			items, err := graph.GetItemChildrenPath(apiPath, auth)
+			require.NoError(t, err, "Failed to get items from API for path: %s", apiPath)
+
+			fsPath := TestDir
+			if tc.dirPath != "" {
+				fsPath = filepath.Join(fsPath, tc.dirPath)
+			}
+
+			entries, err := os.ReadDir(fsPath)
+			require.NoError(t, err, "Failed to read directory: %s", fsPath)
+
+			files := make([]os.FileInfo, 0, len(entries))
+			for _, entry := range entries {
+				info, err := entry.Info()
+				if err == nil {
+					files = append(files, info)
+				}
+			}
+
+			// Log the actual counts for debugging
+			t.Logf("Path: %s, API items: %d, FS files: %d", apiPath, len(items), len(files))
+
+			// Skip if both API and FS have fewer items than expected
+			if len(files) < tc.minExpectedFS && len(items) < tc.minExpectedAPI {
+				t.Skipf("Skipping test, not enough items. API: %d (expected %d), FS: %d (expected %d)",
+					len(items), tc.minExpectedAPI, len(files), tc.minExpectedFS)
+			}
+
+			// Verify that we have at least the minimum expected number of files
+			require.GreaterOrEqual(t, len(files), tc.minExpectedFS, 
+				"Paging limit failed. Got %d files, wanted at least %d.", len(files), tc.minExpectedFS)
+
+			// Verify that the API returned at least the minimum expected number of items
+			require.GreaterOrEqual(t, len(items), tc.minExpectedAPI,
+				"API returned fewer items than expected. Got %d items, wanted at least %d.", len(items), tc.minExpectedAPI)
+		})
 	}
 }
 
