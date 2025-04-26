@@ -88,10 +88,10 @@ This document summarizes the status of the recommendations from the [test_code_r
 
 1. Continue standardizing test patterns in remaining packages:
    - Update ui package tests:
-     - Add t.Parallel() to TestMountpointIsValid and TestHomeEscapeUnescape in ui/onedriver_test.go
-     - Replace defer with t.Cleanup() in ui/setup_test.go and ui/systemd/setup_test.go
-     - Update TestMountpointIsValid to use require instead of assert for critical assertions
-     - Convert TestMountpointIsValid and TestHomeEscapeUnescape to use proper subtests
+     - ✓ Add t.Parallel() to TestMountpointIsValid and TestHomeEscapeUnescape in ui/onedriver_test.go
+     - ✓ Replace defer with t.Cleanup() in ui/setup_test.go and ui/systemd/setup_test.go (No changes needed - defer in TestMain is correct)
+     - ✓ Update TestMountpointIsValid to use require instead of assert for critical assertions (Already using require)
+     - ✓ Convert TestMountpointIsValid and TestHomeEscapeUnescape to use proper subtests (Already using subtests)
    - Update fs/offline package tests:
      - Replace t.Fatal/t.Error with require/assert in TestOfflineReaddir and TestOfflineBagelDetection
      - Replace defer with t.Cleanup() in setup_test.go

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/coreos/go-systemd/v22/unit"
@@ -13,17 +14,22 @@ import (
 
 // TestMountpointIsValid tests that we can detect a mountpoint as valid appropriately
 func TestMountpointIsValid(t *testing.T) {
+	t.Parallel()
+	// Create a unique test directory name to avoid conflicts in parallel tests
+	testDirName := "_test_" + t.Name()
+	testDirName = strings.ReplaceAll(testDirName, "/", "_") // Replace slashes for subtests
+
 	// Create a test directory and file
-	err := os.Mkdir("_test", 0755)
+	err := os.Mkdir(testDirName, 0755)
 	require.NoError(t, err, "Failed to create test directory")
 
-	err = os.WriteFile("_test/.example", []byte("some text\n"), 0644)
+	err = os.WriteFile(filepath.Join(testDirName, ".example"), []byte("some text\n"), 0644)
 	require.NoError(t, err, "Failed to create test file")
 
 	// Setup cleanup to remove the test directory after test completes or fails
 	t.Cleanup(func() {
-		if err := os.RemoveAll("_test"); err != nil {
-			t.Logf("Warning: Failed to clean up test directory: %v", err)
+		if err := os.RemoveAll(testDirName); err != nil {
+			t.Logf("Warning: Failed to clean up test directory %s: %v", testDirName, err)
 		}
 	})
 
@@ -71,13 +77,13 @@ func TestMountpointIsValid(t *testing.T) {
 		},
 		{
 			name:       "TestDirectory",
-			mountpoint: "_test",
+			mountpoint: testDirName,
 			expected:   false,
 			reason:     "Test directory should not be a valid mountpoint",
 		},
 		{
 			name:       "TestFile",
-			mountpoint: "_test/.example",
+			mountpoint: filepath.Join(testDirName, ".example"),
 			expected:   false,
 			reason:     "File should not be a valid mountpoint",
 		},
@@ -104,6 +110,7 @@ func TestMountpointIsValid(t *testing.T) {
 
 // TestHomeEscapeUnescape tests that we can convert paths from ~/some_path to /home/username/some_path and back
 func TestHomeEscapeUnescape(t *testing.T) {
+	t.Parallel()
 	homedir, err := os.UserHomeDir()
 	require.NoError(t, err, "Failed to get user home directory")
 
