@@ -9,47 +9,112 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRootGet(t *testing.T) {
-	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_get"), 30)
-	require.NoError(t, err)
-	root, err := cache.GetPath("/", auth)
-	require.NoError(t, err)
-	assert.Equal(t, "/", root.Path(), "Root path did not resolve correctly.")
-}
+// TestCacheOperations tests various cache operations using a table-driven approach
+func TestCacheOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		dbName      string
+		operation   string // "get_path", "get_children", or "check_pointers"
+		path        string
+		verifyFunc  func(t *testing.T, cache *Filesystem, path string)
+		description string
+	}{
+		{
+			name:        "GetRootPath_ShouldReturnRootItem",
+			dbName:      "test_root_get",
+			operation:   "get_path",
+			path:        "/",
+			description: "Get the root directory from the cache",
+			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
+				// Get the root item
+				root, err := cache.GetPath(path, auth)
+				require.NoError(t, err, "Failed to get root path")
+				assert.Equal(t, "/", root.Path(), "Root path did not resolve correctly")
+			},
+		},
+		{
+			name:        "GetRootChildren_ShouldContainDocumentsFolder",
+			dbName:      "test_root_children_update",
+			operation:   "get_children",
+			path:        "/",
+			description: "Get the children of the root directory",
+			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
+				// Get the children of the root
+				children, err := cache.GetChildrenPath(path, auth)
+				require.NoError(t, err, "Failed to get root children")
+				require.Contains(t, children, "documents", "Could not find documents folder")
 
-func TestRootChildrenUpdate(t *testing.T) {
-	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_root_children_update"), 30)
-	require.NoError(t, err)
-	children, err := cache.GetChildrenPath("/", auth)
-	require.NoError(t, err)
+				// Log the children for debugging
+				t.Logf("Root children: %v", children)
+			},
+		},
+		{
+			name:        "GetDocumentsPath_ShouldReturnDocumentsItem",
+			dbName:      "test_subdir_get",
+			operation:   "get_path",
+			path:        "/Documents",
+			description: "Get the Documents directory from the cache",
+			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
+				// Get the Documents item
+				documents, err := cache.GetPath(path, auth)
+				require.NoError(t, err, "Failed to get Documents path")
+				assert.Equal(t, "Documents", documents.Name(), "Failed to fetch \"/Documents\"")
+			},
+		},
+		{
+			name:        "GetDocumentsChildren_ShouldNotContainDocumentsFolder",
+			dbName:      "test_subdir_children_update",
+			operation:   "get_children",
+			path:        "/Documents",
+			description: "Get the children of the Documents directory",
+			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
+				// Get the children of Documents
+				children, err := cache.GetChildrenPath(path, auth)
+				require.NoError(t, err, "Failed to get Documents children")
+				require.NotContains(t, children, "documents",
+					"Documents directory found inside itself. Likely the cache did not traverse correctly.\nChildren: %v",
+					children)
 
-	require.Contains(t, children, "documents", "Could not find documents folder.")
-}
+				// Log the children for debugging
+				t.Logf("Documents children: %v", children)
+			},
+		},
+		{
+			name:        "GetSamePathTwice_ShouldReturnSamePointer",
+			dbName:      "test_same_pointer",
+			operation:   "check_pointers",
+			path:        "/Documents",
+			description: "Check that getting the same item twice returns the same pointer",
+			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
+				// Get the item twice
+				item1, err := cache.GetPath(path, auth)
+				require.NoError(t, err, "Failed to get item first time")
+				require.NotNil(t, item1, "First item should not be nil")
 
-func TestSubdirGet(t *testing.T) {
-	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_get"), 30)
-	require.NoError(t, err)
-	documents, err := cache.GetPath("/Documents", auth)
-	require.NoError(t, err)
-	assert.Equal(t, "Documents", documents.Name(), "Failed to fetch \"/Documents\".")
-}
+				item2, err := cache.GetPath(path, auth)
+				require.NoError(t, err, "Failed to get item second time")
+				require.NotNil(t, item2, "Second item should not be nil")
 
-func TestSubdirChildrenUpdate(t *testing.T) {
-	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_subdir_children_update"), 30)
-	require.NoError(t, err)
-	children, err := cache.GetChildrenPath("/Documents", auth)
-	require.NoError(t, err)
+				// Check that they are the same pointer
+				require.Same(t, item1, item2, "Pointers to cached items do not match: %p != %p", item1, item2)
+			},
+		},
+	}
 
-	require.NotContains(t, children, "documents",
-		"Documents directory found inside itself. Likely the cache did not traverse correctly.\nChildren: %v",
-		children)
-}
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique database location for this test
+			dbPath := filepath.Join(testDBLoc, tc.dbName+"_"+t.Name())
 
-func TestSamePointer(t *testing.T) {
-	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_same_pointer"), 30)
-	require.NoError(t, err)
-	item, _ := cache.GetPath("/Documents", auth)
-	item2, _ := cache.GetPath("/Documents", auth)
-	require.Same(t, item, item2, "Pointers to cached items do not match: %p != %p", item, item2)
-	assert.NotNil(t, item)
+			// Create a new filesystem cache
+			cache, err := NewFilesystem(auth, dbPath, 30)
+			require.NoError(t, err, "Failed to create filesystem cache")
+
+			// Run the verification function
+			tc.verifyFunc(t, cache, tc.path)
+		})
+	}
 }

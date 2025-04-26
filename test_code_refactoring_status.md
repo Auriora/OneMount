@@ -248,6 +248,13 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Added more descriptive error messages
     - Enhanced the rename test with proper error handling
     - Maintained parallel execution, unique paths, and cleanup
+  - Combined tests in fs/cache_test.go into a single table-driven test TestCacheOperations:
+    - Merged TestRootGet, TestRootChildrenUpdate, TestSubdirGet, TestSubdirChildrenUpdate, and TestSamePointer
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Created unique database paths for each test case to avoid conflicts
+    - Improved error handling with descriptive error messages
+    - Added more detailed logging for debugging
+    - Better organized with clear separation of setup and verification
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
