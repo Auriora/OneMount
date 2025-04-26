@@ -377,124 +377,297 @@ int main(int argc, char **argv) {
 	require.NoError(t, exec.Command("gcc", "-o", outputFile, fname).Run())
 }
 
-// test that we can create a file and rename it
-// TODO this can fail if a server-side rename undoes the second local rename
-func TestRenameMove(t *testing.T) {
-	fname := filepath.Join(TestDir, "rename.txt")
-	dname := filepath.Join(TestDir, "new-destination-name.txt")
-	destDir := filepath.Join(TestDir, "dest")
-	dname2 := filepath.Join(destDir, "even-newer-name.txt")
+// TestFileMovementOperations tests file operations like rename, move, and copy
+func TestFileMovementOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name           string
+		operation      string
+		content        string
+		setupFunc      func(t *testing.T, baseDir string, content string) (string, string, error)
+		operationFunc  func(t *testing.T, source string, dest string) error
+		verifyFunc     func(t *testing.T, source string, dest string, content string) error
+		description    string
+	}{
+		{
+			name:      "RenameInSameDirectory_ShouldPreserveContent",
+			operation: "rename",
+			content:   "hopefully renames work\n",
+			setupFunc: func(t *testing.T, baseDir string, content string) (string, string, error) {
+				// Create source file
+				source := filepath.Join(baseDir, fmt.Sprintf("rename_source_%s.txt", t.Name()))
+				dest := filepath.Join(baseDir, fmt.Sprintf("rename_dest_%s.txt", t.Name()))
 
-	// Setup cleanup to remove the files and directory after test completes or fails
-	t.Cleanup(func() {
-		// Clean up the final renamed file
-		if err := os.Remove(dname2); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", dname2, err)
-		}
+				if err := os.WriteFile(source, []byte(content), 0644); err != nil {
+					return "", "", err
+				}
 
-		// Clean up the destination directory
-		if err := os.RemoveAll(destDir); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test directory %s: %v", destDir, err)
-		}
+				return source, dest, nil
+			},
+			operationFunc: func(t *testing.T, source string, dest string) error {
+				return os.Rename(source, dest)
+			},
+			verifyFunc: func(t *testing.T, source string, dest string, content string) error {
+				// Source should no longer exist
+				if _, err := os.Stat(source); !os.IsNotExist(err) {
+					return fmt.Errorf("source file %s still exists after rename", source)
+				}
 
-		// Clean up the intermediate file (in case the test fails before rename)
-		if err := os.Remove(dname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", dname, err)
-		}
+				// Destination should exist with correct content
+				data, err := os.ReadFile(dest)
+				if err != nil {
+					return err
+				}
 
-		// Clean up the original file (in case the test fails before rename)
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
+				if string(data) != content {
+					return fmt.Errorf("content mismatch after rename. Got %q, expected %q", string(data), content)
+				}
 
-	require.NoError(t, os.WriteFile(fname, []byte("hopefully renames work\n"), 0644))
-	require.NoError(t, os.Rename(fname, dname))
-	st, err := os.Stat(dname)
-	require.NoError(t, err)
-	require.NotNil(t, st, "Renamed file does not exist.")
+				return nil
+			},
+			description: "Rename a file within the same directory",
+		},
+		{
+			name:      "MoveToSubdirectory_ShouldPreserveContent",
+			operation: "move",
+			content:   "this file should be moved to a subdirectory\n",
+			setupFunc: func(t *testing.T, baseDir string, content string) (string, string, error) {
+				// Create source file
+				source := filepath.Join(baseDir, fmt.Sprintf("move_source_%s.txt", t.Name()))
 
-	if err := os.Mkdir(destDir, 0755); err != nil && !os.IsExist(err) {
-		t.Fatalf("Failed to create destination directory: %v", err)
+				// Create destination directory
+				destDir := filepath.Join(baseDir, fmt.Sprintf("move_dest_dir_%s", t.Name()))
+				if err := os.Mkdir(destDir, 0755); err != nil && !os.IsExist(err) {
+					return "", "", err
+				}
+
+				dest := filepath.Join(destDir, fmt.Sprintf("moved_file_%s.txt", t.Name()))
+
+				if err := os.WriteFile(source, []byte(content), 0644); err != nil {
+					return "", "", err
+				}
+
+				return source, dest, nil
+			},
+			operationFunc: func(t *testing.T, source string, dest string) error {
+				return os.Rename(source, dest)
+			},
+			verifyFunc: func(t *testing.T, source string, dest string, content string) error {
+				// Source should no longer exist
+				if _, err := os.Stat(source); !os.IsNotExist(err) {
+					return fmt.Errorf("source file %s still exists after move", source)
+				}
+
+				// Destination should exist with correct content
+				data, err := os.ReadFile(dest)
+				if err != nil {
+					return err
+				}
+
+				if string(data) != content {
+					return fmt.Errorf("content mismatch after move. Got %q, expected %q", string(data), content)
+				}
+
+				return nil
+			},
+			description: "Move a file to a subdirectory",
+		},
+		{
+			name:      "CopyFile_ShouldDuplicateContent",
+			operation: "copy",
+			content:   "and copies too!\n",
+			setupFunc: func(t *testing.T, baseDir string, content string) (string, string, error) {
+				// Create source file
+				source := filepath.Join(baseDir, fmt.Sprintf("copy_source_%s.txt", t.Name()))
+				dest := filepath.Join(baseDir, fmt.Sprintf("copy_dest_%s.txt", t.Name()))
+
+				if err := os.WriteFile(source, []byte(content), 0644); err != nil {
+					return "", "", err
+				}
+
+				return source, dest, nil
+			},
+			operationFunc: func(t *testing.T, source string, dest string) error {
+				return exec.Command("cp", source, dest).Run()
+			},
+			verifyFunc: func(t *testing.T, source string, dest string, content string) error {
+				// Source should still exist
+				sourceData, err := os.ReadFile(source)
+				if err != nil {
+					return fmt.Errorf("failed to read source file after copy: %v", err)
+				}
+
+				if string(sourceData) != content {
+					return fmt.Errorf("source content changed after copy. Got %q, expected %q", string(sourceData), content)
+				}
+
+				// Destination should exist with correct content
+				destData, err := os.ReadFile(dest)
+				if err != nil {
+					return fmt.Errorf("failed to read destination file after copy: %v", err)
+				}
+
+				if string(destData) != content {
+					return fmt.Errorf("destination content mismatch after copy. Got %q, expected %q", string(destData), content)
+				}
+
+				return nil
+			},
+			description: "Copy a file to create a duplicate",
+		},
 	}
-	require.NoError(t, os.Rename(dname, dname2))
-	st, err = os.Stat(dname2)
-	require.NoError(t, err)
-	require.NotNil(t, st, "Renamed file does not exist.")
-}
 
-// test that copies work as expected
-func TestCopy(t *testing.T) {
-	fname := filepath.Join(TestDir, "copy-start.txt")
-	dname := filepath.Join(TestDir, "copy-end.txt")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel() // Run subtests in parallel
 
-	// Setup cleanup to remove the files after test completes or fails
-	t.Cleanup(func() {
-		// Clean up source file
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
+			// Setup test files and directories
+			source, dest, err := tc.setupFunc(t, TestDir, tc.content)
+			require.NoError(t, err, "Failed to set up test files for %s operation", tc.operation)
 
-		// Clean up destination file
-		if err := os.Remove(dname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", dname, err)
-		}
-	})
+			// Setup cleanup to remove all test files and directories after test completes or fails
+			t.Cleanup(func() {
+				// Clean up source file if it exists (it might not after a move/rename)
+				if err := os.Remove(source); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up source file %s: %v", source, err)
+				}
 
-	content := "and copies too!\n"
-	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
-	require.NoError(t, exec.Command("cp", fname, dname).Run())
+				// Clean up destination file
+				if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up destination file %s: %v", dest, err)
+				}
 
-	read, err := os.ReadFile(fname)
-	require.NoError(t, err)
-	assert.Equal(t, content, string(read), "File content was not correct.")
+				// If this is a move operation, clean up the destination directory
+				if tc.operation == "move" {
+					destDir := filepath.Dir(dest)
+					if destDir != TestDir {
+						if err := os.RemoveAll(destDir); err != nil && !os.IsNotExist(err) {
+							t.Logf("Warning: Failed to clean up destination directory %s: %v", destDir, err)
+						}
+					}
+				}
+			})
+
+			// Perform the operation
+			err = tc.operationFunc(t, source, dest)
+			require.NoError(t, err, "Failed to perform %s operation", tc.operation)
+
+			// Verify the results
+			err = tc.verifyFunc(t, source, dest, tc.content)
+			require.NoError(t, err, "Verification failed for %s operation", tc.operation)
+		})
+	}
 }
 
 // Note: TestAppend and TestTruncate have been refactored into the table-driven TestFileOperations above
 
-// can we seek to the middle of a file and do writes there correctly?
-func TestReadWriteMidfile(t *testing.T) {
-	content := `Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+// TestPositionalFileOperations tests that we can seek to specific positions in a file and perform operations
+func TestPositionalFileOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name           string
+		initialContent string
+		writeOffset    int64
+		contentToWrite string
+		description    string
+	}{
+		{
+			name: "WriteToMiddle_ShouldPreserveContentAtSpecificOffset",
+			initialContent: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
 Phasellus viverra dui vel velit eleifend, vel auctor nulla scelerisque.
 Mauris volutpat a justo vel suscipit. Suspendisse diam lorem, imperdiet eget
-fermentum ut, sodales a nunc. Phasellus eget mattis purus. Aenean vitae justo
-condimentum, rutrum libero non, commodo ex. Nullam mi metus, accumsan sit
-amet varius non, volutpat eget mi. Fusce sollicitudin arcu eget ipsum
-gravida, ut blandit turpis facilisis. Quisque vel rhoncus nulla, ultrices
-tempor turpis. Nullam urna leo, dapibus eu velit eu, venenatis aliquet
-tortor. In tempus lacinia est, nec gravida ipsum viverra sed. In vel felis
-vitae odio pulvinar egestas. Sed ullamcorper, nulla non molestie dictum,
-massa lectus mattis dolor, in volutpat nulla lectus id neque.`
-	fname := filepath.Join(TestDir, "midfile.txt")
+fermentum ut, sodales a nunc. Phasellus eget mattis purus.`,
+			writeOffset:    123,
+			contentToWrite: "my hands are typing words. aaaaaaa",
+			description:    "Write to middle of medium-sized file",
+		},
+		{
+			name:           "WriteToBeginning_ShouldOverwriteStartOfFile",
+			initialContent: "This is a test file with some initial content that will be partially overwritten.",
+			writeOffset:    0,
+			contentToWrite: "REPLACED",
+			description:    "Write to beginning of file",
+		},
+		{
+			name:           "WriteToEnd_ShouldAppendToEndOfFile",
+			initialContent: "Short content. ",
+			writeOffset:    15, // Length of "Short content. "
+			contentToWrite: "Additional text at the end.",
+			description:    "Write to end of file",
+		},
+		{
+			name:           "WriteToEmptyFile_ShouldCreateHoleInFile",
+			initialContent: "",
+			writeOffset:    100,
+			contentToWrite: "Writing beyond the end creates a sparse file with a hole",
+			description:    "Write to empty file at non-zero offset",
+		},
+	}
 
-	// Setup cleanup to remove the file after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
-		}
-	})
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel() // Run subtests in parallel
 
-	require.NoError(t, os.WriteFile(fname, []byte(content), 0644))
+			// Create a unique filename for this test case to avoid conflicts
+			fname := filepath.Join(TestDir, fmt.Sprintf("midfile_%s.txt", t.Name()))
 
-	file, err := os.OpenFile(fname, os.O_RDWR, 0644)
-	require.NoError(t, err, "Failed to open file for read/write: %v", err)
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			t.Logf("Warning: Failed to close file: %v", closeErr)
-		}
-	}()
-	match := "my hands are typing words. aaaaaaa"
+			// Setup cleanup to remove the file after test completes or fails
+			t.Cleanup(func() {
+				if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test file %s: %v", fname, err)
+				}
+			})
 
-	n, err := file.WriteAt([]byte(match), 123)
-	require.NoError(t, err)
-	require.Equal(t, len(match), n, "Wrong number of bytes written.")
+			// Create the file with initial content
+			require.NoError(t, os.WriteFile(fname, []byte(tc.initialContent), 0644),
+				"Failed to create test file with initial content")
 
-	result := make([]byte, len(match))
-	n, err = file.ReadAt(result, 123)
-	require.NoError(t, err)
-	require.Equal(t, len(match), n, "Wrong number of bytes read.")
+			// Open the file for read/write
+			file, err := os.OpenFile(fname, os.O_RDWR, 0644)
+			require.NoError(t, err, "Failed to open file for read/write: %v", err)
 
-	require.Equal(t, match, string(result), "Content did not match expected output.")
+			// Ensure file is closed after test
+			defer func() {
+				if closeErr := file.Close(); closeErr != nil {
+					t.Logf("Warning: Failed to close file: %v", closeErr)
+				}
+			}()
+
+			// Write content at the specified offset
+			n, err := file.WriteAt([]byte(tc.contentToWrite), tc.writeOffset)
+			require.NoError(t, err, "Failed to write to file at offset %d: %v", tc.writeOffset, err)
+			require.Equal(t, len(tc.contentToWrite), n, 
+				"Wrong number of bytes written. Got %d, expected %d", n, len(tc.contentToWrite))
+
+			// Read back the content from the same offset
+			result := make([]byte, len(tc.contentToWrite))
+			n, err = file.ReadAt(result, tc.writeOffset)
+			require.NoError(t, err, "Failed to read from file at offset %d: %v", tc.writeOffset, err)
+			require.Equal(t, len(tc.contentToWrite), n, 
+				"Wrong number of bytes read. Got %d, expected %d", n, len(tc.contentToWrite))
+
+			// Verify the content matches what was written
+			require.Equal(t, tc.contentToWrite, string(result), 
+				"Content read from offset %d did not match what was written. Got %q, expected %q", 
+				tc.writeOffset, string(result), tc.contentToWrite)
+
+			// For the test case with offset 0, verify the beginning of the file was changed
+			if tc.writeOffset == 0 {
+				// Read the entire file
+				fullContent, err := os.ReadFile(fname)
+				require.NoError(t, err, "Failed to read entire file: %v", err)
+
+				// Verify the beginning of the file was overwritten
+				require.True(t, strings.HasPrefix(string(fullContent), tc.contentToWrite),
+					"Beginning of file was not overwritten correctly. Got %q, expected prefix %q",
+					string(fullContent), tc.contentToWrite)
+			}
+		})
+	}
 }
 
 // Statfs should succeed
