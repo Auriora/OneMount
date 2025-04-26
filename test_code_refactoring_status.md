@@ -155,6 +155,25 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Created unique filenames for each test to avoid conflicts
     - Added proper cleanup with t.Cleanup()
     - Improved error handling with descriptive error messages
+  - Converted TestChildrenAreCasedProperly to TestFilenameCase with table-driven approach:
+    - Added multiple test cases for different filename case patterns (uppercase, lowercase, mixed case)
+    - Used parallel execution for each test case
+    - Created unique filenames for each test to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+  - Converted TestEchoWritesToFile to TestShellFileOperations with table-driven approach:
+    - Added multiple test cases for different shell commands and content types
+    - Used parallel execution for each test case
+    - Created unique filenames for each test to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+    - Added special handling for multiline content
+  - Converted TestStat to TestFileInfo with table-driven approach:
+    - Added multiple test cases for different file types (regular files, directories, executable files)
+    - Created unique filenames for each test to avoid conflicts
+    - Added proper cleanup with t.Cleanup()
+    - Improved error handling with descriptive error messages
+    - Added comprehensive verification of file attributes
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -180,9 +199,9 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Convert more appropriate tests to table-driven tests:
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
-       - TestChildrenAreCasedProperly in fs/fs_test.go
-       - TestEchoWritesToFile in fs/fs_test.go
-       - TestStat in fs/fs_test.go
+       - TestNoQuestionMarks in fs/fs_test.go
+       - TestGIOTrash in fs/fs_test.go
+       - TestListChildrenPaging in fs/fs_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions
@@ -195,9 +214,16 @@ This document summarizes the status of the recommendations from the [test_code_r
    - Check for any remaining fixed sleeps or timeouts that could be replaced with dynamic waiting
    - Verify that all tests have proper cleanup mechanisms
    - Consider adding more descriptive comments to explain test purpose and behavior
+   - Focus on tests in the fs/graph and ui packages that haven't been reviewed yet
 
 4. Document best practices for future test development (COMPLETED):
    - Created test_best_practices.md document outlining the patterns and practices established during this refactoring
    - Included examples of table-driven tests, proper cleanup, and error handling
    - Provided guidelines for when to use t.Parallel() and when not to
    - Added sections on test naming conventions, dynamic waiting, and test isolation
+
+5. Consider additional improvements:
+   - Add more comprehensive test coverage for error conditions
+   - Improve test documentation with more detailed comments
+   - Consider creating more test utilities for common operations
+   - Review test performance and optimize where necessary

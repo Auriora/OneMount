@@ -926,58 +926,380 @@ func TestCaseSensitivityHandling(t *testing.T) {
 	}
 }
 
-// This test is insurance to prevent tests (and the fs) from accidentally not
-// storing case for filenames at all
-func TestChildrenAreCasedProperly(t *testing.T) {
-	require.NoError(t, os.WriteFile(
-		filepath.Join(TestDir, "CASE-check.txt"), []byte("yep"), 0644))
-	stdout, err := exec.Command("ls", TestDir).Output()
-	require.NoError(t, err, "%s: %s", err, stdout)
-	require.Contains(t, string(stdout), "CASE-check.txt",
-		"Upper case filenames were not honored, expected \"CASE-check.txt\" in output, got %s", string(stdout))
-}
-
-// Test that when running "echo some text > file.txt" that file.txt actually
-// becomes populated
-func TestEchoWritesToFile(t *testing.T) {
-	fname := filepath.Join(TestDir, "bagels")
-	out, err := exec.Command("bash", "-c", "echo bagels > "+fname).CombinedOutput()
-	require.NoError(t, err, out)
-
-	// Wait for the DeltaLoop to process the file creation and for the file to contain the expected content
-	testutil.WaitForCondition(t, func() bool {
-		content, err := os.ReadFile(fname)
-		return err == nil && strings.Contains(string(content), "bagels")
-	}, 5*time.Second, 100*time.Millisecond, "File was not created or did not contain expected content within timeout")
-
-	content, err := os.ReadFile(fname)
-	require.NoError(t, err)
-	require.Contains(t, string(content), "bagels",
-		"Populating a file via 'echo' failed. Got: \"%s\", wanted \"bagels\"", content)
-}
-
-// Test that if we stat a file, we get some correct information back
-func TestStat(t *testing.T) {
-	// Ensure the Documents directory exists
-	docDir := "mount/Documents"
-	if _, err := os.Stat(docDir); os.IsNotExist(err) {
-		require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
-
-		// Wait for the filesystem to process the directory creation
-		testutil.WaitForCondition(t, func() bool {
-			stat, err := os.Stat(docDir)
-			return err == nil && stat.IsDir()
-		}, 5*time.Second, 100*time.Millisecond, "Documents directory was not created within timeout")
+// TestFilenameCase tests that the filesystem properly preserves case in filenames
+// This is insurance to prevent tests (and the fs) from accidentally not storing case for filenames at all
+func TestFilenameCase(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		filename    string
+		content     string
+		description string
+	}{
+		{
+			name:        "UpperCase_ShouldPreserveCase",
+			filename:    "UPPERCASE-FILE.txt",
+			content:     "uppercase content",
+			description: "File with all uppercase characters",
+		},
+		{
+			name:        "LowerCase_ShouldPreserveCase",
+			filename:    "lowercase-file.txt",
+			content:     "lowercase content",
+			description: "File with all lowercase characters",
+		},
+		{
+			name:        "MixedCase_ShouldPreserveCase",
+			filename:    "MixedCase-FiLe.TxT",
+			content:     "mixed case content",
+			description: "File with mixed case characters",
+		},
+		{
+			name:        "SpecialChars_ShouldPreserveCase",
+			filename:    "SPECIAL_Chars-123.txt",
+			content:     "special chars content",
+			description: "File with special characters and numbers",
+		},
 	}
 
-	stat, err := os.Stat(docDir)
-	require.NoError(t, err)
-	require.Equal(t, "Documents", stat.Name(), "Name was not \"Documents\".")
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel() // Run subtests in parallel
 
-	require.True(t, stat.ModTime().Year() >= 1971,
-		"Modification time of /Documents wrong, got: %s", stat.ModTime().String())
-	require.True(t, stat.IsDir(),
-		"Mode of /Documents wrong, not detected as directory, got: %s", stat.Mode())
+			// Create a unique filename for this test to avoid conflicts
+			filePath := filepath.Join(TestDir, fmt.Sprintf("%s-%s", tc.filename, t.Name()))
+
+			// Setup cleanup to remove the file after test completes or fails
+			t.Cleanup(func() {
+				if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+				}
+			})
+
+			// Create the test file
+			require.NoError(t, os.WriteFile(filePath, []byte(tc.content), 0644),
+				"Failed to create test file %s", filePath)
+
+			// Wait for the filesystem to process the file creation
+			testutil.WaitForCondition(t, func() bool {
+				_, err := os.Stat(filePath)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
+
+			// Run ls command to get directory listing
+			stdout, err := exec.Command("ls", TestDir).Output()
+			require.NoError(t, err, "Failed to list directory: %v", err)
+
+			// Verify the filename appears with the correct case in the directory listing
+			require.Contains(t, string(stdout), filepath.Base(filePath),
+				"Filename case was not preserved. Expected %q in output, got: %s", 
+				filepath.Base(filePath), string(stdout))
+
+			// Verify the file content
+			content, err := os.ReadFile(filePath)
+			require.NoError(t, err, "Failed to read file content: %v", err)
+			require.Equal(t, tc.content, string(content),
+				"File content does not match. Got %q, expected %q", string(content), tc.content)
+		})
+	}
+}
+
+// TestShellFileOperations tests that shell commands like echo, cat, etc. properly write to files
+// This verifies that when running commands like "echo some text > file.txt", the file actually becomes populated
+func TestShellFileOperations(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		command     string
+		content     string
+		description string
+	}{
+		{
+			name:        "EchoToFile_ShouldWriteContent",
+			command:     "echo %s > %s",
+			content:     "simple content",
+			description: "Basic echo command with redirection",
+		},
+		{
+			name:        "EchoWithQuotes_ShouldPreserveQuotes",
+			command:     "echo \"%s\" > %s",
+			content:     "content with \"quotes\"",
+			description: "Echo command with quoted content",
+		},
+		{
+			name:        "EchoWithSpecialChars_ShouldPreserveSpecialChars",
+			command:     "echo '%s' > %s",
+			content:     "content with $pecial ch@rs!",
+			description: "Echo command with special characters",
+		},
+		{
+			name:        "CatToFile_ShouldWriteContent",
+			command:     "echo %s | cat > %s",
+			content:     "content via cat",
+			description: "Using cat with pipe to write content",
+		},
+		{
+			name:        "MultipleLinesEcho_ShouldPreserveNewlines",
+			command:     "echo -e '%s' > %s",
+			content:     "line1\\nline2\\nline3",
+			description: "Echo command with multiple lines",
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel() // Run subtests in parallel
+
+			// Create a unique filename for this test to avoid conflicts
+			filePath := filepath.Join(TestDir, fmt.Sprintf("shell-test-%s.txt", t.Name()))
+
+			// Setup cleanup to remove the file after test completes or fails
+			t.Cleanup(func() {
+				if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+					t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+				}
+			})
+
+			// Format the command with the content and file path
+			formattedCommand := fmt.Sprintf(tc.command, tc.content, filePath)
+
+			// Execute the shell command
+			out, err := exec.Command("bash", "-c", formattedCommand).CombinedOutput()
+			require.NoError(t, err, "Command failed: %s\nOutput: %s", formattedCommand, out)
+
+			// Wait for the DeltaLoop to process the file creation and for the file to contain the expected content
+			testutil.WaitForCondition(t, func() bool {
+				content, err := os.ReadFile(filePath)
+				if err != nil {
+					return false
+				}
+
+				// For the multiple lines test case, we need to handle the newline characters
+				expectedContent := tc.content
+				if tc.name == "MultipleLinesEcho_ShouldPreserveNewlines" {
+					expectedContent = strings.ReplaceAll(expectedContent, "\\n", "\n")
+				}
+
+				return strings.Contains(string(content), expectedContent)
+			}, 5*time.Second, 100*time.Millisecond, "File was not created or did not contain expected content within timeout")
+
+			// Read the file content
+			content, err := os.ReadFile(filePath)
+			require.NoError(t, err, "Failed to read file: %v", err)
+
+			// For the multiple lines test case, we need to handle the newline characters
+			expectedContent := tc.content
+			if tc.name == "MultipleLinesEcho_ShouldPreserveNewlines" {
+				expectedContent = strings.ReplaceAll(expectedContent, "\\n", "\n")
+			}
+
+			// Verify the content
+			require.Contains(t, string(content), expectedContent,
+				"File content does not match expected content.\nGot: %q\nExpected to contain: %q", 
+				string(content), expectedContent)
+		})
+	}
+}
+
+// TestFileInfo tests that the stat operation returns correct information about files and directories
+func TestFileInfo(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name           string
+		setupFunc      func(t *testing.T) (string, os.FileMode, error)
+		expectedName   string
+		isDir          bool
+		verifyFunc     func(t *testing.T, stat os.FileInfo) error
+		description    string
+	}{
+		{
+			name: "Directory_ShouldHaveCorrectAttributes",
+			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
+				// Ensure the Documents directory exists
+				docDir := "mount/Documents"
+				if _, err := os.Stat(docDir); os.IsNotExist(err) {
+					if err := os.Mkdir(docDir, 0755); err != nil {
+						return "", 0, err
+					}
+
+					// Wait for the filesystem to process the directory creation
+					testutil.WaitForCondition(t, func() bool {
+						stat, err := os.Stat(docDir)
+						return err == nil && stat.IsDir()
+					}, 5*time.Second, 100*time.Millisecond, "Documents directory was not created within timeout")
+				}
+				return docDir, 0755, nil
+			},
+			expectedName: "Documents",
+			isDir:        true,
+			verifyFunc: func(t *testing.T, stat os.FileInfo) error {
+				if stat.ModTime().Year() < 1971 {
+					return fmt.Errorf("modification time wrong, got: %s", stat.ModTime().String())
+				}
+				return nil
+			},
+			description: "Verify attributes of a directory",
+		},
+		{
+			name: "RegularFile_ShouldHaveCorrectAttributes",
+			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
+				// Create a regular file
+				filePath := filepath.Join(TestDir, fmt.Sprintf("stat-test-file-%s.txt", t.Name()))
+				content := []byte("test content for stat")
+				if err := os.WriteFile(filePath, content, 0644); err != nil {
+					return "", 0, err
+				}
+
+				// Wait for the filesystem to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(filePath)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
+
+				// Setup cleanup to remove the file after test completes or fails
+				t.Cleanup(func() {
+					if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+					}
+				})
+
+				return filePath, 0644, nil
+			},
+			expectedName: "", // Will be set dynamically based on the generated filename
+			isDir:        false,
+			verifyFunc: func(t *testing.T, stat os.FileInfo) error {
+				expectedSize := int64(len("test content for stat"))
+				if stat.Size() != expectedSize {
+					return fmt.Errorf("file size wrong, got: %d, expected: %d", stat.Size(), expectedSize)
+				}
+				if stat.ModTime().Year() < 1971 {
+					return fmt.Errorf("modification time wrong, got: %s", stat.ModTime().String())
+				}
+				return nil
+			},
+			description: "Verify attributes of a regular file",
+		},
+		{
+			name: "ExecutableFile_ShouldHaveCorrectPermissions",
+			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
+				// Create an executable file
+				filePath := filepath.Join(TestDir, fmt.Sprintf("stat-test-exec-%s.sh", t.Name()))
+				content := []byte("#!/bin/bash\necho 'This is an executable file'")
+				if err := os.WriteFile(filePath, content, 0755); err != nil {
+					return "", 0, err
+				}
+
+				// Wait for the filesystem to process the file creation
+				testutil.WaitForCondition(t, func() bool {
+					_, err := os.Stat(filePath)
+					return err == nil
+				}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
+
+				// Setup cleanup to remove the file after test completes or fails
+				t.Cleanup(func() {
+					if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
+					}
+				})
+
+				return filePath, 0755, nil
+			},
+			expectedName: "", // Will be set dynamically based on the generated filename
+			isDir:        false,
+			verifyFunc: func(t *testing.T, stat os.FileInfo) error {
+				// Check if the file has execute permissions
+				if stat.Mode()&0111 == 0 {
+					return fmt.Errorf("file should have execute permissions, got mode: %s", stat.Mode())
+				}
+				return nil
+			},
+			description: "Verify permissions of an executable file",
+		},
+		{
+			name: "EmptyDirectory_ShouldHaveCorrectAttributes",
+			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
+				// Create an empty directory
+				dirPath := filepath.Join(TestDir, fmt.Sprintf("stat-test-dir-%s", t.Name()))
+				if err := os.Mkdir(dirPath, 0755); err != nil {
+					return "", 0, err
+				}
+
+				// Wait for the filesystem to process the directory creation
+				testutil.WaitForCondition(t, func() bool {
+					stat, err := os.Stat(dirPath)
+					return err == nil && stat.IsDir()
+				}, 5*time.Second, 100*time.Millisecond, "Directory was not created within timeout")
+
+				// Setup cleanup to remove the directory after test completes or fails
+				t.Cleanup(func() {
+					if err := os.RemoveAll(dirPath); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
+					}
+				})
+
+				return dirPath, 0755, nil
+			},
+			expectedName: "", // Will be set dynamically based on the generated dirname
+			isDir:        true,
+			verifyFunc: func(t *testing.T, stat os.FileInfo) error {
+				// Check if the directory has the correct size (usually 0 or 4096 for directories)
+				if stat.Size() < 0 {
+					return fmt.Errorf("directory size should not be negative, got: %d", stat.Size())
+				}
+				return nil
+			},
+			description: "Verify attributes of an empty directory",
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			// Note: We don't use t.Parallel() here because some tests might interfere with each other
+			// when creating/accessing the Documents directory
+
+			// Setup the test
+			path, expectedMode, err := tc.setupFunc(t)
+			require.NoError(t, err, "Failed to setup test: %v", err)
+
+			// Get file info using stat
+			stat, err := os.Stat(path)
+			require.NoError(t, err, "Failed to stat %s: %v", path, err)
+
+			// Verify the file name
+			if tc.expectedName != "" {
+				require.Equal(t, tc.expectedName, stat.Name(), 
+					"File name does not match. Got %q, expected %q", stat.Name(), tc.expectedName)
+			} else {
+				// If expectedName is not specified, use the base name of the path
+				expectedName := filepath.Base(path)
+				require.Equal(t, expectedName, stat.Name(), 
+					"File name does not match. Got %q, expected %q", stat.Name(), expectedName)
+			}
+
+			// Verify if it's a directory
+			require.Equal(t, tc.isDir, stat.IsDir(), 
+				"IsDir() returned %v, expected %v", stat.IsDir(), tc.isDir)
+
+			// Verify the file mode (permissions)
+			if expectedMode != 0 {
+				// We only check the permission bits, not the file type bits
+				require.Equal(t, expectedMode&0777, stat.Mode()&0777, 
+					"File mode does not match. Got %o, expected %o", stat.Mode()&0777, expectedMode&0777)
+			}
+
+			// Run additional verification if provided
+			if tc.verifyFunc != nil {
+				err := tc.verifyFunc(t, stat)
+				require.NoError(t, err, "Verification failed: %v", err)
+			}
+		})
+	}
 }
 
 // Question marks appear in `ls -l`s output if an item is populated via readdir,
