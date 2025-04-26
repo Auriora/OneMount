@@ -82,150 +82,221 @@ func TestOfflineBagelContents(t *testing.T) {
 		string(contents), string(expectedContent))
 }
 
-// Creating a file should succeed in offline mode
-func TestOfflineFileCreation(t *testing.T) {
-	t.Parallel()
-	donutsPath := filepath.Join(TestDir, "donuts")
-	donutsContent := []byte("donuts are tasty")
-
-	// Setup cleanup to run after test completes or fails
-	t.Cleanup(func() {
-		if err := os.Remove(donutsPath); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", donutsPath, err)
-		}
-	})
-
-	// Write the file in offline mode
-	err := os.WriteFile(donutsPath, donutsContent, 0644)
-	require.NoError(t, err, "Writing a file while offline should succeed")
-
-	// Verify the file was created and has the correct content
-	contents, err := os.ReadFile(donutsPath)
-	require.NoError(t, err, "Reading the file should succeed")
-	require.Equal(t, donutsContent, contents, "File contents should match what was written")
-}
-
-// Modifying a file offline should succeed
-func TestOfflineFileModification(t *testing.T) {
-	t.Parallel()
-	bagelPath := filepath.Join(TestDir, "bagels")
-	newContent := []byte("modified bagels are better")
-
-	// First read the original content
-	originalContent, err := os.ReadFile(bagelPath)
-	require.NoError(t, err, "Failed to read original content from %s in offline mode", bagelPath)
-
-	// Setup cleanup to restore the original content after test completes or fails
-	t.Cleanup(func() {
-		if err := os.WriteFile(bagelPath, originalContent, 0644); err != nil {
-			t.Logf("Warning: Failed to restore original content to %s: %v", bagelPath, err)
-		}
-	})
-
-	// Modify the file in offline mode
-	err = os.WriteFile(bagelPath, newContent, 0644)
-	require.NoError(t, err, "Failed to modify file %s in offline mode", bagelPath)
-
-	// Verify the file was modified and has the new content
-	modifiedContent, err := os.ReadFile(bagelPath)
-	require.NoError(t, err, "Failed to read modified content from %s in offline mode", bagelPath)
-
-	require.Equal(t, newContent, modifiedContent, 
-		"File contents after modification did not match expected content. Got %q, expected %q", 
-		string(modifiedContent), string(newContent))
-
-	require.NotEqual(t, originalContent, modifiedContent, 
-		"File contents were not changed after modification. Content is still %q", 
-		string(modifiedContent))
-}
-
-// Deleting a file offline should succeed
-func TestOfflineFileDeletion(t *testing.T) {
+// TestOfflineFileSystemOperations tests various file and directory operations in offline mode
+func TestOfflineFileSystemOperations(t *testing.T) {
 	t.Parallel()
 
-	// Create a test file to delete
-	testFilePath := filepath.Join(TestDir, "file_to_delete.txt")
-	testContent := []byte("this file will be deleted")
-	err := os.WriteFile(testFilePath, testContent, 0644)
-	require.NoError(t, err, "Failed to create test file %s in offline mode", testFilePath)
+	// Define test cases
+	testCases := []struct {
+		name        string
+		description string
+		isDir       bool
+		setupFunc   func(t *testing.T) (string, []byte, []byte)
+		testFunc    func(t *testing.T, path string, initialContent []byte, newContent []byte)
+	}{
+		{
+			name:        "FileCreation_ShouldSucceed",
+			description: "Creating a file should succeed in offline mode",
+			isDir:       false,
+			setupFunc: func(t *testing.T) (string, []byte, []byte) {
+				path := filepath.Join(TestDir, "donuts_"+t.Name())
+				content := []byte("donuts are tasty")
+				return path, content, nil
+			},
+			testFunc: func(t *testing.T, path string, content []byte, _ []byte) {
+				// Write the file in offline mode
+				err := os.WriteFile(path, content, 0644)
+				require.NoError(t, err, "Writing a file while offline should succeed")
 
-	// Setup cleanup to ensure the file is removed even if the test fails before deletion
-	t.Cleanup(func() {
-		if err := os.Remove(testFilePath); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test file %s: %v", testFilePath, err)
-		}
-	})
+				// Verify the file was created and has the correct content
+				contents, err := os.ReadFile(path)
+				require.NoError(t, err, "Reading the file should succeed")
+				require.Equal(t, content, contents, "File contents should match what was written")
+			},
+		},
+		{
+			name:        "FileModification_ShouldSucceed",
+			description: "Modifying a file should succeed in offline mode",
+			isDir:       false,
+			setupFunc: func(t *testing.T) (string, []byte, []byte) {
+				// Create a file to modify
+				path := filepath.Join(TestDir, "modify_"+t.Name()+".txt")
+				initialContent := []byte("initial content")
+				newContent := []byte("modified content is better")
 
-	// Verify the file exists
-	_, err = os.Stat(testFilePath)
-	require.NoError(t, err, "Test file %s should exist before deletion but was not found", testFilePath)
+				// Create the file
+				err := os.WriteFile(path, initialContent, 0644)
+				require.NoError(t, err, "Failed to create file for modification test")
 
-	// Delete the file in offline mode
-	err = os.Remove(testFilePath)
-	require.NoError(t, err, "Failed to delete file %s in offline mode", testFilePath)
+				return path, initialContent, newContent
+			},
+			testFunc: func(t *testing.T, path string, initialContent []byte, newContent []byte) {
+				// Verify the file has the initial content
+				content, err := os.ReadFile(path)
+				require.NoError(t, err, "Failed to read initial content")
+				require.Equal(t, initialContent, content, "Initial file content does not match expected")
 
-	// Verify the file was deleted
-	_, err = os.Stat(testFilePath)
-	require.Error(t, err, "Test file %s should not exist after deletion but was found", testFilePath)
-	require.True(t, os.IsNotExist(err), 
-		"Error for deleted file %s should be 'file does not exist', but got: %v", 
-		testFilePath, err)
-}
+				// Modify the file in offline mode
+				err = os.WriteFile(path, newContent, 0644)
+				require.NoError(t, err, "Failed to modify file in offline mode")
 
-// Creating a directory offline should succeed
-func TestOfflineMkdir(t *testing.T) {
-	t.Parallel()
-	dirPath := filepath.Join(TestDir, "offline_dir")
+				// Verify the file was modified and has the new content
+				modifiedContent, err := os.ReadFile(path)
+				require.NoError(t, err, "Failed to read modified content")
 
-	// Setup cleanup to remove the directory after test completes or fails
-	t.Cleanup(func() {
-		if err := os.RemoveAll(dirPath); err != nil {
-			t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
-		}
-	})
+				require.Equal(t, newContent, modifiedContent, 
+					"File contents after modification did not match expected content. Got %q, expected %q", 
+					string(modifiedContent), string(newContent))
 
-	// Create the directory in offline mode
-	err := os.Mkdir(dirPath, 0755)
-	require.NoError(t, err, "Failed to create directory %s in offline mode", dirPath)
+				require.NotEqual(t, initialContent, modifiedContent, 
+					"File contents were not changed after modification. Content is still %q", 
+					string(modifiedContent))
+			},
+		},
+		{
+			name:        "FileDeletion_ShouldSucceed",
+			description: "Deleting a file should succeed in offline mode",
+			isDir:       false,
+			setupFunc: func(t *testing.T) (string, []byte, []byte) {
+				// Create a file to delete
+				path := filepath.Join(TestDir, "delete_"+t.Name()+".txt")
+				content := []byte("this file will be deleted")
 
-	// Verify the directory was created
-	info, err := os.Stat(dirPath)
-	require.NoError(t, err, "Directory %s should exist after creation but was not found", dirPath)
-	require.True(t, info.IsDir(), 
-		"Path %s should be a directory but has file mode %s", 
-		dirPath, info.Mode().String())
-}
+				// Create the file
+				err := os.WriteFile(path, content, 0644)
+				require.NoError(t, err, "Failed to create file for deletion test")
 
-// Deleting a directory offline should succeed
-func TestOfflineRmdir(t *testing.T) {
-	t.Parallel()
+				return path, content, nil
+			},
+			testFunc: func(t *testing.T, path string, content []byte, _ []byte) {
+				// Verify the file exists
+				_, err := os.Stat(path)
+				require.NoError(t, err, "Test file should exist before deletion but was not found")
 
-	// Create a test directory to delete
-	dirPath := filepath.Join(TestDir, "dir_to_delete")
-	err := os.Mkdir(dirPath, 0755)
-	require.NoError(t, err, "Failed to create test directory %s in offline mode", dirPath)
+				// Delete the file in offline mode
+				err = os.Remove(path)
+				require.NoError(t, err, "Failed to delete file in offline mode")
 
-	// Setup cleanup to ensure the directory is removed even if the test fails before deletion
-	t.Cleanup(func() {
-		if err := os.RemoveAll(dirPath); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: Failed to clean up test directory %s: %v", dirPath, err)
-		}
-	})
+				// Verify the file was deleted
+				_, err = os.Stat(path)
+				require.Error(t, err, "Test file should not exist after deletion but was found")
+				require.True(t, os.IsNotExist(err), 
+					"Error for deleted file should be 'file does not exist', but got: %v", err)
+			},
+		},
+		{
+			name:        "DirectoryCreation_ShouldSucceed",
+			description: "Creating a directory should succeed in offline mode",
+			isDir:       true,
+			setupFunc: func(t *testing.T) (string, []byte, []byte) {
+				path := filepath.Join(TestDir, "dir_create_"+t.Name())
+				return path, nil, nil
+			},
+			testFunc: func(t *testing.T, path string, _ []byte, _ []byte) {
+				// Create the directory in offline mode
+				err := os.Mkdir(path, 0755)
+				require.NoError(t, err, "Failed to create directory in offline mode")
 
-	// Verify the directory exists
-	_, err = os.Stat(dirPath)
-	require.NoError(t, err, "Test directory %s should exist before deletion but was not found", dirPath)
+				// Verify the directory was created
+				info, err := os.Stat(path)
+				require.NoError(t, err, "Directory should exist after creation but was not found")
+				require.True(t, info.IsDir(), 
+					"Path should be a directory but has file mode %s", info.Mode().String())
+			},
+		},
+		{
+			name:        "DirectoryDeletion_ShouldSucceed",
+			description: "Deleting a directory should succeed in offline mode",
+			isDir:       true,
+			setupFunc: func(t *testing.T) (string, []byte, []byte) {
+				// Create a directory to delete
+				path := filepath.Join(TestDir, "dir_delete_"+t.Name())
 
-	// Delete the directory in offline mode
-	err = os.Remove(dirPath)
-	require.NoError(t, err, "Failed to delete directory %s in offline mode", dirPath)
+				// Create the directory
+				err := os.Mkdir(path, 0755)
+				require.NoError(t, err, "Failed to create directory for deletion test")
 
-	// Verify the directory was deleted
-	_, err = os.Stat(dirPath)
-	require.Error(t, err, "Test directory %s should not exist after deletion but was found", dirPath)
-	require.True(t, os.IsNotExist(err), 
-		"Error for deleted directory %s should be 'file does not exist', but got: %v", 
-		dirPath, err)
+				return path, nil, nil
+			},
+			testFunc: func(t *testing.T, path string, _ []byte, _ []byte) {
+				// Verify the directory exists
+				_, err := os.Stat(path)
+				require.NoError(t, err, "Test directory should exist before deletion but was not found")
+
+				// Delete the directory in offline mode
+				err = os.Remove(path)
+				require.NoError(t, err, "Failed to delete directory in offline mode")
+
+				// Verify the directory was deleted
+				_, err = os.Stat(path)
+				require.Error(t, err, "Test directory should not exist after deletion but was found")
+				require.True(t, os.IsNotExist(err), 
+					"Error for deleted directory should be 'file does not exist', but got: %v", err)
+			},
+		},
+		{
+			name:        "FileInDirectory_ShouldWorkOffline",
+			description: "Creating a file in a directory should work in offline mode",
+			isDir:       false,
+			setupFunc: func(t *testing.T) (string, []byte, []byte) {
+				// Create a directory
+				dirPath := filepath.Join(TestDir, "parent_dir_"+t.Name())
+				err := os.Mkdir(dirPath, 0755)
+				require.NoError(t, err, "Failed to create parent directory")
+
+				// Create a path for a file in that directory
+				filePath := filepath.Join(dirPath, "nested_file.txt")
+				content := []byte("this is a file in a directory")
+
+				return filePath, content, nil
+			},
+			testFunc: func(t *testing.T, path string, content []byte, _ []byte) {
+				// Write the file in offline mode
+				err := os.WriteFile(path, content, 0644)
+				require.NoError(t, err, "Writing a file in a directory while offline should succeed")
+
+				// Verify the file was created and has the correct content
+				contents, err := os.ReadFile(path)
+				require.NoError(t, err, "Reading the file in a directory should succeed")
+				require.Equal(t, content, contents, "File contents should match what was written")
+
+				// Clean up the parent directory
+				parentDir := filepath.Dir(path)
+				t.Cleanup(func() {
+					if err := os.RemoveAll(parentDir); err != nil {
+						t.Logf("Warning: Failed to clean up parent directory %s: %v", parentDir, err)
+					}
+				})
+			},
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		tc := tc // Capture range variable for parallel execution
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Setup test resources
+			path, initialContent, newContent := tc.setupFunc(t)
+
+			// Setup cleanup
+			t.Cleanup(func() {
+				if tc.isDir {
+					if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test directory %s: %v", path, err)
+					}
+				} else {
+					if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+						t.Logf("Warning: Failed to clean up test file %s: %v", path, err)
+					}
+				}
+			})
+
+			// Run the test
+			tc.testFunc(t, path, initialContent, newContent)
+		})
+	}
 }
 
 // Test that changes made in offline mode are cached and marked as changed

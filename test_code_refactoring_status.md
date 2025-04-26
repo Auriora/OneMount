@@ -79,9 +79,18 @@ This document summarizes the status of the recommendations from the [test_code_r
   - Converted TestUnitEnabled and TestUnitActive in ui/systemd/systemd_test.go to use table-driven tests with subtests
   - Added proper cleanup using t.Cleanup() to ensure resources are released
   - Added comments explaining why some subtests cannot use t.Parallel()
-  - Reviewed fs/offline/offline_test.go and determined that the tests are not good candidates for conversion to table-driven tests:
-    - Each test focuses on a specific, distinct functionality and doesn't have multiple similar test cases that could be parameterized
-    - They already use t.Parallel() where appropriate, t.Cleanup() for resource cleanup, and require with descriptive error messages
+  - Reviewed and refactored fs/offline/offline_test.go:
+    - Combined TestOfflineFileCreation, TestOfflineFileModification, TestOfflineFileDeletion, TestOfflineMkdir, and TestOfflineRmdir into a single table-driven test TestOfflineFileSystemOperations:
+      - Added test cases for file creation, modification, deletion, directory creation, directory deletion, and creating files in directories
+      - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+      - Added parallel execution for both top level and subtests
+      - Created separate setup and test functions for each test case
+      - Used t.Cleanup() for proper resource cleanup
+      - Improved error handling with descriptive error messages
+      - Added a description field for each test case
+    - Kept TestOfflineReaddir, TestOfflineBagelDetection, TestOfflineBagelContents, TestOfflineChangesCached, and TestOfflineSynchronization as separate tests:
+      - These tests focus on specific, distinct functionality and don't have multiple similar test cases that could be parameterized
+      - They already use t.Parallel() where appropriate, t.Cleanup() for resource cleanup, and require with descriptive error messages
   - Reviewed and refactored fs/inode_test.go:
     - Converted TestConstructor to TestInodeCreation using table-driven tests with subtests:
       - Added test cases for regular files, directories, and executable files
