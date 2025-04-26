@@ -191,6 +191,18 @@ This document summarizes the status of the recommendations from the [test_code_r
     - Improved error handling with descriptive error messages
     - Added more detailed logging for debugging
     - Added comprehensive assertions to verify both API and filesystem results
+  - Converted TestReaddir in fs/fs_test.go to a table-driven test:
+    - Added multiple test cases for different directories (root directory, test directory, documents directory)
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added comprehensive checks, including verifying item types (file vs. directory)
+    - Improved error handling with descriptive error messages
+    - Added more detailed logging for debugging
+  - Converted TestLs in fs/fs_test.go to a table-driven test:
+    - Added multiple test cases for different directories and ls options
+    - Used descriptive test case names following the "Operation_ShouldExpectedResult" pattern
+    - Added support for checking both expected and unexpected items
+    - Improved error handling with descriptive error messages
+    - Added more detailed logging for debugging
 - Group related tests (PARTIALLY COMPLETED)
   - Grouped related tests in ui/systemd/systemd_test.go:
     - Standardized the structure of TestTemplateUnit and TestUntemplateUnit
@@ -217,8 +229,8 @@ This document summarizes the status of the recommendations from the [test_code_r
      - Focus on tests in fs package that test similar functionality with different inputs
      - Potential candidates include:
        - TestLibreOfficeSavePattern in fs/fs_test.go
-       - TestReaddir in fs/fs_test.go
-       - TestLs in fs/fs_test.go
+       - TestTouchCreate in fs/fs_test.go
+       - TestTouchUpdateTime in fs/fs_test.go
    - Group related tests:
      - Organize tests by functionality rather than by implementation details
      - Use clear naming conventions for test functions

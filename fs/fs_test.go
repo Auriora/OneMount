@@ -23,32 +23,156 @@ import (
 // Does Go's internal ReadDir function work? This is mostly here to compare against
 // the offline versions of this test.
 func TestReaddir(t *testing.T) {
-	entries, err := os.ReadDir("mount")
-	files := make([]os.FileInfo, 0, len(entries))
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err == nil {
-			files = append(files, info)
-		}
+	testCases := []struct {
+		name           string
+		directory      string
+		expectedItems  []string
+		checkItemTypes map[string]string // Map of item name to expected type ("file" or "dir")
+	}{
+		{
+			name:          "RootDirectory_ShouldContainDocumentsFolder",
+			directory:     "mount",
+			expectedItems: []string{"Documents"},
+			checkItemTypes: map[string]string{
+				"Documents": "dir",
+			},
+		},
+		{
+			name:          "TestDirectory_ShouldContainExpectedFiles",
+			directory:     "mount/onedriver_tests",
+			expectedItems: []string{"paging"},
+			checkItemTypes: map[string]string{
+				"paging": "dir",
+			},
+		},
+		{
+			name:          "DocumentsDirectory_ShouldBeReadable",
+			directory:     "mount/Documents",
+			expectedItems: []string{}, // We don't care about specific files, just that we can read the directory
+		},
 	}
-	require.NoError(t, err)
 
-	found := false
-	for _, file := range files {
-		if file.Name() == "Documents" {
-			found = true
-			break
-		}
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Read the directory
+			entries, err := os.ReadDir(tc.directory)
+			require.NoError(t, err, "Failed to read directory: %s", tc.directory)
+
+			// Convert entries to FileInfo for more detailed checks
+			files := make([]os.FileInfo, 0, len(entries))
+			for _, entry := range entries {
+				info, err := entry.Info()
+				if err == nil {
+					files = append(files, info)
+				}
+			}
+
+			// Log the found items for debugging
+			fileNames := make([]string, 0, len(files))
+			for _, file := range files {
+				fileNames = append(fileNames, file.Name())
+			}
+			t.Logf("Found items in %s: %v", tc.directory, fileNames)
+
+			// Check for expected items
+			for _, expectedItem := range tc.expectedItems {
+				found := false
+				for _, file := range files {
+					if file.Name() == expectedItem {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "Could not find expected item %q in directory %s", 
+					expectedItem, tc.directory)
+			}
+
+			// Check item types if specified
+			for itemName, expectedType := range tc.checkItemTypes {
+				for _, file := range files {
+					if file.Name() == itemName {
+						switch expectedType {
+						case "dir":
+							require.True(t, file.IsDir(), "Expected %q to be a directory", itemName)
+						case "file":
+							require.False(t, file.IsDir(), "Expected %q to be a file", itemName)
+						default:
+							t.Fatalf("Invalid expected type: %s", expectedType)
+						}
+						break
+					}
+				}
+			}
+		})
 	}
-	require.True(t, found, "Could not find \"Documents\" folder.")
 }
 
-// does ls work and can we find the Documents folder?
+// does ls work and can we find the expected folders and files?
 func TestLs(t *testing.T) {
-	stdout, err := exec.Command("ls", "mount").Output()
-	require.NoError(t, err)
-	sout := string(stdout)
-	require.Contains(t, sout, "Documents", "Could not find \"Documents\" folder.")
+	testCases := []struct {
+		name           string
+		directory      string
+		options        []string // Additional ls options
+		expectedItems  []string
+		unexpectedItems []string // Items that should NOT be in the output
+	}{
+		{
+			name:          "RootDirectory_ShouldContainDocumentsFolder",
+			directory:     "mount",
+			options:       []string{},
+			expectedItems: []string{"Documents"},
+		},
+		{
+			name:          "TestDirectory_ShouldContainExpectedFiles",
+			directory:     "mount/onedriver_tests",
+			options:       []string{},
+			expectedItems: []string{"paging"},
+		},
+		{
+			name:          "RootDirectoryWithAllFiles_ShouldShowHiddenFiles",
+			directory:     "mount",
+			options:       []string{"-a"},
+			expectedItems: []string{".", ".."},
+		},
+		{
+			name:          "ListingWithLongFormat_ShouldShowPermissions",
+			directory:     "mount",
+			options:       []string{"-l"},
+			expectedItems: []string{"Documents"},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Build the command arguments
+			args := append(tc.options, tc.directory)
+
+			// Execute the ls command
+			stdout, err := exec.Command("ls", args...).Output()
+			require.NoError(t, err, "ls command failed for directory %s with options %v", 
+				tc.directory, tc.options)
+
+			// Convert output to string for easier checking
+			output := string(stdout)
+
+			// Log the output for debugging
+			t.Logf("ls %s %s output:\n%s", strings.Join(tc.options, " "), tc.directory, output)
+
+			// Check for expected items
+			for _, expectedItem := range tc.expectedItems {
+				require.Contains(t, output, expectedItem, 
+					"Could not find expected item %q in directory %s", expectedItem, tc.directory)
+			}
+
+			// Check for unexpected items (if any)
+			for _, unexpectedItem := range tc.unexpectedItems {
+				require.NotContains(t, output, unexpectedItem, 
+					"Found unexpected item %q in directory %s", unexpectedItem, tc.directory)
+			}
+		})
+	}
 }
 
 // can touch create an empty file?
