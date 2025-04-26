@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkSHA1(b *testing.B) {
@@ -76,7 +77,7 @@ func TestHashSeekPosition(t *testing.T) {
 
 	// Create a temporary file for testing
 	tmp, err := os.CreateTemp("", "onedriverHashTest")
-	assert.NoError(t, err, "Failed to create temporary file")
+	require.NoError(t, err, "Failed to create temporary file")
 	t.Cleanup(func() {
 		if err := os.Remove(tmp.Name()); err != nil && !os.IsNotExist(err) {
 			t.Logf("Warning: Failed to clean up test file %s: %v", tmp.Name(), err)
@@ -86,12 +87,12 @@ func TestHashSeekPosition(t *testing.T) {
 	// Write some content to the file
 	content := []byte("some test content")
 	_, err = io.Copy(tmp, bytes.NewBuffer(content))
-	assert.NoError(t, err, "Failed to write to temporary file")
+	require.NoError(t, err, "Failed to write to temporary file")
 	tmp.Close()
 
 	// Open the file for reading
 	file, err := os.Open(tmp.Name())
-	assert.NoError(t, err, "Failed to open temporary file")
+	require.NoError(t, err, "Failed to open temporary file")
 	t.Cleanup(func() {
 		if err := file.Close(); err != nil {
 			t.Logf("Warning: Failed to close file: %v", err)

@@ -17,8 +17,12 @@ This document summarizes the status of the recommendations from the [test_code_r
 - Implement consistent use of `t.Parallel()` (PARTIALLY COMPLETED)
   - Added `t.Parallel()` to all appropriate tests in the fs/graph package
   - Identified tests that should not use `t.Parallel()` due to shared state (e.g., offline_test.go)
-- Implement consistent resource cleanup with `t.Cleanup()`
-- Implement consistent assertion style using `require` and `assert`
+- Implement consistent resource cleanup with `t.Cleanup()` (PARTIALLY COMPLETED)
+  - Replaced all `defer` statements with `t.Cleanup()` in the fs/graph package tests
+  - Added improved error handling in cleanup functions
+- Implement consistent assertion style using `require` and `assert` (PARTIALLY COMPLETED)
+  - Updated all tests in the fs/graph package to use `require` for critical assertions and `assert` for non-critical assertions
+  - Added clear error messages to all assertions
 
 ### 3. Improve Test Reliability (NOT STARTED)
 
