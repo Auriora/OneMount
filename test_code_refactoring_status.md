@@ -51,4 +51,8 @@ This document summarizes the status of the recommendations from the [test_code_r
 
 ## Next Steps
 
-Continue implementation of the recommendations by standardizing test patterns across the project.
+1. Continue standardizing test patterns in remaining packages (ui, fs/offline, etc.)
+2. Begin implementing test reliability improvements:
+   - Replace fixed timeouts with dynamic waiting using the new testutil/async.go utilities
+   - Fix race conditions in tests, particularly in TestUploadDiskSerialization
+   - Isolate tests from each other by using subtests and proper cleanup
