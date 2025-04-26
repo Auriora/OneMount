@@ -104,6 +104,11 @@ This document summarizes the status of the recommendations from the [test_code_r
        - Updated TestMode to wait for directory and file creation
        - Updated TestIsDir to wait for directory and file creation
        - Updated TestFilenameEscape to wait for file creation
+     - ✓ Replace all fixed sleeps in fs/delta_test.go with WaitForCondition:
+       - Updated TestDeltaMoveParent to wait for file creation
+       - Removed unnecessary sleep in TestDeltaContentChangeRemote
+       - Updated TestDeltaNoModTimeUpdate to wait for DeltaLoop to run multiple times
+       - Updated TestDeltaMissingHash to wait for file insertion
      - Update any remaining fixed sleeps in other packages
    - Isolate tests from each other by using subtests and proper cleanup:
      - Convert more tests to use table-driven tests with subtests where appropriate

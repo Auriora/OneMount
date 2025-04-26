@@ -12,6 +12,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,12 +109,18 @@ func TestDeltaRename(t *testing.T) {
 // Create a file locally, then move it on the server to a new directory. Check
 // to see if the cache picks it up.
 func TestDeltaMoveParent(t *testing.T) {
+	filePath := filepath.Join(DeltaDir, "delta_move_start")
 	require.NoError(t, os.WriteFile(
-		filepath.Join(DeltaDir, "delta_move_start"),
+		filePath,
 		[]byte("carrotcake"),
 		0644,
 	))
-	time.Sleep(time.Second)
+
+	// Wait for the file to be recognized by the filesystem
+	testutil.WaitForCondition(t, func() bool {
+		_, err := os.Stat(filePath)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
 
 	var item *graph.DriveItem
 	var err error
@@ -169,10 +176,8 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 		return getErr == nil && bytes.Equal(body, newContent)
 	}, 30*time.Second, time.Second, "Failed to upload test file or content mismatch")
 
-	// Give the DeltaLoop time to detect the change and mark the file as out of sync
-	// The DeltaLoop polls every 5 seconds, so we'll wait for 10 seconds to be safe
-	time.Sleep(10 * time.Second)
-
+	// Wait for the DeltaLoop to detect the change and update the local file
+	// The DeltaLoop polls every 5 seconds, so we need to wait long enough for it to detect changes
 	var content []byte
 	assert.Eventuallyf(t, func() bool {
 		content, err = os.ReadFile(filepath.Join(DeltaDir, "remote_content"))
@@ -340,11 +345,23 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 	require.NoError(t, err)
 	mtimeOriginal := finfo.ModTime()
 
-	time.Sleep(15 * time.Second)
+	// Wait for enough time to ensure the DeltaLoop has run multiple times
+	// The DeltaLoop polls every 5 seconds, so we'll wait for 15 seconds
+	// While waiting, periodically check that the modification time hasn't changed
+	var mtimeNew time.Time
+	testutil.WaitForCondition(t, func() bool {
+		currentInfo, err := os.Stat(fname)
+		if err != nil {
+			t.Logf("Error stating file: %v", err)
+			return false
+		}
 
-	finfo, err = os.Stat(fname)
-	require.NoError(t, err)
-	mtimeNew := finfo.ModTime()
+		// Store the current modification time for later comparison
+		mtimeNew = currentInfo.ModTime()
+
+		// Check if enough time has passed (at least 15 seconds)
+		return time.Since(mtimeOriginal) >= 15*time.Second
+	}, 20*time.Second, 500*time.Millisecond, "Failed to wait long enough for DeltaLoop to run multiple times")
 	require.True(t, mtimeNew.Equal(mtimeOriginal),
 		"Modification time was updated even though the file did not change.\n"+
 			"Old mtime: %d, New mtime: %d\n", mtimeOriginal.Unix(), mtimeNew.Unix())
@@ -359,7 +376,11 @@ func TestDeltaMissingHash(t *testing.T) {
 	_, err = cache.InsertPath("/folder", nil, file)
 	require.NoError(t, err)
 
-	time.Sleep(time.Second)
+	// Wait for the filesystem to process the insertion
+	testutil.WaitForCondition(t, func() bool {
+		// Check if the file exists in the filesystem
+		return cache.GetID(file.ID()) != nil
+	}, 5*time.Second, 100*time.Millisecond, "File was not inserted into filesystem within timeout")
 	now := time.Now()
 	delta := &graph.DriveItem{
 		ID:      file.ID(),
