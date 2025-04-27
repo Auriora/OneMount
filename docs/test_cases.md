@@ -1,6 +1,6 @@
 # OneDriver Test Cases
 
-This document contains standardized test cases for the OneDriver project, covering successful sync, network failure, and invalid credentials scenarios.
+This document contains standardized test cases for the OneDriver project, covering successful sync, network failure, invalid credentials scenarios, file system operations, authentication and configuration, and offline functionality.
 
 ## Successful Sync Scenarios
 
@@ -170,5 +170,187 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Preconditions   | 1. User has invalid credentials<br>2. Network connection is available                      |
 | Steps           | 1. Attempt to authenticate with invalid credentials<br>2. Verify error handling<br>3. Verify system state after failure |
 | Expected Result | System properly handles the authentication failure and provides appropriate user feedback  |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+## File System Operations
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-16                                                                                      |
+| Title           | Directory Reading                                                                          |
+| Description     | Verify that the filesystem can correctly list directory contents                           |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available<br>3. Directories with known content exist |
+| Steps           | 1. Read the contents of various directories using os.ReadDir<br>2. Verify that expected items are present<br>3. Verify that item types (file/directory) are correctly identified |
+| Expected Result | Directory contents are correctly listed with proper item types                             |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-17                                                                                      |
+| Title           | Directory Listing with Shell Commands                                                      |
+| Description     | Verify that directory contents can be listed using shell commands                          |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available<br>3. Directories with known content exist |
+| Steps           | 1. List directory contents using the 'ls' command with various options<br>2. Verify that expected items are present<br>3. Verify that item properties are correctly displayed with different options |
+| Expected Result | Directory contents are correctly listed with proper item properties                        |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-18                                                                                      |
+| Title           | File Creation and Modification Time                                                        |
+| Description     | Verify that files can be created and their modification times can be updated               |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create a new empty file using the 'touch' command<br>2. Verify file properties<br>3. Update the file's modification time using 'touch'<br>4. Verify the modification time has changed |
+| Expected Result | Files are created with correct properties and modification times can be updated            |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-19                                                                                      |
+| Title           | File Permissions                                                                           |
+| Description     | Verify that file permissions are correctly handled                                         |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create files with specific permissions<br>2. Verify the permissions are set correctly<br>3. Change file permissions<br>4. Verify the permissions are updated correctly |
+| Expected Result | File permissions are correctly set and can be modified                                     |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-20                                                                                      |
+| Title           | Directory Creation and Removal                                                             |
+| Description     | Verify that directories can be created and removed                                         |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create a new directory<br>2. Verify the directory exists with correct properties<br>3. Remove the directory<br>4. Verify the directory no longer exists |
+| Expected Result | Directories can be created and removed successfully                                        |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-21                                                                                      |
+| Title           | File Writing with Offset                                                                   |
+| Description     | Verify that files can be written to at specific offsets                                    |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create a file with initial content<br>2. Write new content at a specific offset<br>3. Verify the file content is correctly modified |
+| Expected Result | File content can be modified at specific offsets                                           |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-22                                                                                      |
+| Title           | File Movement Operations                                                                   |
+| Description     | Verify that files can be moved and renamed                                                 |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create a file<br>2. Move the file to a different location<br>3. Verify the file exists at the new location and not at the old location<br>4. Rename the file<br>5. Verify the file exists with the new name |
+| Expected Result | Files can be moved and renamed successfully                                                |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-23                                                                                      |
+| Title           | Positional File Operations                                                                 |
+| Description     | Verify that files can be read and written at specific positions                            |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create a file with known content<br>2. Read from specific positions in the file<br>3. Write to specific positions in the file<br>4. Verify the file content is correctly modified |
+| Expected Result | Files can be read and written at specific positions                                        |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-24                                                                                      |
+| Title           | Case Sensitivity Handling                                                                  |
+| Description     | Verify that the filesystem correctly handles case sensitivity in filenames                 |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create files with names differing only in case<br>2. Verify both files exist and are distinct<br>3. Access files using different case variations<br>4. Verify the correct files are accessed |
+| Expected Result | Case sensitivity in filenames is handled correctly                                         |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-25                                                                                      |
+| Title           | Special Characters in Filenames                                                            |
+| Description     | Verify that the filesystem correctly handles special characters in filenames               |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create files with special characters in their names<br>2. Verify the files exist and can be accessed<br>3. Create files with disallowed characters<br>4. Verify appropriate error handling |
+| Expected Result | Special characters in filenames are handled correctly, and disallowed characters are properly rejected |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-26                                                                                      |
+| Title           | Trash Functionality                                                                        |
+| Description     | Verify that the filesystem correctly handles trash operations                              |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Create a file<br>2. Move the file to trash using GIO<br>3. Verify the file is no longer accessible in its original location<br>4. Verify the file is in the OneDrive trash |
+| Expected Result | Files can be moved to trash successfully                                                   |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-27                                                                                      |
+| Title           | Directory Paging                                                                           |
+| Description     | Verify that the filesystem correctly handles directories with many items requiring paging  |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available<br>3. A directory with many items exists |
+| Steps           | 1. List the contents of a directory with many items<br>2. Verify all items are correctly listed<br>3. Access items from different pages<br>4. Verify the items can be accessed correctly |
+| Expected Result | Directories with many items are handled correctly with proper paging                       |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-28                                                                                      |
+| Title           | Application-Specific Save Patterns                                                         |
+| Description     | Verify that the filesystem correctly handles application-specific save patterns            |
+| Preconditions   | 1. User is authenticated with valid credentials<br>2. Network connection is available      |
+| Steps           | 1. Simulate LibreOffice save pattern (create temporary file, rename to target)<br>2. Verify the file is saved correctly<br>3. Verify the temporary files are handled properly |
+| Expected Result | Application-specific save patterns are handled correctly                                   |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+## Authentication and Configuration
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-29                                                                                      |
+| Title           | Authentication Configuration Merging                                                       |
+| Description     | Verify that authentication configuration can be merged with defaults                       |
+| Preconditions   | 1. Authentication configuration with custom values exists                                  |
+| Steps           | 1. Create a custom authentication configuration<br>2. Apply default values<br>3. Verify custom values are preserved<br>4. Verify default values are applied for unspecified fields |
+| Expected Result | Authentication configuration is correctly merged with defaults                             |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-30                                                                                      |
+| Title           | Resource Path Handling                                                                     |
+| Description     | Verify that local filesystem paths are correctly converted to OneDrive API resource paths  |
+| Preconditions   | 1. Various types of local filesystem paths are available                                   |
+| Steps           | 1. Convert local paths with special characters to resource paths<br>2. Convert root path to resource path<br>3. Convert simple and nested paths to resource paths<br>4. Verify all conversions are correct |
+| Expected Result | Local filesystem paths are correctly converted to OneDrive API resource paths              |
+| Actual Result   | [To be filled during test execution]                                                       |
+| Status          | [Pass/Fail]                                                                                |
+
+## Offline Functionality
+
+| Field           | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| Test Case ID    | TC-31                                                                                      |
+| Title           | Offline Changes Caching                                                                    |
+| Description     | Verify that changes made in offline mode are properly cached                               |
+| Preconditions   | 1. User is authenticated<br>2. Network connection is unavailable                           |
+| Steps           | 1. Create a file in offline mode<br>2. Verify the file exists locally<br>3. Verify the file has the correct content<br>4. Verify the file is marked for synchronization when online |
+| Expected Result | Changes made in offline mode are properly cached and marked for synchronization            |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
