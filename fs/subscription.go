@@ -128,6 +128,17 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 	if err != nil {
 		return nil, err
 	}
+
+	// Create a ready channel to synchronize connection establishment
+	readyCh := make(chan struct{})
+	errCh := make(chan error, 1)
+
+	// Create a connection ready handler
+	connectionReady := func() {
+		close(readyCh)
+	}
+
+	// Create the socketio connection with the ready handler
 	sioc, err := socketio.DialContext(ctx, socketio.Config{
 		URL:        urlstr,
 		EIOVersion: engineio.EIO3,
@@ -136,16 +147,41 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 	if err != nil {
 		return nil, err
 	}
+
+	// Create a namespace with the notification handler
 	ns := &socketio.Namespace{
 		Name: u.RequestURI(),
 		PacketHandlers: map[byte]socketio.Handler{
 			socketio.PacketTypeEVENT: s.notificationHandler,
 		},
 	}
-	if err := sioc.Connect(ctx, ns); err != nil {
+
+	// Connect to the namespace in a separate goroutine to avoid blocking
+	go func() {
+		if err := sioc.Connect(ctx, ns); err != nil {
+			errCh <- err
+			return
+		}
+		// Signal that the connection is ready
+		connectionReady()
+	}()
+
+	// Wait for the connection to be ready or for an error
+	select {
+	case <-readyCh:
+		// Connection is ready
+		log.Debug().Msg("socketio connection established successfully")
+	case err := <-errCh:
+		// Connection failed
+		sioc.Close()
 		return nil, err
+	case <-ctx.Done():
+		// Context timeout or cancellation
+		sioc.Close()
+		return nil, ctx.Err()
 	}
-	return func() { sioc.Close() }, err
+
+	return func() { sioc.Close() }, nil
 }
 
 func (s *subscription) notificationHandler(msg socketio.Message) {
