@@ -49,8 +49,10 @@ debian/files
 *.build*
 *.upload
 *.tar.xz
+
 .idea/
 /.cache/
 /.config/
 __pycache__
 /.auth_tokens.json
+!docs/README.logging.md
