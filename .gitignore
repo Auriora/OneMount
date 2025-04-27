@@ -6,7 +6,6 @@ compile_flags.txt
 mount/
 build/
 tmp/
-*.json
 *.bak
 *.log*
 *.race.*
@@ -54,3 +53,4 @@ debian/files
 /.cache/
 /.config/
 __pycache__
+/.auth_tokens.json

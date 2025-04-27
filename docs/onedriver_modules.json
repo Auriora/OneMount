@@ -1,0 +1,5710 @@
+{
+  "modules": [
+    {
+      "name": "common",
+      "path": "cmd/common",
+      "classes": [
+        {
+          "name": "Config",
+          "fields": [
+            {
+              "name": "CacheDir",
+              "type": "string"
+            },
+            {
+              "name": "LogLevel",
+              "type": "string"
+            },
+            {
+              "name": "SyncTree",
+              "type": "bool"
+            },
+            {
+              "name": "DeltaInterval",
+              "type": "int"
+            },
+            {
+              "name": "CacheExpiration",
+              "type": "int"
+            }
+          ],
+          "methods": [
+            {
+              "name": "WriteConfig",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "embedded": [
+            "graph.AuthConfig"
+          ],
+          "path": "cmd/common/config.go"
+        }
+      ],
+      "functions": [
+        {
+          "name": "Version",
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "StringToLevel",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.SelectorExpr"
+          ]
+        },
+        {
+          "name": "LogLevels",
+          "returns": [
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "TemplateXDGVolumeInfo",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetXDGVolumeInfoName",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CreateXDGVolumeInfo",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "IsUserAllowOtherEnabled",
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestXDGVolumeInfo",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "DefaultConfigPath",
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "createDefaultConfig",
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "readConfigFile",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "parseConfig",
+          "parameters": [
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "mergeWithDefaults",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "validateConfig",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "LoadConfig",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestLoadConfig",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestConfigMerge",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestLoadNonexistentConfig",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestWriteConfig",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "captureFileSystemState",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestMain",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "os",
+          "github.com/stretchr/testify/assert",
+          "regexp",
+          "github.com/stretchr/testify/require",
+          "path/filepath",
+          "github.com/jstaf/onedriver/ui",
+          "gopkg.in/yaml.v3",
+          "bufio",
+          "errors",
+          "testing",
+          "github.com/imdario/mergo",
+          "encoding/json",
+          "fmt",
+          "strings",
+          "github.com/jstaf/onedriver/fs",
+          "github.com/jstaf/onedriver/fs/graph",
+          "github.com/rs/zerolog",
+          "github.com/rs/zerolog/log"
+        ]
+      }
+    },
+    {
+      "name": "main",
+      "path": "cmd/onedriver",
+      "functions": [
+        {
+          "name": "usage"
+        },
+        {
+          "name": "setupFlags",
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "initializeFilesystem",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.StarExpr",
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "displayStats",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "main"
+        },
+        {
+          "name": "setupSignalHandler",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.StarExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "github.com/coreos/go-systemd/v22/unit",
+          "github.com/jstaf/onedriver/cmd/common",
+          "github.com/rs/zerolog",
+          "github.com/jstaf/onedriver/fs",
+          "os/signal",
+          "strings",
+          "time",
+          "github.com/hanwen/go-fuse/v2/fuse",
+          "github.com/jstaf/onedriver/fs/graph",
+          "github.com/rs/zerolog/log",
+          "github.com/spf13/pflag",
+          "context",
+          "fmt",
+          "sort",
+          "syscall",
+          "os",
+          "path/filepath"
+        ]
+      }
+    },
+    {
+      "name": "main",
+      "path": "cmd/onedriver-launcher",
+      "functions": [
+        {
+          "name": "usage"
+        },
+        {
+          "name": "main"
+        },
+        {
+          "name": "activateCallback",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "xdgOpenDir",
+          "parameters": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "newMountRow",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "newSettingsDialog",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.SelectorExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "github.com/spf13/pflag",
+          "C",
+          "fmt",
+          "os",
+          "unsafe",
+          "github.com/coreos/go-systemd/v22/unit",
+          "github.com/gotk3/gotk3/glib",
+          "github.com/gotk3/gotk3/gtk",
+          "github.com/jstaf/onedriver/ui/systemd",
+          "path/filepath",
+          "github.com/jstaf/onedriver/cmd/common",
+          "github.com/jstaf/onedriver/ui",
+          "github.com/rs/zerolog",
+          "github.com/rs/zerolog/log"
+        ]
+      }
+    },
+    {
+      "name": "fs",
+      "path": "fs",
+      "classes": [
+        {
+          "name": "Filesystem",
+          "fields": [
+            {
+              "name": "metadata",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "db",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "content",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "thumbnails",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "auth",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "root",
+              "type": "string"
+            },
+            {
+              "name": "deltaLink",
+              "type": "string"
+            },
+            {
+              "name": "subscribeChangesLink",
+              "type": "string"
+            },
+            {
+              "name": "uploads",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "downloads",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "cacheExpirationDays",
+              "type": "int"
+            },
+            {
+              "name": "cacheCleanupStop",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "cacheCleanupStopOnce",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "cacheCleanupWg",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "deltaLoopStop",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "deltaLoopWg",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "deltaLoopStopOnce",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "deltaLoopCtx",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "deltaLoopCancel",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "offline",
+              "type": "bool"
+            },
+            {
+              "name": "lastNodeID",
+              "type": "uint64"
+            },
+            {
+              "name": "inodes",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "opendirsM",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "opendirs",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "statusM",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "statuses",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "dbusServer",
+              "type": "*ast.StarExpr"
+            }
+          ],
+          "methods": [
+            {
+              "name": "IsOffline",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "TrackOfflineChange",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "ProcessOfflineChanges"
+            },
+            {
+              "name": "TranslateID",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetNodeID",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "InsertNodeID",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetID",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "InsertID",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "InsertChild",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "DeleteID",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetChild",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetChildrenID",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.MapType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetChildrenPath",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.MapType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetPath",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "DeletePath",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "InsertPath",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "MoveID",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "MovePath",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "StartCacheCleanup"
+            },
+            {
+              "name": "StopCacheCleanup"
+            },
+            {
+              "name": "StopDeltaLoop"
+            },
+            {
+              "name": "StopDownloadManager"
+            },
+            {
+              "name": "StopUploadManager"
+            },
+            {
+              "name": "SerializeAll"
+            },
+            {
+              "name": "DeltaLoop",
+              "parameters": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "pollDeltas",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "applyDelta",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Mkdir",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Rmdir",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "OpenDir",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "ReleaseDir",
+              "parameters": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "readDirCommon",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "ReadDirPlus",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "ReadDir",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Lookup",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Mknod",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Create",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Open",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Unlink",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Read",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.SelectorExpr",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Write",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Fsync",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Flush",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Poll",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Release",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "CleanupThumbnails",
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetFileStatus",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "determineFileStatus",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "SetFileStatus",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "MarkFileDownloading",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "MarkFileOutofSync",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "MarkFileError",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "MarkFileConflict",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "InodePath",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "updateFileStatus",
+              "parameters": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "getInodeContent",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "remoteID",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "HandleThumbnailRequest",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "RegisterFileHandle",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetFileHandle",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "ReleaseFileHandle",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "StatFs",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "GetAttr",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "SetAttr",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Rename",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "SetOfflineMode",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetOfflineMode",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetStats",
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "subscribeChanges",
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "SyncDirectoryTree",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "syncDirectoryTreeRecursive",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetThumbnail",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetThumbnailStream",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "DeleteThumbnail",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "CleanupThumbnailCache",
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "getInodeFromPath",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetXAttr",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "SetXAttr",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "ListXAttr",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "RemoveXAttr",
+              "parameters": [
+                "*ast.ChanType",
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            }
+          ],
+          "embedded": [
+            "fuse.RawFileSystem",
+            "sync.RWMutex"
+          ],
+          "path": "fs/cache.go"
+        },
+        {
+          "name": "OfflineChange",
+          "fields": [
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "Type",
+              "type": "string"
+            },
+            {
+              "name": "Timestamp",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "Path",
+              "type": "string"
+            },
+            {
+              "name": "OldPath",
+              "type": "string"
+            },
+            {
+              "name": "NewPath",
+              "type": "string"
+            }
+          ],
+          "path": "fs/cache.go"
+        },
+        {
+          "name": "LoopbackCache",
+          "fields": [
+            {
+              "name": "directory",
+              "type": "string"
+            },
+            {
+              "name": "fds",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "lastCleanup",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "methods": [
+            {
+              "name": "contentPath",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Get",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "Insert",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "InsertStream",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Delete",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Move",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "IsOpen",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "HasContent",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Open",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Close",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "CleanupCache",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/content_cache.go"
+        },
+        {
+          "name": "FileStatusDBusServer",
+          "fields": [
+            {
+              "name": "fs",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "conn",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "mutex",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "started",
+              "type": "bool"
+            },
+            {
+              "name": "stopChan",
+              "type": "*ast.ChanType"
+            }
+          ],
+          "methods": [
+            {
+              "name": "StartForTesting",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Start",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Stop"
+            },
+            {
+              "name": "GetFileStatus",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "SendFileStatusUpdate",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/dbus.go"
+        },
+        {
+          "name": "deltaResponse",
+          "fields": [
+            {
+              "name": "NextLink",
+              "type": "string"
+            },
+            {
+              "name": "DeltaLink",
+              "type": "string"
+            },
+            {
+              "name": "Values",
+              "type": "*ast.ArrayType"
+            }
+          ],
+          "path": "fs/delta.go"
+        },
+        {
+          "name": "DownloadSession",
+          "fields": [
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "Path",
+              "type": "string"
+            },
+            {
+              "name": "State",
+              "type": "DownloadState"
+            },
+            {
+              "name": "Error",
+              "type": "error"
+            },
+            {
+              "name": "StartTime",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "EndTime",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "mutex",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "path": "fs/download_manager.go"
+        },
+        {
+          "name": "DownloadManager",
+          "fields": [
+            {
+              "name": "fs",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "auth",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "sessions",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "queue",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "mutex",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "workerWg",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "numWorkers",
+              "type": "int"
+            },
+            {
+              "name": "stopChan",
+              "type": "*ast.ChanType"
+            }
+          ],
+          "methods": [
+            {
+              "name": "startWorkers"
+            },
+            {
+              "name": "worker"
+            },
+            {
+              "name": "processDownload",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "setSessionError",
+              "parameters": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "QueueDownload",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetDownloadStatus",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "WaitForDownload",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Stop"
+            }
+          ],
+          "path": "fs/download_manager.go"
+        },
+        {
+          "name": "FileStatusInfo",
+          "fields": [
+            {
+              "name": "Status",
+              "type": "FileStatus"
+            },
+            {
+              "name": "ErrorMsg",
+              "type": "string"
+            },
+            {
+              "name": "Timestamp",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "path": "fs/file_status.go"
+        },
+        {
+          "name": "ThumbnailFileHandle",
+          "fields": [
+            {
+              "name": "file",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "path",
+              "type": "string"
+            },
+            {
+              "name": "size",
+              "type": "string"
+            },
+            {
+              "name": "origPath",
+              "type": "string"
+            }
+          ],
+          "methods": [
+            {
+              "name": "Read",
+              "parameters": [
+                "*ast.SelectorExpr",
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.SelectorExpr",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Release",
+              "parameters": [
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            }
+          ],
+          "path": "fs/fuse_thumbnail_handlers.go"
+        },
+        {
+          "name": "Inode",
+          "fields": [
+            {
+              "name": "nodeID",
+              "type": "uint64"
+            },
+            {
+              "name": "children",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "hasChanges",
+              "type": "bool"
+            },
+            {
+              "name": "subdir",
+              "type": "uint32"
+            },
+            {
+              "name": "mode",
+              "type": "uint32"
+            },
+            {
+              "name": "xattrs",
+              "type": "*ast.MapType"
+            }
+          ],
+          "methods": [
+            {
+              "name": "AsJSON",
+              "returns": [
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "String",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Name",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "SetName",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "NodeID",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "SetNodeID",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "ID",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "ParentID",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Path",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "HasChanges",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "HasChildren",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "makeAttr",
+              "returns": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "IsDir",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Mode",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "ModTime",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "NLink",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Size",
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "embedded": [
+            "sync.RWMutex",
+            "graph.DriveItem"
+          ],
+          "path": "fs/inode.go"
+        },
+        {
+          "name": "SerializeableInode",
+          "fields": [
+            {
+              "name": "Children",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Subdir",
+              "type": "uint32"
+            },
+            {
+              "name": "Mode",
+              "type": "uint32"
+            },
+            {
+              "name": "Xattrs",
+              "type": "*ast.MapType"
+            }
+          ],
+          "embedded": [
+            "graph.DriveItem"
+          ],
+          "path": "fs/inode.go"
+        },
+        {
+          "name": "Profiler",
+          "fields": [
+            {
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "name": "outputDir",
+              "type": "string"
+            },
+            {
+              "name": "cpuProfile",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "memProfile",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "blockProfile",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "mutexProfile",
+              "type": "*ast.StarExpr"
+            }
+          ],
+          "methods": [
+            {
+              "name": "Start",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Stop",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "CaptureProfile",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "CaptureAllProfiles",
+              "parameters": [
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/profiler.go"
+        },
+        {
+          "name": "Stats",
+          "fields": [
+            {
+              "name": "MetadataCount",
+              "type": "int"
+            },
+            {
+              "name": "ContentCount",
+              "type": "int"
+            },
+            {
+              "name": "ContentSize",
+              "type": "int64"
+            },
+            {
+              "name": "ContentDir",
+              "type": "string"
+            },
+            {
+              "name": "Expiration",
+              "type": "int"
+            },
+            {
+              "name": "UploadCount",
+              "type": "int"
+            },
+            {
+              "name": "UploadsNotStarted",
+              "type": "int"
+            },
+            {
+              "name": "UploadsInProgress",
+              "type": "int"
+            },
+            {
+              "name": "UploadsCompleted",
+              "type": "int"
+            },
+            {
+              "name": "UploadsErrored",
+              "type": "int"
+            },
+            {
+              "name": "StatusCloud",
+              "type": "int"
+            },
+            {
+              "name": "StatusLocal",
+              "type": "int"
+            },
+            {
+              "name": "StatusLocalModified",
+              "type": "int"
+            },
+            {
+              "name": "StatusSyncing",
+              "type": "int"
+            },
+            {
+              "name": "StatusDownloading",
+              "type": "int"
+            },
+            {
+              "name": "StatusOutofSync",
+              "type": "int"
+            },
+            {
+              "name": "StatusError",
+              "type": "int"
+            },
+            {
+              "name": "StatusConflict",
+              "type": "int"
+            },
+            {
+              "name": "DeltaLink",
+              "type": "string"
+            },
+            {
+              "name": "IsOffline",
+              "type": "bool"
+            },
+            {
+              "name": "DBPath",
+              "type": "string"
+            },
+            {
+              "name": "DBSize",
+              "type": "int64"
+            },
+            {
+              "name": "DBPageCount",
+              "type": "int"
+            },
+            {
+              "name": "DBPageSize",
+              "type": "int"
+            },
+            {
+              "name": "DBMetadataCount",
+              "type": "int"
+            },
+            {
+              "name": "DBDeltaCount",
+              "type": "int"
+            },
+            {
+              "name": "DBOfflineCount",
+              "type": "int"
+            },
+            {
+              "name": "DBUploadsCount",
+              "type": "int"
+            },
+            {
+              "name": "FileExtensions",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "MaxDirDepth",
+              "type": "int"
+            },
+            {
+              "name": "AvgDirDepth",
+              "type": "float64"
+            },
+            {
+              "name": "DirCount",
+              "type": "int"
+            },
+            {
+              "name": "EmptyDirCount",
+              "type": "int"
+            },
+            {
+              "name": "AvgFilesPerDir",
+              "type": "float64"
+            },
+            {
+              "name": "MaxFilesInDir",
+              "type": "int"
+            },
+            {
+              "name": "MaxFilesInDirID",
+              "type": "string"
+            },
+            {
+              "name": "FileSizeRanges",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "FileAgeRanges",
+              "type": "*ast.MapType"
+            }
+          ],
+          "path": "fs/stats.go"
+        },
+        {
+          "name": "subscriptionResponse",
+          "fields": [
+            {
+              "name": "Context",
+              "type": "string"
+            },
+            {
+              "name": "ClientState",
+              "type": "string"
+            },
+            {
+              "name": "ExpirationDateTime",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "Id",
+              "type": "string"
+            },
+            {
+              "name": "NotificationUrl",
+              "type": "string"
+            },
+            {
+              "name": "Resource",
+              "type": "string"
+            }
+          ],
+          "path": "fs/subscription.go"
+        },
+        {
+          "name": "subscription",
+          "fields": [
+            {
+              "name": "C",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "subscribe",
+              "type": "subscribeFunc"
+            },
+            {
+              "name": "c",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "closeCh",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "sioErrCh",
+              "type": "*ast.ChanType"
+            }
+          ],
+          "methods": [
+            {
+              "name": "Start"
+            },
+            {
+              "name": "setupEventChan",
+              "parameters": [
+                "*ast.SelectorExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.FuncType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "notificationHandler",
+              "parameters": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "trigger"
+            },
+            {
+              "name": "socketioOnError",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Stop"
+            }
+          ],
+          "path": "fs/subscription.go"
+        },
+        {
+          "name": "ThumbnailCache",
+          "fields": [
+            {
+              "name": "directory",
+              "type": "string"
+            },
+            {
+              "name": "fds",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "lastCleanup",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "methods": [
+            {
+              "name": "thumbnailPath",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Get",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "Insert",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident",
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "InsertStream",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Delete",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "DeleteAll",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "HasThumbnail",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Open",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Close",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "CleanupCache",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/thumbnail_cache.go"
+        },
+        {
+          "name": "UploadManager",
+          "fields": [
+            {
+              "name": "highPriorityQueue",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "lowPriorityQueue",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "queue",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "deletionQueue",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "sessions",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "sessionPriorities",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "inFlight",
+              "type": "uint8"
+            },
+            {
+              "name": "auth",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "fs",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "db",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "mutex",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "stopChan",
+              "type": "*ast.ChanType"
+            },
+            {
+              "name": "workerWg",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "methods": [
+            {
+              "name": "uploadLoop",
+              "parameters": [
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "QueueUpload",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "QueueUploadWithPriority",
+              "parameters": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "CancelUpload",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "finishUpload",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetUploadStatus",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "WaitForUpload",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Stop"
+            }
+          ],
+          "path": "fs/upload_manager.go"
+        },
+        {
+          "name": "UploadSession",
+          "fields": [
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "OldID",
+              "type": "string"
+            },
+            {
+              "name": "ParentID",
+              "type": "string"
+            },
+            {
+              "name": "NodeID",
+              "type": "uint64"
+            },
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "ExpirationDateTime",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "Size",
+              "type": "uint64"
+            },
+            {
+              "name": "Data",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "QuickXORHash",
+              "type": "string"
+            },
+            {
+              "name": "ModTime",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "retries",
+              "type": "int"
+            },
+            {
+              "name": "UploadURL",
+              "type": "string"
+            },
+            {
+              "name": "ETag",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "int"
+            }
+          ],
+          "methods": [
+            {
+              "name": "MarshalJSON",
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "getState",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "setState",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "cancel",
+              "parameters": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "uploadChunk",
+              "parameters": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Upload",
+              "parameters": [
+                "*ast.StarExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "embedded": [
+            "sync.Mutex",
+            "error"
+          ],
+          "path": "fs/upload_session.go"
+        },
+        {
+          "name": "UploadSessionPost",
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "ConflictBehavior",
+              "type": "string"
+            }
+          ],
+          "embedded": [
+            "FileSystemInfo"
+          ],
+          "path": "fs/upload_session.go"
+        },
+        {
+          "name": "FileSystemInfo",
+          "fields": [
+            {
+              "name": "LastModifiedDateTime",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "path": "fs/upload_session.go"
+        }
+      ],
+      "functions": [
+        {
+          "name": "NewFilesystem",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestCacheOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewLoopbackCache",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "init"
+        },
+        {
+          "name": "NewFileStatusDBusServer",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDBusServerOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDBusServerFunctionality",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaContentChangeRemote",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaContentChangeBoth",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaBadContentInCache",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaFolderDeletion",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaFolderDeletionNonEmpty",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaNoModTimeUpdate",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDeltaMissingHash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewDownloadManager",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "copyBuffer",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "isNameRestricted",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestReaddir",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestLs",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestTouchOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFilePermissions",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDirectoryOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDirectoryRemoval",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFileOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestWriteOffset",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFileMovementOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestPositionalFileOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestBasicFileSystemOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestCaseSensitivityHandling",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFilenameCase",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestShellFileOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFileInfo",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestNoQuestionMarks",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestGIOTrash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestListChildrenPaging",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestLibreOfficeSavePattern",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDisallowedFilenames",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "parseThumbnailRequest",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "NewInode",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewInodeJSON",
+          "parameters": [
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "NewInodeDriveItem",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "randString",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "localID",
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "isLocalID",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Octal",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestInodeCreation",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestInodeProperties",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFilenameEscaping",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFileCreationBehavior",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewProfiler",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "captureFileSystemState",
+          "returns": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestMain",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "createPagingTestFiles"
+        },
+        {
+          "name": "UnmountHandler",
+          "parameters": [
+            "*ast.ChanType",
+            "*ast.StarExpr",
+            "*ast.StarExpr",
+            "*ast.ChanType"
+          ]
+        },
+        {
+          "name": "FormatSize",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "newSubscription",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewThumbnailCache",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestThumbnailCacheOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestThumbnailCacheCleanup",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestThumbnailOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewUploadManager",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.StarExpr",
+            "*ast.StarExpr",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "priorityToString",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestUploadDiskSerialization",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "findUploadSession",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestRepeatedUploads",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewUploadSession",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestUploadSessionOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestXattrOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFileStatusXattr",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestFilesystemXattrOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "github.com/yousong/socketio-go/engineio",
+          "strings",
+          "time",
+          "github.com/yousong/socketio-go/socketio",
+          "net/http",
+          "math",
+          "runtime/pprof",
+          "bufio",
+          "errors",
+          "github.com/jstaf/onedriver/testutil/common",
+          "sync/atomic",
+          "context",
+          "testing",
+          "runtime",
+          "math/rand",
+          "net/url",
+          "encoding/json",
+          "sync",
+          "github.com/rs/zerolog/log",
+          "io",
+          "syscall",
+          "fmt",
+          "os",
+          "os/exec",
+          "github.com/hanwen/go-fuse/v2/fuse",
+          "github.com/jstaf/onedriver/fs/graph",
+          "github.com/stretchr/testify/assert",
+          "github.com/stretchr/testify/require",
+          "github.com/godbus/dbus/v5/introspect",
+          "bytes",
+          "strconv",
+          "os/signal",
+          "path/filepath",
+          "sort",
+          "go.etcd.io/bbolt",
+          "github.com/godbus/dbus/v5",
+          "regexp",
+          "github.com/rs/zerolog"
+        ]
+      }
+    },
+    {
+      "name": "graph",
+      "path": "fs/graph",
+      "classes": [
+        {
+          "name": "DriveItemParent",
+          "fields": [
+            {
+              "name": "Path",
+              "type": "string"
+            },
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "DriveID",
+              "type": "string"
+            },
+            {
+              "name": "DriveType",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "Folder",
+          "fields": [
+            {
+              "name": "ChildCount",
+              "type": "uint32"
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "Hashes",
+          "fields": [
+            {
+              "name": "SHA1Hash",
+              "type": "string"
+            },
+            {
+              "name": "QuickXorHash",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "File",
+          "fields": [
+            {
+              "name": "Hashes",
+              "type": "Hashes"
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "Deleted",
+          "fields": [
+            {
+              "name": "State",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "DriveItem",
+          "fields": [
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "Size",
+              "type": "uint64"
+            },
+            {
+              "name": "ModTime",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "Parent",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "Folder",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "File",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "Deleted",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "ConflictBehavior",
+              "type": "string"
+            },
+            {
+              "name": "ETag",
+              "type": "string"
+            }
+          ],
+          "methods": [
+            {
+              "name": "IsDir",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "ModTimeUnix",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "VerifyChecksum",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "ETagIsMatch",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "driveChildren",
+          "fields": [
+            {
+              "name": "Children",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "NextLink",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/drive_item.go"
+        },
+        {
+          "name": "graphError",
+          "fields": [
+            {
+              "name": "Error",
+              "type": "*ast.StructType"
+            }
+          ],
+          "path": "fs/graph/graph.go"
+        },
+        {
+          "name": "Header",
+          "fields": [
+            {
+              "name": "key",
+              "type": "string"
+            },
+            {
+              "name": "value",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/graph.go"
+        },
+        {
+          "name": "User",
+          "fields": [
+            {
+              "name": "UserPrincipalName",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/graph.go"
+        },
+        {
+          "name": "DriveQuota",
+          "fields": [
+            {
+              "name": "Deleted",
+              "type": "uint64"
+            },
+            {
+              "name": "FileCount",
+              "type": "uint64"
+            },
+            {
+              "name": "Remaining",
+              "type": "uint64"
+            },
+            {
+              "name": "State",
+              "type": "string"
+            },
+            {
+              "name": "Total",
+              "type": "uint64"
+            },
+            {
+              "name": "Used",
+              "type": "uint64"
+            }
+          ],
+          "path": "fs/graph/graph.go"
+        },
+        {
+          "name": "Drive",
+          "fields": [
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "DriveType",
+              "type": "string"
+            },
+            {
+              "name": "Quota",
+              "type": "DriveQuota"
+            }
+          ],
+          "path": "fs/graph/graph.go"
+        },
+        {
+          "name": "MockResponse",
+          "fields": [
+            {
+              "name": "Body",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "StatusCode",
+              "type": "int"
+            },
+            {
+              "name": "Error",
+              "type": "error"
+            }
+          ],
+          "path": "fs/graph/mock_graph.go"
+        },
+        {
+          "name": "MockGraphClient",
+          "fields": [
+            {
+              "name": "Auth",
+              "type": "Auth"
+            },
+            {
+              "name": "ShouldFailRefresh",
+              "type": "bool"
+            },
+            {
+              "name": "ShouldFailRequest",
+              "type": "bool"
+            },
+            {
+              "name": "RequestResponses",
+              "type": "*ast.MapType"
+            }
+          ],
+          "methods": [
+            {
+              "name": "AddMockResponse",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.ArrayType",
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "AddMockItem",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "AddMockItems",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "RequestWithContext",
+              "parameters": [
+                "*ast.SelectorExpr",
+                "*ast.Ident",
+                "*ast.Ident",
+                "*ast.SelectorExpr",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Get",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetWithContext",
+              "parameters": [
+                "*ast.SelectorExpr",
+                "*ast.Ident",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Patch",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.SelectorExpr",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Post",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.SelectorExpr",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Put",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.SelectorExpr",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Delete",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ellipsis"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetItemContent",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetItemContentStream",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetItem",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetItemPath",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetItemChildren",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "GetItemChildrenPath",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Mkdir",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Rename",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.Ident",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Remove",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/graph/mock_graph.go"
+        },
+        {
+          "name": "AuthConfig",
+          "fields": [
+            {
+              "name": "ClientID",
+              "type": "string"
+            },
+            {
+              "name": "CodeURL",
+              "type": "string"
+            },
+            {
+              "name": "TokenURL",
+              "type": "string"
+            },
+            {
+              "name": "RedirectURL",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/oauth2.go"
+        },
+        {
+          "name": "Auth",
+          "fields": [
+            {
+              "name": "Account",
+              "type": "string"
+            },
+            {
+              "name": "ExpiresIn",
+              "type": "int64"
+            },
+            {
+              "name": "ExpiresAt",
+              "type": "int64"
+            },
+            {
+              "name": "AccessToken",
+              "type": "string"
+            },
+            {
+              "name": "RefreshToken",
+              "type": "string"
+            },
+            {
+              "name": "path",
+              "type": "string"
+            }
+          ],
+          "methods": [
+            {
+              "name": "ToFile",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "FromFile",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "createRefreshTokenRequest",
+              "returns": [
+                "*ast.StarExpr"
+              ]
+            },
+            {
+              "name": "handleRefreshResponse",
+              "parameters": [
+                "*ast.StarExpr",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "updateTokenExpiration",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "handleFailedRefresh",
+              "parameters": [
+                "*ast.SelectorExpr",
+                "*ast.StarExpr",
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Refresh",
+              "parameters": [
+                "*ast.SelectorExpr"
+              ],
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "embedded": [
+            "AuthConfig"
+          ],
+          "path": "fs/graph/oauth2.go"
+        },
+        {
+          "name": "AuthError",
+          "fields": [
+            {
+              "name": "Error",
+              "type": "string"
+            },
+            {
+              "name": "ErrorDescription",
+              "type": "string"
+            },
+            {
+              "name": "ErrorCodes",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "ErrorURI",
+              "type": "string"
+            },
+            {
+              "name": "Timestamp",
+              "type": "string"
+            },
+            {
+              "name": "TraceID",
+              "type": "string"
+            },
+            {
+              "name": "CorrelationID",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/oauth2.go"
+        },
+        {
+          "name": "CacheEntry",
+          "fields": [
+            {
+              "name": "Data",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "ExpiresAt",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "path": "fs/graph/response_cache.go"
+        },
+        {
+          "name": "ResponseCache",
+          "fields": [
+            {
+              "name": "cache",
+              "type": "*ast.MapType"
+            },
+            {
+              "name": "mutex",
+              "type": "*ast.SelectorExpr"
+            },
+            {
+              "name": "defaultTTL",
+              "type": "*ast.SelectorExpr"
+            }
+          ],
+          "methods": [
+            {
+              "name": "Get",
+              "parameters": [
+                "*ast.Ident"
+              ],
+              "returns": [
+                "*ast.ArrayType",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Set",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "SetWithTTL",
+              "parameters": [
+                "*ast.Ident",
+                "*ast.ArrayType",
+                "*ast.SelectorExpr"
+              ]
+            },
+            {
+              "name": "Invalidate",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "InvalidatePrefix",
+              "parameters": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "Clear"
+            },
+            {
+              "name": "Size",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "cleanupLoop"
+            },
+            {
+              "name": "cleanupExpired"
+            }
+          ],
+          "path": "fs/graph/response_cache.go"
+        },
+        {
+          "name": "ThumbnailInfo",
+          "fields": [
+            {
+              "name": "Height",
+              "type": "int"
+            },
+            {
+              "name": "Width",
+              "type": "int"
+            },
+            {
+              "name": "URL",
+              "type": "string"
+            }
+          ],
+          "path": "fs/graph/thumbnails.go"
+        },
+        {
+          "name": "ThumbnailSet",
+          "fields": [
+            {
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "name": "Small",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "Medium",
+              "type": "*ast.StarExpr"
+            },
+            {
+              "name": "Large",
+              "type": "*ast.StarExpr"
+            }
+          ],
+          "path": "fs/graph/thumbnails.go"
+        },
+        {
+          "name": "thumbnailsResponse",
+          "fields": [
+            {
+              "name": "Value",
+              "type": "*ast.ArrayType"
+            }
+          ],
+          "path": "fs/graph/thumbnails.go"
+        }
+      ],
+      "functions": [
+        {
+          "name": "getItem",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItem",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItemChild",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItemPath",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItemContent",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItemContentStream",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Remove",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Mkdir",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Rename",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "getItemChildren",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItemChildren",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetItemChildrenPath",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestDriveItemIsDir",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDriveItemModTimeUnix",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDriveItemVerifyChecksum",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestDriveItemETagIsMatch",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestGetItem",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "getHTTPClient",
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "getResponseCache",
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "Request",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "RequestWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Get",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "invalidateResourceCache",
+          "parameters": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Patch",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "PatchWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Post",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "PostWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Put",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "PutWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "DeleteWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.Ellipsis"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "IDPath",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "ResourcePath",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "childrenPath",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "childrenPathID",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetUser",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetUserWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetDrive",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "SetOperationalOffline",
+          "parameters": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetOperationalOffline",
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "IsOffline",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestResourcePath",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestRequestUnauthenticated",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestSHA256Hash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestSHA256HashStream",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestSHA1Hash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestSHA1HashStream",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestQuickXORHash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestQuickXORHashStream",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "SHA256Hash",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "SHA256HashStream",
+          "parameters": [
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "SHA1Hash",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "SHA1HashStream",
+          "parameters": [
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "QuickXORHash",
+          "parameters": [
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "QuickXORHashStream",
+          "parameters": [
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "BenchmarkSHA1",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "BenchmarkSHA256",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "BenchmarkQuickXORHash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "BenchmarkSHA1Stream",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "BenchmarkSHA256Stream",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "BenchmarkQuickXORHashStream",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestSha1HashReader",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestQuickXORHashReader",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestHashSeekPosition",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewMockGraphClient",
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestMockGraphClient",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "getAuthURL",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "getAuthCodeHeadless",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "parseAuthCode",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "getAuthTokens",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "newAuth",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Authenticate",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "getAuthCode",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "uriGetHost",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestURIGetHost",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "getAuthCode",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestAuthCodeFormat",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestAuthFromfile",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestAuthRefresh",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestAuthConfigMerge",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestOperationalOfflineState",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestIsOfflineWithOperationalState",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestIsOffline",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestIDPath",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestChildrenPath",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestChildrenPathID",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "NewResponseCache",
+          "parameters": [
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "captureFileSystemState",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestMain",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "GetThumbnails",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetThumbnailsWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetThumbnailContent",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetThumbnailContentWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "downloadThumbnail",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.StarExpr"
+          ],
+          "returns": [
+            "*ast.ArrayType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetThumbnailContentStream",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetThumbnailContentStreamWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.StarExpr",
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "C",
+          "path/filepath",
+          "time",
+          "github.com/rs/zerolog/log",
+          "context",
+          "sync",
+          "github.com/imdario/mergo",
+          "bytes",
+          "fmt",
+          "strings",
+          "net/http",
+          "os",
+          "github.com/rs/zerolog",
+          "encoding/json",
+          "io",
+          "net/url",
+          "github.com/stretchr/testify/require",
+          "errors",
+          "regexp",
+          "encoding/base64",
+          "unsafe",
+          "testing",
+          "github.com/stretchr/testify/assert",
+          "crypto/sha1",
+          "crypto/sha256",
+          "github.com/jstaf/onedriver/fs/graph/quickxorhash"
+        ]
+      }
+    },
+    {
+      "name": "offline",
+      "path": "fs/offline",
+      "functions": [
+        {
+          "name": "TestOfflineFileAccess",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestOfflineFileSystemOperations",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestOfflineChangesCached",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestOfflineSynchronization",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "captureFileSystemState",
+          "returns": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestMain",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "time",
+          "github.com/hanwen/go-fuse/v2/fuse",
+          "github.com/jstaf/onedriver/fs/graph",
+          "github.com/jstaf/onedriver/testutil/common",
+          "github.com/rs/zerolog",
+          "os",
+          "github.com/stretchr/testify/require",
+          "fmt",
+          "os/exec",
+          "os/signal",
+          "strings",
+          "path/filepath",
+          "testing",
+          "github.com/jstaf/onedriver/fs",
+          "context",
+          "syscall",
+          "github.com/rs/zerolog/log"
+        ]
+      }
+    },
+    {
+      "name": "testutil",
+      "path": "testutil",
+      "functions": [
+        {
+          "name": "WaitForCondition",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.FuncType",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "WaitForConditionWithContext",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.StarExpr",
+            "*ast.FuncType",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "RetryWithBackoff",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.FuncType",
+            "*ast.Ident",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "RunWithTimeout",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.FuncType",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "RunConcurrently",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.ArrayType",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "WaitForFileChange",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.SelectorExpr"
+          ]
+        },
+        {
+          "name": "WaitForFileExistence",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.SelectorExpr"
+          ]
+        },
+        {
+          "name": "CreateTestFile",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CreateTestDir",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CreateTempDir",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CreateTempFile",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "FileExists",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "FileContains",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "AssertFileExists",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "AssertFileNotExists",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "AssertFileContains",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident",
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "StandardTestFile",
+          "returns": [
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "CreateDriveItemFixture",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "CreateFileItemFixture",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "CreateFolderItemFixture",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "CreateDeletedItemFixture",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "CreateChildrenFixture",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "CreateNestedFolderStructure",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "CreateDriveItemWithConflict",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "CaptureFileSystemState",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CheckAndUnmountMountPoint",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "WaitForMount",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UnmountWithRetries",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CleanupFilesystemState",
+          "parameters": [
+            "*ast.MapType"
+          ]
+        },
+        {
+          "name": "StopFilesystemServices",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "SetupUITest",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.StarExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "EnsureMountPoint",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "github.com/rs/zerolog/log",
+          "time",
+          "github.com/jstaf/onedriver/fs/graph",
+          "fmt",
+          "github.com/rs/zerolog",
+          "context",
+          "os",
+          "testing",
+          "path/filepath",
+          "os/exec",
+          "github.com/hanwen/go-fuse/v2/fuse",
+          "github.com/jstaf/onedriver/fs"
+        ]
+      }
+    },
+    {
+      "name": "ui",
+      "path": "ui",
+      "functions": [
+        {
+          "name": "PollUntilAvail",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "MountpointIsValid",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetAccountName",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "GetKnownMounts",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "EscapeHome",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UnescapeHome",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestMountpointIsValid",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestHomeEscapeUnescape",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestGetAccountName",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestMain",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "DirChooser",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "Dialog",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.SelectorExpr",
+            "*ast.SelectorExpr"
+          ]
+        },
+        {
+          "name": "CancelDialog",
+          "parameters": [
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "github.com/coreos/go-systemd/v22/unit",
+          "github.com/jstaf/onedriver/testutil",
+          "github.com/gotk3/gotk3/gtk",
+          "os/exec",
+          "encoding/json",
+          "os",
+          "time",
+          "github.com/jstaf/onedriver/fs/graph",
+          "testing",
+          "github.com/stretchr/testify/assert",
+          "github.com/stretchr/testify/require",
+          "path/filepath",
+          "strings",
+          "fmt",
+          "github.com/rs/zerolog/log"
+        ]
+      }
+    },
+    {
+      "name": "main",
+      "path": ".",
+      "classes": [
+        {
+          "name": "ModuleInfo",
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "Path",
+              "type": "string"
+            },
+            {
+              "name": "Classes",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Functions",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Dependencies",
+              "type": "*ast.MapType"
+            }
+          ],
+          "path": "analyzer.go"
+        },
+        {
+          "name": "ClassInfo",
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "Fields",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Methods",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Implements",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Embedded",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Path",
+              "type": "string"
+            }
+          ],
+          "path": "analyzer.go"
+        },
+        {
+          "name": "FieldInfo",
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "Type",
+              "type": "string"
+            }
+          ],
+          "path": "analyzer.go"
+        },
+        {
+          "name": "MethodInfo",
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "Parameters",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Returns",
+              "type": "*ast.ArrayType"
+            }
+          ],
+          "path": "analyzer.go"
+        },
+        {
+          "name": "FunctionInfo",
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string"
+            },
+            {
+              "name": "Parameters",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "Returns",
+              "type": "*ast.ArrayType"
+            }
+          ],
+          "path": "analyzer.go"
+        },
+        {
+          "name": "ImportInfo",
+          "fields": [
+            {
+              "name": "Path",
+              "type": "string"
+            },
+            {
+              "name": "Alias",
+              "type": "string"
+            }
+          ],
+          "path": "analyzer.go"
+        }
+      ],
+      "functions": [
+        {
+          "name": "main"
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "go/ast",
+          "go/parser",
+          "go/token",
+          "os",
+          "path/filepath",
+          "strings",
+          "encoding/json",
+          "fmt"
+        ]
+      }
+    },
+    {
+      "name": "quickxorhash",
+      "path": "fs/graph/quickxorhash",
+      "classes": [
+        {
+          "name": "quickXorHash",
+          "fields": [
+            {
+              "name": "data",
+              "type": "*ast.ArrayType"
+            },
+            {
+              "name": "lengthSoFar",
+              "type": "uint64"
+            },
+            {
+              "name": "shiftSoFar",
+              "type": "int"
+            }
+          ],
+          "methods": [
+            {
+              "name": "Write",
+              "parameters": [
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.Ident",
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "checkSum",
+              "returns": [
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "Sum",
+              "parameters": [
+                "*ast.ArrayType"
+              ],
+              "returns": [
+                "*ast.ArrayType"
+              ]
+            },
+            {
+              "name": "Reset"
+            },
+            {
+              "name": "Size",
+              "returns": [
+                "*ast.Ident"
+              ]
+            },
+            {
+              "name": "BlockSize",
+              "returns": [
+                "*ast.Ident"
+              ]
+            }
+          ],
+          "path": "fs/graph/quickxorhash/quickxorhash.go"
+        }
+      ],
+      "functions": [
+        {
+          "name": "New",
+          "returns": [
+            "*ast.SelectorExpr"
+          ]
+        },
+        {
+          "name": "Sum",
+          "parameters": [
+            "*ast.ArrayType"
+          ],
+          "returns": [
+            "*ast.ArrayType"
+          ]
+        },
+        {
+          "name": "TestQuickXorHash",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestQuickXorHashByBlock",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestSize",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestBlockSize",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestReset",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "fmt",
+          "testing",
+          "github.com/stretchr/testify/assert",
+          "github.com/stretchr/testify/require",
+          "hash",
+          "encoding/base64"
+        ]
+      }
+    },
+    {
+      "name": "common",
+      "path": "testutil/common",
+      "functions": [
+        {
+          "name": "WaitForCondition",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.FuncType",
+            "*ast.SelectorExpr",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "RetryWithBackoff",
+          "parameters": [
+            "*ast.StarExpr",
+            "*ast.FuncType",
+            "*ast.Ident",
+            "*ast.SelectorExpr",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CaptureFileSystemState",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CheckAndUnmountMountPoint",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "WaitForMount",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.SelectorExpr"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "CleanupFilesystemState",
+          "parameters": [
+            "*ast.MapType",
+            "*ast.Ident"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "fmt",
+          "os",
+          "os/exec",
+          "path/filepath",
+          "testing",
+          "time",
+          "github.com/rs/zerolog/log",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "systemd",
+      "path": "ui/systemd",
+      "functions": [
+        {
+          "name": "TestMain",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TemplateUnit",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UntemplateUnit",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UnitIsActive",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UnitSetActive",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UnitIsEnabled",
+          "parameters": [
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "UnitSetEnabled",
+          "parameters": [
+            "*ast.Ident",
+            "*ast.Ident"
+          ],
+          "returns": [
+            "*ast.Ident"
+          ]
+        },
+        {
+          "name": "TestTemplateUnit",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestUntemplateUnit",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestUnitEnabled",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        },
+        {
+          "name": "TestUnitActive",
+          "parameters": [
+            "*ast.StarExpr"
+          ]
+        }
+      ],
+      "dependencies": {
+        "imports": [
+          "github.com/stretchr/testify/require",
+          "strings",
+          "github.com/godbus/dbus/v5",
+          "github.com/stretchr/testify/assert",
+          "os",
+          "testing",
+          "github.com/jstaf/onedriver/testutil",
+          "errors",
+          "fmt",
+          "time",
+          "github.com/coreos/go-systemd/v22/unit"
+        ]
+      }
+    }
+  ],
+  "project": "onedriver"
+}
