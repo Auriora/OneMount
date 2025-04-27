@@ -55,4 +55,4 @@ debian/files
 /.config/
 __pycache__
 /.auth_tokens.json
-!docs/README.logging.md
+!README.*.md
