@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sort"
@@ -39,7 +40,7 @@ Valid options:
 }
 
 // setupFlags initializes and parses command-line flags, returning the configuration and other flag values
-func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats bool, mountpoint string) {
+func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, daemon bool, mountpoint string) {
 	// setup cli parsing
 	authOnlyFlag := flag.BoolP("auth-only", "a", false,
 		"Authenticate to OneDrive and then exit.")
@@ -74,6 +75,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats boo
 			"Default is 30 days. Set to 0 to use the default.")
 	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
 		"outstanding changes for upload, etc. Does not start a mount point.")
+	daemonFlag := flag.BoolP("daemon", "", false, "Run onedriver in daemon mode (detached from terminal).")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
 	flag.Parse()
@@ -132,7 +134,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats boo
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
-	return config, *authOnlyFlag, *headlessFlag, *debugOnFlag, *statsFlag, mountpoint
+	return config, *authOnlyFlag, *headlessFlag, *debugOnFlag, *statsFlag, *daemonFlag, mountpoint
 }
 
 // initializeFilesystem sets up the filesystem and returns the filesystem, auth, server, and paths
@@ -382,25 +384,44 @@ func displayStats(config *common.Config, mountpoint string) {
 }
 
 // setupLogging configures the zerolog logger based on the configuration
-func setupLogging(config *common.Config) error {
+func setupLogging(config *common.Config, daemon bool) error {
 	// Set the global log level
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
 	// Configure the log output
 	var output io.Writer
-	switch config.LogOutput {
-	case "STDOUT":
-		output = os.Stdout
-	case "STDERR":
-		output = os.Stderr
-	default:
-		// Open the log file
-		file, err := os.OpenFile(config.LogOutput, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+
+	// If running in daemon mode and no specific log file is set, use a default log file
+	if daemon && (config.LogOutput == "STDOUT" || config.LogOutput == "STDERR") {
+		// Use a default log file in the cache directory
+		logFile := filepath.Join(config.CacheDir, "onedriver.log")
+		log.Info().Str("logFile", logFile).Msg("Daemon mode: redirecting logs to file")
+
+		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			log.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
+			log.Error().Err(err).Str("path", logFile).Msg("Failed to open log file, falling back to STDOUT")
 			output = os.Stdout
 		} else {
 			output = file
+			// Update the config to reflect the actual log output
+			config.LogOutput = logFile
+		}
+	} else {
+		// Normal logging setup
+		switch config.LogOutput {
+		case "STDOUT":
+			output = os.Stdout
+		case "STDERR":
+			output = os.Stderr
+		default:
+			// Open the log file
+			file, err := os.OpenFile(config.LogOutput, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				log.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
+				output = os.Stdout
+			} else {
+				output = file
+			}
 		}
 	}
 
@@ -414,11 +435,17 @@ func main() {
 	// This will be replaced after loading the configuration
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
 
-	config, authOnly, headless, debugOn, stats, mountpoint := setupFlags()
+	config, authOnly, headless, debugOn, stats, daemon, mountpoint := setupFlags()
 
 	// Configure logging based on the configuration
-	if err := setupLogging(config); err != nil {
+	if err := setupLogging(config, daemon); err != nil {
 		log.Error().Err(err).Msg("Failed to set up logging")
+	}
+
+	// If daemon flag is set, daemonize the process
+	if daemon {
+		log.Info().Msg("Starting onedriver in daemon mode...")
+		daemonize()
 	}
 
 	// If stats flag is set, display statistics and exit
@@ -459,6 +486,45 @@ func main() {
 		Str("mountpoint", absMountPath).
 		Msg("Serving filesystem.")
 	server.Serve()
+}
+
+// daemonize detaches the process from the terminal and runs it in the background
+func daemonize() {
+	// Fork the process
+	args := os.Args[:]
+
+	// Remove the daemon flag to prevent infinite forking
+	for i, arg := range args {
+		if arg == "--daemon" {
+			args = append(args[:i], args[i+1:]...)
+			break
+		}
+	}
+
+	// Prepare the command to run in the background
+	cmd := exec.Command(args[0])
+	if len(args) > 1 {
+		cmd.Args = args
+	}
+
+	// Detach from terminal
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	cmd.Stdin = nil
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		// Create a new process group
+		Setpgid: true,
+		// Detach from parent
+		Setsid: true,
+	}
+
+	// Start the process in the background
+	if err := cmd.Start(); err != nil {
+		log.Fatal().Err(err).Msg("Failed to start daemon process")
+	}
+
+	log.Info().Msg("Daemon process started successfully")
+	os.Exit(0)
 }
 
 // setupSignalHandler sets up a handler for SIGINT and SIGTERM signals to gracefully unmount the filesystem
