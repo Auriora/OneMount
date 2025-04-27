@@ -405,7 +405,16 @@ func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
 
 // ProcessOfflineChanges processes all changes made while offline
 func (f *Filesystem) ProcessOfflineChanges() {
-	log.Info().Msg("Processing offline changes...")
+	// Create a logging context
+	ctx := LogContext{
+		Operation: "process_offline_changes",
+	}
+
+	// Log method entry with context
+	methodName, startTime, logger, ctx := LogMethodCallWithContext("ProcessOfflineChanges", ctx)
+	defer LogMethodReturnWithContext(methodName, startTime, logger, ctx)
+
+	logger.Info().Msg("Processing offline changes...")
 
 	// Get all offline changes
 	changes := make([]*OfflineChange, 0)
@@ -424,7 +433,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			return nil
 		})
 	}); err != nil {
-		log.Error().Err(err).Msg("Failed to read offline changes from database")
+		LogErrorWithContext(err, ctx, "Failed to read offline changes from database")
 		return
 	}
 
@@ -435,7 +444,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 	// Process each change
 	for _, change := range changes {
-		log.Info().
+		logger.Info().
 			Str("id", change.ID).
 			Str("type", change.Type).
 			Str("path", change.Path).
@@ -444,22 +453,24 @@ func (f *Filesystem) ProcessOfflineChanges() {
 		switch change.Type {
 		case "create", "modify":
 			// Queue upload with low priority since it's a background task
-			if inode := f.GetID(change.ID); inode != nil {
+			if inode := f.GetIDWithContext(change.ID, ctx); inode != nil {
 				_, err := f.uploads.QueueUploadWithPriority(inode, PriorityLow)
 				if err != nil {
-					log.Error().Err(err).Str("id", change.ID).Msg("Failed to queue upload for offline change")
+					LogErrorWithContext(err, ctx, "Failed to queue upload for offline change", 
+						FieldID, change.ID)
 				}
 			}
 		case "delete":
 			// Handle deletion
 			if !isLocalID(change.ID) {
 				if err := graph.Remove(change.ID, f.auth); err != nil {
-					log.Error().Err(err).Str("id", change.ID).Msg("Failed to remove item during offline change processing")
+					LogErrorWithContext(err, ctx, "Failed to remove item during offline change processing", 
+						FieldID, change.ID)
 				}
 			}
 		case "rename":
 			// Handle rename
-			if inode := f.GetID(change.ID); inode != nil {
+			if inode := f.GetIDWithContext(change.ID, ctx); inode != nil {
 				// Implementation depends on how renames are tracked
 				if change.OldPath != "" && change.NewPath != "" {
 					oldDir := filepath.Dir(change.OldPath)
@@ -473,11 +484,10 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 					if oldParent != nil && newParent != nil {
 						if err := f.MovePath(oldParent.ID(), newParent.ID(), oldName, newName, f.auth); err != nil {
-							log.Error().Err(err).
-								Str("id", change.ID).
-								Str("oldPath", change.OldPath).
-								Str("newPath", change.NewPath).
-								Msg("Failed to move item during offline change processing")
+							LogErrorWithContext(err, ctx, "Failed to move item during offline change processing", 
+								FieldID, change.ID,
+								"oldPath", change.OldPath,
+								"newPath", change.NewPath)
 						}
 					}
 				}
@@ -493,14 +503,13 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
 			return b.Delete(key)
 		}); err != nil {
-			log.Error().Err(err).
-				Str("id", change.ID).
-				Time("timestamp", change.Timestamp).
-				Msg("Failed to remove processed offline change from database")
+			LogErrorWithContext(err, ctx, "Failed to remove processed offline change from database", 
+				FieldID, change.ID,
+				"timestamp", change.Timestamp)
 		}
 	}
 
-	log.Info().Msg("Finished processing offline changes.")
+	logger.Info().Msg("Finished processing offline changes.")
 }
 
 // TranslateID returns the DriveItemID for a given NodeID
@@ -601,6 +610,29 @@ func (f *Filesystem) GetID(id string) *Inode {
 
 	result := entry.(*Inode)
 	defer LogMethodReturn(methodName, startTime, result)
+	return result
+}
+
+// GetIDWithContext retrieves an inode from the cache by its OneDrive ID with context propagation.
+// This method only checks the in-memory cache and local database; it does not
+// perform any API requests to fetch the item from OneDrive.
+//
+// Parameters:
+//   - id: The OneDrive ID of the item to retrieve
+//   - ctx: The logging context to use
+//
+// Returns:
+//   - The Inode if found in memory or database
+//   - nil if the item is not found in the cache
+func (f *Filesystem) GetIDWithContext(id string, ctx LogContext) *Inode {
+	// Log method entry with context
+	methodName, startTime, logger, ctx := LogMethodCallWithContext("GetIDWithContext", ctx)
+
+	// Call the regular GetID method
+	result := f.GetID(id)
+
+	// Log method exit with context
+	defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, result)
 	return result
 }
 
