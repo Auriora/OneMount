@@ -446,9 +446,100 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	// Register a cleanup function that will run even if tests panic
+	cleanupDone := make(chan struct{})
+	cleanupFunc := func() {
+		// Avoid running cleanup multiple times
+		select {
+		case <-cleanupDone:
+			return // Already cleaned up
+		default:
+			defer close(cleanupDone)
+		}
+
+		log.Info().Msg("Running emergency cleanup handler...")
+
+		// Check if we're using mock authentication
+		if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+			// Skip unmounting when using mock authentication
+			log.Info().Msg("Skipping FUSE unmounting for tests with mock authentication")
+			return
+		}
+
+		// Stop the UnmountHandler goroutine if it exists
+		if unmountDone != nil {
+			select {
+			case <-unmountDone: // Already closed
+			default:
+				close(unmountDone)
+			}
+		}
+
+		// Give the UnmountHandler a moment to exit
+		time.Sleep(100 * time.Millisecond)
+
+		// Stop signal notifications if sigChan exists
+		if sigChan != nil {
+			signal.Stop(sigChan)
+		}
+
+		// Attempt to unmount with retries
+		log.Info().Msg("Emergency cleanup: Attempting to unmount filesystem...")
+
+		// First try normal unmount if server exists
+		if server != nil {
+			unmountErr := server.Unmount()
+			if unmountErr == nil {
+				log.Info().Msg("Emergency cleanup: Successfully unmounted filesystem")
+				return
+			}
+			log.Error().Err(unmountErr).Msg("Emergency cleanup: Failed to unmount test fuse server, attempting lazy unmount")
+		}
+
+		// Try lazy unmount with retries
+		for i := 0; i < 5; i++ { // Increased retry count for emergency cleanup
+			if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err == nil {
+				log.Info().Msg("Emergency cleanup: Successfully performed lazy unmount")
+				return
+			} else {
+				log.Error().Err(err).Int("attempt", i+1).Msg("Emergency cleanup: Failed to perform lazy unmount")
+				time.Sleep(1 * time.Second) // Longer wait time for emergency cleanup
+			}
+		}
+
+		log.Error().Msg("Emergency cleanup: All unmount attempts failed. Mount point may still be active.")
+
+		// Even if unmount failed, try to clean up filesystem resources
+		if fs != nil {
+			log.Info().Msg("Emergency cleanup: Stopping filesystem services...")
+			fs.StopCacheCleanup()
+			fs.StopDeltaLoop()
+			fs.StopDownloadManager()
+			fs.StopUploadManager()
+			fs.SerializeAll()
+
+			// Wait a moment to ensure all file handles are closed
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	// Register the cleanup function with a goroutine that will be triggered on process exit
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		log.Info().Msg("Received termination signal, running emergency cleanup...")
+		cleanupFunc()
+		os.Exit(1)
+	}()
+
+	// Ensure cleanup runs even if tests panic or fail
+	defer cleanupFunc()
+
 	// run tests
 	code := m.Run()
 
+	// Normal cleanup path
 	log.Info().Msg("Test session end -----------------------------------")
 	fmt.Printf("Waiting 5 seconds for any remaining uploads to complete")
 	for i := 0; i < 5; i++ {

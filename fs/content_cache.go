@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // LoopbackCache stores the content for files under a folder as regular files
@@ -19,10 +21,17 @@ type LoopbackCache struct {
 
 func NewLoopbackCache(directory string) *LoopbackCache {
 	if err := os.MkdirAll(directory, 0700); err != nil {
-		// Log error but continue - the directory might already exist
-		// or we might be able to create files directly
-		// This is a best-effort approach
-		// Using MkdirAll instead of Mkdir to create parent directories if needed
+		// Log the error properly
+		log.Error().Err(err).Str("directory", directory).Msg("Failed to create content cache directory")
+		// Try to create parent directories if they don't exist
+		parentDir := filepath.Dir(directory)
+		if err := os.MkdirAll(parentDir, 0700); err != nil {
+			log.Error().Err(err).Str("parentDir", parentDir).Msg("Failed to create parent directory for content cache")
+		}
+		// Try again to create the content directory
+		if err := os.MkdirAll(directory, 0700); err != nil {
+			log.Error().Err(err).Str("directory", directory).Msg("Second attempt to create content cache directory failed")
+		}
 	}
 	return &LoopbackCache{
 		directory:   directory,

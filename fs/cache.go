@@ -193,8 +193,24 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 		log.Warn().Err(err).Msg("Failed to set database options")
 	}
 
-	content := NewLoopbackCache(filepath.Join(cacheDir, "content"))
-	thumbnails := NewThumbnailCache(filepath.Join(cacheDir, "thumbnails"))
+	// Explicitly create content and thumbnail directories
+	contentDir := filepath.Join(cacheDir, "content")
+	thumbnailDir := filepath.Join(cacheDir, "thumbnails")
+
+	// Create content directory
+	if err := os.MkdirAll(contentDir, 0700); err != nil {
+		log.Error().Err(err).Msg("Could not create content cache directory.")
+		return nil, fmt.Errorf("could not create content cache directory: %w", err)
+	}
+
+	// Create thumbnail directory
+	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
+		log.Error().Err(err).Msg("Could not create thumbnail cache directory.")
+		return nil, fmt.Errorf("could not create thumbnail cache directory: %w", err)
+	}
+
+	content := NewLoopbackCache(contentDir)
+	thumbnails := NewThumbnailCache(thumbnailDir)
 	db.Update(func(tx *bolt.Tx) error {
 		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
 			log.Error().Err(err).Msg("Failed to create metadata bucket")
