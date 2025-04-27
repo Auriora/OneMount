@@ -1,5 +1,5 @@
 
-# onedriver Project Structure
+# Onedriver Project Structure
 
 onedriver is a native Linux filesystem for Microsoft OneDrive that provides on-demand access to files rather than syncing them. Here's an overview of the project structure:
 
