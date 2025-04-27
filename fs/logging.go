@@ -13,15 +13,15 @@ import (
 // LogMethodEntry logs the entry of a method with its parameters
 func LogMethodEntry(methodName string, params ...interface{}) {
 	event := log.Debug().
-		Str("method", methodName).
-		Str("phase", "entry")
+		Str(FieldMethod, methodName).
+		Str(FieldPhase, PhaseEntry)
 
 	// Log parameters if any
 	if len(params) > 0 {
 		for i, param := range params {
 			// Skip logging for large data structures or sensitive information
 			if param == nil {
-				event = event.Interface(fmt.Sprintf("param%d", i+1), nil)
+				event = event.Interface(FieldParam+fmt.Sprintf("%d", i+1), nil)
 			} else {
 				// Get the type of the parameter
 				paramType := reflect.TypeOf(param)
@@ -31,34 +31,34 @@ func LogMethodEntry(methodName string, params ...interface{}) {
 				case paramType.Kind() == reflect.Ptr && paramType.Elem().Kind() == reflect.Slice && paramType.Elem().Elem().Kind() == reflect.Uint8:
 					// For []byte pointers, just log the length
 					byteSlice := reflect.ValueOf(param).Elem().Interface().([]byte)
-					event = event.Int(fmt.Sprintf("param%d_size", i+1), len(byteSlice))
+					event = event.Int(FieldParam+fmt.Sprintf("%d_size", i+1), len(byteSlice))
 				case strings.Contains(paramType.String(), "Auth"):
 					// Don't log auth objects which might contain sensitive information
-					event = event.Str(fmt.Sprintf("param%d", i+1), "[Auth object]")
+					event = event.Str(FieldParam+fmt.Sprintf("%d", i+1), "[Auth object]")
 				default:
 					// For other types, log the value
-					event = event.Interface(fmt.Sprintf("param%d", i+1), param)
+					event = event.Interface(FieldParam+fmt.Sprintf("%d", i+1), param)
 				}
 			}
 		}
 	}
 
-	event.Msg("Method called")
+	event.Msg(MsgMethodCalled)
 }
 
 // LogMethodExit logs the exit of a method with its return values
 func LogMethodExit(methodName string, duration time.Duration, returns ...interface{}) {
 	event := log.Debug().
-		Str("method", methodName).
-		Str("phase", "exit").
-		Dur("duration_ms", duration)
+		Str(FieldMethod, methodName).
+		Str(FieldPhase, PhaseExit).
+		Dur(FieldDuration, duration)
 
 	// Log return values if any
 	if len(returns) > 0 {
 		for i, ret := range returns {
 			// Skip logging for large data structures or sensitive information
 			if ret == nil {
-				event = event.Interface(fmt.Sprintf("return%d", i+1), nil)
+				event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
 			} else {
 				// Get the type of the return value
 				retType := reflect.TypeOf(ret)
@@ -68,32 +68,32 @@ func LogMethodExit(methodName string, duration time.Duration, returns ...interfa
 				case retType.Kind() == reflect.Ptr && retType.Elem().Kind() == reflect.Slice && retType.Elem().Elem().Kind() == reflect.Uint8:
 					// For []byte pointers, just log the length
 					byteSlice := reflect.ValueOf(ret).Elem().Interface().([]byte)
-					event = event.Int(fmt.Sprintf("return%d_size", i+1), len(byteSlice))
+					event = event.Int(FieldReturn+fmt.Sprintf("%d_size", i+1), len(byteSlice))
 				case strings.Contains(retType.String(), "Auth"):
 					// Don't log auth objects which might contain sensitive information
-					event = event.Str(fmt.Sprintf("return%d", i+1), "[Auth object]")
+					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "[Auth object]")
 				case retType.Kind() == reflect.Struct || (retType.Kind() == reflect.Ptr && retType.Elem().Kind() == reflect.Struct):
 					// For structs, log a simplified representation
 					if retType.Kind() == reflect.Ptr {
 						if reflect.ValueOf(ret).IsNil() {
-							event = event.Str(fmt.Sprintf("return%d", i+1), "nil")
+							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "nil")
 						} else {
 							typeName := retType.Elem().Name()
-							event = event.Str(fmt.Sprintf("return%d", i+1), fmt.Sprintf("[%s object]", typeName))
+							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
 						}
 					} else {
 						typeName := retType.Name()
-						event = event.Str(fmt.Sprintf("return%d", i+1), fmt.Sprintf("[%s object]", typeName))
+						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
 					}
 				default:
 					// For other types, log the value
-					event = event.Interface(fmt.Sprintf("return%d", i+1), ret)
+					event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
 				}
 			}
 		}
 	}
 
-	event.Msg("Method completed")
+	event.Msg(MsgMethodCompleted)
 }
 
 // LoggedMethod wraps a function call with entry and exit logging

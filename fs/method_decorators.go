@@ -32,10 +32,10 @@ func LogMethodCall() (string, time.Time) {
 
 	// Log method entry
 	log.Debug().
-		Str("method", methodName).
-		Str("phase", "entry").
-		Str("goroutine", goroutineID).
-		Msg("Method called")
+		Str(FieldMethod, methodName).
+		Str(FieldPhase, PhaseEntry).
+		Str(FieldGoroutine, goroutineID).
+		Msg(MsgMethodCalled)
 
 	return methodName, time.Now()
 }
@@ -50,21 +50,21 @@ func LogMethodReturn(methodName string, startTime time.Time, returns ...interfac
 
 	// Create log event
 	event := log.Debug().
-		Str("method", methodName).
-		Str("phase", "exit").
-		Str("goroutine", goroutineID).
-		Dur("duration_ms", duration)
+		Str(FieldMethod, methodName).
+		Str(FieldPhase, PhaseExit).
+		Str(FieldGoroutine, goroutineID).
+		Dur(FieldDuration, duration)
 
 	// Log return values if any
 	for i, ret := range returns {
 		if ret == nil {
-			event = event.Interface(fmt.Sprintf("return%d", i+1), nil)
+			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
 		} else {
-			event = event.Interface(fmt.Sprintf("return%d", i+1), ret)
+			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
 		}
 	}
 
-	event.Msg("Method completed")
+	event.Msg(MsgMethodCompleted)
 }
 
 // lastIndexDot returns the last index of '.' in the string
