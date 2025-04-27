@@ -31,16 +31,16 @@ func (f *Filesystem) ProcessChanges(requestID string) error {
         RequestID: requestID,
         Operation: "process_changes",
     }
-    
+
     // Log method entry with context
     methodName, startTime, logger, ctx := LogMethodCallWithContext(methodName, ctx)
-    
+
     // Use the logger for additional logs within the method
     logger.Info().Str(FieldPath, "/some/path").Msg("Processing changes for path")
-    
+
     // Process changes...
     err := f.processChangesInternal(ctx)
-    
+
     // Log method exit with context and return value
     defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, err)
     return err
@@ -49,10 +49,10 @@ func (f *Filesystem) ProcessChanges(requestID string) error {
 func (f *Filesystem) processChangesInternal(ctx LogContext) error {
     // Log method entry with the same context
     methodName, startTime, logger, ctx := LogMethodCallWithContext("processChangesInternal", ctx)
-    
+
     // Use the logger for additional logs
     logger.Debug().Msg("Internal processing started")
-    
+
     // Process changes...
     if err := someOperation(); err != nil {
         // Log errors with context
@@ -61,7 +61,7 @@ func (f *Filesystem) processChangesInternal(ctx LogContext) error {
             FieldID, "123")
         return err
     }
-    
+
     // Log method exit with context
     defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, nil)
     return nil
@@ -70,12 +70,14 @@ func (f *Filesystem) processChangesInternal(ctx LogContext) error {
 
 ## Error Logging
 
+### Basic Error Logging
+
 Use the `LogError` and `LogErrorWithContext` functions to log errors with additional context:
 
 ```go
 func (f *Filesystem) ReadFile(path string) ([]byte, error) {
     // ... method implementation ...
-    
+
     data, err := os.ReadFile(path)
     if err != nil {
         // Log error with additional context
@@ -84,19 +86,21 @@ func (f *Filesystem) ReadFile(path string) ([]byte, error) {
             FieldSize, fileSize)
         return nil, err
     }
-    
+
     return data, nil
 }
 ```
 
-With context:
+### Context-Aware Error Logging
+
+Use the `LogErrorWithContext` function to log errors with a logging context:
 
 ```go
 func (f *Filesystem) ReadFile(path string, ctx LogContext) ([]byte, error) {
     methodName, startTime, logger, ctx := LogMethodCallWithContext("ReadFile", ctx)
-    
+
     // ... method implementation ...
-    
+
     data, err := os.ReadFile(path)
     if err != nil {
         // Log error with context
@@ -106,20 +110,63 @@ func (f *Filesystem) ReadFile(path string, ctx LogContext) ([]byte, error) {
         defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, nil, err)
         return nil, err
     }
-    
+
     defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, len(data), nil)
     return data, nil
 }
 ```
 
+### Advanced Error Logging
+
+For more advanced error logging scenarios, use the additional error logging utilities:
+
+```go
+// Log an error with a map of fields
+fields := map[string]interface{}{
+    FieldPath: path,
+    FieldSize: fileSize,
+    "retry_count": retryCount,
+}
+LogErrorWithFields(err, "Failed to upload file", fields)
+
+// Log a warning with fields
+LogWarnWithFields("File not found in cache, downloading from server", 
+    map[string]interface{}{
+        FieldPath: path,
+        "cache_status": "miss",
+    })
+
+// Log a warning with an error
+LogWarnWithError(err, "Retrying operation after error", 
+    FieldPath, path, 
+    "retry_count", retryCount)
+
+// Log an error and return it in one step
+return LogErrorAndReturn(err, "Failed to process file", 
+    FieldPath, path, 
+    FieldSize, fileSize)
+
+// Log an error with context and return it in one step
+return LogErrorWithContextAndReturn(err, ctx, "Failed to process file", 
+    FieldPath, path, 
+    FieldSize, fileSize)
+
+// Format an error with additional context
+return FormatErrorWithContext(err, "Failed to process file", 
+    FieldPath, path, 
+    FieldSize, fileSize)
+```
+
 ## Performance Optimization
+
+### Level Checks
 
 For expensive logging operations, check if the log level is enabled first:
 
 ```go
 func (f *Filesystem) ProcessLargeData(data []byte) error {
     // ... method implementation ...
-    
+
     // Only log large data if debug is enabled
     if log.Debug().Enabled() {
         log.Debug().
@@ -127,9 +174,42 @@ func (f *Filesystem) ProcessLargeData(data []byte) error {
             Str(FieldPath, path).
             Msg("Processing large data")
     }
-    
+
     // ... continue processing ...
 }
+```
+
+### Helper Functions
+
+Use the helper functions for level checks and complex object logging:
+
+```go
+// Check if debug logging is enabled
+if isDebugEnabled() {
+    // Perform expensive operation only if debug is enabled
+    details := generateDetailedReport(data)
+    log.Debug().
+        Interface("report", details).
+        Msg("Generated detailed report")
+}
+
+// Log complex objects only if debug is enabled
+LogComplexObjectIfDebug("fileStats", stats, "File statistics")
+
+// Log complex objects only if trace is enabled
+LogComplexObjectIfTrace("requestDetails", request, "Request details")
+```
+
+### Type Caching
+
+For reflection-based logging, use the type caching mechanism:
+
+```go
+// Get the type name of an object using the cache
+typeName := getTypeName(reflect.TypeOf(obj))
+log.Debug().
+    Str("type", typeName).
+    Msg("Processing object")
 ```
 
 ## Standardized Field Names
