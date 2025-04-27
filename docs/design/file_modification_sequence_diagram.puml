@@ -1,0 +1,145 @@
+@startuml File Modification Workflow
+
+actor User
+participant "Linux Application" as App
+participant "FUSE" as FUSE
+participant "Filesystem" as FS
+participant "Inode" as Inode
+participant "LoopbackCache" as Cache
+participant "UploadManager" as UM
+participant "UploadSession" as US
+participant "Auth" as Auth
+participant "Microsoft Graph API" as API
+
+== File Modification (Small File) ==
+
+User -> App: Modify and save file
+App -> FUSE: write() system call
+FUSE -> FS: Write(path, data, offset)
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> Cache: Update local cache
+Cache -> FS: Confirm update
+FS -> Inode: Mark as modified
+FS -> FUSE: Confirm write
+FUSE -> App: Write successful
+App -> User: Show save confirmation
+
+User -> App: Close file
+App -> FUSE: flush() and release() system calls
+FUSE -> FS: Flush(path)
+FS -> UM: QueueUpload(inode, data, high priority)
+UM -> US: Create upload session
+US -> Auth: Refresh() if needed
+Auth -> US: Return refreshed auth
+US -> API: Create upload session
+API -> US: Return upload URL
+US -> API: Upload file content
+API -> US: Return updated item metadata
+US -> UM: Signal upload complete
+UM -> FS: Update item metadata
+FS -> Inode: Update with new metadata
+FS -> FUSE: Confirm flush
+FUSE -> App: Flush successful
+
+== File Modification (Large File) ==
+
+User -> App: Modify and save large file
+App -> FUSE: write() system call
+FUSE -> FS: Write(path, data, offset)
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> Cache: Update local cache
+Cache -> FS: Confirm update
+FS -> Inode: Mark as modified
+FS -> FUSE: Confirm write
+FUSE -> App: Write successful
+App -> User: Show save confirmation
+
+User -> App: Close file
+App -> FUSE: flush() and release() system calls
+FUSE -> FS: Flush(path)
+FS -> UM: QueueUpload(inode, data, high priority)
+UM -> US: Create upload session
+US -> Auth: Refresh() if needed
+Auth -> US: Return refreshed auth
+US -> API: Create upload session
+API -> US: Return upload URL
+US -> API: Upload file content in chunks
+note right: Uses chunked upload for large files
+API -> US: Acknowledge each chunk
+US -> API: Complete upload session
+API -> US: Return updated item metadata
+US -> UM: Signal upload complete
+UM -> FS: Update item metadata
+FS -> Inode: Update with new metadata
+FS -> FUSE: Confirm flush
+FUSE -> App: Flush successful
+
+== File Modification (Offline Mode) ==
+
+User -> App: Modify and save file
+App -> FUSE: write() system call
+FUSE -> FS: Write(path, data, offset)
+FS -> FS: Check if in offline mode
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> Cache: Update local cache
+Cache -> FS: Confirm update
+FS -> Inode: Mark as modified
+FS -> FUSE: Confirm write
+FUSE -> App: Write successful
+App -> User: Show save confirmation
+
+User -> App: Close file
+App -> FUSE: flush() and release() system calls
+FUSE -> FS: Flush(path)
+FS -> FS: Check if in offline mode
+FS -> UM: Queue upload for later (when online)
+FS -> FUSE: Confirm flush
+FUSE -> App: Flush successful
+
+== File Modification (Conflict Resolution) ==
+
+User -> App: Modify and save file
+App -> FUSE: write() system call
+FUSE -> FS: Write(path, data, offset)
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> Cache: Update local cache
+Cache -> FS: Confirm update
+FS -> Inode: Mark as modified
+FS -> FUSE: Confirm write
+FUSE -> App: Write successful
+App -> User: Show save confirmation
+
+User -> App: Close file
+App -> FUSE: flush() and release() system calls
+FUSE -> FS: Flush(path)
+FS -> UM: QueueUpload(inode, data, high priority)
+UM -> US: Create upload session
+US -> Auth: Refresh() if needed
+Auth -> US: Return refreshed auth
+US -> API: Create upload session
+API -> US: Return upload URL
+US -> API: Upload file content
+API -> US: Return conflict error (file modified on server)
+
+alt Conflict behavior: Replace
+    US -> API: Upload with conflict behavior "replace"
+    API -> US: Return updated item metadata
+else Conflict behavior: Rename
+    US -> FS: Create conflict copy with suffix
+    FS -> Cache: Store conflict copy
+    FS -> UM: QueueUpload(conflictInode, data, high priority)
+    UM -> API: Upload conflict copy
+    API -> UM: Return updated item metadata
+end
+
+US -> UM: Signal upload complete
+UM -> FS: Update item metadata
+FS -> Inode: Update with new metadata
+FS -> FUSE: Confirm flush
+FUSE -> App: Flush successful
+
+@enduml

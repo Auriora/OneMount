@@ -1,0 +1,122 @@
+@startuml UI Components
+
+' Note: The UI is primarily implemented using GTK3 via the gotk3 library.
+' Most UI components are created and managed directly in the code rather than
+' through class definitions. This diagram represents the main UI components
+' and their relationships.
+
+package "UI Components" {
+  class "LauncherApplication" as LauncherApp {
+    -window: gtk.ApplicationWindow
+    -header: gtk.HeaderBar
+    -listbox: gtk.ListBox
+    -switches: map[string]*gtk.Switch
+    +main()
+    +activateCallback(app: *gtk.Application, config: *common.Config, configPath: string)
+    -xdgOpenDir(mount: string)
+    -newMountRow(config: common.Config, mount: string): (*gtk.ListBox, *gtk.Switch)
+    -newSettingsDialog(config: *common.Config, configPath: string, parent: gtk.IWindow)
+  }
+
+  class "MountRow" as MountRow {
+    -row: gtk.ListBoxRow
+    -box: gtk.Box
+    -label: gtk.Label
+    -mountToggle: gtk.Switch
+    -mountpointSettingsBtn: gtk.MenuButton
+    -popover: gtk.Popover
+    -popoverBox: gtk.Box
+    -accountLabel: gtk.Label
+    -renameMountpointEntry: gtk.Entry
+    -unitEnabledBtn: gtk.CheckButton
+    -deleteMountpointBtn: gtk.ModelButton
+  }
+
+  class "SettingsDialog" as SettingsDialog {
+    -settingsDialog: gtk.Dialog
+    -settingsRowLog: gtk.Box
+    -logLevelLabel: gtk.Label
+    -logLevelSelector: gtk.ComboBoxText
+    -settingsRowLogOutput: gtk.Box
+    -logOutputLabel: gtk.Label
+    -logOutputEntry: gtk.Entry
+    -settingsRowCacheDir: gtk.Box
+    -cacheDirLabel: gtk.Label
+    -cacheDirPicker: gtk.Button
+  }
+
+  class "UIUtilities" as UIUtils {
+    +PollUntilAvail(mountpoint: string, timeout: int): bool
+    +MountpointIsValid(mountpoint: string): bool
+    +GetAccountName(cacheDir, instance: string): (string, error)
+    +GetKnownMounts(cacheDir: string): []string
+    +EscapeHome(path: string): string
+    +UnescapeHome(path: string): string
+    +DirChooser(title: string): string
+    +Dialog(msg: string, messageType: gtk.MessageType, parentWindow: gtk.IWindow)
+    +CancelDialog(parentWindow: gtk.IWindow, primaryText, secondaryText: string): bool
+  }
+
+  class "SystemdIntegration" as SystemdIntegration {
+    +OnedriverServiceTemplate: string
+    +SystemdBusName: string
+    +SystemdObjectPath: string
+    +TemplateUnit(template, instance: string): string
+    +UntemplateUnit(unit: string): (string, error)
+    +UnitIsActive(unit: string): (bool, error)
+    +UnitSetActive(unit: string, active: bool): error
+    +UnitIsEnabled(unit: string): (bool, error)
+    +UnitSetEnabled(unit: string, enabled: bool): error
+  }
+}
+
+package "Command Line Interface" {
+  class "OnedriverCLI" as OnedriverCLI {
+    +main()
+    -usage()
+    -setupFlags(): (*common.Config, bool, bool, bool, bool, bool, string)
+    -initializeFilesystem(config: *common.Config, mountpoint: string, authOnly, headless, debugOn: bool): (*fs.Filesystem, *graph.Auth, *fuse.Server, string, string, error)
+    -displayStats(config: *common.Config, mountpoint: string)
+    -setupLogging(config: *common.Config, daemon: bool): error
+    -daemonize()
+    -setupSignalHandler(filesystem: *fs.Filesystem, server: *fuse.Server)
+  }
+
+  class "CommonConfig" as CommonConfig {
+    +AuthConfig: graph.AuthConfig
+    +LogLevel: string
+    +LogOutput: string
+    +CacheDir: string
+    +SyncTree: bool
+    +DeltaInterval: int
+    +CacheExpiration: int
+    +LoadConfig(path: string): *Config
+    +WriteConfig(path: string): error
+    +DefaultConfigPath(): string
+    +StringToLevel(level: string): zerolog.Level
+    +LogLevels(): []string
+    +GetXDGVolumeInfoName(path: string): (string, error)
+    +TemplateXDGVolumeInfo(name: string): string
+    +CreateXDGVolumeInfo(filesystem: *fs.Filesystem, auth: *graph.Auth)
+    +IsUserAllowOtherEnabled(): bool
+    +Version(): string
+  }
+}
+
+' Relationships
+LauncherApp ..> MountRow : creates
+LauncherApp ..> SettingsDialog : creates
+LauncherApp ..> UIUtils : uses
+LauncherApp ..> SystemdIntegration : uses
+LauncherApp ..> CommonConfig : uses
+
+MountRow ..> UIUtils : uses
+MountRow ..> SystemdIntegration : uses
+
+SettingsDialog ..> UIUtils : uses
+SettingsDialog ..> CommonConfig : uses
+
+OnedriverCLI ..> CommonConfig : uses
+OnedriverCLI ..> SystemdIntegration : uses
+
+@enduml

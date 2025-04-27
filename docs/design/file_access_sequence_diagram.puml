@@ -1,0 +1,97 @@
+@startuml File Access Workflow
+
+actor User
+participant "Linux Application" as App
+participant "FUSE" as FUSE
+participant "Filesystem" as FS
+participant "Inode" as Inode
+participant "LoopbackCache" as Cache
+participant "DownloadManager" as DM
+participant "Auth" as Auth
+participant "Microsoft Graph API" as API
+
+== File Access (Cached) ==
+
+User -> App: Open file
+App -> FUSE: read() system call
+FUSE -> FS: Read(path, size, offset)
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> FS: Check if file content is cached
+FS -> Cache: Get(id)
+Cache -> FS: Return cached content
+FS -> FUSE: Return file content
+FUSE -> App: Return data
+App -> User: Display file content
+
+== File Access (Not Cached) ==
+
+User -> App: Open file
+App -> FUSE: read() system call
+FUSE -> FS: Read(path, size, offset)
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> FS: Check if file content is cached
+FS -> Cache: Get(id)
+Cache -> FS: Return nil (not cached)
+FS -> DM: QueueDownload(id)
+DM -> Auth: Refresh() if needed
+Auth -> DM: Return refreshed auth
+DM -> API: GetItemContent(id, auth)
+API -> DM: Return file content
+DM -> Cache: Put(id, content)
+DM -> FS: Signal download complete
+FS -> Cache: Get(id)
+Cache -> FS: Return cached content
+FS -> FUSE: Return file content
+FUSE -> App: Return data
+App -> User: Display file content
+
+== File Access (Large File) ==
+
+User -> App: Open large file
+App -> FUSE: read() system call
+FUSE -> FS: Read(path, size, offset)
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> FS: Check if file content is cached
+FS -> Cache: Get(id)
+Cache -> FS: Return nil (not cached)
+FS -> DM: QueueDownload(id)
+DM -> Auth: Refresh() if needed
+Auth -> DM: Return refreshed auth
+DM -> API: GetItemContentStream(id, auth, output)
+note right: Uses chunked download for large files
+API -> DM: Stream file content in chunks
+DM -> Cache: Write chunks to cache
+DM -> FS: Signal download complete
+FS -> Cache: Get(id)
+Cache -> FS: Return cached content
+FS -> FUSE: Return file content
+FUSE -> App: Return data
+App -> User: Display file content
+
+== File Access (Offline Mode) ==
+
+User -> App: Open file
+App -> FUSE: read() system call
+FUSE -> FS: Read(path, size, offset)
+FS -> FS: Check if in offline mode
+FS -> Inode: Get inode for path
+Inode -> FS: Return inode
+FS -> FS: Check if file content is cached
+FS -> Cache: Get(id)
+
+alt Content is cached
+    Cache -> FS: Return cached content
+    FS -> FUSE: Return file content
+    FUSE -> App: Return data
+    App -> User: Display file content
+else Content not cached
+    Cache -> FS: Return nil (not cached)
+    FS -> FUSE: Return error (file not available offline)
+    FUSE -> App: Return error
+    App -> User: Display error message
+end
+
+@enduml

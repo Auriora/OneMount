@@ -1,0 +1,183 @@
+@startuml Microsoft Graph API Integration
+
+' Class definitions
+class AuthConfig {
+  +ClientID: string
+  +CodeURL: string
+  +TokenURL: string
+  +RedirectURL: string
+  +applyDefaults(): error
+}
+
+class Auth {
+  +AuthConfig: AuthConfig
+  +Account: string
+  +ExpiresIn: int64
+  +ExpiresAt: int64
+  +AccessToken: string
+  +RefreshToken: string
+  -path: string
+  +ToFile(file: string): error
+  +FromFile(file: string): error
+  +Refresh(ctx: context.Context): error
+  -createRefreshTokenRequest(): *strings.Reader
+  -handleRefreshResponse(resp: *http.Response, err: error): (bool, error)
+  -updateTokenExpiration(oldTime: int64): void
+  -handleFailedRefresh(ctx: context.Context, resp: *http.Response, body: []byte, reauth: bool): error
+}
+
+class AuthError {
+  +Error: string
+  +ErrorDescription: string
+  +ErrorCodes: []int
+  +ErrorURI: string
+  +Timestamp: string
+  +TraceID: string
+  +CorrelationID: string
+}
+
+class DriveItemParent {
+  +Path: string
+  +ID: string
+  +DriveID: string
+  +DriveType: string
+}
+
+class Folder {
+  +ChildCount: uint32
+}
+
+class Hashes {
+  +SHA1Hash: string
+  +QuickXorHash: string
+}
+
+class File {
+  +Hashes: Hashes
+}
+
+class Deleted {
+  +State: string
+}
+
+class DriveItem {
+  +ID: string
+  +Name: string
+  +Size: uint64
+  +ModTime: *time.Time
+  +Parent: *DriveItemParent
+  +Folder: *Folder
+  +File: *File
+  +Deleted: *Deleted
+  +ConflictBehavior: string
+  +ETag: string
+  +IsDir(): bool
+  +ModTimeUnix(): uint64
+}
+
+class User {
+  +UserPrincipalName: string
+}
+
+class DriveQuota {
+  +Deleted: uint64
+  +FileCount: uint64
+  +Remaining: uint64
+  +State: string
+  +Total: uint64
+  +Used: uint64
+}
+
+class Drive {
+  +ID: string
+  +DriveType: string
+  +Quota: DriveQuota
+}
+
+class Header {
+  +key: string
+  +value: string
+}
+
+class ResponseCache {
+  -cache: map[string]cacheEntry
+  -ttl: time.Duration
+  -mutex: sync.RWMutex
+  +NewResponseCache(ttl: time.Duration): *ResponseCache
+  +Get(key: string): ([]byte, bool)
+  +Set(key: string, data: []byte): void
+  +Invalidate(key: string): void
+  +InvalidatePrefix(prefix: string): void
+}
+
+class graphError {
+  +Error: struct {
+    +Code: string
+    +Message: string
+  }
+}
+
+' Functions
+note "Functions:\n\
+- GetItem(id, auth): (*DriveItem, error)\n\
+- GetItemChild(id, name, auth): (*DriveItem, error)\n\
+- GetItemPath(path, auth): (*DriveItem, error)\n\
+- GetItemContent(id, auth): ([]byte, uint64, error)\n\
+- GetItemContentStream(id, auth, output): (uint64, error)\n\
+- Remove(id, auth): error\n\
+- Mkdir(name, parentID, auth): (*DriveItem, error)\n\
+- Rename(itemID, itemName, parentID, auth): error\n\
+- GetItemChildren(id, auth): ([]*DriveItem, error)\n\
+- GetItemChildrenPath(path, auth): ([]*DriveItem, error)" as DriveItemFunctions
+
+note "HTTP Functions:\n\
+- Request(resource, auth, method, content, headers): ([]byte, error)\n\
+- RequestWithContext(ctx, resource, auth, method, content, headers): ([]byte, error)\n\
+- Get(resource, auth, headers): ([]byte, error)\n\
+- GetWithContext(ctx, resource, auth, headers): ([]byte, error)\n\
+- Post(resource, auth, content, headers): ([]byte, error)\n\
+- Put(resource, auth, content, headers): ([]byte, error)\n\
+- Patch(resource, auth, content, headers): ([]byte, error)\n\
+- Delete(resource, auth, headers): error" as HTTPFunctions
+
+note "Auth Functions:\n\
+- getAuthURL(a: AuthConfig): string\n\
+- getAuthCodeHeadless(a: AuthConfig, accountName: string): (string, error)\n\
+- parseAuthCode(url: string): (string, error)\n\
+- getAuthTokens(ctx: context.Context, a: AuthConfig, authCode: string): (*Auth, error)\n\
+- newAuth(ctx: context.Context, config: AuthConfig, path: string, headless: bool): (*Auth, error)\n\
+- Authenticate(ctx: context.Context, config: AuthConfig, path: string, headless: bool): (*Auth, error)" as AuthFunctions
+
+note "Path Functions:\n\
+- IDPath(id: string): string\n\
+- ResourcePath(path: string): string\n\
+- childrenPath(path: string): string\n\
+- childrenPathID(id: string): string" as PathFunctions
+
+note "Other Functions:\n\
+- GetUser(auth: *Auth): (User, error)\n\
+- GetUserWithContext(ctx: context.Context, auth: *Auth): (User, error)\n\
+- GetDrive(auth: *Auth): (Drive, error)\n\
+- SetOperationalOffline(offline: bool): void\n\
+- GetOperationalOffline(): bool\n\
+- IsOffline(err: error): bool" as OtherFunctions
+
+' Relationships
+DriveItem "1" *-- "0..1" DriveItemParent : has parent
+DriveItem "1" *-- "0..1" Folder : is a
+DriveItem "1" *-- "0..1" File : is a
+DriveItem "1" *-- "0..1" Deleted : can be
+File "1" *-- "1" Hashes : has
+
+Auth "1" *-- "1" AuthConfig : has configuration
+
+Drive "1" *-- "1" DriveQuota : has quota
+
+DriveItem .. DriveItemFunctions
+Auth .. AuthFunctions
+Auth .. HTTPFunctions
+DriveItem .. PathFunctions
+User .. OtherFunctions
+Drive .. OtherFunctions
+
+@enduml

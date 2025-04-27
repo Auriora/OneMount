@@ -1,0 +1,103 @@
+@startuml Authentication Workflow
+
+actor User
+participant "onedriver" as App
+participant "Auth" as Auth
+participant "Browser" as Browser
+participant "Microsoft Graph API" as API
+
+== Initial Authentication ==
+
+User -> App: Start onedriver
+App -> Auth: Authenticate(config, path, headless)
+Auth -> Auth: Check if auth tokens exist
+
+alt No existing tokens
+    Auth -> App: Need to authenticate
+    App -> Browser: Open authentication URL
+    Browser -> API: Request authentication page
+    API -> Browser: Return authentication page
+    Browser -> User: Display authentication page
+    User -> Browser: Enter credentials
+    Browser -> API: Submit credentials
+    API -> Browser: Redirect with auth code
+    Browser -> App: Return auth code
+    App -> Auth: newAuth(config, path, headless)
+    Auth -> Auth: getAuthTokens(config, authCode)
+    Auth -> API: Request access tokens
+    API -> Auth: Return access and refresh tokens
+    Auth -> Auth: Store tokens to file
+    Auth -> App: Return Auth object
+else Existing tokens
+    Auth -> Auth: FromFile(path)
+    Auth -> Auth: Refresh()
+    
+    alt Tokens expired
+        Auth -> API: Request new tokens with refresh token
+        
+        alt Refresh successful
+            API -> Auth: Return new access token
+            Auth -> Auth: Update tokens
+            Auth -> Auth: Save tokens to file
+        else Refresh failed
+            Auth -> App: Need to reauthenticate
+            App -> Browser: Open authentication URL
+            Browser -> API: Request authentication page
+            API -> Browser: Return authentication page
+            Browser -> User: Display authentication page
+            User -> Browser: Enter credentials
+            Browser -> API: Submit credentials
+            API -> Browser: Redirect with auth code
+            Browser -> App: Return auth code
+            App -> Auth: newAuth(config, path, headless)
+            Auth -> Auth: getAuthTokens(config, authCode)
+            Auth -> API: Request access tokens
+            API -> Auth: Return access and refresh tokens
+            Auth -> Auth: Store tokens to file
+        end
+    end
+    
+    Auth -> App: Return Auth object
+end
+
+== API Request with Authentication ==
+
+App -> Auth: Request(resource, auth, method, content)
+Auth -> Auth: Check if token expired
+
+alt Token expired
+    Auth -> API: Refresh token
+    API -> Auth: New access token
+    Auth -> Auth: Update tokens
+end
+
+Auth -> API: Make API request with access token
+API -> Auth: Return response
+Auth -> App: Return response data
+
+== Headless Authentication (Terminal Mode) ==
+
+User -> App: Start onedriver with --headless
+App -> Auth: Authenticate(config, path, true)
+Auth -> Auth: Check if auth tokens exist
+
+alt No existing tokens
+    Auth -> App: Need to authenticate
+    App -> User: Display authentication URL
+    User -> Browser: Open URL manually
+    Browser -> API: Request authentication page
+    API -> Browser: Return authentication page
+    Browser -> User: Display authentication page
+    User -> Browser: Enter credentials
+    Browser -> API: Submit credentials
+    API -> Browser: Redirect with auth code
+    User -> App: Enter redirect URL
+    App -> Auth: parseAuthCode(redirectURL)
+    Auth -> Auth: getAuthTokens(config, authCode)
+    Auth -> API: Request access tokens
+    API -> Auth: Return access and refresh tokens
+    Auth -> Auth: Store tokens to file
+    Auth -> App: Return Auth object
+end
+
+@enduml

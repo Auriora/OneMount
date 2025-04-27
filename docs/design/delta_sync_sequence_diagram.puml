@@ -1,0 +1,133 @@
+@startuml Delta Synchronization Workflow
+
+participant "Filesystem" as FS
+participant "DeltaLoop" as DL
+participant "Auth" as Auth
+participant "Microsoft Graph API" as API
+participant "Inode" as Inode
+participant "LoopbackCache" as Cache
+participant "DownloadManager" as DM
+participant "UploadManager" as UM
+
+== Initial Delta Synchronization ==
+
+[-> FS: Start filesystem
+FS -> DL: Start delta loop
+DL -> Auth: Refresh() if needed
+Auth -> DL: Return refreshed auth
+DL -> API: Request delta with empty deltaLink
+API -> DL: Return changes and deltaLink
+DL -> FS: Process changes
+
+loop For each change
+    alt Item added or modified
+        DL -> Inode: Create or update inode
+        DL -> FS: Update metadata cache
+        
+        alt Item is directory
+            DL -> FS: Update directory structure
+        else Item is file
+            DL -> FS: Update file metadata
+            
+            alt File is small and frequently accessed
+                DL -> DM: QueueDownload(id, low priority)
+                DM -> API: GetItemContent(id, auth)
+                API -> DM: Return file content
+                DM -> Cache: Put(id, content)
+            end
+        end
+        
+    else Item deleted
+        DL -> FS: Remove item from metadata cache
+        DL -> Cache: Delete(id)
+    end
+end
+
+DL -> FS: Store deltaLink for next sync
+DL -> FS: Schedule next delta sync
+
+== Periodic Delta Synchronization ==
+
+[-> DL: Timer triggers delta sync
+DL -> Auth: Refresh() if needed
+Auth -> DL: Return refreshed auth
+DL -> API: Request delta with stored deltaLink
+API -> DL: Return changes since last sync and new deltaLink
+DL -> FS: Process changes
+
+loop For each change
+    alt Item added or modified
+        DL -> FS: Check if item exists locally
+        
+        alt Item exists locally and has local changes
+            DL -> FS: Compare modification times
+            
+            alt Local version is newer
+                DL -> FS: Keep local version
+                DL -> UM: QueueUpload(inode, data, low priority)
+            else Server version is newer
+                DL -> Inode: Update inode
+                DL -> FS: Update metadata cache
+                
+                alt Item is file
+                    DL -> FS: Update file metadata
+                    DL -> DM: QueueDownload(id, low priority)
+                end
+            end
+            
+        else Item exists locally without changes
+            DL -> Inode: Update inode
+            DL -> FS: Update metadata cache
+            
+            alt Item is file
+                DL -> FS: Update file metadata
+                
+                alt File is small and frequently accessed
+                    DL -> DM: QueueDownload(id, low priority)
+                end
+            end
+            
+        else Item doesn't exist locally
+            DL -> Inode: Create inode
+            DL -> FS: Update metadata cache
+            
+            alt Item is directory
+                DL -> FS: Create directory structure
+            else Item is file
+                DL -> FS: Create file metadata
+                
+                alt File is small and frequently accessed
+                    DL -> DM: QueueDownload(id, low priority)
+                end
+            end
+        end
+        
+    else Item deleted
+        DL -> FS: Check if item exists locally
+        
+        alt Item exists locally and has local changes
+            DL -> FS: Create conflict copy
+            DL -> UM: QueueUpload(conflictInode, data, low priority)
+        else Item exists locally without changes
+            DL -> FS: Remove item from metadata cache
+            DL -> Cache: Delete(id)
+        end
+    end
+end
+
+DL -> FS: Store new deltaLink for next sync
+DL -> FS: Schedule next delta sync
+
+== Subscription-based Change Notification ==
+
+[-> API: Change occurs on server
+API -> FS: Send notification to webhook
+FS -> DL: Trigger delta sync
+DL -> Auth: Refresh() if needed
+Auth -> DL: Return refreshed auth
+DL -> API: Request delta with stored deltaLink
+API -> DL: Return changes since last sync and new deltaLink
+DL -> FS: Process changes (same as in Periodic Delta Synchronization)
+DL -> FS: Store new deltaLink for next sync
+
+@enduml
