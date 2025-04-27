@@ -98,7 +98,17 @@ The race conditions in the socketio-go integration have been fixed by modifying 
 5. Added a select statement to wait for the connection to be ready, an error to occur, or the context to be done
 6. Added proper cleanup in case of errors or context cancellation
 
-These changes ensure that the socketio connection is fully established before the method returns, which prevents the race conditions between the goroutine that calls `setupEventChan()` and the background goroutines started by `socketio.DialContext()`.
+However, further analysis with race detection revealed that these changes were not sufficient to eliminate all race conditions. Additional fixes were implemented:
+
+1. Added a mutex (`siocMutex`) to protect access to the socketio connection, ensuring that only one goroutine can access it at a time
+2. Made the connection ready handler thread-safe by checking if the channel is already closed before closing it
+3. Made the error handler thread-safe by acquiring the mutex before calling the original handler
+4. Made the notification handler thread-safe by wrapping it in a function that acquires the mutex before calling the original handler
+5. Created a local reference to the socketio connection when connecting to the namespace to avoid race conditions
+6. Made the cleanup function thread-safe by acquiring the mutex before closing the connection
+7. Added nil checks to avoid potential null pointer dereferences
+
+These additional changes ensure proper synchronization when accessing shared data structures in the socketio-go library, preventing the race conditions identified in the race detector logs. The mutex-based approach provides stronger guarantees than the channel-based synchronization alone, as it protects all access to the shared socketio connection and its internal state.
 
 ### Database Access Issues
 

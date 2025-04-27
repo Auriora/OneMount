@@ -3,7 +3,9 @@ package fs
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
@@ -133,17 +135,36 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 	readyCh := make(chan struct{})
 	errCh := make(chan error, 1)
 
-	// Create a connection ready handler
+	// Create a mutex to protect access to the socketio connection
+	// This helps prevent race conditions when multiple goroutines access the connection
+	var siocMutex sync.Mutex
+	var sioc *socketio.Conn
+
+	// Create a connection ready handler that's thread-safe
 	connectionReady := func() {
-		close(readyCh)
+		// Only close the channel once
+		select {
+		case <-readyCh:
+			// Already closed
+		default:
+			close(readyCh)
+		}
 	}
 
-	// Create the socketio connection with the ready handler
-	sioc, err := socketio.DialContext(ctx, socketio.Config{
+	// Create the socketio connection with the ready handler in a thread-safe manner
+	siocMutex.Lock()
+	sioc, err = socketio.DialContext(ctx, socketio.Config{
 		URL:        urlstr,
 		EIOVersion: engineio.EIO3,
-		OnError:    s.socketioOnError,
+		OnError: func(err error) {
+			// Thread-safe error handling
+			siocMutex.Lock()
+			defer siocMutex.Unlock()
+			s.socketioOnError(err)
+		},
 	})
+	siocMutex.Unlock()
+
 	if err != nil {
 		return nil, err
 	}
@@ -152,16 +173,31 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 	ns := &socketio.Namespace{
 		Name: u.RequestURI(),
 		PacketHandlers: map[byte]socketio.Handler{
-			socketio.PacketTypeEVENT: s.notificationHandler,
+			socketio.PacketTypeEVENT: func(msg socketio.Message) {
+				// Thread-safe notification handling
+				siocMutex.Lock()
+				defer siocMutex.Unlock()
+				s.notificationHandler(msg)
+			},
 		},
 	}
 
 	// Connect to the namespace in a separate goroutine to avoid blocking
 	go func() {
-		if err := sioc.Connect(ctx, ns); err != nil {
+		siocMutex.Lock()
+		localSioc := sioc // Create a local reference to avoid race conditions
+		siocMutex.Unlock()
+
+		if localSioc == nil {
+			errCh <- fmt.Errorf("socketio connection is nil")
+			return
+		}
+
+		if err := localSioc.Connect(ctx, ns); err != nil {
 			errCh <- err
 			return
 		}
+
 		// Signal that the connection is ready
 		connectionReady()
 	}()
@@ -173,15 +209,31 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 		log.Debug().Msg("socketio connection established successfully")
 	case err := <-errCh:
 		// Connection failed
-		sioc.Close()
+		siocMutex.Lock()
+		if sioc != nil {
+			sioc.Close()
+		}
+		siocMutex.Unlock()
 		return nil, err
 	case <-ctx.Done():
 		// Context timeout or cancellation
-		sioc.Close()
+		siocMutex.Lock()
+		if sioc != nil {
+			sioc.Close()
+		}
+		siocMutex.Unlock()
 		return nil, ctx.Err()
 	}
 
-	return func() { sioc.Close() }, nil
+	// Return a thread-safe cleanup function
+	return func() {
+		siocMutex.Lock()
+		defer siocMutex.Unlock()
+		if sioc != nil {
+			sioc.Close()
+			sioc = nil
+		}
+	}, nil
 }
 
 func (s *subscription) notificationHandler(msg socketio.Message) {
