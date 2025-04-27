@@ -3,12 +3,17 @@
 ## 1. Introduction
 
 ### 1.1 Purpose
-This document provides a comprehensive architectural overview of the onedriver system using the "Views and Beyond" approach. It presents the architecture through multiple views to address different stakeholder concerns.
+
+This document provides a comprehensive architectural overview of the onedriver system using the "Views and Beyond" approach. It presents the architecture
+through multiple views to address different stakeholder concerns.
 
 ### 1.2 Scope
-This document covers the architecture of onedriver, a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content.
+
+This document covers the architecture of onedriver, a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing
+the entire OneDrive content.
 
 ### 1.3 Definitions, Acronyms, and Abbreviations
+
 - **FUSE**: Filesystem in Userspace - allows implementing a filesystem in user space
 - **API**: Application Programming Interface
 - **OAuth2**: Open Authorization 2.0 - an authorization protocol
@@ -19,6 +24,7 @@ This document covers the architecture of onedriver, a native Linux filesystem fo
 ## 2. Architectural Representation
 
 The architecture of onedriver is presented through three primary views:
+
 - **Context View**: Shows how onedriver fits into its environment and interacts with external entities
 - **Logical View**: Describes the functional decomposition of the system into components and their relationships
 - **Deployment View**: Illustrates how the software is deployed onto the underlying hardware
@@ -26,44 +32,50 @@ The architecture of onedriver is presented through three primary views:
 ## 3. Context View
 
 ### 3.1 System Context
-onedriver operates within the Linux operating system environment, interacting with Microsoft's OneDrive cloud storage service through the Microsoft Graph API. It integrates with the Linux filesystem through FUSE and provides both command-line and graphical interfaces for user interaction.
+
+onedriver operates within the Linux operating system environment, interacting with Microsoft's OneDrive cloud storage service through the Microsoft Graph API.
+It integrates with the Linux filesystem through FUSE and provides both command-line and graphical interfaces for user interaction.
 
 ### 3.2 External Entities and Interfaces
 
 #### 3.2.1 Microsoft OneDrive / Graph API
+
 - **Description**: Cloud storage service that hosts user files and folders
 - **Interface**: RESTful HTTP API with OAuth2 authentication
 - **Interaction**: onedriver authenticates with Microsoft, then performs CRUD operations on files and folders
 
 #### 3.2.2 Linux Filesystem
+
 - **Description**: The host operating system's filesystem
 - **Interface**: FUSE (Filesystem in Userspace)
 - **Interaction**: onedriver mounts a virtual filesystem that appears as a normal directory to the user and applications
 
 #### 3.2.3 User Applications
+
 - **Description**: Any application that needs to access OneDrive files
 - **Interface**: Standard filesystem operations (open, read, write, etc.)
 - **Interaction**: Applications interact with onedriver through normal filesystem operations
 
 #### 3.2.4 Desktop Environment
+
 - **Description**: The Linux desktop environment (GNOME, KDE, etc.)
 - **Interface**: GTK3 for UI integration, D-Bus for system integration
 - **Interaction**: Provides status information and basic controls through system tray icon
 
 ### 3.3 Stakeholders and Concerns
 
-| Stakeholder | Role | Primary Concern |
-|-------------|------|-----------------|
-| Linux Users | End Users | Access OneDrive files on Linux without syncing entire account |
-| Windows/Mac Users Migrating to Linux | End Users | Easily transition files from Windows/Mac to Linux via OneDrive |
-| Mobile Device Users | End Users | Access photos and files uploaded from mobile devices on Linux |
-| Users with Limited Storage | End Users | Access large OneDrive accounts without using equivalent local storage |
-| Users with Poor Internet | End Users | Work with OneDrive files even with unreliable internet connection |
-| Developers | Contributors | Extend and improve the onedriver codebase |
-| File Manager Developers | Integration Partners | Integrate file managers with onedriver for better user experience |
-| Package Maintainers | Distributors | Package onedriver for different Linux distributions |
-| Microsoft | Service Provider | Enable cross-platform access to OneDrive service |
-| System Administrators | IT Support | Deploy onedriver in organizational environments |
+| Stakeholder                          | Role                 | Primary Concern                                                       |
+|--------------------------------------|----------------------|-----------------------------------------------------------------------|
+| Linux Users                          | End Users            | Access OneDrive files on Linux without syncing entire account         |
+| Windows/Mac Users Migrating to Linux | End Users            | Easily transition files from Windows/Mac to Linux via OneDrive        |
+| Mobile Device Users                  | End Users            | Access photos and files uploaded from mobile devices on Linux         |
+| Users with Limited Storage           | End Users            | Access large OneDrive accounts without using equivalent local storage |
+| Users with Poor Internet             | End Users            | Work with OneDrive files even with unreliable internet connection     |
+| Developers                           | Contributors         | Extend and improve the onedriver codebase                             |
+| File Manager Developers              | Integration Partners | Integrate file managers with onedriver for better user experience     |
+| Package Maintainers                  | Distributors         | Package onedriver for different Linux distributions                   |
+| Microsoft                            | Service Provider     | Enable cross-platform access to OneDrive service                      |
+| System Administrators                | IT Support           | Deploy onedriver in organizational environments                       |
 
 ## 4. Logical View
 
@@ -71,37 +83,38 @@ onedriver operates within the Linux operating system environment, interacting wi
 
 onedriver is structured into several logical components:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        onedriver                                │
-│                                                                 │
-│  ┌───────────┐    ┌───────────┐    ┌───────────────────────┐    │
-│  │    UI     │    │  Command  │    │     Filesystem        │    │
-│  │           │◄───┤   Line    │◄───┤                       │    │
-│  │ (GTK3)    │    │ Interface │    │  (FUSE Implementation)│    │
-│  └───────────┘    └───────────┘    └───────────────────────┘    │
-│                                              ▲                  │
-│                                              │                  │
-│                                     ┌────────┴─────────┐        │
-│                                     │                  │        │
-│                                     ▼                  ▼        │
-│                              ┌──────────────┐  ┌─────────────┐  │
-│                              │  Graph API   │  │   Cache     │  │
-│                              │  Integration │  │  Management │  │
-│                              └──────────────┘  └─────────────┘  │
-│                                     ▲                ▲          │
-│                                     │                │          │
-│                                     ▼                ▼          │
-│                              ┌──────────────┐  ┌─────────────┐  │
-│                              │   Network    │  │   Local     │  │
-│                              │    Layer     │  │  Storage    │  │
-│                              └──────────────┘  └─────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+```plantuml
+@startditaa < scale=2
+                        Onedriver                                
+                                                                 
+  +-----------+    +-----------+    +-----------------------+    
+  |    UI     |    |  Command  |    |      Filesystem       |    
+  |           |<---|   Line    |<---|                       |    
+  |  (GTK3)   |    | Interface |    | (FUSE Implementation) |    
+  +-----------+    +-----------+    +-----------------------+    
+                                              ^                  
+                                              |                  
+                                     +--------+---------+        
+                                     |                  |        
+                                     v                  v        
+                              +--------------+  +-------------+  
+                              |  Graph API   |  |   Cache     |  
+                              |  Integration |  |  Management |  
+                              +--------------+  +-------------+  
+                                     ^                ^          
+                                     |                |          
+                                     v                v          
+                              +--------------+  +-------------+  
+                              |   Network    |  |   Local     |  
+                              |    Layer     |  |  Storage    |  
+                              +--------------+  +-------------+  
+@endditaa
 ```
 
 ### 4.2 Component Descriptions
 
 #### 4.2.1 Filesystem (fs package)
+
 The core of onedriver is the Filesystem implementation, which provides a FUSE-compatible interface to OneDrive. Key components include:
 
 - **Inode**: Represents files and directories in the filesystem
@@ -110,6 +123,7 @@ The core of onedriver is the Filesystem implementation, which provides a FUSE-co
 - **Upload/Download Managers**: Handle file transfers to and from OneDrive
 
 #### 4.2.2 Graph API Integration (fs/graph package)
+
 This component handles communication with Microsoft's Graph API:
 
 - **Auth**: Manages OAuth2 authentication with Microsoft
@@ -117,6 +131,7 @@ This component handles communication with Microsoft's Graph API:
 - **API Client**: Handles HTTP requests to the Graph API endpoints
 
 #### 4.2.3 Cache Management
+
 onedriver uses a sophisticated caching system to minimize network requests:
 
 - **Metadata Cache**: Stores file and directory metadata in memory and in a BBolt database
@@ -124,6 +139,7 @@ onedriver uses a sophisticated caching system to minimize network requests:
 - **Delta Synchronization**: Uses the Graph API's delta query to efficiently sync changes
 
 #### 4.2.4 Command Line Interface (cmd package)
+
 Provides the user interface for mounting, unmounting, and configuring onedriver:
 
 - **Argument Parsing**: Handles command-line flags and arguments
@@ -131,6 +147,7 @@ Provides the user interface for mounting, unmounting, and configuring onedriver:
 - **Signal Handling**: Manages graceful shutdown on system signals
 
 #### 4.2.5 UI (ui package)
+
 Provides a graphical interface for onedriver:
 
 - **GTK3 Interface**: Shows status and allows basic operations
@@ -138,18 +155,18 @@ Provides a graphical interface for onedriver:
 
 ### 4.3 Module Structure
 
-| Module | Description | File Count | Key Dependencies |
-|--------|-------------|------------|------------------|
-| fs | Core filesystem implementation | 34 | go-fuse, bbolt, zerolog |
-| fs/graph | Microsoft Graph API integration | 20 | net/http, json, zerolog |
-| fs/graph/quickxorhash | Hash implementation for OneDrive | 2 | hash, encoding/base64 |
-| fs/offline | Offline mode functionality | 2 | fs, fs/graph |
-| cmd/onedriver | Main filesystem application | 1 | fs, fs/graph, pflag |
-| cmd/onedriver-launcher | GUI launcher application | 1 | ui, ui/systemd, gtk |
-| cmd/common | Shared code between applications | 5 | fs, yaml, zerolog |
-| ui | GUI implementation | 4 | gtk, fs/graph |
-| ui/systemd | Systemd integration for the UI | 3 | dbus, go-systemd |
-| testutil | Testing utilities | 5 | testing, fs, fs/graph |
+| Module                 | Description                      | File Count | Key Dependencies        |
+|------------------------|----------------------------------|:----------:|-------------------------|
+| fs                     | Core filesystem implementation   |     34     | go-fuse, bbolt, zerolog |
+| fs/graph               | Microsoft Graph API integration  |     20     | net/http, json, zerolog |
+| fs/graph/quickxorhash  | Hash implementation for OneDrive |     2      | hash, encoding/base64   |
+| fs/offline             | Offline mode functionality       |     2      | fs, fs/graph            |
+| cmd/onedriver          | Main filesystem application      |     1      | fs, fs/graph, pflag     |
+| cmd/onedriver-launcher | GUI launcher application         |     1      | ui, ui/systemd, gtk     |
+| cmd/common             | Shared code between applications |     5      | fs, yaml, zerolog       |
+| ui                     | GUI implementation               |     4      | gtk, fs/graph           |
+| ui/systemd             | Systemd integration for the UI   |     3      | dbus, go-systemd        |
+| testutil               | Testing utilities                |     5      | testing, fs, fs/graph   |
 
 ### 4.4 Class Structure
 
@@ -168,23 +185,26 @@ The core engine of onedriver consists of the following key classes:
 ### 4.5 Key Interactions
 
 #### 4.5.1 Filesystem Operations
+
 1. When a file is accessed:
-   - The filesystem checks if the file is in the local cache
-   - If not, it requests the file from OneDrive via the Graph API
-   - The file is cached locally for future access
+    - The filesystem checks if the file is in the local cache
+    - If not, it requests the file from OneDrive via the Graph API
+    - The file is cached locally for future access
 
 2. When a file is modified:
-   - Changes are made to the local cache
-   - On flush/close, changes are uploaded to OneDrive
-   - If offline, changes are tracked and synchronized when online
+    - Changes are made to the local cache
+    - On flush/close, changes are uploaded to OneDrive
+    - If offline, changes are tracked and synchronized when online
 
 #### 4.5.2 Authentication Flow
+
 1. User initiates authentication
 2. OAuth2 flow opens a browser window for Microsoft login
 3. After successful login, an access token is obtained
 4. The token is refreshed automatically when needed
 
 #### 4.5.3 Delta Synchronization
+
 1. Periodically, onedriver requests changes from OneDrive using a delta link
 2. Changes are applied to the local cache
 3. Conflicts are resolved based on modification times and other heuristics
@@ -197,22 +217,24 @@ onedriver is designed to run on Linux systems with the following components:
 
 - **Operating System**: Linux (various distributions)
 - **Required Libraries**: FUSE, GTK3
-- **Runtime Dependencies**: 
-  - go-fuse/v2: For filesystem implementation
-  - gotk3: For GUI components
-  - bbolt: For embedded database
-  - zerolog: For logging
+- **Runtime Dependencies**:
+    - go-fuse/v2: For filesystem implementation
+    - gotk3: For GUI components
+    - bbolt: For embedded database
+    - zerolog: For logging
 
 ### 5.2 Installation and Deployment
 
 onedriver can be installed and deployed in several ways:
 
 #### 5.2.1 Package Installation
+
 - RPM packages for Fedora, CentOS, RHEL
 - DEB packages for Debian, Ubuntu
 - AUR packages for Arch Linux
 
 #### 5.2.2 Manual Installation
+
 ```bash
 # Build the main binaries
 make
@@ -222,6 +244,7 @@ sudo make install
 ```
 
 #### 5.2.3 Service Configuration
+
 onedriver is typically deployed as a systemd user service:
 
 ```
@@ -294,16 +317,24 @@ No inbound network access is required.
 ## 7. Architectural Decisions
 
 ### 7.1 Use of FUSE
-FUSE was chosen to implement the filesystem interface because it allows implementing a filesystem in user space rather than kernel space, which simplifies development and deployment.
+
+FUSE was chosen to implement the filesystem interface because it allows implementing a filesystem in user space rather than kernel space, which simplifies
+development and deployment.
 
 ### 7.2 On-demand File Download
-Unlike traditional sync clients, onedriver downloads files only when they are accessed. This design decision was made to save bandwidth and local storage, especially for users with large OneDrive accounts.
+
+Unlike traditional sync clients, onedriver downloads files only when they are accessed. This design decision was made to save bandwidth and local storage,
+especially for users with large OneDrive accounts.
 
 ### 7.3 Local Caching
-onedriver caches file metadata and content locally to improve performance and enable offline access. This decision balances the need for performance with the goal of minimizing local storage usage.
+
+onedriver caches file metadata and content locally to improve performance and enable offline access. This decision balances the need for performance with the
+goal of minimizing local storage usage.
 
 ### 7.4 Delta Synchronization
-The system uses the Microsoft Graph API's delta query feature to efficiently synchronize changes. This minimizes bandwidth usage and improves synchronization performance.
+
+The system uses the Microsoft Graph API's delta query feature to efficiently synchronize changes. This minimizes bandwidth usage and improves synchronization
+performance.
 
 ## 8. References
 
