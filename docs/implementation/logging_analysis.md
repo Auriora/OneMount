@@ -105,7 +105,9 @@ log.Info().
     Msg("File uploaded successfully")
 ```
 
-### 2. Implement Context Propagation (Medium Priority)
+### 2. Implement Context Propagation (Medium Priority) - IMPLEMENTED
+
+Note: This recommendation has been implemented in fs/log_constants.go and fs/cache.go. The implementation includes a LogContext struct, WithLogContext function, LogMethodCallWithContext and LogMethodReturnWithContext functions, and LogErrorWithContext function. These functions are used in the ProcessOfflineChanges method and a new GetIDWithContext method to demonstrate context propagation between methods.
 
 Create a context structure and helper functions to propagate context across function calls:
 
@@ -147,16 +149,16 @@ func (f *Filesystem) ProcessChanges(requestID string) error {
         RequestID: requestID,
         Operation: "process_changes",
     }
-    
+
     // Log method entry with context
     methodName, startTime, logger, ctx := LogMethodCallWithContext("ProcessChanges", ctx)
-    
+
     // Use the logger for additional logs within the method
     logger.Info().Str(FieldPath, "/some/path").Msg("Processing changes for path")
-    
+
     // Process changes...
     err := f.processChangesInternal(ctx)
-    
+
     // Log method exit with context and return value
     defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, err)
     return err
@@ -188,18 +190,18 @@ func getTypeName(t reflect.Type) string {
     typeCacheMutex.RLock()
     name, ok := typeCache[t]
     typeCacheMutex.RUnlock()
-    
+
     if ok {
         return name
     }
-    
+
     // Compute type name
     name = t.String()
-    
+
     typeCacheMutex.Lock()
     typeCache[t] = name
     typeCacheMutex.Unlock()
-    
+
     return name
 }
 ```
@@ -257,7 +259,7 @@ func (f *Filesystem) IsOffline() bool {
     methodName, startTime := LogMethodCall()
     f.RLock()
     defer f.RUnlock()
-    
+
     result := f.offline
     defer LogMethodReturn(methodName, startTime, result)
     return result
