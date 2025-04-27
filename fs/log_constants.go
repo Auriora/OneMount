@@ -65,7 +65,7 @@ func WithLogContext(ctx LogContext) zerolog.Logger {
 }
 
 // LogMethodCallWithContext logs the entry of a method with context
-func LogMethodCallWithContext(methodName string, ctx LogContext) (string, zerolog.Logger, LogContext) {
+func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, zerolog.Logger, LogContext) {
 	// Create a logger with the context
 	logger := WithLogContext(ctx)
 
@@ -79,11 +79,11 @@ func LogMethodCallWithContext(methodName string, ctx LogContext) (string, zerolo
 		Str(FieldGoroutine, goroutineID).
 		Msg(MsgMethodCalled)
 
-	return methodName, logger, ctx
+	return methodName, time.Now(), logger, ctx
 }
 
 // LogMethodReturnWithContext logs the exit of a method with context
-func LogMethodReturnWithContext(methodName string, startTime, logger zerolog.Logger, ctx LogContext, returns ...interface{}) {
+func LogMethodReturnWithContext(methodName string, startTime time.Time, logger zerolog.Logger, ctx LogContext, returns ...interface{}) {
 	duration := time.Since(startTime)
 
 	// Get the current goroutine ID
