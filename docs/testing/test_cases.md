@@ -14,6 +14,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | All directory metadata is successfully cached without errors                               |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestSyncDirectoryTree<br>**File**: fs/sync_test.go<br>**Notes**: Directly tests the `SyncDirectoryTree` function to verify directory tree synchronization. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -25,6 +26,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File is successfully uploaded to OneDrive with the correct content                         |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestFileOperations<br>**File**: fs/fs_test.go<br>**Notes**: Tests basic file creation and writing, which triggers uploads. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -36,6 +38,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Each version of the file is successfully uploaded with the correct content                 |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestRepeatedUploads<br>**File**: fs/upload_manager_test.go<br>**Notes**: Directly tests uploading the same file multiple times with different content. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -47,6 +50,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Large file is successfully uploaded to OneDrive with the correct content                   |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestUploadDiskSerialization<br>**File**: fs/upload_manager_test.go<br>**Notes**: Tests uploading large files using upload sessions. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -58,6 +62,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File is successfully downloaded from OneDrive with the correct content                     |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestBasicFileSystemOperations<br>**File**: fs/fs_test.go<br>**Notes**: Tests reading files, which triggers downloads if not in cache. |
 
 ## Network Failure Scenarios
 
@@ -71,6 +76,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File content is successfully read from the local cache                                     |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestOfflineFileAccess<br>**File**: fs/offline/offline_test.go<br>**Notes**: Directly tests accessing files when offline. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -82,6 +88,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File is successfully created locally and marked for upload when online                     |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestOfflineFileSystemOperations<br>**File**: fs/offline/offline_test.go<br>**Notes**: Contains test cases for file creation in offline mode. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -93,6 +100,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File is successfully modified locally and marked for upload when online                    |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestOfflineFileSystemOperations<br>**File**: fs/offline/offline_test.go<br>**Notes**: Contains test cases for file modification in offline mode. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -104,6 +112,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File is successfully deleted locally and marked for deletion on OneDrive when online       |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestOfflineFileSystemOperations<br>**File**: fs/offline/offline_test.go<br>**Notes**: Contains test cases for file deletion in offline mode. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -115,6 +124,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | All offline changes are successfully synchronized to OneDrive                              |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestOfflineSynchronization<br>**File**: fs/offline/offline_test.go<br>**Notes**: Tests synchronization when reconnecting after being offline. |
 
 ## Invalid Credentials Scenarios
 
@@ -128,6 +138,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | System properly handles the authentication error and returns appropriate error message     |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestRequestUnauthenticated<br>**File**: fs/graph/graph_test.go<br>**Notes**: Tests handling of requests with invalid authentication. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -139,6 +150,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Access token is refreshed and the request succeeds                                         |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestAuthRefresh<br>**File**: fs/graph/oauth2_test.go<br>**Notes**: Tests refreshing expired authentication tokens. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -150,6 +162,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | System properly handles the invalid format and returns appropriate error                   |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestAuthCodeFormat<br>**File**: fs/graph/oauth2_test.go<br>**Notes**: Tests parsing of various authentication code formats, including invalid ones. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -161,6 +174,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Authentication tokens are successfully loaded and used for accessing resources             |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestAuthFromfile<br>**File**: fs/graph/oauth2_test.go<br>**Notes**: Tests loading authentication tokens from file. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -172,6 +186,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | System properly handles the authentication failure and provides appropriate user feedback  |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestAuthFailureWithNetworkAvailable<br>**File**: fs/graph/oauth2_test.go<br>**Notes**: Tests the behavior when authentication fails but network is available. |
 
 ## File System Operations
 
@@ -185,6 +200,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Directory contents are correctly listed with proper item types                             |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestReaddir<br>**File**: fs/fs_test.go<br>**Notes**: Tests reading directory contents using Go's internal ReadDir function. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -196,6 +212,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Directory contents are correctly listed with proper item properties                        |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestLs, TestShellFileOperations<br>**File**: fs/fs_test.go<br>**Notes**: Tests directory listing using shell commands like 'ls' with various options. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -207,6 +224,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Files are created with correct properties and modification times can be updated            |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestTouchOperations<br>**File**: fs/fs_test.go<br>**Notes**: Tests file creation and modification time updates using the 'touch' command. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -218,6 +236,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File permissions are correctly set and can be modified                                     |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestFilePermissions, TestFileInfo<br>**File**: fs/fs_test.go<br>**Notes**: Tests file permission handling and verification. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -229,6 +248,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Directories can be created and removed successfully                                        |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestDirectoryOperations, TestDirectoryRemoval<br>**File**: fs/fs_test.go<br>**Notes**: Tests directory creation and removal operations. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -240,6 +260,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | File content can be modified at specific offsets                                           |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestWriteOffset<br>**File**: fs/fs_test.go<br>**Notes**: Tests writing to files at specific offsets. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -251,6 +272,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Files can be moved and renamed successfully                                                |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestFileMovementOperations<br>**File**: fs/fs_test.go<br>**Notes**: Tests moving and renaming files. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -262,6 +284,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Files can be read and written at specific positions                                        |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestPositionalFileOperations<br>**File**: fs/fs_test.go<br>**Notes**: Tests reading and writing files at specific positions. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -273,6 +296,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Case sensitivity in filenames is handled correctly                                         |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestCaseSensitivityHandling, TestFilenameCase<br>**File**: fs/fs_test.go<br>**Notes**: Tests handling of case sensitivity in filenames. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -284,6 +308,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Special characters in filenames are handled correctly, and disallowed characters are properly rejected |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestNoQuestionMarks, TestDisallowedFilenames<br>**File**: fs/fs_test.go<br>**Notes**: Tests handling of special characters and disallowed characters in filenames. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -295,6 +320,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Files can be moved to trash successfully                                                   |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestGIOTrash<br>**File**: fs/fs_test.go<br>**Notes**: Tests moving files to trash using GIO. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -306,6 +332,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Directories with many items are handled correctly with proper paging                       |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestListChildrenPaging<br>**File**: fs/fs_test.go<br>**Notes**: Tests handling of directories with many items requiring paging. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -317,6 +344,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Application-specific save patterns are handled correctly                                   |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestLibreOfficeSavePattern<br>**File**: fs/fs_test.go<br>**Notes**: Tests handling of application-specific save patterns, specifically LibreOffice's pattern. |
 
 ## Authentication and Configuration
 
@@ -330,6 +358,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Authentication configuration is correctly merged with defaults                             |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestAuthConfigMerge<br>**File**: fs/graph/oauth2_test.go<br>**Notes**: Tests merging of authentication configuration with defaults. |
 
 | Field           | Description                                                                                |
 |-----------------|--------------------------------------------------------------------------------------------|
@@ -341,6 +370,7 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Local filesystem paths are correctly converted to OneDrive API resource paths              |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestResourcePath<br>**File**: fs/graph/graph_test.go<br>**Notes**: Tests conversion of local filesystem paths to OneDrive API resource paths. |
 
 ## Offline Functionality
 
@@ -354,3 +384,4 @@ This document contains standardized test cases for the OneDriver project, coveri
 | Expected Result | Changes made in offline mode are properly cached and marked for synchronization            |
 | Actual Result   | [To be filled during test execution]                                                       |
 | Status          | [Pass/Fail]                                                                                |
+| Implementation  | **Test**: TestOfflineChangesCached<br>**File**: fs/offline/offline_test.go<br>**Notes**: Tests that changes made in offline mode are cached and marked for synchronization. |
