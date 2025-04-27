@@ -258,6 +258,23 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Create directories for specific tests
+	testDirs := []string{
+		filepath.Join(TestDir, "donuts_TestOfflineFileSystemOperations"),
+		filepath.Join(TestDir, "modify_TestOfflineFileSystemOperations"),
+		filepath.Join(TestDir, "delete_TestOfflineFileSystemOperations"),
+		filepath.Join(TestDir, "dir_create_TestOfflineFileSystemOperations"),
+		filepath.Join(TestDir, "dir_delete_TestOfflineFileSystemOperations"),
+		filepath.Join(TestDir, "parent_dir_TestOfflineFileSystemOperations"),
+	}
+
+	for _, dir := range testDirs {
+		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Str("dir", dir).Msg("Failed to create test subdirectory")
+			os.Exit(1)
+		}
+	}
+
 	// Set operational offline state to true to simulate offline mode
 	log.Info().Msg("Setting operational offline state to true")
 	graph.SetOperationalOffline(true)
