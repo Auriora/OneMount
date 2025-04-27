@@ -6,7 +6,7 @@ This document maps the standardized test cases from `test_cases.md` to the actua
 
 | Test Case ID | Test Case Title | Go Test Implementation | File | Notes |
 |--------------|----------------|------------------------|------|-------|
-| TC-01 | Directory Tree Synchronization | No direct test found | - | The `SyncDirectoryTree` function in `fs/sync.go` implements this functionality, but no direct test was found. |
+| TC-01 | Directory Tree Synchronization | TestSyncDirectoryTree | fs/sync_test.go | Directly tests the `SyncDirectoryTree` function to verify directory tree synchronization. |
 | TC-02 | File Upload Synchronization | TestFileOperations | fs/fs_test.go | Tests basic file creation and writing, which triggers uploads. |
 | TC-03 | Repeated File Upload | TestRepeatedUploads | fs/upload_manager_test.go | Directly tests uploading the same file multiple times with different content. |
 | TC-04 | Large File Upload | TestUploadDiskSerialization | fs/upload_manager_test.go | Tests uploading large files using upload sessions. |
@@ -20,7 +20,7 @@ This document maps the standardized test cases from `test_cases.md` to the actua
 | TC-12 | Authentication Token Refresh | TestAuthRefresh | fs/graph/oauth2_test.go | Tests refreshing expired authentication tokens. |
 | TC-13 | Invalid Authentication Code Format | TestAuthCodeFormat | fs/graph/oauth2_test.go | Tests parsing of various authentication code formats, including invalid ones. |
 | TC-14 | Authentication Persistence | TestAuthFromfile | fs/graph/oauth2_test.go | Tests loading authentication tokens from file. |
-| TC-15 | Authentication Failure with Network Available | No direct test found | - | No specific test was found for this scenario. |
+| TC-15 | Authentication Failure with Network Available | TestAuthFailureWithNetworkAvailable | fs/graph/oauth2_test.go | Tests the behavior when authentication fails but network is available. |
 
 ## Additional Tests Mapped to New Test Cases
 
@@ -55,9 +55,9 @@ The following tests in the codebase have been mapped to new standardized test ca
 
 ## Coverage Analysis
 
-The mapping shows that most of the standardized test cases have corresponding implementations in the codebase. However, there are a few gaps:
+The mapping shows that all standardized test cases now have corresponding implementations in the codebase. The previously identified gaps have been addressed:
 
-1. **TC-01 (Directory Tree Synchronization)**: No direct test was found for the `SyncDirectoryTree` function.
-2. **TC-15 (Authentication Failure with Network Available)**: No specific test was found for this scenario.
+1. **TC-01 (Directory Tree Synchronization)**: Now tested by `TestSyncDirectoryTree` in `fs/sync_test.go`.
+2. **TC-15 (Authentication Failure with Network Available)**: Now tested by `TestAuthFailureWithNetworkAvailable` in `fs/graph/oauth2_test.go`.
 
-These gaps could be addressed by adding new tests to the codebase.
+All test cases are now covered by specific tests in the codebase.

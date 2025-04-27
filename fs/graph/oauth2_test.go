@@ -98,3 +98,36 @@ func TestAuthConfigMerge(t *testing.T) {
 	assert.Equal(t, "test", testConfig.RedirectURL)
 	assert.Equal(t, authClientID, testConfig.ClientID)
 }
+
+// TestAuthFailureWithNetworkAvailable tests the behavior when authentication fails but network is available (TC-15)
+func TestAuthFailureWithNetworkAvailable(t *testing.T) {
+	t.Parallel()
+
+	// Create an Auth with invalid credentials but valid configuration
+	invalidAuth := &Auth{
+		AuthConfig: AuthConfig{
+			ClientID:    authClientID,
+			RedirectURL: authRedirectURL,
+			TokenURL:    authTokenURL,
+			CodeURL:     authCodeURL,
+		},
+		AccessToken:  "invalid_access_token",
+		RefreshToken: "invalid_refresh_token",
+		ExpiresAt:    0, // Force a refresh attempt
+	}
+
+	// Apply defaults to ensure the configuration is valid
+	require.NoError(t, invalidAuth.AuthConfig.applyDefaults(), "Failed to apply defaults to AuthConfig")
+
+	// Attempt to refresh the tokens, which should fail due to invalid credentials
+	err := invalidAuth.Refresh(nil) // nil context will use context.Background() internally
+
+	// Verify that an error is returned
+	assert.Error(t, err, "Expected error when refreshing with invalid credentials")
+	assert.Contains(t, err.Error(), "failed to refresh token", "Error message should indicate refresh failure")
+
+	// Verify that the auth state is still invalid (tokens not updated)
+	assert.Equal(t, "invalid_access_token", invalidAuth.AccessToken, "Access token should not be updated")
+	assert.Equal(t, "invalid_refresh_token", invalidAuth.RefreshToken, "Refresh token should not be updated")
+	assert.Equal(t, int64(0), invalidAuth.ExpiresAt, "Expiration time should not be updated")
+}
