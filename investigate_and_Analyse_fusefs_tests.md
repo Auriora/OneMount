@@ -72,8 +72,8 @@ The `fusefs_tests.log` file shows some additional issues:
    - [x] Ensure the socketio connection is fully established before proceeding
 
 2. **Database Access Issues**:
-   - [ ] Improve database connection handling with proper timeouts and retries
-   - [ ] Ensure proper cleanup between test runs
+   - [x] Improve database connection handling with proper timeouts and retries
+   - [x] Ensure proper cleanup between test runs
 
 3. **D-Bus Conflicts**:
    - [ ] Generate unique D-Bus names for test instances
@@ -82,7 +82,7 @@ The `fusefs_tests.log` file shows some additional issues:
 ## Progress
 
 - [x] Fix race conditions in socketio-go integration
-- [ ] Fix database access issues
+- [x] Fix database access issues
 - [ ] Fix D-Bus conflicts
 
 ## Implementation Details
@@ -99,3 +99,14 @@ The race conditions in the socketio-go integration have been fixed by modifying 
 6. Added proper cleanup in case of errors or context cancellation
 
 These changes ensure that the socketio connection is fully established before the method returns, which prevents the race conditions between the goroutine that calls `setupEventChan()` and the background goroutines started by `socketio.DialContext()`.
+
+### Database Access Issues
+
+The database access issues have been fixed by improving the database connection handling in the `NewFilesystem()` function in `cache.go`. The key changes are:
+
+1. Added retry logic with exponential backoff for opening the database
+2. Added code to check for and remove stale lock files
+3. Improved error logging with more detailed information
+4. Set reasonable retry parameters (5 retries with backoff from 100ms to 2s)
+
+These changes make the database connection more resilient to temporary issues and clean up stale lock files that might be left behind by previous test runs, which helps prevent the "Could not open DB" errors during tests.

@@ -110,11 +110,61 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 			return nil, fmt.Errorf("could not create cache directory: %w", err)
 		}
 	}
-	db, err := bolt.Open(
-		filepath.Join(cacheDir, "onedriver.db"),
-		0600,
-		&bolt.Options{Timeout: time.Second * 5},
-	)
+	// Try to open the database with retries and exponential backoff
+	var db *bolt.DB
+	var err error
+	dbPath := filepath.Join(cacheDir, "onedriver.db")
+
+	// Check if the database file exists and is locked
+	if _, statErr := os.Stat(dbPath); statErr == nil {
+		// Try to remove any stale lock files
+		lockPath := dbPath + ".lock"
+		if _, lockErr := os.Stat(lockPath); lockErr == nil {
+			log.Warn().Msg("Found stale lock file, attempting to remove it")
+			if rmErr := os.Remove(lockPath); rmErr != nil {
+				log.Warn().Err(rmErr).Msg("Failed to remove stale lock file")
+			}
+		}
+	}
+
+	// Define retry parameters
+	maxRetries := 5
+	initialBackoff := 100 * time.Millisecond
+	maxBackoff := 2 * time.Second
+
+	// Attempt to open the database with retries
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Calculate backoff duration with exponential increase
+		backoff := initialBackoff * time.Duration(1<<uint(attempt))
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+
+		// Try to open the database
+		db, err = bolt.Open(
+			dbPath,
+			0600,
+			&bolt.Options{Timeout: time.Second * 5},
+		)
+
+		if err == nil {
+			// Successfully opened the database
+			log.Debug().Int("attempt", attempt+1).Msg("Successfully opened database")
+			break
+		}
+
+		// If this is the last attempt, don't wait
+		if attempt == maxRetries-1 {
+			log.Error().Err(err).Int("attempts", maxRetries).Msg("Could not open DB after multiple attempts. Is it already in use by another mount?")
+			return nil, fmt.Errorf("could not open DB (is it already in use by another mount?): %w", err)
+		}
+
+		// Log the error and wait before retrying
+		log.Warn().Err(err).Int("attempt", attempt+1).Dur("backoff", backoff).Msg("Failed to open database, retrying after backoff")
+		time.Sleep(backoff)
+	}
+
+	// If we still have an error after all retries, return it
 	if err != nil {
 		log.Error().Err(err).Msg("Could not open DB. Is it already in use by another mount?")
 		return nil, fmt.Errorf("could not open DB (is it already in use by another mount?): %w", err)
