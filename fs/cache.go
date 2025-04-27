@@ -115,22 +115,32 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	var err error
 	dbPath := filepath.Join(cacheDir, "onedriver.db")
 
-	// Check if the database file exists and is locked
+	// Check if the database file exists
 	if _, statErr := os.Stat(dbPath); statErr == nil {
-		// Try to remove any stale lock files
+		// Check for lock files
 		lockPath := dbPath + ".lock"
 		if _, lockErr := os.Stat(lockPath); lockErr == nil {
-			log.Warn().Msg("Found stale lock file, attempting to remove it")
-			if rmErr := os.Remove(lockPath); rmErr != nil {
-				log.Warn().Err(rmErr).Msg("Failed to remove stale lock file")
+			// Check if the lock file is stale by checking its age
+			if lockInfo, infoErr := os.Stat(lockPath); infoErr == nil {
+				lockAge := time.Since(lockInfo.ModTime())
+				if lockAge > 5*time.Minute {
+					log.Warn().Dur("age", lockAge).Msg("Found stale lock file (older than 5 minutes), attempting to remove it")
+					if rmErr := os.Remove(lockPath); rmErr != nil {
+						log.Warn().Err(rmErr).Msg("Failed to remove stale lock file")
+					} else {
+						log.Info().Msg("Successfully removed stale lock file")
+					}
+				} else {
+					log.Warn().Dur("age", lockAge).Msg("Found recent lock file, another instance may be running")
+				}
 			}
 		}
 	}
 
 	// Define retry parameters
-	maxRetries := 5
-	initialBackoff := 100 * time.Millisecond
-	maxBackoff := 2 * time.Second
+	maxRetries := 10                         // Increased from 5 to 10
+	initialBackoff := 200 * time.Millisecond // Increased from 100ms to 200ms
+	maxBackoff := 5 * time.Second            // Increased from 2s to 5s
 
 	// Attempt to open the database with retries
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -140,11 +150,15 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 			backoff = maxBackoff
 		}
 
-		// Try to open the database
+		// Try to open the database with increased timeout
 		db, err = bolt.Open(
 			dbPath,
 			0600,
-			&bolt.Options{Timeout: time.Second * 5},
+			&bolt.Options{
+				Timeout: time.Second * 10, // Increased from 5s to 10s
+				// Add NoFreelistSync for better performance
+				NoFreelistSync: true,
+			},
 		)
 
 		if err == nil {
@@ -168,6 +182,15 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	if err != nil {
 		log.Error().Err(err).Msg("Could not open DB. Is it already in use by another mount?")
 		return nil, fmt.Errorf("could not open DB (is it already in use by another mount?): %w", err)
+	}
+
+	// Set up database options for better performance and reliability
+	if err := db.Update(func(tx *bolt.Tx) error {
+		// Set NoSync option to improve performance (we'll sync manually when needed)
+		tx.DB().NoSync = true
+		return nil
+	}); err != nil {
+		log.Warn().Err(err).Msg("Failed to set database options")
 	}
 
 	content := NewLoopbackCache(filepath.Join(cacheDir, "content"))

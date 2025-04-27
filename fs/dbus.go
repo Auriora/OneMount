@@ -25,16 +25,18 @@ var DBusServiceName string
 
 func init() {
 	// Initialize the DBusServiceName variable
-	// If we're running in a test environment, generate a unique name
+	// Always generate a unique name to avoid conflicts in tests and parallel mounts
+	// Generate a unique suffix based on process ID and a random number
+	uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
+
 	if os.Getenv("ONEDRIVER_TEST") == "1" {
-		// Generate a unique suffix based on process ID and a random number
-		uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
+		// In test mode, add a test prefix
 		DBusServiceName = fmt.Sprintf("%s.test_%s", DBusServiceNameBase, uniqueSuffix)
-		log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name for test")
 	} else {
-		// In production, use the base name
-		DBusServiceName = DBusServiceNameBase
+		// In production, still use a unique name but with a different prefix
+		DBusServiceName = fmt.Sprintf("%s.instance_%s", DBusServiceNameBase, uniqueSuffix)
 	}
+	log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name")
 }
 
 // FileStatusDBusServer implements a D-Bus server for file status updates
@@ -134,18 +136,20 @@ func (s *FileStatusDBusServer) Start() error {
 	}
 	s.conn = conn
 
-	// Request a name on the bus
-	reply, err := conn.RequestName(DBusServiceName, dbus.NameFlagDoNotQueue)
+	// Request a name on the bus with flags to allow replacement and not queue
+	// This ensures we can always get a name, even if there are conflicts
+	reply, err := conn.RequestName(DBusServiceName, dbus.NameFlagAllowReplacement|dbus.NameFlagReplaceExisting|dbus.NameFlagDoNotQueue)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to request D-Bus name")
 		s.conn = nil
 		return err
 	}
 	if reply != dbus.RequestNameReplyPrimaryOwner {
-		log.Error().Msgf("D-Bus name already taken: %v", reply)
-		// In tests, we might be running multiple instances, so we'll just continue
-		// This is not ideal for production, but it allows tests to pass
-		log.Warn().Msg("Continuing despite not being primary owner of D-Bus name")
+		// Since we're using a unique name and NameFlagReplaceExisting, this should rarely happen
+		// But if it does, we'll log it and continue
+		log.Warn().Msgf("Not primary owner of D-Bus name (reply: %v), but continuing with unique name: %s", reply, DBusServiceName)
+	} else {
+		log.Debug().Str("dbusName", DBusServiceName).Msg("Successfully acquired D-Bus name")
 	}
 
 	// Export the FileStatusDBusServer object
