@@ -1,4 +1,4 @@
-# onedriver Design Documentation
+# Onedriver Design Documentation
 
 This directory contains design documentation for the onedriver project, including class diagrams, sequence diagrams, and mappings between design elements and code artifacts.
 
