@@ -2,6 +2,7 @@ package fs
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ func TestLogging(t *testing.T) {
 	assert.Contains(t, buf.String(), "Method called")
 	assert.Contains(t, buf.String(), "Method completed")
 	assert.Contains(t, buf.String(), "return1")
+	assert.Contains(t, buf.String(), "goroutine")
 
 	// Reset buffer
 	buf.Reset()
@@ -55,6 +57,17 @@ func TestLogging(t *testing.T) {
 	assert.Contains(t, buf.String(), "return1")
 }
 
+// TestGetCurrentGoroutineID tests the getCurrentGoroutineID function
+func TestGetCurrentGoroutineID(t *testing.T) {
+	// Get the goroutine ID
+	goroutineID := getCurrentGoroutineID()
+
+	// Verify it's not empty and is a number
+	assert.NotEmpty(t, goroutineID, "Goroutine ID should not be empty")
+	_, err := strconv.Atoi(goroutineID)
+	assert.NoError(t, err, "Goroutine ID should be a number")
+}
+
 // TestLoggingInMethods tests the logging in actual methods
 func TestLoggingInMethods(t *testing.T) {
 	// Capture log output
@@ -71,6 +84,7 @@ func TestLoggingInMethods(t *testing.T) {
 	assert.Contains(t, buf.String(), "Method called")
 	assert.Contains(t, buf.String(), "method=IsOffline")
 	assert.Contains(t, buf.String(), "phase=entry")
+	assert.Contains(t, buf.String(), "goroutine")
 	assert.Contains(t, buf.String(), "Method completed")
 	assert.Contains(t, buf.String(), "phase=exit")
 	assert.Contains(t, buf.String(), "return1=false")

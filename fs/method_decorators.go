@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"bytes"
 	"fmt"
 	"runtime"
 	"time"
@@ -26,10 +27,14 @@ func LogMethodCall() (string, time.Time) {
 		methodName = fullName[lastDot+1:]
 	}
 
+	// Get the current goroutine ID
+	goroutineID := getCurrentGoroutineID()
+
 	// Log method entry
 	log.Debug().
 		Str("method", methodName).
 		Str("phase", "entry").
+		Str("goroutine", goroutineID).
 		Msg("Method called")
 
 	return methodName, time.Now()
@@ -40,10 +45,14 @@ func LogMethodCall() (string, time.Time) {
 func LogMethodReturn(methodName string, startTime time.Time, returns ...interface{}) {
 	duration := time.Since(startTime)
 
+	// Get the current goroutine ID
+	goroutineID := getCurrentGoroutineID()
+
 	// Create log event
 	event := log.Debug().
 		Str("method", methodName).
 		Str("phase", "exit").
+		Str("goroutine", goroutineID).
 		Dur("duration_ms", duration)
 
 	// Log return values if any
@@ -66,6 +75,29 @@ func lastIndexDot(s string) int {
 		}
 	}
 	return -1
+}
+
+// getCurrentGoroutineID returns the ID of the current goroutine
+func getCurrentGoroutineID() string {
+	buf := make([]byte, 64)
+	n := runtime.Stack(buf, false)
+	// The format of the first line is "goroutine N [state]:"
+	// where N is the goroutine ID
+	buf = buf[:n]
+
+	// Find the first space (after "goroutine")
+	idStart := bytes.IndexByte(buf, ' ') + 1
+	if idStart <= 0 {
+		return "unknown"
+	}
+
+	// Find the next space or '[' (before "[state]:")
+	idEnd := bytes.IndexAny(buf[idStart:], " [")
+	if idEnd <= 0 {
+		return "unknown"
+	}
+
+	return string(buf[idStart : idStart+idEnd])
 }
 
 // FilesystemMethodsToInstrument returns a list of public methods in the Filesystem struct

@@ -22,7 +22,7 @@ func (f *Filesystem) IsOffline() bool {
     methodName, startTime := LogMethodCall()
     f.RLock()
     defer f.RUnlock()
-    
+
     result := f.offline
     defer LogMethodReturn(methodName, startTime, result)
     return result
@@ -38,7 +38,7 @@ func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
         // We can't capture the return value directly in a defer, so we'll just log completion
         LogMethodReturn(methodName, startTime)
     }()
-    
+
     // Method implementation...
     return someError
 }
@@ -49,13 +49,13 @@ func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
 ```go
 func (f *Filesystem) GetNodeID(nodeID uint64) *Inode {
     methodName, startTime := LogMethodCall()
-    
+
     // Early return case
     if someCondition {
         defer LogMethodReturn(methodName, startTime, nil)
         return nil
     }
-    
+
     result := someOperation()
     defer LogMethodReturn(methodName, startTime, result)
     return result
@@ -72,7 +72,7 @@ func (f *Filesystem) SomeMethod() (result1 Type1, result2 Type2, err error) {
     defer func() {
         LogMethodReturn(methodName, startTime, result1, result2, err)
     }()
-    
+
     // Method implementation...
     result1 = ...
     result2 = ...
@@ -137,15 +137,18 @@ The logs produced by this framework include:
 
 - Method name
 - Entry/exit phase
+- Goroutine ID (thread identifier)
 - Parameters (for entry)
 - Return values (for exit)
 - Execution duration (for exit)
 
 Example log entry:
 ```json
-{"level":"debug","method":"IsOffline","phase":"entry","time":"2023-04-27T21:00:00Z","message":"Method called"}
-{"level":"debug","method":"IsOffline","phase":"exit","duration_ms":0.123,"return1":false,"time":"2023-04-27T21:00:00Z","message":"Method completed"}
+{"level":"debug","method":"IsOffline","phase":"entry","goroutine":"1","time":"2023-04-27T21:00:00Z","message":"Method called"}
+{"level":"debug","method":"IsOffline","phase":"exit","goroutine":"1","duration_ms":0.123,"return1":false,"time":"2023-04-27T21:00:00Z","message":"Method completed"}
 ```
+
+The `goroutine` field contains the ID of the goroutine (Go's lightweight thread) that executed the method. This is useful for tracking method calls across different threads, especially in concurrent operations.
 
 ## Testing
 
