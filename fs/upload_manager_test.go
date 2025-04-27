@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
-	"github.com/stretchr/testify/assert"
+	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
 )

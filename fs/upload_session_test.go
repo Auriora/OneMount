@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
+	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func TestUploadSessionOperations(t *testing.T) {
 					"The session's ID was somehow still local following an upload: %s",
 					session.ID)
 				sessionMtime := uint64(session.ModTime.Unix())
-				assert.Equal(t, mtime, sessionMtime, 
+				assert.Equal(t, mtime, sessionMtime,
 					"Session modtime changed - before: %d - after: %d", mtime, sessionMtime)
 
 				// Verify the content was uploaded correctly

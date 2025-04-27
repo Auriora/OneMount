@@ -9,7 +9,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
+	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -101,19 +101,19 @@ func TestInodeProperties(t *testing.T) {
 
 	// Define test cases
 	testCases := []struct {
-		name           string
-		path           string
-		isDirectory    bool
-		expectedMode   uint32
-		setupFunc      func(t *testing.T, path string) string
-		cleanupFunc    func(t *testing.T, path string)
-		expectedIsDir  bool
+		name          string
+		path          string
+		isDirectory   bool
+		expectedMode  uint32
+		setupFunc     func(t *testing.T, path string) string
+		cleanupFunc   func(t *testing.T, path string)
+		expectedIsDir bool
 	}{
 		{
-			name:          "Directory_ShouldHaveCorrectModeAndIsDir",
-			path:          "/Documents",
-			isDirectory:   true,
-			expectedMode:  0755 | fuse.S_IFDIR,
+			name:         "Directory_ShouldHaveCorrectModeAndIsDir",
+			path:         "/Documents",
+			isDirectory:  true,
+			expectedMode: 0755 | fuse.S_IFDIR,
 			setupFunc: func(t *testing.T, path string) string {
 				// Ensure the Documents directory exists
 				docDir := "mount" + path
@@ -135,10 +135,10 @@ func TestInodeProperties(t *testing.T) {
 			expectedIsDir: true,
 		},
 		{
-			name:          "File_ShouldHaveCorrectModeAndIsNotDir",
-			path:          "/onedriver_tests/test_inode_properties.txt",
-			isDirectory:   false,
-			expectedMode:  0644 | fuse.S_IFREG,
+			name:         "File_ShouldHaveCorrectModeAndIsNotDir",
+			path:         "/onedriver_tests/test_inode_properties.txt",
+			isDirectory:  false,
+			expectedMode: 0644 | fuse.S_IFREG,
 			setupFunc: func(t *testing.T, path string) string {
 				fullPath := "mount" + path
 
@@ -318,7 +318,7 @@ func TestFilenameEscaping(t *testing.T) {
 			// Verify the file content
 			content, err := os.ReadFile(filePath)
 			require.NoError(t, err, "Failed to read test file: %s", tc.filename)
-			assert.Equal(t, tc.content, string(content), 
+			assert.Equal(t, tc.content, string(content),
 				"File content does not match expected value for %s", tc.filename)
 		})
 	}

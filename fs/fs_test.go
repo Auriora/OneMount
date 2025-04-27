@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
+	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,7 +84,7 @@ func TestReaddir(t *testing.T) {
 						break
 					}
 				}
-				require.True(t, found, "Could not find expected item %q in directory %s", 
+				require.True(t, found, "Could not find expected item %q in directory %s",
 					expectedItem, tc.directory)
 			}
 
@@ -111,10 +111,10 @@ func TestReaddir(t *testing.T) {
 // does ls work and can we find the expected folders and files?
 func TestLs(t *testing.T) {
 	testCases := []struct {
-		name           string
-		directory      string
-		options        []string // Additional ls options
-		expectedItems  []string
+		name            string
+		directory       string
+		options         []string // Additional ls options
+		expectedItems   []string
 		unexpectedItems []string // Items that should NOT be in the output
 	}{
 		{
@@ -151,7 +151,7 @@ func TestLs(t *testing.T) {
 
 			// Execute the ls command
 			stdout, err := exec.Command("ls", args...).Output()
-			require.NoError(t, err, "ls command failed for directory %s with options %v", 
+			require.NoError(t, err, "ls command failed for directory %s with options %v",
 				tc.directory, tc.options)
 
 			// Convert output to string for easier checking
@@ -162,13 +162,13 @@ func TestLs(t *testing.T) {
 
 			// Check for expected items
 			for _, expectedItem := range tc.expectedItems {
-				require.Contains(t, output, expectedItem, 
+				require.Contains(t, output, expectedItem,
 					"Could not find expected item %q in directory %s", expectedItem, tc.directory)
 			}
 
 			// Check for unexpected items (if any)
 			for _, unexpectedItem := range tc.unexpectedItems {
-				require.NotContains(t, output, unexpectedItem, 
+				require.NotContains(t, output, unexpectedItem,
 					"Found unexpected item %q in directory %s", unexpectedItem, tc.directory)
 			}
 		})
@@ -323,14 +323,14 @@ func TestFilePermissions(t *testing.T) {
 			}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
 
 			// Change the file permissions
-			require.NoError(t, os.Chmod(fname, tc.permissions), 
+			require.NoError(t, os.Chmod(fname, tc.permissions),
 				"Failed to change permissions to %o (%s)", tc.permissions, tc.description)
 
 			// Verify the permissions were set correctly
 			st, err := os.Stat(fname)
 			require.NoError(t, err, "Failed to stat file")
-			require.Equal(t, tc.permissions, st.Mode()&0777, 
-				"Mode of file was not %o (%s), got %o instead!", 
+			require.Equal(t, tc.permissions, st.Mode()&0777,
+				"Mode of file was not %o (%s), got %o instead!",
 				tc.permissions, tc.description, st.Mode()&0777)
 		})
 	}
@@ -419,8 +419,8 @@ func TestDirectoryOperations(t *testing.T) {
 
 				// Check the permission bits (mask with 0777 to ignore other bits)
 				expectedMode := os.FileMode(0750)
-				require.Equal(t, expectedMode, st.Mode()&0777, 
-					"Directory mode is not correct. Expected %o, got %o", 
+				require.Equal(t, expectedMode, st.Mode()&0777,
+					"Directory mode is not correct. Expected %o, got %o",
 					expectedMode, st.Mode()&0777)
 			},
 		},
@@ -552,19 +552,19 @@ func TestDirectoryRemoval(t *testing.T) {
 func TestFileOperations(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name        string
-		operation   string
-		content     string
-		iterations  int
-		fileMode    int
-		verifyFunc  func(t *testing.T, filePath string, content string, iterations int)
+		name       string
+		operation  string
+		content    string
+		iterations int
+		fileMode   int
+		verifyFunc func(t *testing.T, filePath string, content string, iterations int)
 	}{
 		{
 			name:       "WriteAndRead_ShouldPreserveContent",
 			operation:  "write",
 			content:    "my hands are typing words\n",
 			iterations: 1,
-			fileMode:   os.O_CREATE|os.O_RDWR,
+			fileMode:   os.O_CREATE | os.O_RDWR,
 			verifyFunc: func(t *testing.T, filePath string, content string, iterations int) {
 				read, err := os.ReadFile(filePath)
 				require.NoError(t, err, "Failed to read file")
@@ -576,7 +576,7 @@ func TestFileOperations(t *testing.T) {
 			operation:  "append",
 			content:    "append\n",
 			iterations: 5,
-			fileMode:   os.O_APPEND|os.O_CREATE|os.O_RDWR,
+			fileMode:   os.O_APPEND | os.O_CREATE | os.O_RDWR,
 			verifyFunc: func(t *testing.T, filePath string, content string, iterations int) {
 				file, err := os.Open(filePath)
 				require.NoError(t, err, "Failed to open file for verification")
@@ -591,7 +591,7 @@ func TestFileOperations(t *testing.T) {
 				for scanner.Scan() {
 					counter++
 					scanned := scanner.Text()
-					require.Equal(t, strings.TrimSuffix(content, "\n"), scanned, 
+					require.Equal(t, strings.TrimSuffix(content, "\n"), scanned,
 						"File text was wrong. Got %q, wanted %q", scanned, strings.TrimSuffix(content, "\n"))
 				}
 				require.Equal(t, iterations, counter, "Got wrong number of lines (%d), expected %d", counter, iterations)
@@ -602,7 +602,7 @@ func TestFileOperations(t *testing.T) {
 			operation:  "truncate",
 			content:    "append\n",
 			iterations: 5,
-			fileMode:   os.O_TRUNC|os.O_CREATE|os.O_RDWR,
+			fileMode:   os.O_TRUNC | os.O_CREATE | os.O_RDWR,
 			verifyFunc: func(t *testing.T, filePath string, content string, iterations int) {
 				file, err := os.Open(filePath)
 				require.NoError(t, err, "Failed to open file for verification")
@@ -646,7 +646,7 @@ func TestFileOperations(t *testing.T) {
 			// Perform the operation
 			if tc.operation == "write" {
 				// Simple write operation
-				require.NoError(t, os.WriteFile(filePath, []byte(tc.content), 0644), 
+				require.NoError(t, os.WriteFile(filePath, []byte(tc.content), 0644),
 					"Failed to write to file")
 			} else {
 				// Append or truncate operations
@@ -697,13 +697,13 @@ int main(int argc, char **argv) {
 func TestFileMovementOperations(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name           string
-		operation      string
-		content        string
-		setupFunc      func(t *testing.T, baseDir string, content string) (string, string, error)
-		operationFunc  func(t *testing.T, source string, dest string) error
-		verifyFunc     func(t *testing.T, source string, dest string, content string) error
-		description    string
+		name          string
+		operation     string
+		content       string
+		setupFunc     func(t *testing.T, baseDir string, content string) (string, string, error)
+		operationFunc func(t *testing.T, source string, dest string) error
+		verifyFunc    func(t *testing.T, source string, dest string, content string) error
+		description   string
 	}{
 		{
 			name:      "RenameInSameDirectory_ShouldPreserveContent",
@@ -956,19 +956,19 @@ fermentum ut, sodales a nunc. Phasellus eget mattis purus.`,
 			// Write content at the specified offset
 			n, err := file.WriteAt([]byte(tc.contentToWrite), tc.writeOffset)
 			require.NoError(t, err, "Failed to write to file at offset %d: %v", tc.writeOffset, err)
-			require.Equal(t, len(tc.contentToWrite), n, 
+			require.Equal(t, len(tc.contentToWrite), n,
 				"Wrong number of bytes written. Got %d, expected %d", n, len(tc.contentToWrite))
 
 			// Read back the content from the same offset
 			result := make([]byte, len(tc.contentToWrite))
 			n, err = file.ReadAt(result, tc.writeOffset)
 			require.NoError(t, err, "Failed to read from file at offset %d: %v", tc.writeOffset, err)
-			require.Equal(t, len(tc.contentToWrite), n, 
+			require.Equal(t, len(tc.contentToWrite), n,
 				"Wrong number of bytes read. Got %d, expected %d", n, len(tc.contentToWrite))
 
 			// Verify the content matches what was written
-			require.Equal(t, tc.contentToWrite, string(result), 
-				"Content read from offset %d did not match what was written. Got %q, expected %q", 
+			require.Equal(t, tc.contentToWrite, string(result),
+				"Content read from offset %d did not match what was written. Got %q, expected %q",
 				tc.writeOffset, string(result), tc.contentToWrite)
 
 			// For the test case with offset 0, verify the beginning of the file was changed
@@ -991,7 +991,7 @@ func TestBasicFileSystemOperations(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
 		name        string
-		operation   string // "statfs" or "unlink"
+		operation   string                    // "statfs" or "unlink"
 		setupFunc   func(t *testing.T) string // Returns a path for operations that need it
 		verifyFunc  func(t *testing.T, path string)
 		description string
@@ -1010,7 +1010,7 @@ func TestBasicFileSystemOperations(t *testing.T) {
 				require.NotZero(t, st.Blocks, "StatFs failed, got 0 blocks!")
 
 				// Log some useful information about the filesystem
-				t.Logf("Filesystem stats for %s: Blocks=%d, BlockSize=%d, Free=%d", 
+				t.Logf("Filesystem stats for %s: Blocks=%d, BlockSize=%d, Free=%d",
 					path, st.Blocks, st.Bsize, st.Bfree)
 			},
 		},
@@ -1023,7 +1023,7 @@ func TestBasicFileSystemOperations(t *testing.T) {
 				fname := filepath.Join(TestDir, fmt.Sprintf("unlink_test_%s", t.Name()))
 
 				// Create the file
-				require.NoError(t, exec.Command("touch", fname).Run(), 
+				require.NoError(t, exec.Command("touch", fname).Run(),
 					"Failed to create test file for unlink operation")
 
 				// Wait for the filesystem to process the file creation
@@ -1047,7 +1047,7 @@ func TestBasicFileSystemOperations(t *testing.T) {
 				// Verify the file is no longer in the directory listing
 				stdout, err := exec.Command("ls", filepath.Dir(path)).Output()
 				require.NoError(t, err, "Failed to list directory contents")
-				require.NotContains(t, string(stdout), filepath.Base(path), 
+				require.NotContains(t, string(stdout), filepath.Base(path),
 					"Deleting %s did not work, file still appears in directory listing", path)
 			},
 		},
@@ -1139,7 +1139,7 @@ func TestCaseSensitivityHandling(t *testing.T) {
 
 					if err1 == nil {
 						t.Logf("Successfully read %s: %s", file1, content1)
-						require.Equal(t, "NTFS is bad", string(content1), 
+						require.Equal(t, "NTFS is bad", string(content1),
 							"Content of %s was not as expected", file1)
 					} else {
 						t.Logf("Could not read %s: %v", file1, err1)
@@ -1147,7 +1147,7 @@ func TestCaseSensitivityHandling(t *testing.T) {
 
 					if err2 == nil {
 						t.Logf("Successfully read %s: %s", file2, content2)
-						require.Equal(t, "yep", string(content2), 
+						require.Equal(t, "yep", string(content2),
 							"Content of %s was not as expected", file2)
 						// Use the content from file2 for the test
 						content = content2
@@ -1388,7 +1388,7 @@ func TestFilenameCase(t *testing.T) {
 
 			// Verify the filename appears with the correct case in the directory listing
 			require.Contains(t, string(stdout), filepath.Base(filePath),
-				"Filename case was not preserved. Expected %q in output, got: %s", 
+				"Filename case was not preserved. Expected %q in output, got: %s",
 				filepath.Base(filePath), string(stdout))
 
 			// Verify the file content
@@ -1493,7 +1493,7 @@ func TestShellFileOperations(t *testing.T) {
 
 			// Verify the content
 			require.Contains(t, string(content), expectedContent,
-				"File content does not match expected content.\nGot: %q\nExpected to contain: %q", 
+				"File content does not match expected content.\nGot: %q\nExpected to contain: %q",
 				string(content), expectedContent)
 		})
 	}
@@ -1503,12 +1503,12 @@ func TestShellFileOperations(t *testing.T) {
 func TestFileInfo(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name           string
-		setupFunc      func(t *testing.T) (string, os.FileMode, error)
-		expectedName   string
-		isDir          bool
-		verifyFunc     func(t *testing.T, stat os.FileInfo) error
-		description    string
+		name         string
+		setupFunc    func(t *testing.T) (string, os.FileMode, error)
+		expectedName string
+		isDir        bool
+		verifyFunc   func(t *testing.T, stat os.FileInfo) error
+		description  string
 	}{
 		{
 			name: "Directory_ShouldHaveCorrectAttributes",
@@ -1667,23 +1667,23 @@ func TestFileInfo(t *testing.T) {
 
 			// Verify the file name
 			if tc.expectedName != "" {
-				require.Equal(t, tc.expectedName, stat.Name(), 
+				require.Equal(t, tc.expectedName, stat.Name(),
 					"File name does not match. Got %q, expected %q", stat.Name(), tc.expectedName)
 			} else {
 				// If expectedName is not specified, use the base name of the path
 				expectedName := filepath.Base(path)
-				require.Equal(t, expectedName, stat.Name(), 
+				require.Equal(t, expectedName, stat.Name(),
 					"File name does not match. Got %q, expected %q", stat.Name(), expectedName)
 			}
 
 			// Verify if it's a directory
-			require.Equal(t, tc.isDir, stat.IsDir(), 
+			require.Equal(t, tc.isDir, stat.IsDir(),
 				"IsDir() returned %v, expected %v", stat.IsDir(), tc.isDir)
 
 			// Verify the file mode (permissions)
 			if expectedMode != 0 {
 				// We only check the permission bits, not the file type bits
-				require.Equal(t, expectedMode&0777, stat.Mode()&0777, 
+				require.Equal(t, expectedMode&0777, stat.Mode()&0777,
 					"File mode does not match. Got %o, expected %o", stat.Mode()&0777, expectedMode&0777)
 			}
 
@@ -1734,13 +1734,13 @@ func TestNoQuestionMarks(t *testing.T) {
 			// Check for error in command execution
 			if err != nil {
 				t.Logf("Command output: %s", string(out))
-				require.NoError(t, err, "ls command failed for directory %s with options %v", 
+				require.NoError(t, err, "ls command failed for directory %s with options %v",
 					tc.directory, tc.options)
 			}
 
 			// Check for question marks in the output
 			require.False(t, strings.Contains(string(out), "??????????"),
-				"A Lookup() failed on an inode found by Readdir() in directory %s\nCommand output:\n%s", 
+				"A Lookup() failed on an inode found by Readdir() in directory %s\nCommand output:\n%s",
 				tc.directory, string(out))
 		})
 	}
@@ -1905,7 +1905,7 @@ func TestListChildrenPaging(t *testing.T) {
 			}
 
 			// Verify that we have at least the minimum expected number of files
-			require.GreaterOrEqual(t, len(files), tc.minExpectedFS, 
+			require.GreaterOrEqual(t, len(files), tc.minExpectedFS,
 				"Paging limit failed. Got %d files, wanted at least %d.", len(files), tc.minExpectedFS)
 
 			// Verify that the API returned at least the minimum expected number of items
@@ -2003,7 +2003,7 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 
 			// LibreOffice document conversion can fail with an exit code of 0,
 			// so we need to actually check the command output
-			require.NotContains(t, string(out), "Error:", 
+			require.NotContains(t, string(out), "Error:",
 				"LibreOffice reported an error in its output: %s", out)
 
 			// Log the conversion output for debugging
@@ -2024,7 +2024,7 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 						if item.Size >= tc.expectedSize {
 							return true
 						}
-						t.Logf("File found but size is smaller than expected. Got: %d, Expected: at least %d bytes", 
+						t.Logf("File found but size is smaller than expected. Got: %d, Expected: at least %d bytes",
 							item.Size, tc.expectedSize)
 					} else if item.Size > 0 {
 						// Just check for non-zero size

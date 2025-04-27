@@ -15,7 +15,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs"
 	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
+	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

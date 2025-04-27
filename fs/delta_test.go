@@ -11,7 +11,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
+	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,11 +39,11 @@ func (i *Inode) setContent(f *Filesystem, newContent []byte) error {
 func TestDeltaOperations(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name           string
-		setup          func(t *testing.T) (string, *graph.DriveItem, error)
-		operation      func(t *testing.T, item *graph.DriveItem) error
-		expectedPath   string
-		verifyContent  bool
+		name            string
+		setup           func(t *testing.T) (string, *graph.DriveItem, error)
+		operation       func(t *testing.T, item *graph.DriveItem) error
+		expectedPath    string
+		verifyContent   bool
 		expectedContent []byte
 		verifyExists    bool
 	}{
@@ -108,10 +108,10 @@ func TestDeltaOperations(t *testing.T) {
 			operation: func(t *testing.T, item *graph.DriveItem) error {
 				return graph.Rename(item.ID, "delta_rename_end", item.Parent.ID, auth)
 			},
-			expectedPath: filepath.Join(DeltaDir, "delta_rename_end"),
-			verifyContent: true,
+			expectedPath:    filepath.Join(DeltaDir, "delta_rename_end"),
+			verifyContent:   true,
 			expectedContent: []byte("cheesecake"),
-			verifyExists: true,
+			verifyExists:    true,
 		},
 		{
 			name: "MoveFileToNewParentOnServer_ShouldSyncToClient",
@@ -138,10 +138,10 @@ func TestDeltaOperations(t *testing.T) {
 				}
 				return graph.Rename(item.ID, "delta_rename_end", newParent.ID, auth)
 			},
-			expectedPath: filepath.Join(TestDir, "delta_rename_end"),
-			verifyContent: true,
+			expectedPath:    filepath.Join(TestDir, "delta_rename_end"),
+			verifyContent:   true,
 			expectedContent: []byte("carrotcake"),
-			verifyExists: true,
+			verifyExists:    true,
 		},
 	}
 
