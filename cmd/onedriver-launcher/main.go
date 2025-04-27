@@ -9,6 +9,7 @@ import "C"
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"unsafe"
@@ -24,6 +25,34 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+// setupLogging configures the zerolog logger based on the configuration
+func setupLogging(config *common.Config) error {
+	// Set the global log level
+	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+
+	// Configure the log output
+	var output io.Writer
+	switch config.LogOutput {
+	case "STDOUT":
+		output = os.Stdout
+	case "STDERR":
+		output = os.Stderr
+	default:
+		// Open the log file
+		file, err := os.OpenFile(config.LogOutput, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			log.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
+			output = os.Stdout
+		} else {
+			output = file
+		}
+	}
+
+	// Set up the logger with console formatting
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: output, TimeFormat: "15:04:05"})
+	return nil
+}
+
 func usage() {
 	fmt.Printf(`onedriver-launcher - Manage and configure onedriver mountpoints
 
@@ -38,6 +67,9 @@ func main() {
 	logLevel := flag.StringP("log", "l", "",
 		"Set logging level/verbosity for the filesystem. "+
 			"Can be one of: fatal, error, warn, info, debug, trace")
+	logOutput := flag.StringP("log-output", "o", "",
+		"Set the output location for logs. "+
+			"Can be STDOUT, STDERR, or a file path. Default is STDOUT.")
 	cacheDir := flag.StringP("cache-dir", "c", "",
 		"Change the default cache directory used by onedriver. "+
 			"Will be created if it does not already exist.")
@@ -57,16 +89,22 @@ func main() {
 		os.Exit(0)
 	}
 
-	// loading config can emit an unformatted log message, so we do this first
+	// loading config can emit an unformatted log message, so we do this first with a basic logger
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
 
 	// command line options override config options
 	config := common.LoadConfig(*configPath)
+
+	// Now configure the logger based on the configuration
+	setupLogging(config)
 	if *cacheDir != "" {
 		config.CacheDir = *cacheDir
 	}
 	if *logLevel != "" {
 		config.LogLevel = *logLevel
+	}
+	if *logOutput != "" {
+		config.LogOutput = *logOutput
 	}
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
@@ -497,6 +535,40 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 	})
 	settingsRowLog.PackEnd(logLevelSelector, false, false, 0)
 
+	// log output settings
+	settingsRowLogOutput, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, offset)
+	logOutputLabel, _ := gtk.LabelNew("Log Output")
+	settingsRowLogOutput.PackStart(logOutputLabel, false, false, 0)
+
+	logOutputEntry, _ := gtk.EntryNew()
+	logOutputEntry.SetText(config.LogOutput)
+	logOutputEntry.SetTooltipText("Set to STDOUT, STDERR, or a file path")
+	logOutputEntry.SetSizeRequest(200, 0)
+	logOutputEntry.Connect("activate", func(entry *gtk.Entry) {
+		newOutput, err := entry.GetText()
+		if err != nil {
+			log.Error().Err(err).Msg("Could not get log output text.")
+			return
+		}
+		if newOutput == config.LogOutput {
+			return // No change
+		}
+		config.LogOutput = newOutput
+		log.Debug().
+			Str("newOutput", config.LogOutput).
+			Msg("Log output changed.")
+		err = config.WriteConfig(configPath)
+		if err != nil {
+			log.Error().Err(err).Msg("Could not write config.")
+			return
+		}
+		// Apply the change immediately
+		if err := setupLogging(config); err != nil {
+			log.Error().Err(err).Msg("Failed to update logging configuration")
+		}
+	})
+	settingsRowLogOutput.PackEnd(logOutputEntry, false, false, 0)
+
 	// cache dir settings
 	settingsRowCacheDir, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, offset)
 	cacheDirLabel, _ := gtk.LabelNew("Cache Directory")
@@ -580,6 +652,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 	settingsDialogBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, offset)
 	settingsDialogBox.SetBorderWidth(offset)
 	settingsDialogBox.PackStart(settingsRowLog, true, true, 0)
+	settingsDialogBox.PackStart(settingsRowLogOutput, true, true, 0)
 	settingsDialogBox.PackStart(settingsRowCacheDir, true, true, 0)
 
 	contentArea, err := settingsDialog.GetContentArea()

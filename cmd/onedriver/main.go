@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -50,6 +51,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats boo
 	logLevel := flag.StringP("log", "l", "",
 		"Set logging level/verbosity for the filesystem. "+
 			"Can be one of: fatal, error, warn, info, debug, trace")
+	logOutput := flag.StringP("log-output", "o", "",
+		"Set the output location for logs. "+
+			"Can be STDOUT, STDERR, or a file path. Default is STDOUT.")
 	cacheDir := flag.StringP("cache-dir", "c", "",
 		"Change the default cache directory used by onedriver. "+
 			"Will be created if the path does not already exist.")
@@ -112,6 +116,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats boo
 	}
 	if *logLevel != "" {
 		config.LogLevel = *logLevel
+	}
+	if *logOutput != "" {
+		config.LogOutput = *logOutput
 	}
 	if *syncTree {
 		config.SyncTree = true
@@ -374,10 +381,45 @@ func displayStats(config *common.Config, mountpoint string) {
 	filesystem.StopUploadManager()
 }
 
+// setupLogging configures the zerolog logger based on the configuration
+func setupLogging(config *common.Config) error {
+	// Set the global log level
+	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+
+	// Configure the log output
+	var output io.Writer
+	switch config.LogOutput {
+	case "STDOUT":
+		output = os.Stdout
+	case "STDERR":
+		output = os.Stderr
+	default:
+		// Open the log file
+		file, err := os.OpenFile(config.LogOutput, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			log.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
+			output = os.Stdout
+		} else {
+			output = file
+		}
+	}
+
+	// Set up the logger with console formatting
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: output, TimeFormat: "15:04:05"})
+	return nil
+}
+
 func main() {
+	// Initialize with a basic logger that outputs to stderr
+	// This will be replaced after loading the configuration
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
 
 	config, authOnly, headless, debugOn, stats, mountpoint := setupFlags()
+
+	// Configure logging based on the configuration
+	if err := setupLogging(config); err != nil {
+		log.Error().Err(err).Msg("Failed to set up logging")
+	}
 
 	// If stats flag is set, display statistics and exit
 	if stats {

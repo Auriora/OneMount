@@ -16,6 +16,7 @@ import (
 type Config struct {
 	CacheDir         string `yaml:"cacheDir"`
 	LogLevel         string `yaml:"log"`
+	LogOutput        string `yaml:"logOutput"`
 	SyncTree         bool   `yaml:"syncTree"`
 	DeltaInterval    int    `yaml:"deltaInterval"`
 	CacheExpiration  int    `yaml:"cacheExpiration"`
@@ -37,6 +38,7 @@ func createDefaultConfig() Config {
 	return Config{
 		CacheDir:        filepath.Join(xdgCacheDir, "onedriver"),
 		LogLevel:        "debug",
+		LogOutput:       "STDOUT", // Default to standard output
 		SyncTree:        false,
 		DeltaInterval:   1,  // Default to 1 second
 		CacheExpiration: 30, // Default to 30 days
@@ -77,6 +79,30 @@ func validateConfig(config *Config) error {
 			Strs("validLevels", validLogLevels).
 			Msg("Invalid log level, using default.")
 		config.LogLevel = "debug"
+	}
+
+	// Validate LogOutput
+	if config.LogOutput == "" {
+		log.Warn().Msg("Log output location cannot be empty, using default (STDOUT).")
+		config.LogOutput = "STDOUT"
+	} else {
+		// Normalize special values to uppercase
+		switch strings.ToUpper(config.LogOutput) {
+		case "STDOUT", "STDERR":
+			config.LogOutput = strings.ToUpper(config.LogOutput)
+		default:
+			// For file paths, ensure the directory exists
+			logDir := filepath.Dir(config.LogOutput)
+			if logDir != "." {
+				if err := os.MkdirAll(logDir, 0755); err != nil {
+					log.Warn().
+						Err(err).
+						Str("logOutput", config.LogOutput).
+						Msg("Could not create directory for log file, using STDOUT.")
+					config.LogOutput = "STDOUT"
+				}
+			}
+		}
 	}
 
 	// Validate DeltaInterval
