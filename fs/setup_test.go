@@ -170,6 +170,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Explicitly create content directory structure for tests
+	contentDir := filepath.Join(testDBLoc, "test", "content")
+	if mkdirErr := os.MkdirAll(contentDir, 0755); mkdirErr != nil {
+		fmt.Println("Failed to create content directory:", mkdirErr)
+		os.Exit(1)
+	}
+
 	f, openErr := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if openErr != nil {
 		fmt.Println("Failed to open log file:", openErr)
