@@ -364,9 +364,13 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 //   - true if the filesystem is in offline mode
 //   - false if the filesystem is in online mode
 func (f *Filesystem) IsOffline() bool {
+	methodName, startTime := LogMethodCall()
 	f.RLock()
 	defer f.RUnlock()
-	return f.offline
+
+	result := f.offline
+	defer LogMethodReturn(methodName, startTime, result)
+	return result
 }
 
 // TrackOfflineChange records a change made while offline
@@ -501,12 +505,19 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 // TranslateID returns the DriveItemID for a given NodeID
 func (f *Filesystem) TranslateID(nodeID uint64) string {
+	methodName, startTime := LogMethodCall()
 	f.RLock()
 	defer f.RUnlock()
+
+	var result string
 	if nodeID > f.lastNodeID || nodeID == 0 {
-		return ""
+		result = ""
+	} else {
+		result = f.inodes[nodeID-1]
 	}
-	return f.inodes[nodeID-1]
+
+	defer LogMethodReturn(methodName, startTime, result)
+	return result
 }
 
 // GetNodeID fetches the inode for a particular inode ID.
@@ -529,6 +540,8 @@ func (f *Filesystem) GetNodeID(nodeID uint64) *Inode {
 // InsertNodeID assigns a numeric inode ID used by the kernel if one is not
 // already assigned.
 func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
+	methodName, startTime := LogMethodCall()
+
 	nodeID := inode.NodeID()
 	if nodeID == 0 {
 		// lock ordering is to satisfy deadlock detector
@@ -543,6 +556,8 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 		f.Unlock()
 		inode.Unlock()
 	}
+
+	defer LogMethodReturn(methodName, startTime, nodeID)
 	return nodeID
 }
 
@@ -557,6 +572,8 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 //   - The Inode if found in memory or database
 //   - nil if the item is not found in the cache
 func (f *Filesystem) GetID(id string) *Inode {
+	methodName, startTime := LogMethodCall()
+
 	entry, exists := f.metadata.Load(id)
 	if !exists {
 		// we allow fetching from disk as a fallback while offline (and it's also
@@ -571,15 +588,20 @@ func (f *Filesystem) GetID(id string) *Inode {
 			return err
 		}); err != nil {
 			log.Error().Err(err).Str("id", id).Msg("Failed to read inode from database")
+			defer LogMethodReturn(methodName, startTime, nil)
 			return nil
 		}
 		if found != nil {
 			f.InsertNodeID(found)
 			f.metadata.Store(id, found) // move to memory for next time
 		}
+		defer LogMethodReturn(methodName, startTime, found)
 		return found
 	}
-	return entry.(*Inode)
+
+	result := entry.(*Inode)
+	defer LogMethodReturn(methodName, startTime, result)
+	return result
 }
 
 // InsertID adds or updates an item in the filesystem by its OneDrive ID.
@@ -594,6 +616,8 @@ func (f *Filesystem) GetID(id string) *Inode {
 // Returns:
 //   - The numeric node ID assigned to the inode for kernel operations
 func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
+	methodName, startTime := LogMethodCall()
+
 	f.metadata.Store(id, inode)
 	nodeID := f.InsertNodeID(inode)
 
@@ -618,6 +642,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	parentID := inode.ParentID()
 	if parentID == "" {
 		// root item, or parent not set
+		defer LogMethodReturn(methodName, startTime, nodeID)
 		return nodeID
 	}
 	parent := f.GetID(parentID)
@@ -627,6 +652,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 			Str("childID", id).
 			Str("childName", inode.Name()).
 			Msg("Parent item could not be found when setting parent.")
+		defer LogMethodReturn(methodName, startTime, nodeID)
 		return nodeID
 	}
 
@@ -638,6 +664,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	for _, child := range parent.children {
 		if child == id {
 			// exit early, child cannot be added twice
+			defer LogMethodReturn(methodName, startTime, nodeID)
 			return nodeID
 		}
 	}
@@ -648,6 +675,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 	parent.children = append(parent.children, id)
 
+	defer LogMethodReturn(methodName, startTime, nodeID)
 	return nodeID
 }
 
