@@ -1,0 +1,211 @@
+@startuml OneDriver Core Engine
+
+' Class definitions
+class Filesystem {
+  -metadata: sync.Map
+  -db: *bolt.DB
+  -content: *LoopbackCache
+  -thumbnails: *ThumbnailCache
+  -auth: *graph.Auth
+  -root: string
+  -deltaLink: string
+  -subscribeChangesLink: string
+  -uploads: *UploadManager
+  -downloads: *DownloadManager
+  -cacheExpirationDays: int
+  -cacheCleanupStop: chan struct{}
+  -cacheCleanupStopOnce: sync.Once
+  -cacheCleanupWg: sync.WaitGroup
+  -deltaLoopStop: chan struct{}
+  -deltaLoopWg: sync.WaitGroup
+  -deltaLoopStopOnce: sync.Once
+  -deltaLoopCtx: context.Context
+  -deltaLoopCancel: context.CancelFunc
+  -offline: bool
+  -lastNodeID: uint64
+  -inodes: []string
+  -opendirs: map[uint64][]*Inode
+  -statuses: map[string]FileStatusInfo
+  -dbusServer: *FileStatusDBusServer
+  +NewFilesystem(auth, cacheDir, cacheExpirationDays): *Filesystem
+  +getInodeContent(i *Inode): *[]byte
+  +remoteID(i *Inode): (string, error)
+}
+
+class Inode {
+  -DriveItem: graph.DriveItem
+  -nodeID: uint64
+  -children: []string
+  -hasChanges: bool
+  -subdir: uint32
+  -mode: uint32
+  -xattrs: map[string][]byte
+  +NewInode(name, mode, parent): *Inode
+  +AsJSON(): []byte
+  +NewInodeJSON(data): (*Inode, error)
+  +NewInodeDriveItem(item): *Inode
+  +ID(): string
+  +IsDir(): bool
+  +Path(): string
+}
+
+class DriveItem {
+  -ID: string
+  -Name: string
+  -Size: uint64
+  -ModTime: *time.Time
+  -Parent: *DriveItemParent
+  -Folder: *Folder
+  -File: *File
+  -Deleted: *Deleted
+  -ConflictBehavior: string
+  -ETag: string
+  +IsDir(): bool
+  +ModTimeUnix(): uint64
+  +GetItem(id, auth): (*DriveItem, error)
+  +GetItemChild(id, name, auth): (*DriveItem, error)
+  +GetItemPath(path, auth): (*DriveItem, error)
+  +GetItemContent(id, auth): ([]byte, uint64, error)
+  +GetItemContentStream(id, auth, output): (uint64, error)
+}
+
+class UploadManager {
+  -highPriorityQueue: chan *UploadSession
+  -lowPriorityQueue: chan *UploadSession
+  -queue: chan *UploadSession
+  -deletionQueue: chan string
+  -sessions: map[string]*UploadSession
+  -sessionPriorities: map[string]UploadPriority
+  -inFlight: uint8
+  -auth: *graph.Auth
+  -fs: *Filesystem
+  -db: *bolt.DB
+  -mutex: sync.RWMutex
+  -stopChan: chan struct{}
+  -workerWg: sync.WaitGroup
+  +NewUploadManager(duration, db, fs, auth): *UploadManager
+  +uploadLoop(duration): void
+  +QueueUpload(session, priority): void
+  +QueueDeletion(id): void
+  +Stop(): void
+}
+
+class DownloadManager {
+  -fs: *Filesystem
+  -auth: *graph.Auth
+  -sessions: map[string]*DownloadSession
+  -queue: chan string
+  -mutex: sync.RWMutex
+  -workerWg: sync.WaitGroup
+  -numWorkers: int
+  -stopChan: chan struct{}
+  +NewDownloadManager(fs, auth, numWorkers): *DownloadManager
+  +startWorkers(): void
+  +worker(): void
+  +processDownload(id): void
+  +QueueDownload(id): *DownloadSession
+  +WaitForDownload(id, timeout): error
+  +Stop(): void
+}
+
+class Auth {
+  -ClientID: string
+  -ClientSecret: string
+  -AccessToken: string
+  -RefreshToken: string
+  -ExpiresAt: time.Time
+  -RedirectURI: string
+  +NewAuth(clientID, clientSecret, redirectURI): *Auth
+  +GetToken(): *oauth2.Token
+  +SetToken(token): void
+  +IsExpired(): bool
+  +Refresh(): error
+}
+
+class LoopbackCache {
+  -dir: string
+  -mutex: sync.RWMutex
+  +NewLoopbackCache(dir): *LoopbackCache
+  +Get(id): []byte
+  +Put(id, data): error
+  +Delete(id): error
+  +Open(id): (*os.File, error)
+}
+
+class ThumbnailCache {
+  -dir: string
+  -mutex: sync.RWMutex
+  +NewThumbnailCache(dir): *ThumbnailCache
+  +Get(id): []byte
+  +Put(id, data): error
+  +Delete(id): error
+}
+
+enum FileStatus {
+  StatusCloud
+  StatusLocal
+  StatusLocalModified
+  StatusSyncing
+  StatusDownloading
+  StatusOutofSync
+  StatusError
+  StatusConflict
+  +String(): string
+}
+
+class FileStatusInfo {
+  -Status: FileStatus
+  -ErrorMsg: string
+  -Timestamp: time.Time
+}
+
+class UploadSession {
+  -ID: string
+  -Name: string
+  -ParentID: string
+  -Size: uint64
+  -Data: *[]byte
+  -UploadURL: string
+  -ExpirationDateTime: time.Time
+  -state: UploadState
+  -ETag: string
+  -mutex: sync.RWMutex
+  +NewUploadSession(inode, data): (*UploadSession, error)
+  +Upload(auth): error
+  +cancel(auth): void
+  +getState(): UploadState
+}
+
+class DownloadSession {
+  -ID: string
+  -Path: string
+  -State: DownloadState
+  -Error: error
+  -StartTime: time.Time
+  -EndTime: time.Time
+  -mutex: sync.RWMutex
+  +NewDownloadSession(id, path): *DownloadSession
+  +IsComplete(): bool
+  +GetError(): error
+}
+
+' Relationships
+Filesystem "1" *-- "many" Inode : contains
+Filesystem "1" *-- "1" UploadManager : manages uploads
+Filesystem "1" *-- "1" DownloadManager : manages downloads
+Filesystem "1" *-- "1" LoopbackCache : caches content
+Filesystem "1" *-- "1" ThumbnailCache : caches thumbnails
+Filesystem "1" *-- "1" Auth : authenticates
+Filesystem "1" *-- "many" FileStatusInfo : tracks status
+
+Inode "1" *-- "1" DriveItem : represents
+
+UploadManager "1" *-- "many" UploadSession : manages
+UploadManager "1" o-- "1" Filesystem : references
+UploadManager "1" o-- "1" Auth : uses
+
+DownloadManager "1" *-- "many" DownloadSession : manages
+DownloadManager "1" o-- "1" Filesystem : references
+DownloadManager "1" o-- "1" Auth : uses
+
+@enduml
