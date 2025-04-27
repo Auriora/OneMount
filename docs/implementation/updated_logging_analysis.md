@@ -73,37 +73,15 @@ The onedriver project uses [zerolog](https://github.com/rs/zerolog) for structur
 
 ### 1. Standardize Field Names (High Priority) - IMPLEMENTED
 
-Implement a set of standard field names for common concepts and use them consistently throughout the codebase.
-Note: This recommendation has been implemented in fs/log_constants.go. The implementation includes standard field names, method logging specific fields, phase values, and message templates. The implementation uses "duration_ms" instead of "duration" for clarity, explicitly indicating the unit of measurement.
+A set of standard field names for common concepts has been implemented in `fs/log_constants.go` and is being used consistently throughout the codebase.
 
-```go
-// In log_constants.go
-const (
-    FieldMethod    = "method"     // Method or function name
-    FieldOperation = "operation"  // Higher-level operation
-    FieldComponent = "component"  // Component or module
-    FieldDuration  = "duration"   // Duration of operation in milliseconds
-    FieldError     = "error"      // Error message
-    FieldPath      = "path"       // File or resource path
-    FieldID        = "id"         // Identifier
-    FieldUser      = "user"       // User identifier
-    FieldStatus    = "status"     // Status code or string
-    FieldSize      = "size"       // Size in bytes
-    FieldGoroutine = "goroutine"  // Goroutine ID
-    FieldPhase     = "phase"      // Phase of operation (e.g., "entry", "exit")
-)
-```
+The implementation includes:
+- Standard field names for common concepts (method, operation, component, etc.)
+- Method logging specific fields (return, param)
+- Phase values (entry, exit)
+- Message templates
 
-Then use these constants throughout the codebase:
-
-```go
-log.Info().
-    Str(FieldMethod, "UploadFile").
-    Str(FieldPath, path).
-    Int(FieldSize, len(data)).
-    Str(FieldID, fileID).
-    Msg("File uploaded successfully")
-```
+Note: The implementation uses "duration_ms" instead of "duration" for clarity, explicitly indicating the unit of measurement.
 
 ### 2. Implement Context Propagation (Medium Priority)
 
