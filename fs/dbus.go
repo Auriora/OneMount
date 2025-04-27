@@ -1,7 +1,10 @@
 package fs
 
 import (
+	"fmt"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
@@ -13,9 +16,26 @@ const (
 	DBusInterface = "org.onedriver.FileStatus"
 	// DBusObjectPath is the D-Bus object path for onedriver
 	DBusObjectPath = "/org/onedriver/FileStatus"
-	// DBusServiceName is the D-Bus service name for onedriver
-	DBusServiceName = "org.onedriver.FileStatus"
+	// DBusServiceNameBase is the base D-Bus service name for onedriver
+	DBusServiceNameBase = "org.onedriver.FileStatus"
 )
+
+// DBusServiceName returns the D-Bus service name, which may be unique in test environments
+var DBusServiceName string
+
+func init() {
+	// Initialize the DBusServiceName variable
+	// If we're running in a test environment, generate a unique name
+	if os.Getenv("ONEDRIVER_TEST") == "1" {
+		// Generate a unique suffix based on process ID and a random number
+		uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
+		DBusServiceName = fmt.Sprintf("%s.test_%s", DBusServiceNameBase, uniqueSuffix)
+		log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name for test")
+	} else {
+		// In production, use the base name
+		DBusServiceName = DBusServiceNameBase
+	}
+}
 
 // FileStatusDBusServer implements a D-Bus server for file status updates
 type FileStatusDBusServer struct {
@@ -175,7 +195,7 @@ func (s *FileStatusDBusServer) Start() error {
 	return nil
 }
 
-// Stop stops the D-Bus server
+// Stop stops the D-Bus server and cleans up all resources
 func (s *FileStatusDBusServer) Stop() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -193,13 +213,31 @@ func (s *FileStatusDBusServer) Stop() {
 	}
 
 	if s.conn != nil {
+		// Release the D-Bus name before closing the connection
+		// This helps prevent name conflicts in subsequent test runs
+		if os.Getenv("ONEDRIVER_TEST") == "1" {
+			log.Debug().Str("dbusName", DBusServiceName).Msg("Releasing D-Bus name for test")
+			if _, err := s.conn.ReleaseName(DBusServiceName); err != nil {
+				log.Warn().Err(err).Msg("Failed to release D-Bus name")
+			}
+		}
+
+		// Unexport the objects to clean up resources
+		if err := s.conn.Export(nil, DBusObjectPath, DBusInterface); err != nil {
+			log.Warn().Err(err).Msg("Failed to unexport D-Bus object")
+		}
+		if err := s.conn.Export(nil, DBusObjectPath, "org.freedesktop.DBus.Introspectable"); err != nil {
+			log.Warn().Err(err).Msg("Failed to unexport introspection data")
+		}
+
+		// Close the connection
 		if err := s.conn.Close(); err != nil {
 			log.Error().Err(err).Msg("Failed to close D-Bus connection")
 		}
 		s.conn = nil
 	}
 	s.started = false
-	log.Info().Msg("D-Bus server stopped")
+	log.Info().Msg("D-Bus server stopped and resources cleaned up")
 }
 
 // GetFileStatus returns the status of a file

@@ -76,14 +76,14 @@ The `fusefs_tests.log` file shows some additional issues:
    - [x] Ensure proper cleanup between test runs
 
 3. **D-Bus Conflicts**:
-   - [ ] Generate unique D-Bus names for test instances
-   - [ ] Add better cleanup of D-Bus resources between tests
+   - [x] Generate unique D-Bus names for test instances
+   - [x] Add better cleanup of D-Bus resources between tests
 
 ## Progress
 
 - [x] Fix race conditions in socketio-go integration
 - [x] Fix database access issues
-- [ ] Fix D-Bus conflicts
+- [x] Fix D-Bus conflicts
 
 ## Implementation Details
 
@@ -110,3 +110,15 @@ The database access issues have been fixed by improving the database connection 
 4. Set reasonable retry parameters (5 retries with backoff from 100ms to 2s)
 
 These changes make the database connection more resilient to temporary issues and clean up stale lock files that might be left behind by previous test runs, which helps prevent the "Could not open DB" errors during tests.
+
+### D-Bus Conflicts
+
+The D-Bus conflicts have been fixed by modifying the D-Bus service name handling in `dbus.go`. The key changes are:
+
+1. Changed the `DBusServiceName` from a constant to a variable that can be set dynamically
+2. Added an initialization function that generates a unique D-Bus service name when running in a test environment
+3. The unique name includes the process ID and a timestamp to ensure uniqueness across test runs
+4. Improved the `Stop()` method to properly release the D-Bus name and unexport objects before closing the connection
+5. Added better error handling and logging for D-Bus resource cleanup
+
+These changes ensure that each test instance uses a unique D-Bus service name, which prevents the "D-Bus name already taken" errors during tests. The improved cleanup also helps prevent resource leaks and conflicts between test runs.
