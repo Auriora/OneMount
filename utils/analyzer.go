@@ -11,6 +11,14 @@ import (
 	"strings"
 )
 
+// ModuleOutput represents the output format required for the module analysis
+type ModuleOutput struct {
+	ModuleName   string   `json:"moduleName"`
+	Description  string   `json:"description"`
+	FileCount    int      `json:"fileCount"`
+	Dependencies []string `json:"dependencies"`
+}
+
 // ModuleInfo represents information about a Go module
 type ModuleInfo struct {
 	Name         string                 `json:"name"`
@@ -18,6 +26,7 @@ type ModuleInfo struct {
 	Classes      []ClassInfo            `json:"classes,omitempty"`
 	Functions    []FunctionInfo         `json:"functions,omitempty"`
 	Dependencies map[string]interface{} `json:"dependencies,omitempty"`
+	FileCount    int                    `json:"-"`
 }
 
 // ClassInfo represents information about a Go struct (class)
@@ -56,9 +65,41 @@ type ImportInfo struct {
 	Alias string
 }
 
+// generateModuleDescription creates a meaningful one-sentence description for a module
+func generateModuleDescription(module *ModuleInfo) string {
+	// Map of known module paths to their descriptions
+	knownModules := map[string]string{
+		"cmd/common":             "Common utilities and configuration shared across command-line applications",
+		"cmd/onedriver":          "Main filesystem application for Microsoft OneDrive integration",
+		"cmd/onedriver-launcher": "GUI launcher application for the onedriver filesystem",
+		"fs":                     "Core filesystem implementation for OneDrive integration",
+		"fs/graph":               "Microsoft Graph API client for OneDrive communication",
+		"fs/offline":             "Offline mode functionality for the filesystem",
+		"ui":                     "Graphical user interface components for onedriver",
+		"ui/systemd":             "Systemd integration for the UI components",
+		"testutil":               "Testing utilities for onedriver components",
+	}
+
+	// Check if we have a predefined description
+	if desc, ok := knownModules[module.Path]; ok {
+		return desc
+	}
+
+	// Generate a description based on the module path
+	parts := strings.Split(module.Path, "/")
+	lastPart := parts[len(parts)-1]
+
+	// Replace underscores and hyphens with spaces and capitalize
+	lastPart = strings.ReplaceAll(lastPart, "_", " ")
+	lastPart = strings.ReplaceAll(lastPart, "-", " ")
+
+	// Generate a generic description
+	return fmt.Sprintf("Module providing %s functionality", lastPart)
+}
+
 func main() {
 	// Define the root directory to analyze
-	rootDir := "."
+	rootDir := ".."
 
 	// Create a map to store module information
 	modules := make(map[string]*ModuleInfo)
@@ -77,8 +118,8 @@ func main() {
 		// Skip non-Go files and directories
 		if info.IsDir() {
 			fmt.Fprintf(os.Stderr, "Found directory: %s\n", path)
-			// Skip hidden directories and vendor, but not the root directory
-			if path != "." && (strings.HasPrefix(info.Name(), ".") || info.Name() == "vendor" || info.Name() == "build") {
+			// Skip hidden directories and vendor, but not the root directory or parent directory
+			if path != "." && path != ".." && (strings.HasPrefix(info.Name(), ".") || info.Name() == "vendor" || info.Name() == "build") {
 				fmt.Fprintf(os.Stderr, "Skipping directory: %s\n", path)
 				return filepath.SkipDir
 			}
@@ -111,9 +152,13 @@ func main() {
 				Classes:      []ClassInfo{},
 				Functions:    []FunctionInfo{},
 				Dependencies: make(map[string]interface{}),
+				FileCount:    0,
 			}
 			modules[packagePath] = module
 		}
+
+		// Increment file count for this module
+		module.FileCount++
 
 		// Track imports
 		imports := make(map[string]ImportInfo)
@@ -264,29 +309,54 @@ func main() {
 		return
 	}
 
-	// Convert the map to a slice for JSON output
-	var moduleList []ModuleInfo
+	// Convert the map to the required output format
+	var outputModules []ModuleOutput
 	for _, module := range modules {
-		// Convert dependencies map to a slice
-		deps := make([]string, 0, len(module.Dependencies))
-		for dep := range module.Dependencies {
-			deps = append(deps, dep)
+		// Only include modules that define at least one function or class
+		if len(module.Functions) > 0 || len(module.Classes) > 0 {
+			// Convert dependencies map to a slice
+			deps := make([]string, 0, len(module.Dependencies))
+			for dep := range module.Dependencies {
+				deps = append(deps, dep)
+			}
+
+			// Generate a meaningful description for the module
+			description := generateModuleDescription(module)
+
+			// Create the output module with a more specific module name
+			moduleName := module.Name
+			if module.Path != "." {
+				// Use the path as part of the module name to avoid duplicates
+				moduleName = module.Path
+				// Clean up the module name by removing the "../" prefix
+				moduleName = strings.TrimPrefix(moduleName, "../")
+			}
+
+			outputModule := ModuleOutput{
+				ModuleName:   moduleName,
+				Description:  description,
+				FileCount:    module.FileCount,
+				Dependencies: deps,
+			}
+
+			outputModules = append(outputModules, outputModule)
 		}
-		module.Dependencies = map[string]interface{}{"imports": deps}
-		moduleList = append(moduleList, *module)
 	}
 
 	// Output the result as JSON
-	result := map[string]interface{}{
-		"project": "onedriver",
-		"modules": moduleList,
-	}
-
-	jsonData, err := json.MarshalIndent(result, "", "  ")
+	jsonData, err := json.MarshalIndent(outputModules, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error marshaling to JSON: %v\n", err)
 		return
 	}
 
-	fmt.Println(string(jsonData))
+	// Write the output to a file in the docs/ folder
+	outputPath := "../docs/onedriver_modules.json"
+	err = os.WriteFile(outputPath, jsonData, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing to file %s: %v\n", outputPath, err)
+		return
+	}
+
+	fmt.Printf("Module analysis complete. Output written to %s\n", outputPath)
 }
