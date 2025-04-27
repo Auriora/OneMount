@@ -1,0 +1,142 @@
+# Code Quality CI Pipeline for onedriver
+# This workflow performs code quality checks including SRS ID verification,
+# PlantUML diagram generation, and static complexity analysis.
+
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  verify-srs-ids:
+    name: Verify SRS IDs in Comments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Verify SRS IDs
+        # This step checks that all SRS IDs in code comments follow the correct format
+        # Format: SRS-F## for functional requirements, SRS-NF## for non-functional requirements
+        run: |
+          echo "Checking for properly formatted SRS IDs in code comments..."
+          # Find all Go files and check for SRS ID references
+          find . -name "*.go" -type f -exec grep -l "SRS-" {} \; | while read file; do
+            # Verify that all SRS IDs follow the correct pattern
+            if grep -P "SRS-(F|NF)\d{2}" "$file" > /dev/null; then
+              echo "✅ Valid SRS IDs found in $file"
+            else
+              echo "❌ Invalid SRS ID format in $file"
+              grep -n "SRS-" "$file"
+              exit 1
+            fi
+          done
+
+  generate-plantuml:
+    name: Generate PlantUML Diagrams
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        # PlantUML requires Java to run
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install PlantUML
+        # Download and install PlantUML CLI tool
+        run: |
+          wget https://github.com/plantuml/plantuml/releases/download/v1.2023.10/plantuml-1.2023.10.jar -O plantuml.jar
+          echo "#!/bin/bash" > /tmp/plantuml
+          echo "java -jar $(pwd)/plantuml.jar \"\$@\"" >> /tmp/plantuml
+          chmod +x /tmp/plantuml
+          sudo mv /tmp/plantuml /usr/local/bin/
+
+      - name: Generate Diagrams
+        # Find all PlantUML files and generate PNG and SVG diagrams
+        run: |
+          echo "Generating PlantUML diagrams..."
+          mkdir -p artifacts/diagrams
+          find ./docs -name "*.puml" -type f -exec sh -c 'plantuml -tpng "$0" -o "$(pwd)/artifacts/diagrams"' {} \;
+          find ./docs -name "*.puml" -type f -exec sh -c 'plantuml -tsvg "$0" -o "$(pwd)/artifacts/diagrams"' {} \;
+
+      - name: Upload Diagrams
+        # Upload generated diagrams as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: plantuml-diagrams
+          path: artifacts/diagrams/
+          retention-days: 14
+
+  static-analysis:
+    name: Static Complexity Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Install gocyclo
+        # gocyclo measures cyclomatic complexity of Go code
+        run: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+
+      - name: Install staticcheck
+        # staticcheck is a comprehensive static analyzer for Go code
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run gocyclo
+        # Check cyclomatic complexity with a threshold of 15
+        # Higher values indicate more complex code that may be harder to maintain
+        run: |
+          echo "Checking cyclomatic complexity..."
+          # Create output directory for reports
+          mkdir -p artifacts/reports
+          
+          # Run gocyclo and save results
+          gocyclo -over=15 -avg ./... | tee artifacts/reports/cyclomatic_complexity.txt
+          
+          # Fail if any function exceeds complexity threshold of 20
+          if gocyclo -over=20 ./... | grep -q .; then
+            echo "❌ Functions with cyclomatic complexity over 20 detected!"
+            gocyclo -over=20 ./...
+            exit 1
+          else
+            echo "✅ No functions with excessive cyclomatic complexity detected."
+          fi
+
+      - name: Run staticcheck
+        # Run comprehensive static analysis
+        run: |
+          echo "Running staticcheck..."
+          staticcheck ./... | tee artifacts/reports/staticcheck.txt
+          
+          # Fail if any issues are found
+          if [ -s artifacts/reports/staticcheck.txt ]; then
+            echo "❌ Static analysis issues detected!"
+            exit 1
+          else
+            echo "✅ No static analysis issues detected."
+          fi
+
+      - name: Upload Analysis Reports
+        # Upload analysis reports as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: static-analysis-reports
+          path: artifacts/reports/
+          retention-days: 14
