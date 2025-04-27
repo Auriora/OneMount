@@ -371,6 +371,12 @@ func (f *Filesystem) IsOffline() bool {
 
 // TrackOfflineChange records a change made while offline
 func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
+	methodName, startTime := LogMethodCall()
+	defer func() {
+		// We can't capture the return value directly in a defer, so we'll just log completion
+		LogMethodReturn(methodName, startTime)
+	}()
+
 	if !f.IsOffline() {
 		return nil // No need to track if we're online
 	}
@@ -505,11 +511,19 @@ func (f *Filesystem) TranslateID(nodeID uint64) string {
 
 // GetNodeID fetches the inode for a particular inode ID.
 func (f *Filesystem) GetNodeID(nodeID uint64) *Inode {
+	methodName, startTime := LogMethodCall()
+
 	id := f.TranslateID(nodeID)
 	if id == "" {
+		// Log the return value (nil) and return
+		defer LogMethodReturn(methodName, startTime, nil)
 		return nil
 	}
-	return f.GetID(id)
+
+	result := f.GetID(id)
+	// Log the return value (could be nil or a pointer)
+	defer LogMethodReturn(methodName, startTime, result)
+	return result
 }
 
 // InsertNodeID assigns a numeric inode ID used by the kernel if one is not
