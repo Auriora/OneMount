@@ -101,7 +101,19 @@ func LogMethodReturnWithContext(methodName string, startTime time.Time, logger z
 		if ret == nil {
 			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
 		} else {
-			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+			// Special handling for Inode objects to prevent race conditions during JSON serialization
+			if inode, ok := ret.(*Inode); ok {
+				// Only log the ID and name instead of the entire object
+				if inode != nil {
+					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1)+".id", inode.ID()).
+						Str(FieldReturn+fmt.Sprintf("%d", i+1)+".name", inode.Name()).
+						Bool(FieldReturn+fmt.Sprintf("%d", i+1)+".isDir", inode.IsDir())
+				} else {
+					event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
+				}
+			} else {
+				event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+			}
 		}
 	}
 
