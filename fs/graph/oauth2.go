@@ -107,6 +107,12 @@ func (a *Auth) handleRefreshResponse(resp *http.Response, err error) (bool, erro
 		return true, err
 	}
 
+	// Check for non-2xx status codes which indicate auth failure
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Error().Int("status_code", resp.StatusCode).Msg("Token refresh failed with non-2xx status code")
+		return true, fmt.Errorf("token refresh failed with status code %d", resp.StatusCode)
+	}
+
 	// put here so as to avoid spamming the log when offline
 	log.Info().Msg("Auth tokens expired, attempting renewal.")
 	return false, nil
@@ -132,14 +138,14 @@ func (a *Auth) handleFailedRefresh(ctx context.Context, resp *http.Response, bod
 		newAuth, err := newAuth(ctx, a.AuthConfig, a.path, false)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to reauthenticate. Using existing tokens.")
-			return fmt.Errorf("failed to reauthenticate: %w", err)
+			return fmt.Errorf("failed to refresh token: reauthentication failed: %w", err)
 		}
 		*a = *newAuth
 	} else {
 		err := a.ToFile(a.path)
 		if err != nil {
 			log.Warn().Err(err).Msg("Failed to save auth tokens to file")
-			return fmt.Errorf("failed to save auth tokens to file: %w", err)
+			return fmt.Errorf("failed to refresh token: could not save auth tokens to file: %w", err)
 		}
 	}
 	return nil
@@ -185,7 +191,10 @@ func (a *Auth) Refresh(ctx context.Context) error {
 				return fmt.Errorf("failed to parse refresh response: %w", err)
 			}
 
-			a.updateTokenExpiration(oldTime)
+			// Only update expiration time if the refresh was successful
+			if !reauth && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				a.updateTokenExpiration(oldTime)
+			}
 
 			refreshErr := a.handleFailedRefresh(ctx, resp, body, reauth)
 			if refreshErr != nil {
