@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/json"
@@ -97,9 +97,11 @@ func generateModuleDescription(module *ModuleInfo) string {
 	return fmt.Sprintf("Module providing %s functionality", lastPart)
 }
 
-func main() {
-	// Define the root directory to analyze
-	rootDir := ".."
+func RunAnalyzer(rootDir string) {
+	// Validate the root directory
+	if rootDir == "" {
+		rootDir = ".."
+	}
 
 	// Create a map to store module information
 	modules := make(map[string]*ModuleInfo)

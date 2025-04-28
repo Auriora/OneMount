@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/csv"
@@ -67,9 +67,16 @@ func (v *complexityVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-func main() {
-	// Define the root directory to analyze
-	rootDir := ".."
+func RunComplexityAnalyzer(rootDir string, outputPath string) {
+	// Validate the root directory
+	if rootDir == "" {
+		rootDir = ".."
+	}
+
+	// Validate the output path
+	if outputPath == "" {
+		outputPath = "complexity_analysis.csv"
+	}
 
 	// Create a slice to store code entities
 	var entities []CodeEntity
@@ -160,7 +167,6 @@ func main() {
 	}
 
 	// Create the CSV file
-	outputPath := "complexity_analysis.csv"
 	file, err := os.Create(outputPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating CSV file: %v\n", err)

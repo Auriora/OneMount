@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"bufio"
@@ -660,14 +660,12 @@ func getParticipant(method string) string {
 	}
 }
 
-func main() {
-	// Get the mount point from the command line arguments
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: workflow_analyzer <mount_point>")
-		os.Exit(1)
+func RunWorkflowAnalyzer(mountPoint string) {
+	// Validate the mount point
+	if mountPoint == "" {
+		fmt.Println("Error: Mount point is required")
+		return
 	}
-
-	mountPoint := os.Args[1]
 
 	// Create a new workflow analyzer
 	analyzer := NewWorkflowAnalyzer(mountPoint)
