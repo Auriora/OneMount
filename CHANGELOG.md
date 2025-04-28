@@ -17,6 +17,8 @@ All notable changes to the onedriver project will be documented in this file.
 - Added thumbnail support to filesystem operations
 - Added daemon mode to support running in background
 - Added configurable log output option for better troubleshooting
+- Added enhanced method logging framework for improved debugging and workflow analysis
+- Added developer tools including workflow analyzer and code complexity analyzer
 
 ### Changed
 - Switched to using fuse3 instead of fuse2 for improved performance and compatibility
