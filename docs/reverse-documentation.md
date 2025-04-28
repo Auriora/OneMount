@@ -28,7 +28,7 @@ For artifact templates, I recommend:
    Collect the code repository, any existing READMEs, comments, and test suites ([8 steps to the reverse-engineering process - Control Design](https://www.controldesign.com/design/development-platforms/article/55252541/8-steps-to-the-reverse-engineering-process?utm_source=chatgpt.com)).
 3. **Select Standards & Templates**
     - Requirements: ISO/IEC/IEEE 29148 SRS ([ISO/IEC/IEEE 29148 Requirements Specification Templates](https://www.reqview.com/doc/iso-iec-ieee-29148-templates/?utm_source=chatgpt.com))
-    - Architecture: IEEE/SEI Views & Beyond ([Software Architecture Specificationation Template](https://wiki.sei.cmu.edu/confluence/display/SAD/Software%2BArchitecture%2BDocumentation%2BTemplate?utm_source=chatgpt.com))
+    - Architecture: IEEE/SEI Views & Beyond ([Software Architecture Specification Template](https://wiki.sei.cmu.edu/confluence/display/SAD/Software%2BArchitecture%2BDocumentation%2BTemplate?utm_source=chatgpt.com))
     - Test Cases: Smartsheet or Katalon templates ([Free Test Case Templates | Smartsheet](https://www.smartsheet.com/test-case-templates-examples?srsltid=AfmBOoqbbG8DOp0t26QcdJYO4e133y_HLkJrFSSUg8aQVJwVflv1_jCF&utm_source=chatgpt.com), [Test Case Template with Examples: Free Excel & Word Sample for ...](https://katalon.com/resources-center/blog/test-case-template-examples?utm_source=chatgpt.com))
     - Use Cases: UML diagrams from Lucidchart/Visual Paradigm ([UML Use Case Diagram Tutorial - Lucidchart](https://www.lucidchart.com/pages/uml-use-case-diagram?utm_source=chatgpt.com), [Use Case Diagram Templates - Visual Paradigm Online](https://online.visual-paradigm.com/diagrams/templates/use-case-diagram/?utm_source=chatgpt.com))
 
@@ -125,7 +125,7 @@ Adopt a standardized use case template with accompanying UML diagrams ([UML Use 
 
 #### 3.3 Software Architecture Specification (SAS)
 
-Follow the "Views and Beyond" approach with multiple architectural views ([Example: Software Architecture Specification](https://www.ecs.csun.edu/~rlingard/COMP684/Example2SoftArch.htm?utm_source=chatgpt.com), [Software Architecture Specificationation Template](https://wiki.sei.cmu.edu/confluence/display/SAD/Software%2BArchitecture%2BDocumentation%2BTemplate?utm_source=chatgpt.com)):
+Follow the "Views and Beyond" approach with multiple architectural views ([Example: Software Architecture Specification](https://www.ecs.csun.edu/~rlingard/COMP684/Example2SoftArch.htm?utm_source=chatgpt.com), [Software Architecture Specification Template](https://wiki.sei.cmu.edu/confluence/display/SAD/Software%2BArchitecture%2BDocumentation%2BTemplate?utm_source=chatgpt.com)):
 
 - **1 Introduction & Context**
 - **2 Stakeholder Viewpoints & Concerns**
@@ -190,7 +190,7 @@ Also produce a PlantUML use-case diagram.
 ```  
 ([How to write AI prompts for architecture - Adobe Firefly](https://www.adobe.com/products/firefly/discover/ai-architecture-prompts.html?utm_source=chatgpt.com))  
 
-**Prompt 8: Architecture Document**  
+**Prompt 8: Architecture Specification**  
 ```
 You are a software architect. Produce a Software Architecture Specification using the Views & Beyond template, including:
 - Context View

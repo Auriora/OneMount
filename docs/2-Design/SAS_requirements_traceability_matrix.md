@@ -6,7 +6,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Filesystem Operations
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-FS-001 | The system shall mount OneDrive as a native Linux filesystem using FUSE. | SAS 3.1.2 (External Entities - Linux Filesystem), SAS 3.1.3 (System Interfaces - FUSE Interface), SAS 3.2.1 (Logical Components - Filesystem Implementation), SAS 5.1 (Key Architectural Decisions - Use of FUSE) |
 | FR-FS-002 | The system shall support standard file operations (read, write, create, delete, rename). | SAS 3.2.1 (Logical Components - Filesystem Implementation), SAS 3.2.3 (Key Abstractions - Filesystem, Inode), SAS 3.4.3 (Sequence Diagrams - File Access Workflow) |
@@ -17,7 +17,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Authentication
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-AUTH-001 | The system shall authenticate with Microsoft accounts using OAuth 2.0. | SAS 3.1.2 (External Entities - Microsoft OneDrive / Graph API), SAS 3.1.3 (System Interfaces - Microsoft Graph API Interface), SAS 3.2.3 (Key Abstractions - Auth), SAS 4.1.2 (Authentication and Authorization) |
 | FR-AUTH-002 | The system shall securely store authentication tokens. | SAS 3.5.1 (Deployment Diagram - auth_tokens.json), SAS 4.1.1 (Security Requirements), SAS 4.1.2 (Authentication and Authorization), SAS 4.1.3 (Data Protection) |
@@ -26,7 +26,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Offline Functionality
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-OFF-001 | The system shall provide access to previously accessed files when offline. | SAS 3.2.1 (Logical Components - Cache Management), SAS 3.2.3 (Key Abstractions - Cache), SAS 4.3 (Other Crosscutting Concerns - Availability), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
 | FR-OFF-002 | The system shall cache file content for offline access. | SAS 3.2.1 (Logical Components - Cache Management), SAS 3.2.3 (Key Abstractions - Cache), SAS 4.2.3 (Caching Strategy), SAS 5.1 (Key Architectural Decisions - Local caching) |
@@ -35,7 +35,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### User Interface
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-UI-001 | The system shall provide a command-line interface for mounting and configuration. | SAS 3.1.1 (System Context Diagram - Command Line Interface), SAS 3.2.1 (Logical Components - Command Line Interface) |
 | FR-UI-002 | The system shall provide a graphical user interface for mounting and configuration. | SAS 3.1.1 (System Context Diagram - UI Components), SAS 3.2.1 (Logical Components - User Interface) |
@@ -44,7 +44,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Statistics and Analysis
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-STAT-001 | The system shall provide a statistics command to analyze OneDrive content metadata. | SAS 3.2.1 (Logical Components - Command Line Interface) |
 | FR-STAT-002 | The system shall analyze file type distribution in the statistics command. | SAS 3.2.1 (Logical Components - Command Line Interface) |
@@ -54,7 +54,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Integration with External Systems
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-INT-001 | The system shall provide a D-Bus interface for file status updates. | SAS 3.1.3 (System Interfaces - D-Bus Interface), SAS 3.4.2 (Process Communication - D-Bus) |
 | FR-INT-002 | The system shall expose methods for getting file status through the D-Bus interface. | SAS 3.1.3 (System Interfaces - D-Bus Interface), SAS 3.4.2 (Process Communication - D-Bus) |
@@ -65,7 +65,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Developer Tools
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | FR-DEV-001 | The system shall provide a method logging framework for debugging. | SAS 3.3.3 (Development Environment - Error Handling - Use structured logging with zerolog), SAS 4.2.4 (Performance Monitoring - Structured logging of operation times) |
 | FR-DEV-002 | The system shall log method entry and exit with parameters and return values. | SAS 3.3.3 (Development Environment - Error Handling - Use structured logging with zerolog), SAS 4.2.4 (Performance Monitoring - Structured logging of operation times) |
@@ -77,7 +77,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Performance
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | NFR-PERF-001 | The system shall minimize network requests to improve performance. | SAS 3.2.1 (Logical Components - Cache Management), SAS 4.2.1 (Performance Requirements), SAS 4.2.3 (Caching Strategy) |
 | NFR-PERF-002 | The system shall use concurrent operations where appropriate. | SAS 3.3.3 (Development Environment - Performance - Use concurrent operations where appropriate), SAS 3.4.1 (Runtime Processes), SAS 4.2.2 (Scalability - Concurrent file transfers) |
@@ -86,7 +86,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Security
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | NFR-SEC-001 | The system shall store authentication tokens with appropriate file permissions. | SAS 3.5.1 (Deployment Diagram - auth_tokens.json), SAS 4.1.1 (Security Requirements), SAS 4.1.3 (Data Protection - Local file permissions for cached content) |
 | NFR-SEC-002 | The system shall use HTTPS for all API communications. | SAS 3.5.1 (Deployment Diagram - HTTPS), SAS 4.1.3 (Data Protection - HTTPS for all communication with Microsoft Graph API) |
@@ -94,7 +94,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Usability
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | NFR-USE-001 | The system shall provide clear error messages. | SAS 4.3 (Other Crosscutting Concerns - Usability - Helpful error messages) |
 | NFR-USE-002 | The system shall integrate with the Linux desktop environment. | SAS 3.1.2 (External Entities - Desktop Environment), SAS 3.1.3 (System Interfaces - GTK3 Interface, D-Bus Interface), SAS 4.3 (Other Crosscutting Concerns - Usability - Seamless integration with desktop environment) |
@@ -102,7 +102,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Reliability
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | NFR-REL-001 | The system shall handle network errors and retry operations. | SAS 3.2.3 (Key Abstractions - UploadManager/DownloadManager - Implement retry logic and error handling), SAS 4.3 (Other Crosscutting Concerns - Reliability - Retry logic for network operations) |
 | NFR-REL-002 | The system shall recover gracefully from crashes. | SAS 4.3 (Other Crosscutting Concerns - Availability - Crash recovery mechanisms) |
@@ -111,7 +111,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ### Maintainability
 
-| Requirement ID | Requirement Description | Architecture Document Reference |
+| Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | NFR-MNT-001 | The system shall follow Go's standard project layout. | SAS 3.3.2 (Code Structure), SAS 3.3.3 (Development Environment - Code Organization - Follow Go's standard project layout) |
 | NFR-MNT-002 | The system shall include comprehensive test coverage. | SAS 3.3.3 (Development Environment - Testing), SAS 4.3 (Other Crosscutting Concerns - Maintainability - Comprehensive test suite) |
@@ -120,7 +120,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 
 ## Use Cases
 
-| Use Case ID | Use Case Name | Related Requirements | Architecture Document Reference |
+| Use Case ID | Use Case Name | Related Requirements | Architecture Specification Reference |
 |-------------|---------------|----------------------|--------------------------------|
 | UC-FS-001 | Mount OneDrive Filesystem | FR-FS-001, FR-AUTH-001, FR-AUTH-002, FR-UI-001, FR-UI-002, NFR-SEC-001, NFR-USE-003 | SAS 3.1.1 (System Context Diagram), SAS 3.1.2 (External Entities), SAS 3.1.3 (System Interfaces), SAS 3.2.1 (Logical Components) |
 | UC-FS-002 | Access and Modify Files | FR-FS-002, FR-FS-004, FR-FS-005, NFR-PERF-001, NFR-PERF-003, NFR-PERF-004, NFR-REL-001, NFR-REL-003 | SAS 3.2.1 (Logical Components), SAS 3.2.3 (Key Abstractions), SAS 3.4.3 (Sequence Diagrams - File Access Workflow), SAS 4.2.3 (Caching Strategy) |
