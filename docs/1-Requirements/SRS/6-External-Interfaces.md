@@ -30,6 +30,18 @@ The GUI includes the following components:
 - Message dialogs for notifications and confirmations
 - System tray integration for status indication
 
+### 6.1.3 Nemo File Manager Integration
+The onedriver Nemo extension integrates with the Nemo file manager to provide:
+- OneDrive mount displayed in the sidebar as a network or cloud mount
+- File status icons (cloud, local, syncing, etc.) for each file
+- Tooltips with detailed status information
+- Context menu options for onedriver operations
+
+The integration uses:
+- Python extension for Nemo
+- D-Bus interface for real-time status updates
+- Extended attributes as a fallback mechanism
+
 ## 6.2 APIs and External Systems
 
 ### 6.2.1 Microsoft Graph API
@@ -55,3 +67,25 @@ Onedriver integrates with systemd for service management:
 - Service units for automatic mounting
 - Status monitoring
 - Start/stop/enable/disable functionality
+
+### 6.2.4 D-Bus Interface
+Onedriver provides a D-Bus interface for file status updates:
+
+- **Service Name**: `org.onedriver.FileStatus`
+- **Object Path**: `/org/onedriver/FileStatus`
+- **Interface**: `org.onedriver.FileStatus`
+
+The interface includes:
+
+**Methods**:
+- `GetFileStatus(path string) (status string)`: Returns the status of a file at the given path
+- `GetFileStatusBatch(paths []string) (statuses map[string]string)`: Returns the status of multiple files in a single call
+
+**Signals**:
+- `FileStatusChanged(path string, status string)`: Emitted when a file's status changes
+- `BatchStatusChanged(statuses map[string]string)`: Emitted when multiple files' statuses change simultaneously
+
+This interface enables:
+- Real-time updates without polling
+- Reduced overhead compared to reading extended attributes
+- Better integration with other applications

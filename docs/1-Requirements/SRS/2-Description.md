@@ -22,6 +22,11 @@ Onedriver provides the following major functions:
 8. **GUI Launcher**: Provides a graphical interface for mounting and configuration
 9. **Conflict Resolution**: Handles file conflicts between local and remote changes
 10. **Error Handling**: Manages network errors and retries
+11. **Enhanced Statistics**: Provides detailed metadata analysis of OneDrive content
+12. **D-Bus Interface**: Offers real-time file status updates through D-Bus
+13. **Nemo Integration**: Integrates with the Nemo file manager for improved user experience
+14. **Method Logging**: Provides comprehensive logging for debugging and analysis
+15. **Developer Tools**: Includes workflow analyzer and code complexity analyzer
 
 ## 2.3 Constraints
 The following constraints apply to the onedriver system:

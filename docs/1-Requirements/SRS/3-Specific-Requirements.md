@@ -42,6 +42,37 @@ This section details the specific functional and non-functional requirements of 
 | <a id="frUi003">**FR-UI-003**</a> | The system shall display file status and synchronization information. | Should-have | Helps users understand the state of their files. |
 | <a id="frUi004">**FR-UI-004**</a> | The system shall provide system tray integration for status indication. | Could-have | Provides convenient access to status information. |
 
+### 3.1.5 Statistics and Analysis
+
+| ID                                  | Requirement                                                | Priority    | Rationale                                   |
+|-------------------------------------|------------------------------------------------------------|-------------|---------------------------------------------|
+| <a id="frStat001">**FR-STAT-001**</a> | The system shall provide a statistics command to analyze OneDrive content metadata. | Should-have | Enables users to understand their OneDrive content without mounting. |
+| <a id="frStat002">**FR-STAT-002**</a> | The system shall analyze file type distribution in the statistics command. | Should-have | Helps users understand what types of files are stored in OneDrive. |
+| <a id="frStat003">**FR-STAT-003**</a> | The system shall analyze directory depth statistics in the statistics command. | Should-have | Provides insights into the folder structure complexity. |
+| <a id="frStat004">**FR-STAT-004**</a> | The system shall analyze file size distribution in the statistics command. | Should-have | Helps users identify large files consuming storage space. |
+| <a id="frStat005">**FR-STAT-005**</a> | The system shall analyze file age information in the statistics command. | Should-have | Enables users to identify old files that may be candidates for archiving or deletion. |
+
+### 3.1.6 Integration with External Systems
+
+| ID                                  | Requirement                                                | Priority    | Rationale                                   |
+|-------------------------------------|------------------------------------------------------------|-------------|---------------------------------------------|
+| <a id="frInt001">**FR-INT-001**</a> | The system shall provide a D-Bus interface for file status updates. | Should-have | Enables real-time status updates without polling. |
+| <a id="frInt002">**FR-INT-002**</a> | The system shall expose methods for getting file status through the D-Bus interface. | Should-have | Allows applications to query file status efficiently. |
+| <a id="frInt003">**FR-INT-003**</a> | The system shall emit signals for file status changes through the D-Bus interface. | Should-have | Enables applications to receive real-time notifications. |
+| <a id="frInt004">**FR-INT-004**</a> | The system shall integrate with the Nemo file manager to display OneDrive in the sidebar. | Could-have | Improves user experience for Nemo file manager users. |
+| <a id="frInt005">**FR-INT-005**</a> | The system shall display file status icons in the Nemo file manager. | Could-have | Helps users understand file status visually. |
+| <a id="frInt006">**FR-INT-006**</a> | The system shall fall back to extended attributes if D-Bus is not available. | Should-have | Ensures compatibility with existing applications. |
+
+### 3.1.7 Developer Tools
+
+| ID                                  | Requirement                                                | Priority    | Rationale                                   |
+|-------------------------------------|------------------------------------------------------------|-------------|---------------------------------------------|
+| <a id="frDev001">**FR-DEV-001**</a> | The system shall provide a method logging framework for debugging. | Should-have | Improves debugging capabilities for developers. |
+| <a id="frDev002">**FR-DEV-002**</a> | The system shall log method entry and exit with parameters and return values. | Should-have | Enables detailed analysis of method execution. |
+| <a id="frDev003">**FR-DEV-003**</a> | The system shall include execution duration in method logs. | Should-have | Helps identify performance bottlenecks. |
+| <a id="frDev004">**FR-DEV-004**</a> | The system shall provide a workflow analyzer tool for developers. | Could-have | Helps developers understand the internal workings of onedriver. |
+| <a id="frDev005">**FR-DEV-005**</a> | The system shall provide a code complexity analyzer tool. | Could-have | Helps identify complex code that may be difficult to maintain. |
+
 ## 3.2 Non-Functional Requirements
 
 ### 3.2.1 Performance
