@@ -108,6 +108,16 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
    - Add comments explaining complex logic
    - Keep the README up-to-date
 
+6. **Method Logging**
+   - Use the method logging framework for all public methods
+   - Follow the patterns in `docs/implementation/README.logging.md`
+   - Log method entry and exit, including parameters and return values
+
+7. **D-Bus Integration**
+   - Use the D-Bus interface for file status updates
+   - Follow the specification in `docs/design/README.dbus.md`
+   - Ensure backward compatibility with extended attributes
+
 ## Common Tasks
 
 - **Adding a new feature**: Create tests first, implement the feature, then verify tests pass
