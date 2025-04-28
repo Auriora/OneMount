@@ -175,6 +175,10 @@ systemctl --user enable --now $SERVICE_NAME
 journalctl --user -u $SERVICE_NAME --since today
 ```
 
+## For Developers
+
+If you're interested in contributing to onedriver or understanding its internals, please refer to our [Development Guidelines](docs/DEVELOPMENT.md) document. It provides information about the project structure, tech stack, building, testing, and best practices.
+
 ## Building onedriver yourself
 
 In addition to the traditional [Go tooling](https://golang.org/dl/), you will
