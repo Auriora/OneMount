@@ -6,7 +6,9 @@ This section describes the data structures and relationships used in the onedriv
 
 The onedriver system uses the following key entities and their relationships:
 
-```
+```plantuml
+@startditaa < scale=2
+
 +-------------+       +---------------+       +--------------+
 |    Auth     |------>|   DriveItem   |<------|    Folder    |
 +-------------+       +---------------+       +--------------+
@@ -16,6 +18,8 @@ The onedriver system uses the following key entities and their relationships:
 +-------------+       +----------+       +--------------+
 |  AuthConfig |       |   File   |------>|    Hashes    |
 +-------------+       +----------+       +--------------+
+
+@endditaa
 ```
 
 - **Auth**: Represents authentication tokens and configuration
