@@ -17,7 +17,7 @@ The complexity is calculated by counting the number of decision points in a func
 To run the analyzer:
 
 ```bash
-cd utils
+cd Utils
 go run complexity_analyzer.go
 ```
 
