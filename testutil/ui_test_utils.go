@@ -30,11 +30,11 @@ func SetupUITest(relPath string) (*os.File, error) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: f, TimeFormat: "15:04:05"})
 
 	// Remove the mount directory if it exists and is a stale mount point
-	if _, err := os.Stat("mount"); err == nil {
-		if _, err := os.ReadDir("mount"); err != nil {
+	if _, err := os.Stat(TestMountPoint); err == nil {
+		if _, err := os.ReadDir(TestMountPoint); err != nil {
 			// If we can't read the directory, it might be a stale mount point
 			log.Warn().Err(err).Msg("Mount directory exists but can't be read, attempting to remove")
-			if err := os.Remove("mount"); err != nil {
+			if err := os.Remove(TestMountPoint); err != nil {
 				log.Error().Err(err).Msg("Failed to remove mount directory")
 				f.Close()
 				return nil, err
@@ -43,7 +43,7 @@ func SetupUITest(relPath string) (*os.File, error) {
 	}
 
 	// Create a fresh mount directory
-	if err := os.Mkdir("mount", 0700); err != nil && !os.IsExist(err) {
+	if err := os.Mkdir(TestMountPoint, 0700); err != nil && !os.IsExist(err) {
 		log.Error().Err(err).Msg("Failed to create mount directory")
 		f.Close()
 		return nil, err

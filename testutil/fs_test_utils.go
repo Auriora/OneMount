@@ -184,7 +184,7 @@ func CleanupFilesystemState(initialState map[string]os.FileInfo) {
 	log.Info().Msg("Running filesystem state cleanup...")
 
 	// Capture the final state of the filesystem
-	finalState, finalStateErr := CaptureFileSystemState("mount")
+	finalState, finalStateErr := CaptureFileSystemState("tmp/mount")
 	if finalStateErr != nil {
 		log.Error().Err(finalStateErr).Msg("Failed to capture final filesystem state")
 		return

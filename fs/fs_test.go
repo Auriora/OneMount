@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/jstaf/onedriver/fs/graph"
-	testutil "github.com/jstaf/onedriver/testutil/common"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,7 @@ func TestReaddir(t *testing.T) {
 	}{
 		{
 			name:          "RootDirectory_ShouldContainDocumentsFolder",
-			directory:     "mount",
+			directory:     testutil.TestMountPoint,
 			expectedItems: []string{"Documents"},
 			checkItemTypes: map[string]string{
 				"Documents": "dir",
@@ -39,7 +39,7 @@ func TestReaddir(t *testing.T) {
 		},
 		{
 			name:          "TestDirectory_ShouldContainExpectedFiles",
-			directory:     "mount/onedriver_tests",
+			directory:     testutil.TestDir,
 			expectedItems: []string{"paging"},
 			checkItemTypes: map[string]string{
 				"paging": "dir",
@@ -47,7 +47,7 @@ func TestReaddir(t *testing.T) {
 		},
 		{
 			name:          "DocumentsDirectory_ShouldBeReadable",
-			directory:     "mount/Documents",
+			directory:     filepath.Join(testutil.TestMountPoint, "Documents"),
 			expectedItems: []string{}, // We don't care about specific files, just that we can read the directory
 		},
 	}
@@ -119,25 +119,25 @@ func TestLs(t *testing.T) {
 	}{
 		{
 			name:          "RootDirectory_ShouldContainDocumentsFolder",
-			directory:     "mount",
+			directory:     testutil.TestMountPoint,
 			options:       []string{},
 			expectedItems: []string{"Documents"},
 		},
 		{
 			name:          "TestDirectory_ShouldContainExpectedFiles",
-			directory:     "mount/onedriver_tests",
+			directory:     testutil.TestDir,
 			options:       []string{},
 			expectedItems: []string{"paging"},
 		},
 		{
 			name:          "RootDirectoryWithAllFiles_ShouldShowHiddenFiles",
-			directory:     "mount",
+			directory:     testutil.TestMountPoint,
 			options:       []string{"-a"},
 			expectedItems: []string{".", ".."},
 		},
 		{
 			name:          "ListingWithLongFormat_ShouldShowPermissions",
-			directory:     "mount",
+			directory:     testutil.TestMountPoint,
 			options:       []string{"-l"},
 			expectedItems: []string{"Documents"},
 		},
@@ -1514,7 +1514,7 @@ func TestFileInfo(t *testing.T) {
 			name: "Directory_ShouldHaveCorrectAttributes",
 			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
 				// Ensure the Documents directory exists
-				docDir := "mount/Documents"
+				docDir := filepath.Join(testutil.TestMountPoint, "Documents")
 				if _, err := os.Stat(docDir); os.IsNotExist(err) {
 					if err := os.Mkdir(docDir, 0755); err != nil {
 						return "", 0, err
@@ -1707,17 +1707,17 @@ func TestNoQuestionMarks(t *testing.T) {
 	}{
 		{
 			name:      "RootDirectory_ShouldNotHaveQuestionMarks",
-			directory: "mount/",
+			directory: testutil.TestMountPoint + "/",
 			options:   []string{"-l"},
 		},
 		{
 			name:      "TestDirectory_ShouldNotHaveQuestionMarks",
-			directory: "mount/onedriver_tests/",
+			directory: testutil.TestDir + "/",
 			options:   []string{"-l"},
 		},
 		{
 			name:      "RootDirectoryWithAllFiles_ShouldNotHaveQuestionMarks",
-			directory: "mount/",
+			directory: testutil.TestMountPoint + "/",
 			options:   []string{"-la"}, // Include hidden files
 		},
 	}

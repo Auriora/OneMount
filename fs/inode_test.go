@@ -9,7 +9,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs/graph"
-	testutil "github.com/jstaf/onedriver/testutil/common"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -116,7 +116,7 @@ func TestInodeProperties(t *testing.T) {
 			expectedMode: 0755 | fuse.S_IFDIR,
 			setupFunc: func(t *testing.T, path string) string {
 				// Ensure the Documents directory exists
-				docDir := "mount" + path
+				docDir := testutil.TestMountPoint + path
 				if _, err := os.Stat(docDir); os.IsNotExist(err) {
 					require.NoError(t, os.Mkdir(docDir, 0755), "Failed to create Documents directory")
 
@@ -140,7 +140,7 @@ func TestInodeProperties(t *testing.T) {
 			isDirectory:  false,
 			expectedMode: 0644 | fuse.S_IFREG,
 			setupFunc: func(t *testing.T, path string) string {
-				fullPath := "mount" + path
+				fullPath := testutil.TestMountPoint + path
 
 				// Remove the file if it exists to ensure a clean state
 				if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
@@ -406,7 +406,7 @@ func TestFileCreationBehavior(t *testing.T) {
 			// For the "CreateAfterWrite" test case, write content to the file
 			if tc.name == "CreateAfterWrite_ShouldTruncateAndReturnSameInode" {
 				// Write content to the file
-				filePath := filepath.Join("mount/onedriver_tests", tc.filename)
+				filePath := filepath.Join("tmp", "mount/onedriver_tests", tc.filename)
 				err := os.WriteFile(filePath, []byte(tc.content), 0644)
 				require.NoError(t, err, "Failed to write content to file")
 
@@ -439,7 +439,7 @@ func TestFileCreationBehavior(t *testing.T) {
 
 			// For the "CreateAfterWrite" test case, verify the file was truncated
 			if tc.name == "CreateAfterWrite_ShouldTruncateAndReturnSameInode" {
-				filePath := filepath.Join("mount/onedriver_tests", tc.filename)
+				filePath := filepath.Join("tmp", "mount/onedriver_tests", tc.filename)
 				content, err := os.ReadFile(filePath)
 				require.NoError(t, err, "Failed to read file content after second creation")
 				assert.Empty(t, string(content), "File was not truncated after second creation")

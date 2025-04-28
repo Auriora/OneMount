@@ -15,15 +15,16 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/jstaf/onedriver/fs"
 	"github.com/jstaf/onedriver/fs/graph"
-	testutil "github.com/jstaf/onedriver/testutil/common"
+	"github.com/jstaf/onedriver/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	mountLoc  = "mount"
-	testDBLoc = "tmp"
-	TestDir   = mountLoc + "/onedriver_tests"
+// Use constants from testutil package
+var (
+	mountLoc  = testutil.TestMountPoint
+	testDBLoc = testutil.TestDBLoc
+	TestDir   = testutil.TestDir
 )
 
 var auth *graph.Auth
@@ -88,11 +89,26 @@ func TestMain(m *testing.M) {
 
 	// attempt to unmount regardless of what happens (in case previous tests
 	// failed and didn't clean themselves up)
-	if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err != nil {
-		fmt.Println("Warning: Failed to unmount:", err)
-		// Continue anyway as it might not be mounted
+	// First check if the mount point exists before attempting to unmount
+	if _, err := os.Stat(mountLoc); err == nil {
+		if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err != nil {
+			fmt.Println("Warning: Failed to unmount:", err)
+			// Continue anyway as it might not be mounted
+		}
+	} else {
+		fmt.Println("Mount point does not exist, no need to unmount")
 	}
-	if err := os.Mkdir(mountLoc, 0755); err != nil && !os.IsExist(err) {
+
+	// Remove the mount directory if it exists, then recreate it
+	// This ensures we start with a clean state
+	if _, err := os.Stat(mountLoc); err == nil {
+		if err := os.RemoveAll(mountLoc); err != nil {
+			fmt.Println("Warning: Failed to remove existing mount directory:", err)
+		}
+	}
+
+	// Create the mount directory
+	if err := os.MkdirAll(mountLoc, 0755); err != nil {
 		fmt.Println("Failed to create mount directory:", err)
 		os.Exit(1)
 	}
@@ -217,14 +233,14 @@ func TestMain(m *testing.M) {
 		isMountReady := func() bool {
 			// Check if mount point exists
 			if _, err := os.Stat(mountLoc); err != nil {
-				log.Debug().Err(err).Msg("Mount point not accessible yet")
+				log.Debug().Err(err).Msg("tmp/mount point not accessible yet")
 				return false
 			}
 
 			// Try to create a test file to verify the filesystem is working
 			testFile := filepath.Join(mountLoc, ".test-mount-ready")
 			if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-				log.Debug().Err(err).Msg("Mount point exists but test file creation failed")
+				log.Debug().Err(err).Msg("tmp/mount point exists but test file creation failed")
 				return false
 			}
 
@@ -414,24 +430,30 @@ func TestMain(m *testing.M) {
 		// Attempt to unmount with retries
 		log.Info().Msg("Attempting to unmount filesystem...")
 
-		// First try normal unmount
-		unmountErr := server.Unmount()
-		if unmountErr == nil {
+		// Check if the mount point exists before attempting to unmount
+		if _, err := os.Stat(mountLoc); err != nil {
+			log.Warn().Err(err).Msg("Mount point does not exist, no need to unmount")
 			unmountSuccess = true
-			log.Info().Msg("Successfully unmounted filesystem")
 		} else {
-			log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
-
-			// Try lazy unmount with retries using exponential backoff
-			err := testutil.RetryWithBackoff(nil, func() error {
-				return exec.Command("fusermount3", "-uz", mountLoc).Run()
-			}, 3, 500*time.Millisecond, 2*time.Second, "Lazy unmount")
-
-			if err == nil {
+			// First try normal unmount
+			unmountErr := server.Unmount()
+			if unmountErr == nil {
 				unmountSuccess = true
-				log.Info().Msg("Successfully performed lazy unmount")
+				log.Info().Msg("Successfully unmounted filesystem")
 			} else {
-				log.Error().Err(err).Msg("Failed to perform lazy unmount after retries")
+				log.Error().Err(unmountErr).Msg("Failed to unmount test fuse server, attempting lazy unmount")
+
+				// Try lazy unmount with retries using exponential backoff
+				err := testutil.RetryWithBackoff(nil, func() error {
+					return exec.Command("fusermount3", "-uz", mountLoc).Run()
+				}, 3, 500*time.Millisecond, 2*time.Second, "Lazy unmount")
+
+				if err == nil {
+					unmountSuccess = true
+					log.Info().Msg("Successfully performed lazy unmount")
+				} else {
+					log.Error().Err(err).Msg("Failed to perform lazy unmount after retries")
+				}
 			}
 		}
 	}
