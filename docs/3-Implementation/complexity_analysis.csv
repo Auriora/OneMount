@@ -481,8 +481,8 @@ TestUnitActive,function,../ui/systemd/systemd_test.go,8
 DirChooser,function,../ui/widgets.go,2
 Dialog,function,../ui/widgets.go,1
 CancelDialog,function,../ui/widgets.go,2
-generateModuleDescription,function,../utils/analyzer.go,2
-main,function,../utils/analyzer.go,52
-calculateComplexity,function,../utils/complexity_analyzer.go,1
-complexityVisitor.Visit,method,../utils/complexity_analyzer.go,12
-main,function,../utils/complexity_analyzer.go,23
+generateModuleDescription,function,../Utils/analyzer.go,2
+main,function,../Utils/analyzer.go,52
+calculateComplexity,function,../Utils/complexity_analyzer.go,1
+complexityVisitor.Visit,method,../Utils/complexity_analyzer.go,12
+main,function,../Utils/complexity_analyzer.go,23
