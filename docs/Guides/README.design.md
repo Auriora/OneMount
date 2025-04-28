@@ -45,4 +45,4 @@ onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-d
 4. **Command Line Interface (cmd/onedriver package)**: Provides a command-line interface for mounting and configuring onedriver
 5. **Graphical User Interface (ui package and cmd/onedriver-launcher package)**: Provides a graphical interface for managing onedriver mountpoints
 
-For a more detailed overview of the architecture, see the [Software Architecture Document](software_architecture_document.md).
+For a more detailed overview of the architecture, see the [Software Architecture Specification](software_architecture_document.md).

@@ -1,9 +1,9 @@
-# Software Architecture Document Template
+# Software Architecture Specification Template
 
 ## 1. Introduction & Context
 
 ### 1.1 Purpose
-[Describe the purpose of this Software Architecture Document]
+[Describe the purpose of this Software Architecture Specification]
 
 ### 1.2 Scope
 [Define the scope of this architecture document, including which systems, components, or modules it covers]
