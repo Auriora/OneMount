@@ -33,15 +33,36 @@ func TestMountpointIsValid(t *testing.T) {
 		}
 	})
 
-	// Check if the "mount" directory is empty
-	dirents, err := os.ReadDir("mount")
-	if err == nil {
-		t.Logf("Mount directory contents (%d items):", len(dirents))
-		for _, dirent := range dirents {
-			t.Logf("  %s", dirent.Name())
+	// For the test mount directory, ensure it exists and is empty
+	// This is test-specific setup code that was previously in the production code
+	mountDir := "tmp/mount"
+	if _, err := os.Stat(mountDir); err == nil {
+		// Directory exists, make sure it's empty
+		dirents, err := os.ReadDir(mountDir)
+		if err != nil {
+			// If we can't read the directory, it might be a stale mount point
+			t.Logf("Mount directory exists but can't be read, attempting to remove: %v", err)
+			os.Remove(mountDir)
+			err = os.Mkdir(mountDir, 0700)
+			require.NoError(t, err, "Failed to recreate mount directory")
+		} else if len(dirents) > 0 {
+			// Directory has contents, log them
+			t.Logf("Mount directory contents (%d items):", len(dirents))
+			for _, dirent := range dirents {
+				t.Logf("  %s", dirent.Name())
+			}
+			// Remove all files in the directory
+			for _, dirent := range dirents {
+				err := os.RemoveAll(filepath.Join(mountDir, dirent.Name()))
+				if err != nil {
+					t.Logf("Warning: Failed to remove %s: %v", dirent.Name(), err)
+				}
+			}
 		}
-	} else {
-		t.Logf("Error reading mount directory: %v", err)
+	} else if os.IsNotExist(err) {
+		// Directory doesn't exist, create it
+		err = os.MkdirAll(mountDir, 0700)
+		require.NoError(t, err, "Failed to create mount directory")
 	}
 
 	// Define test cases
@@ -71,7 +92,7 @@ func TestMountpointIsValid(t *testing.T) {
 		},
 		{
 			name:       "MountDirectory",
-			mountpoint: "mount",
+			mountpoint: "tmp/mount",
 			expected:   true,
 			reason:     "mount directory should be a valid mountpoint",
 		},
@@ -99,10 +120,10 @@ func TestMountpointIsValid(t *testing.T) {
 
 			// Assert the result
 			if tc.expected {
-				require.True(t, isValid, 
+				require.True(t, isValid,
 					"Expected mountpoint %q to be valid: %s", tc.mountpoint, tc.reason)
 			} else {
-				require.False(t, isValid, 
+				require.False(t, isValid,
 					"Expected mountpoint %q to be invalid: %s", tc.mountpoint, tc.reason)
 			}
 		})
@@ -173,7 +194,7 @@ func TestGetAccountName(t *testing.T) {
 	// Get current working directory and create escaped path for test instance
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
-	escaped := unit.UnitNamePathEscape(filepath.Join(wd, "mount"))
+	escaped := unit.UnitNamePathEscape(filepath.Join(wd, "tmp/mount"))
 
 	// Get user cache directory
 	cacheDir, err := os.UserCacheDir()
@@ -301,7 +322,7 @@ func TestGetAccountName(t *testing.T) {
 			if tc.expectedError {
 				require.Error(t, err, "Expected an error but got none")
 				if tc.errorContains != "" {
-					assert.Contains(t, err.Error(), tc.errorContains, 
+					assert.Contains(t, err.Error(), tc.errorContains,
 						"Error message did not contain expected text")
 				}
 			} else {
