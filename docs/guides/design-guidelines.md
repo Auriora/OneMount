@@ -6,22 +6,22 @@ This directory contains design documentation for the onedriver project, includin
 
 Class diagrams represent the static structure of the system, showing the classes, their attributes, methods, and relationships.
 
-- [Core Engine Class Diagram](core_engine_class_diagram.puml) - Represents the core filesystem implementation
-- [Graph API Class Diagram](graph_api_class_diagram.puml) - Represents the Microsoft Graph API integration
-- [UI Class Diagram](ui_class_diagram.puml) - Represents the UI components and command-line interface
+- [Core Engine Class Diagram](../design/resources/core-engine-class-diagram.puml) - Represents the core filesystem implementation
+- [Graph API Class Diagram](../design/resources/graph-api-class-diagram.puml) - Represents the Microsoft Graph API integration
+- [UI Class Diagram](../design/resources/ui-class-diagram.puml) - Represents the UI components and command-line interface
 
 ## Sequence Diagrams
 
 Sequence diagrams represent the dynamic behavior of the system, showing the interactions between objects over time.
 
-- [Authentication Workflow](auth_sequence_diagram.puml) - Shows the authentication process with Microsoft Graph API
-- [File Access Workflow](file_access_sequence_diagram.puml) - Shows how files are accessed from OneDrive
-- [File Modification Workflow](file_modification_sequence_diagram.puml) - Shows how files are modified and uploaded to OneDrive
-- [Delta Synchronization Workflow](delta_sync_sequence_diagram.puml) - Shows how changes are synchronized between OneDrive and the local filesystem
+- [Authentication Workflow](../design/resources/auth-sequence-diagram.puml) - Shows the authentication process with Microsoft Graph API
+- [File Access Workflow](../design/resources/file-access-sequence-diagram.puml) - Shows how files are accessed from OneDrive
+- [File Modification Workflow](../design/resources/file-modification-sequence-diagram.puml) - Shows how files are modified and uploaded to OneDrive
+- [Delta Synchronization Workflow](../design/resources/delta-sync-sequence-diagram.puml) - Shows how changes are synchronized between OneDrive and the local filesystem
 
 ## Mappings
 
-- [Design to Code Mapping](design_to_code_mapping.md) - Provides a mapping between design elements and code artifacts
+- [Design to Code Mapping](../implementation/design-to-code-mapping.md) - Provides a mapping between design elements and code artifacts
 
 ## Viewing the Diagrams
 
@@ -45,4 +45,4 @@ onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-d
 4. **Command Line Interface (cmd/onedriver package)**: Provides a command-line interface for mounting and configuring onedriver
 5. **Graphical User Interface (ui package and cmd/onedriver-launcher package)**: Provides a graphical interface for managing onedriver mountpoints
 
-For a more detailed overview of the architecture, see the [Software Architecture Specification](software_architecture_document.md).
+For a more detailed overview of the architecture, see the [Software Architecture Specification](../design/software-architecture-specification.md).

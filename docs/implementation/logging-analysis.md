@@ -1,6 +1,6 @@
 # Logging Implementation Analysis
 
-This document analyzes the current logging implementation in the onedriver project against the best practices outlined in the [Go Logging Best Practices Guide](go_logging_best_practices.md). It identifies areas for improvement and provides recommendations for refactoring.
+This document analyzes the current logging implementation in the onedriver project against the best practices outlined in the [Go Logging Best Practices Guide](../guides/go-logging-best-practices.md). It identifies areas for improvement and provides recommendations for refactoring.
 
 ## Summary of Findings
 

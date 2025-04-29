@@ -18,7 +18,7 @@ Before seeking support, please check if your question is answered in our documen
 - [README](README.md) - Overview of the project and basic usage
 - [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
 - [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
-- [Development Guidelines](docs/development.md) - Information for developers
+- [Development Guidelines](docs/DEVELOPMENT.md) - Information for developers
 
 ## Troubleshooting
 

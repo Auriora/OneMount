@@ -127,7 +127,7 @@ Get started with onedriver by installing it using your distribution's package ma
    ```bash
    # Ubuntu/Debian
    # TODO add instructions
-   
+
    # Arch/Manjaro
    # Install from AUR: https://aur.archlinux.org/packages/onedriver/
    ```

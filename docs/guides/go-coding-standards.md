@@ -371,7 +371,7 @@ func isRestricted(name string) bool {
 - Return errors rather than using panic (except in truly unrecoverable situations)
 - Use error wrapping to add context: `fmt.Errorf("failed to process file %s: %w", filename, err)`
 - Be specific about error messages to aid debugging
-- For detailed error handling guidelines, see the [Error Handling section in the Logging Best Practices](go_logging_best_practices.md#error-handling-and-logging)
+- For detailed error handling guidelines, see the [Error Handling section in the Logging Best Practices](go-logging-best-practices.md#error-handling-and-logging)
 
 ## Comments and Documentation
 
@@ -402,7 +402,7 @@ func GetItem(id string, auth *Auth) (*DriveItem, error) {
 
 ## Testing
 
-For detailed testing guidelines, refer to the [Test Best Practices](test_best_practices.md) document. Key points include:
+For detailed testing guidelines, refer to the [Test Best Practices](test-best-practices.md) document. Key points include:
 
 - Write both unit and integration tests
 - Use table-driven tests for multiple test cases
@@ -413,7 +413,7 @@ For detailed testing guidelines, refer to the [Test Best Practices](test_best_pr
 
 ## Logging
 
-For detailed logging guidelines, refer to the [Go Logging Best Practices](go_logging_best_practices.md) document. Key points include:
+For detailed logging guidelines, refer to the [Go Logging Best Practices](go-logging-best-practices.md) document. Key points include:
 
 - Use structured logging with zerolog
 - Log at appropriate levels (trace, debug, info, warn, error, fatal)
@@ -445,7 +445,7 @@ For detailed logging guidelines, refer to the [Go Logging Best Practices](go_log
 - Be aware of race conditions
 - Consider using sync.WaitGroup for managing groups of goroutines
 - Use context for cancellation and timeouts
-- Follow the [threading guidelines](../2-Design/README.threading.md)
+- Follow the [threading guidelines](threading-guidelines.md)
 
 ## Security Best Practices
 
@@ -478,5 +478,5 @@ For detailed logging guidelines, refer to the [Go Logging Best Practices](go_log
 Following these coding standards will help maintain a consistent, high-quality codebase for the onedriver project. These standards should be applied to all new code and, when feasible, to existing code during refactoring.
 
 For specific aspects of development, refer to the more detailed best practice documents:
-- [Test Best Practices](test_best_practices.md)
-- [Go Logging Best Practices](go_logging_best_practices.md)
+- [Test Best Practices](test-best-practices.md)
+- [Go Logging Best Practices](go-logging-best-practices.md)
