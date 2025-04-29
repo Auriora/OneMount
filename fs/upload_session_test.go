@@ -170,13 +170,13 @@ func TestUploadSessionOperations(t *testing.T) {
 			description: "Tests large file uploads using the filesystem interface",
 			setupFunc: func(t *testing.T) (string, []byte, func()) {
 				// Check if the source file exists
-				_, err := os.Stat("dmel.fa")
+				_, err := os.Stat("tmp/dmel.fa")
 				if err != nil {
 					return "", nil, func() {}
 				}
 
 				// Read the source file
-				sourceData, err := os.ReadFile("dmel.fa")
+				sourceData, err := os.ReadFile("tmp/dmel.fa")
 				require.NoError(t, err, "Failed to read source file")
 
 				fileName := "dmel_" + t.Name() + ".fa"
@@ -240,7 +240,7 @@ func TestUploadSessionOperations(t *testing.T) {
 					"Downloaded content did not match original content.")
 			},
 			skipCheck: func() bool {
-				_, err := os.Stat("dmel.fa")
+				_, err := os.Stat("tmp/dmel.fa")
 				return err != nil
 			},
 		},

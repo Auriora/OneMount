@@ -122,7 +122,8 @@ onedriver_$(VERSION)-$(RELEASE)_amd64.deb: onedriver_$(VERSION)-$(RELEASE).dsc
 
 
 # a large text file for us to test upload sessions with. #science
-dmel.fa:
+tmp/dmel.fa:
+	mkdir -p tmp
 	curl ftp://ftp.ensemblgenomes.org/pub/metazoa/release-42/fasta/drosophila_melanogaster/dna/Drosophila_melanogaster.BDGP6.22.dna.chromosome.X.fa.gz | zcat > $@
 
 
@@ -144,7 +145,7 @@ test-python:
 # For offline tests, the test binary is built online, then network access is
 # disabled and tests are run. sudo is required - otherwise we don't have
 # permission to deny network access to onedriver during the test.
-test: onedriver onedriver-launcher dmel.fa test-python
+test: onedriver onedriver-launcher tmp/dmel.fa test-python
 	rm -f *.race* fusefs_tests.log
 	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 ./ui/...
 	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./fs/...
