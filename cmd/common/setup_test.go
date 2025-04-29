@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/bcherrington/onedriver/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -41,7 +42,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	f, err := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to open log file")
 		os.Exit(1)

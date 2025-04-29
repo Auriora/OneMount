@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -191,7 +191,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	f, openErr := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	f, openErr := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if openErr != nil {
 		fmt.Println("Failed to open log file:", openErr)
 		os.Exit(1)
@@ -209,7 +209,7 @@ func TestMain(m *testing.M) {
 	isMock = os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
 
 	// Create authenticator based on configuration
-	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, ".auth_tokens.json", false, isMock)
+	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, testutil.AuthTokensPath, false, isMock)
 
 	// Perform authentication
 	var err error

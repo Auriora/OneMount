@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -72,11 +73,11 @@ func TestAuthCodeFormat(t *testing.T) {
 
 func TestAuthFromfile(t *testing.T) {
 	t.Parallel()
-	require.FileExists(t, ".auth_tokens.json")
+	require.FileExists(t, testutil.AuthTokensPath)
 
 	var auth Auth
-	auth.FromFile(".auth_tokens.json")
-	assert.NotEqual(t, "", auth.AccessToken, "Could not load auth tokens from '.auth_tokens.json'!")
+	auth.FromFile(testutil.AuthTokensPath)
+	assert.NotEqual(t, "", auth.AccessToken, "Could not load auth tokens from test auth tokens file!")
 }
 
 func TestAuthRefresh(t *testing.T) {

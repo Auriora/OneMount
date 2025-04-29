@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

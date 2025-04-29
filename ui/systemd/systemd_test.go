@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"

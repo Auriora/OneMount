@@ -14,7 +14,7 @@ import (
 
 	"github.com/bcherrington/onedriver/internal/fs"
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

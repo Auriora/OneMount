@@ -12,3 +12,12 @@ const TestDBLoc = "tmp"
 
 // DeltaDir is the directory used for delta tests.
 const DeltaDir = TestDir + "/delta"
+
+// TestSandboxDir is the directory used for test files.
+const TestSandboxDir = "tmp"
+
+// AuthTokensPath is the path to the authentication tokens file.
+const AuthTokensPath = TestSandboxDir + "/.auth_tokens.json"
+
+// TestLogPath is the path to the test log file.
+const TestLogPath = TestSandboxDir + "/fusefs_tests.log"
