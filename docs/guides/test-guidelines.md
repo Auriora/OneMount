@@ -1,4 +1,4 @@
-# Test Best Practices for onedriver
+# Test Guidelines for onedriver
 
 This document outlines the best practices for writing tests in the onedriver project, based on the patterns and practices established during the test code refactoring.
 

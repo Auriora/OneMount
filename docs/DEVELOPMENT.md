@@ -118,10 +118,10 @@ The project uses several key libraries:
 
 The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides` directory:
 
-- [Coding Standards](guides/coding_standards.md) - Main entry point for all coding standards
-- [Go Coding Standards](guides/go_coding_standards.md) - Comprehensive guide for Go code
-- [Go Logging Best Practices](guides/go_logging_best_practices.md) - Guidelines for structured logging
-- [Test Best Practices](guides/test_best_practices.md) - Best practices for writing tests
+- [Coding Standards](guides/coding-standards.md) - Main entry point for all coding standards
+- [Go Coding Standards](guides/coding-standards.md#go-standards) - Comprehensive guide for Go code
+- [Go Logging Best Practices](guides/logging-guidelines.md) - Guidelines for structured logging
+- [Test Best Practices](guides/test-guidelines.md) - Best practices for writing tests
 
 Here's a summary of key best practices:
 
