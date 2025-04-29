@@ -2,12 +2,28 @@ package fs
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )
+
+// isMountpointMounted checks if a filesystem is mounted at the given mountpoint
+func isMountpointMounted(mountpoint string) bool {
+	if mountpoint == "" {
+		return false
+	}
+
+	// Check if it's a mount point using findmnt
+	cmd := exec.Command("findmnt", "--noheadings", "--output", "TARGET", mountpoint)
+	if output, err := cmd.Output(); err == nil && len(output) > 0 {
+		return true
+	}
+
+	return false
+}
 
 // UnmountHandler should be used as goroutine that will handle sigint then exit gracefully
 // It accepts a done channel that can be used to signal it to stop
@@ -41,19 +57,24 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Fi
 		retryDelay := 5000 * time.Millisecond
 		var err error
 
-		for i := 0; i < maxRetries; i++ {
-			err = server.Unmount()
-			if err == nil {
-				break
-			}
+		// Check if the server is nil, which would indicate it's not mounted
+		if server == nil {
+			log.Warn().Msg("FUSE server is nil, skipping unmount operation")
+		} else {
+			for i := 0; i < maxRetries; i++ {
+				err = server.Unmount()
+				if err == nil {
+					break
+				}
 
-			if i < maxRetries-1 {
-				log.Warn().Err(err).
-					Int("retry", i+1).
-					Dur("delay", retryDelay).
-					Msg("Failed to unmount filesystem, retrying after delay...")
-				time.Sleep(retryDelay)
-				retryDelay *= 2 // Exponential backoff
+				if i < maxRetries-1 {
+					log.Warn().Err(err).
+						Int("retry", i+1).
+						Dur("delay", retryDelay).
+						Msg("Failed to unmount filesystem, retrying after delay...")
+					time.Sleep(retryDelay)
+					retryDelay *= 2 // Exponential backoff
+				}
 			}
 		}
 

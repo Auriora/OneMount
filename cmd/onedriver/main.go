@@ -471,6 +471,11 @@ func main() {
 		log.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint must be empty.")
 	}
 
+	// Check if the mountpoint is already mounted
+	if isMounted := checkIfMounted(mountpoint); isMounted {
+		log.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint is already mounted. Unmount it first or choose a different mountpoint.")
+	}
+
 	// Initialize the filesystem
 	filesystem, _, server, cachePath, absMountPath, err := initializeFilesystem(config, mountpoint, authOnly, headless, debugOn)
 	if err != nil {
@@ -478,7 +483,7 @@ func main() {
 	}
 
 	// setup signal handler for graceful unmount on signals like sigint
-	setupSignalHandler(filesystem, server)
+	setupSignalHandler(filesystem, server, absMountPath)
 
 	// serve filesystem
 	log.Info().
@@ -486,6 +491,46 @@ func main() {
 		Str("mountpoint", absMountPath).
 		Msg("Serving filesystem.")
 	server.Serve()
+}
+
+// isMountpointMounted checks if a filesystem is mounted at the given mountpoint
+func isMountpointMounted(mountpoint string) bool {
+	if mountpoint == "" {
+		return false
+	}
+
+	// Check if it's a mount point using findmnt
+	cmd := exec.Command("findmnt", "--noheadings", "--output", "TARGET", mountpoint)
+	if output, err := cmd.Output(); err == nil && len(output) > 0 {
+		return true
+	}
+
+	return false
+}
+
+// checkIfMounted checks if a filesystem is already mounted at the given mountpoint
+func checkIfMounted(mountpoint string) bool {
+	// Check if it's a mount point using findmnt
+	cmd := exec.Command("findmnt", "--noheadings", "--output", "TARGET", mountpoint)
+	if output, err := cmd.Output(); err == nil && len(output) > 0 {
+		log.Warn().Str("mountpoint", mountpoint).Msg("Mount point is already mounted")
+		return true
+	}
+
+	// Additional check: try to create and remove a test file
+	// If the mountpoint is already mounted but empty, the previous check might not catch it
+	testFile := filepath.Join(mountpoint, ".onedriver-mount-test")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		log.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to write test file, mountpoint might be mounted or inaccessible")
+		return true
+	}
+
+	// Clean up the test file
+	if err := os.Remove(testFile); err != nil {
+		log.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to remove test file, but mountpoint appears accessible")
+	}
+
+	return false
 }
 
 // daemonize detaches the process from the terminal and runs it in the background
@@ -528,7 +573,7 @@ func daemonize() {
 }
 
 // setupSignalHandler sets up a handler for SIGINT and SIGTERM signals to gracefully unmount the filesystem
-func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server) {
+func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoint string) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -559,19 +604,24 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server) {
 		retryDelay := 500 * time.Millisecond
 		var err error
 
-		for i := 0; i < maxRetries; i++ {
-			err = server.Unmount()
-			if err == nil {
-				break
-			}
+		// Check if the filesystem is actually mounted before attempting to unmount
+		if !isMountpointMounted(mountpoint) {
+			log.Warn().Str("mountpoint", mountpoint).Msg("Filesystem does not appear to be mounted, skipping unmount operation")
+		} else {
+			for i := 0; i < maxRetries; i++ {
+				err = server.Unmount()
+				if err == nil {
+					break
+				}
 
-			if i < maxRetries-1 {
-				log.Warn().Err(err).
-					Int("retry", i+1).
-					Dur("delay", retryDelay).
-					Msg("Failed to unmount filesystem, retrying after delay...")
-				time.Sleep(retryDelay)
-				retryDelay *= 2 // Exponential backoff
+				if i < maxRetries-1 {
+					log.Warn().Err(err).
+						Int("retry", i+1).
+						Dur("delay", retryDelay).
+						Msg("Failed to unmount filesystem, retrying after delay...")
+					time.Sleep(retryDelay)
+					retryDelay *= 2 // Exponential backoff
+				}
 			}
 		}
 
