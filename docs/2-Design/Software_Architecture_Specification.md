@@ -676,14 +676,16 @@ Performance is monitored through:
 
 ### 6.1 Glossary
 
-- **FUSE**: Filesystem in Userspace - a software interface that allows implementing a filesystem in user space
-- **OneDrive**: Microsoft's cloud storage service
-- **Graph API**: Microsoft's API for accessing OneDrive and other Microsoft services
-- **OAuth2**: An authorization framework that enables third-party applications to obtain limited access to a user's account
-- **Delta Synchronization**: A method of synchronizing changes by only transferring the differences between versions
-- **Inode**: A data structure that stores information about a file or directory in a filesystem
-- **Goroutine**: A lightweight thread managed by the Go runtime
-- **BBolt**: An embedded key-value database for Go
+| Term | Abbreviation | Definition | Source |
+| --- | --- | --- | --- |
+| Filesystem in Userspace | FUSE | A software interface that allows implementing a filesystem in user space | |
+| OneDrive | | Microsoft's cloud storage service | |
+| Graph API | | Microsoft's API for accessing OneDrive and other Microsoft services | |
+| OAuth2 | | An authorization framework that enables third-party applications to obtain limited access to a user's account | |
+| Delta Synchronization | | A method of synchronizing changes by only transferring the differences between versions | |
+| Inode | | A data structure that stores information about a file or directory in a filesystem | |
+| Goroutine | | A lightweight thread managed by the Go runtime | |
+| BBolt | | An embedded key-value database for Go | |
 
 ### 6.2 Revision History
 

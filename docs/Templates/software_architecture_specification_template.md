@@ -234,7 +234,12 @@ node "Database Server" {
 ## 6. Appendices
 
 ### 6.1 Glossary
-[Define terms used in this document]
+
+| Term | Abbreviation | Definition | Source |
+| --- | --- | --- | --- |
+| [Term 1] | [Abbreviation 1] | [Definition 1] | [Source 1] |
+| [Term 2] | [Abbreviation 2] | [Definition 2] | [Source 2] |
+| [Term 3] | [Abbreviation 3] | [Definition 3] | [Source 3] |
 
 ### 6.2 Revision History
 [Track document revisions]
