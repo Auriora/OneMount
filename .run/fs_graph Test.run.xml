@@ -1,13 +1,13 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="fs/offline Tests" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="fs/graph Test" type="GoTestRunConfiguration" factoryName="Go Test">
     <log_file alias="Fuse Race logging" path="$PROJECT_DIR$/tmp/fusefs_tests.race.*" show_all="true" />
     <log_file alias="Fuse Test Log" path="$PROJECT_DIR$/tmp/fusefs_tests.log" />
     <module name="onedriver" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-race -v -parallel=1 -count=1" />
     <kind value="DIRECTORY" />
-    <package value="github.com/bcherrington/onedriver/internal/fs" />
-    <directory value="$PROJECT_DIR$/internal/fs/offline" />
+    <package value="github.com/jstaf/onedriver/fs" />
+    <directory value="$PROJECT_DIR$/fs/graph" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
     <method v="2">
