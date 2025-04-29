@@ -82,10 +82,10 @@ func TestAuthFromfile(t *testing.T) {
 
 func TestAuthRefresh(t *testing.T) {
 	t.Parallel()
-	require.FileExists(t, ".auth_tokens.json")
+	require.FileExists(t, testutil.AuthTokensPath)
 
 	var auth Auth
-	auth.FromFile(".auth_tokens.json")
+	auth.FromFile(testutil.AuthTokensPath)
 	auth.ExpiresAt = 0 // force an auth refresh
 	auth.Refresh(nil)  // nil context will use context.Background() internally
 	require.Greater(t, auth.ExpiresAt, time.Now().Unix(), "Auth could not be refreshed successfully!")

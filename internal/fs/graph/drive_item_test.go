@@ -3,6 +3,7 @@ package graph
 import (
 	"testing"
 
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,7 +43,7 @@ func TestGetItem(t *testing.T) {
 			t.Parallel()
 
 			var auth Auth
-			auth.FromFile(".auth_tokens.json")
+			auth.FromFile(testutil.AuthTokensPath)
 
 			item, err := GetItemPath(tc.path, &auth)
 

@@ -21,7 +21,7 @@ func SetupUITest(relPath string) (*os.File, error) {
 	}
 
 	// Setup logging
-	f, err := os.OpenFile("fusefs_tests.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(TestLogPath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to open log file")
 		return nil, err

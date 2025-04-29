@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const configTestDir = "pkg/resources/test"
+const configTestDir = "configs/resources/test"
 
 // We should load config correctly.
 func TestLoadConfig(t *testing.T) {

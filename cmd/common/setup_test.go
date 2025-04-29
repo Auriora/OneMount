@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bcherrington/onedriver/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -39,6 +39,12 @@ func TestMain(m *testing.M) {
 
 	if err := os.RemoveAll("tmp"); err != nil {
 		log.Error().Err(err).Msg("Failed to remove tmp directory")
+		os.Exit(1)
+	}
+
+	// Ensure tmp directory exists
+	if err := os.MkdirAll("tmp", 0755); err != nil {
+		log.Error().Err(err).Msg("Failed to create tmp directory")
 		os.Exit(1)
 	}
 

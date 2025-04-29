@@ -226,7 +226,7 @@ func TestGetAccountName(t *testing.T) {
 	// Copy auth tokens to cache dir if it doesn't already exist
 	// (CI runners will not have this file yet)
 	if _, err := os.Stat(validTokensPath); err != nil {
-		cmd := exec.Command("cp", ".auth_tokens.json", validTokensPath)
+		cmd := exec.Command("cp", testutil.AuthTokensPath, validTokensPath)
 		err = cmd.Run()
 		require.NoError(t, err, "Failed to copy auth tokens file")
 	}

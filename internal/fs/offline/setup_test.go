@@ -117,7 +117,7 @@ func TestMain(m *testing.M) {
 	isMock := os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
 
 	// Create authenticator based on configuration
-	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, ".auth_tokens.json", false, isMock)
+	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, testutil.AuthTokensPath, false, isMock)
 
 	// Perform authentication
 	var authErr error
@@ -131,7 +131,7 @@ func TestMain(m *testing.M) {
 		log.Info().Msg("Using mock authentication for tests")
 	}
 
-	f, err := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		fmt.Println("Failed to open log file:", err)
 		os.Exit(1)

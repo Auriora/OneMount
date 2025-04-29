@@ -319,7 +319,7 @@ func TestThumbnailCacheCleanup(t *testing.T) {
 // TestThumbnailOperations tests various operations on thumbnails in the filesystem
 func TestThumbnailOperations(t *testing.T) {
 	// Skip this test if we're not running with a valid auth token
-	auth, err := graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
+	auth, err := graph.Authenticate(context.Background(), graph.AuthConfig{}, testutil.AuthTokensPath, false)
 	if err != nil {
 		t.Skip("Skipping test because no valid auth token is available")
 	}
