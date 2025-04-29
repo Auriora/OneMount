@@ -4,6 +4,12 @@ All notable changes to the onedriver project will be documented in this file.
 
 ## [Unreleased]
 
+## Release highlights
+
+* D-Bus Interface: Added D-Bus interface for file status updates and improved integration with file managers
+* Background Download Manager: Added background download manager for improved performance with large files
+* File Status Tracking: Added file status tracking and Nemo integration for better user experience
+
 ### Added
 - Added drive rename option for better customization of OneDrive mounts
 - Added D-Bus interface for file status updates and improved integration with file managers
@@ -77,6 +83,11 @@ All notable changes to the onedriver project will be documented in this file.
 
 ## [v0.14.1] - 2023-10-18
 
+## Release highlights
+
+* Compatibility Improvements: Fixed compatibility with Ubuntu 20.04 and Debian 11
+* Bug Fix: Fixed file redownloads issue
+
 ### Fixed
 - Fixed file redownloads issue
 - Improved compatibility with Ubuntu 20.04 and Debian 11
@@ -86,6 +97,12 @@ All notable changes to the onedriver project will be documented in this file.
 - Added Gentoo installation instructions
 
 ## [v0.14.0] - 2023-07-14
+
+## Release highlights
+
+* Performance Improvement: Now using local filesystem as a file content cache instead of boltdb
+* Compatibility Enhancement: Disallowed restricted characters in filenames
+* Security: Added CodeQL for security analysis
 
 ### Added
 - Disallowed restricted characters in filenames for better compatibility
@@ -101,6 +118,12 @@ All notable changes to the onedriver project will be documented in this file.
 - Added CodeQL for security analysis
 
 ## [v0.13.0] - 2022-11-01
+
+## Release highlights
+
+* UI Improvements: Added configuration UI and rewrote GUI in Go
+* Performance Enhancement: Implemented multipart downloads for better performance with large files
+* Configuration: Added config file support
 
 ### Added
 - Added UI for configuration
@@ -118,6 +141,13 @@ All notable changes to the onedriver project will be documented in this file.
 
 ## [v0.12.0] - 2022-01-15
 
+## Release highlights
+
+* Shared Folders: Added support for shared folders
+* File Uploads: Implemented file upload resumability
+* Thumbnails: Added support for file thumbnails
+* Offline Mode: Enhanced offline mode functionality
+
 ### Added
 - Added support for shared folders
 - Implemented file upload resumability
@@ -133,6 +163,12 @@ All notable changes to the onedriver project will be documented in this file.
 
 ## [v0.11.2] - 2021-11-28
 
+## Release highlights
+
+* File Handling: Fixed issues with file uploads and improved handling of special characters
+* Security: Enhanced token storage security
+* Performance: Fixed memory leaks in file handling
+
 ### Fixed
 - Fixed issues with file uploads
 - Improved handling of special characters in filenames
@@ -143,11 +179,22 @@ All notable changes to the onedriver project will be documented in this file.
 
 ## [v0.11.1] - 2021-09-05
 
+## Release highlights
+
+* Stability: Fixed crash on startup with certain configurations
+* Authentication: Improved error handling for authentication failures
+
 ### Fixed
 - Fixed crash on startup with certain configurations
 - Improved error handling for authentication failures
 
 ## [v0.11.0] - 2021-08-22
+
+## Release highlights
+
+* Integration: Added D-Bus interface for file status updates
+* Authentication: Implemented background authentication refresh
+* Performance: Improved caching mechanism for better performance
 
 ### Added
 - Added D-Bus interface for file status updates
@@ -163,11 +210,22 @@ All notable changes to the onedriver project will be documented in this file.
 
 ## [v0.10.1] - 2021-06-13
 
+## Release highlights
+
+* Bug Fix: Fixed regression in file upload handling
+* Compatibility: Improved compatibility with newer Linux distributions
+
 ### Fixed
 - Fixed regression in file upload handling
 - Improved compatibility with newer Linux distributions
 
 ## [v0.10.0] - 2021-06-06
+
+## Release highlights
+
+* File Locking: Added support for file locking
+* Conflict Resolution: Implemented improved conflict resolution
+* Performance: Enhanced performance for directory operations and improved memory usage
 
 ### Added
 - Added support for file locking

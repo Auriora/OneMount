@@ -6,29 +6,32 @@
 
 **onedriver is a native Linux filesystem for Microsoft OneDrive.**
 
+## Table of contents
+
+1. [Project description](#project-description)
+2. [Who this project is for](#who-this-project-is-for)
+3. [Project dependencies](#project-dependencies)
+4. [Instructions for using onedriver](#instructions-for-using-onedriver)
+   - [Quick Installation Guide](#quick-installation-guide)
+5. [Contributing guidelines](#contributing-guidelines)
+6. [Additional documentation](#additional-documentation)
+7. [Terms of use](#terms-of-use)
+
+## Project description
+
 onedriver is a network filesystem that gives your computer direct access to your
 files on Microsoft OneDrive. This is not a sync client. Instead of syncing
 files, onedriver performs an on-demand download of files when your computer
 attempts to use them. onedriver allows you to use files on OneDrive as if they
 were files on your local computer.
 
-onedriver is extremely straightforwards to use:
+onedriver is extremely straightforward to use:
 
 - Install onedriver using your favorite installation method.
 - Click the "+" button in the app to setup one or more OneDrive accounts.
   (There's a command-line workflow for those who prefer doing things that way
   too!)
 - Just start using your files on OneDrive as if they were normal files.
-
-I've spent a lot of time trying to make onedriver fast, convenient, and easy to
-use. Though you can use it on servers, the goal here is to make it easy to work
-with OneDrive files on your Linux desktop. This allows you to easily sync files
-between any number of Windows, Mac, and Linux computers. You can setup your
-phone to auto-upload photos to OneDrive and edit and view them on your Linux
-computer. You can switch between LibreOffice on your local computer and the
-Microsoft 365 online apps as needed when working. Want to migrate from Windows
-to Linux? Just throw all your Windows files into OneDrive, add your OneDrive
-account to Linux with onedriver, and call it a day.
 
 **Microsoft OneDrive works on Linux.**
 
@@ -45,7 +48,7 @@ The stats command now includes detailed metadata analysis such as file type dist
 directory depth statistics, file size distribution, and file age information derived
 from the bbolt database.
 
-## Key features
+### Key features
 
 onedriver has several nice features that make it significantly more useful than
 other OneDrive clients:
@@ -85,109 +88,96 @@ other OneDrive clients:
   access them? onedriver is licensed under the GPLv3, which means you will
   _always_ have access to use onedriver to access your files on OneDrive.
 
-## Quick start
+## Who this project is for
 
-### Fedora/CentOS/RHEL
+This project is intended for Linux users who want to:
+- Access their Microsoft OneDrive files directly from their Linux filesystem
+- Avoid syncing their entire OneDrive account to their local computer
+- Have a seamless experience working with OneDrive files on Linux
+- Easily switch between working on files locally and in Microsoft 365 online apps
+- Migrate from Windows to Linux while keeping their files accessible
 
-Users on Fedora/CentOS/RHEL systems are recommended to install onedriver from
-[COPR](https://copr.fedorainfracloud.org/coprs/jstaf/onedriver/). This will
-install the latest version of onedriver through your package manager and ensure
-it stays up-to-date with bugfixes and new features.
+onedriver is particularly useful for:
+- Linux desktop users who need to access OneDrive files
+- Users with limited disk space who can't sync their entire OneDrive
+- Users who work across multiple platforms (Windows, Mac, Linux)
+- Users who want to view and edit OneDrive photos and documents on Linux
 
-```bash
-sudo dnf copr enable jstaf/onedriver
-sudo dnf install onedriver
-```
+## Project dependencies
 
-### OpenSUSE
+Before using onedriver, ensure you have:
 
-OpenSUSE users need to add the COPR repo either for Leap or Tumbleweed
+* A Linux system with FUSE support
+* A Microsoft OneDrive account
+* Internet connection (for initial setup and downloading files)
 
-```bash
-# Leap 15.4
-sudo zypper addrepo -g -r https://copr.fedorainfracloud.org/coprs/jstaf/onedriver/repo/opensuse-leap-15.4/jstaf-onedriver-opensuse-leap-15.4.repo onedriver
-sudo zypper --gpg-auto-import-keys refresh
-sudo zypper install onedriver
+For building from source, you'll need:
+* Go programming language
+* GCC compiler
+* webkit2gtk-4.0 and json-glib development headers
 
-# Tumbleweed
-sudo zypper addrepo -g -r https://copr.fedorainfracloud.org/coprs/jstaf/onedriver/repo/opensuse-tumbleweed/jstaf-onedriver-opensuse-tumbleweed.repo onedriver
-sudo zypper --gpg-auto-import-keys refresh
-sudo zypper install onedriver
-```
+## Instructions for using onedriver
 
-### Ubuntu/Pop!\_OS/Debian
+Get started with onedriver by installing it using your distribution's package manager.
 
-Ubuntu/Pop!\_OS/Debian users can install onedriver from the
-[OpenSUSE Build Service](https://software.opensuse.org/download.html?project=home%3Ajstaf&package=onedriver)
-(despite the name, OBS also does a nice job of building packages for Debian).
-Like the COPR install, this will enable you to install onedriver through your
-package manager and install updates as they become available. If you previously
-installed onedriver via PPA, you can purge the old PPA from your system via:
-`sudo add-apt-repository --remove ppa:jstaf/onedriver`
+### Quick Installation Guide
 
-### Arch/Manjaro/EndeavourOS
+1. **Install onedriver** using your distribution's package manager:
 
-Arch/Manjaro/EndeavourOS users can install onedriver from the
-[AUR](https://aur.archlinux.org/packages/onedriver/).
+   ```bash
+   # Fedora/CentOS/RHEL
+   sudo dnf copr enable jstaf/onedriver
+   sudo dnf install onedriver
 
-Post-installation, you can start onedriver either via the `onedriver-launcher`
-desktop app, or via the command line: `onedriver /path/to/mount/onedrive/at/`.
+   # Ubuntu/Debian
+   # Visit: https://software.opensuse.org/download.html?project=home%3Ajstaf&package=onedriver
 
-### Gentoo
+   # Arch/Manjaro
+   # Install from AUR: https://aur.archlinux.org/packages/onedriver/
+   ```
 
-Gentoo users can install onedriver from
-[this ebuild overlay](https://github.com/foopsss/gentoo-overlay) provided by a user. If
-you don't want to add user-hosted overlays to your system you may copy the
-ebuild for the latest version to a local overlay, which can be created by
-following the instructions available in the
-[Gentoo Wiki](https://wiki.gentoo.org/wiki/Creating_an_ebuild_repository).
+2. **Launch the application** using the GUI launcher or command line:
 
-Make sure to carefully review the ebuild for the package before installing it
+   ```bash
+   # Using GUI
+   onedriver-launcher
 
-### NixOS/NixPkgs
+   # Using command line
+   onedriver /path/to/mount/onedrive/at
+   ```
 
-NixOS and Nix users can install onedriver from
-[the unstable channel](https://search.nixos.org/packages?channel=unstable&query=onedriver)
-either by adding the package to their system's configuration (if they are using
-NixOS) or by installing it manually via `nix-env -iA unstable.onedriver`.
+3. **Authenticate** with your Microsoft account when prompted.
 
-## Multiple drives and starting OneDrive on login via systemd
+For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to the [complete installation guide](docs/installation_guide.md).
 
-**Note:** You can also set this up through the GUI via the `onedriver-launcher`
-desktop app installed via rpm/deb/`make install`. You can skip this section if
-you're using the GUI. It's honestly easier.
+For a step-by-step guide to get started quickly, check out our [quickstart guide](docs/quickstart_guide.md).
 
-To start onedriver automatically and ensure you always have access to your
-files, you can start onedriver as a systemd user service. In this example,
-`$MOUNTPOINT` refers to where we want OneDrive to be mounted at (for instance,
-`~/OneDrive`).
+## Contributing guidelines
 
-```bash
-# create the mountpoint and determine the service name
-mkdir -p $MOUNTPOINT
-export SERVICE_NAME=$(systemd-escape --template onedriver@.service --path $MOUNTPOINT)
+If you're interested in contributing to onedriver or understanding its internals, please refer to our [Development Guidelines](docs/DEVELOPMENT.md) document. It provides information about:
 
-# mount onedrive and set it to automatically mount on login
-systemctl --user daemon-reload
-systemctl --user enable --now $SERVICE_NAME
+* Project structure
+* Tech stack
+* Building from source
+* Running tests
+* Coding standards and best practices
 
-# check onedriver's logs for the current day
-journalctl --user -u $SERVICE_NAME --since today
-```
-
-## For Developers
-
-If you're interested in contributing to onedriver or understanding its internals, please refer to our [Development Guidelines](docs/DEVELOPMENT.md) document. It provides information about the project structure, tech stack, building, testing, and best practices.
-
-## Building onedriver yourself
+### Building from source
 
 In addition to the traditional [Go tooling](https://golang.org/dl/), you will
 need a C compiler and development headers for `webkit2gtk-4.0` and `json-glib`.
-On Fedora, these can be obtained with
-`dnf install golang gcc pkg-config webkit2gtk3-devel json-glib-devel`. On
-Ubuntu, these dependencies can be installed with
-`apt install golang gcc pkg-config libwebkit2gtk-4.0-dev libjson-glib-dev`.
 
+On Fedora:
+```bash
+dnf install golang gcc pkg-config webkit2gtk3-devel json-glib-devel
+```
+
+On Ubuntu:
+```bash
+apt install golang gcc pkg-config libwebkit2gtk-4.0-dev libjson-glib-dev
+```
+
+Basic build and run:
 ```bash
 # to build and run the binary
 make
@@ -252,59 +242,41 @@ sudo pbuilder create  # may need to add "--distribution focal" on ubuntu
 make deb
 ```
 
-## Troubleshooting
+## Additional documentation
 
-During your OneDrive travels, you might hit a bug that I haven't squashed yet.
-Don't panic! In most cases, the filesystem will report what happened to whatever
-program you're using. (As an example, an error mentioning a "read-only
-filesystem" indicates that your computer is currently offline.)
+For more information about onedriver:
 
-If the filesystem appears to hang or "freeze" indefinitely, its possible the
-fileystem has crashed. To resolve this, just restart the program by unmounting
-and remounting things via the GUI or by running `fusermount3 -uz $MOUNTPOINT` on
-the command-line.
+* [Quickstart Guide](docs/quickstart_guide.md) - Step-by-step guide to get started quickly
+* [Installation Guide](docs/installation_guide.md) - Detailed installation and configuration instructions
+* [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
+* [GitHub Issues](https://github.com/jstaf/onedriver/issues) - Report bugs or request features
+* [GitHub Releases](https://github.com/jstaf/onedriver/releases) - Download the latest releases
 
-If you really want to go back to a clean slate, onedriver can be completely
-reset (delete all cached local data) by deleting mounts in the GUI or running
-`onedriver -w`.
+### Known limitations
 
-If you encounter a bug or have a feature request, open an issue in the "Issues"
-tab here on GitHub. The two most informative things you can put in a bug report
-are the logs from the bug/just before encountering the bug (get logs via
-`journalctl --user -u $SERVICE_NAME --since today` ... see docs for correct
-value of `$SERVICE_NAME`) and/or instructions on how to reproduce the issue.
-Otherwise I have to guess what the problem is :disappointed:
+* **File browser thumbnails**: Many file browsers (like [GNOME's Nautilus](https://gitlab.gnome.org/GNOME/nautilus/-/issues/1209)) will attempt to automatically download all files within a directory to create thumbnail images. This only needs to happen once - thumbnails will persist between filesystem restarts.
 
-## Known issues & disclaimer
+* **Symbolic links**: Microsoft does not support symbolic links on OneDrive. Attempting to create symbolic links returns ENOSYS (function not implemented).
 
-Many file browsers (like
-[GNOME's Nautilus](https://gitlab.gnome.org/GNOME/nautilus/-/issues/1209)) will
-attempt to automatically download all files within a directory in order to
-create thumbnail images. This is somewhat annoying, but only needs to happen
-once - after the initial thumbnail images have been created, thumbnails will
-persist between filesystem restarts.
+* **OneDrive Recycle Bin**: Microsoft does not expose the OneDrive Recycle Bin APIs. To empty or restore the OneDrive Recycle Bin, you must use the OneDrive web UI. onedriver uses the native system trash/restore functionality independently.
 
-In Nemo file manager, OneDrive will appear as a network or cloud mount in the sidebar, making it easier to identify and access your OneDrive files.
+* **Large files**: onedriver loads files into memory when you access them. This makes things fast but doesn't work well with very large files. Use a sync client like [rclone](https://rclone.org/) for multi-gigabyte files.
 
-Microsoft does not support symbolic links (or anything remotely like them) on
-OneDrive. Attempting to create symbolic links within the filesystem returns
-ENOSYS (function not implemented) because the functionality hasn't been
-implemented... by Microsoft. Similarly, Microsoft does not expose the OneDrive
-Recycle Bin APIs - if you want to empty or restore the OneDrive Recycle Bin, you
-must do so through the OneDrive web UI (onedriver uses the native system
-trash/restore functionality independently of the OneDrive Recycle Bin).
+* **Backups**: OneDrive is not recommended for backups. Use tools like [restic](https://restic.net/) or [borg](https://www.borgbackup.org/) for reliable encrypted backups.
 
-onedriver loads files into memory when you access them. This makes things very
-fast, but obviously doesn't work very well if you have very large files. Use a
-sync client like [rclone](https://rclone.org/) if you need the ability to copy
-multi-gigabyte files to OneDrive.
+## How to get help
 
-OneDrive is not a good place to backup files to. Use a tool like
-[restic](https://restic.net/) or [borg](https://www.borgbackup.org/) if you're
-looking for a reliable encrypted backup tool. I know some of you want to "back
-up your files to OneDrive". Don't do it. Restic and Borg are better in every
-possible way than any OneDrive client ever will be when it comes to creating
-backups you can count on.
+If you encounter issues with onedriver:
 
-Finally, this project is still in active development and is provided AS IS.
-There are no guarantees. It might kill your cat.
+1. Check the [Troubleshooting section in the installation guide](docs/installation_guide.md#troubleshooting)
+2. Search existing [GitHub Issues](https://github.com/jstaf/onedriver/issues) to see if your problem has been reported
+3. Open a new issue with:
+   - Log output (`journalctl --user -u $SERVICE_NAME --since today`)
+   - Steps to reproduce the issue
+   - Your Linux distribution and version
+
+## Terms of use
+
+onedriver is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/jstaf/onedriver/blob/master/LICENSE).
+
+This project is provided AS IS with no warranties or guarantees. It is in active development.
