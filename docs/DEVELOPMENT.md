@@ -9,21 +9,21 @@ onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-d
 ## Project Structure
 
 - **cmd/** - Command-line applications
-  - **common/** - Shared code between applications (config handling, etc.)
-  - **onedriver/** - Main filesystem application that implements the FUSE interface
+  - **common/** - Shared code between applications
+  - **onedriver/** - Main filesystem application
   - **onedriver-launcher/** - GUI launcher application
-- **fs/** - Filesystem implementation
-  - **graph/** - Microsoft Graph API integration for OneDrive communication
-    - Handles authentication (OAuth2)
-    - Implements DriveItem representation
-    - Manages file hashing (QuickXORHash)
-  - **offline/** - Handles offline functionality
-- **ui/** - GUI implementation
-  - **systemd/** - Integration with systemd for service management
-  - Widgets and UI components
-- **pkg/** - Resources and packaging files
-  - **debian/** - Debian packaging files
+- **internal/** - Internal packages not meant for external use
+  - **fs/** - Filesystem implementation
+    - **graph/** - Microsoft Graph API integration
+    - **offline/** - Offline mode functionality
+  - **ui/** - GUI implementation
+    - **systemd/** - Systemd integration for the UI
+  - **testutil/** - Testing utilities
+  - **nemo/** - Nemo file manager integration
+- **configs/** - Configuration and resource files
   - **resources/** - Application resources (icons, man pages, etc.)
+- **scripts/** - Utility scripts
+  - **debian/** - Debian packaging files
 
 ## Tech Stack
 
@@ -46,6 +46,9 @@ sudo make install
 # Create distribution packages
 make rpm    # For RPM-based distributions
 make deb    # For Debian-based distributions
+
+# Update import paths after restructuring the project
+make update-imports
 ```
 
 ## Running Tests
@@ -58,9 +61,9 @@ make test-init
 make test
 
 # Run specific tests
-go test ./fs/...
+go test ./internal/fs/...
 go test ./cmd/...
-go test ./ui/...
+go test ./internal/ui/...
 ```
 
 ### JetBrains GoLand Run Configurations
@@ -68,10 +71,10 @@ go test ./ui/...
 The project includes predefined run configurations for JetBrains GoLand that replicate the functionality of the `make test` command. These configurations are stored in the `.run/` directory.
 
 Available run configurations:
-- **UI Tests** - Runs tests in the UI package, excluding offline tests
+- **UI Tests** - Runs tests in the internal/ui package, excluding offline tests
 - **Command Tests** - Runs tests in the cmd package
-- **Graph Tests with Race Detection** - Runs tests in the fs/graph package with race detection
-- **FS Tests with Race Detection** - Runs tests in the fs package with race detection
+- **Graph Tests with Race Detection** - Runs tests in the internal/fs/graph package with race detection
+- **FS Tests with Race Detection** - Runs tests in the internal/fs package with race detection
 - **Offline Tests** - Builds the offline test binary and provides instructions for running it
 - **All Tests Except Offline** - Runs all the above tests except for Offline Tests
 
@@ -84,8 +87,9 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 
 ## Executing Scripts
 
-- **cgo-helper.sh** - Helps with CGO compilation
-- **curl-graph.sh** - Utility for interacting with Microsoft Graph API
+- **scripts/cgo-helper.sh** - Helps with CGO compilation
+- **scripts/curl-graph.sh** - Utility for interacting with Microsoft Graph API
+- **scripts/update_imports.sh** - Updates import paths after restructuring the project
 
 ## Key Technical Features
 
