@@ -284,6 +284,7 @@ func TestMain(m *testing.M) {
 		filepath.Join(TestDir, "dir_create_TestOfflineFileSystemOperations"),
 		filepath.Join(TestDir, "dir_delete_TestOfflineFileSystemOperations"),
 		filepath.Join(TestDir, "parent_dir_TestOfflineFileSystemOperations"),
+		filepath.Join(TestDir, "parent_dir_TestOfflineFileSystemOperations/FileInDirectory_ShouldWorkOffline"),
 	}
 
 	for _, dir := range testDirs {
