@@ -5,18 +5,19 @@ This document outlines the coding standards and best practices for the onedriver
 ## Table of Contents
 
 1. [Code Organization](#code-organization)
-2. [Naming Conventions](#naming-conventions)
-3. [Constants and Literals](#constants-and-literals)
-4. [Formatting and Style](#formatting-and-style)
-5. [Error Handling](#error-handling)
-6. [Comments and Documentation](#comments-and-documentation)
-7. [Testing](#testing)
-8. [Logging](#logging)
-9. [Performance Considerations](#performance-considerations)
-10. [Concurrency](#concurrency)
-11. [Security Best Practices](#security-best-practices)
-12. [Dependencies](#dependencies)
-13. [Version Control](#version-control)
+2. [Project Structure](#project-structure)
+3. [Naming Conventions](#naming-conventions)
+4. [Constants and Literals](#constants-and-literals)
+5. [Formatting and Style](#formatting-and-style)
+6. [Error Handling](#error-handling)
+7. [Comments and Documentation](#comments-and-documentation)
+8. [Testing](#testing)
+9. [Logging](#logging)
+10. [Performance Considerations](#performance-considerations)
+11. [Concurrency](#concurrency)
+12. [Security Best Practices](#security-best-practices)
+13. [Dependencies](#dependencies)
+14. [Version Control](#version-control)
 
 ## Code Organization
 
@@ -32,6 +33,108 @@ This document outlines the coding standards and best practices for the onedriver
 - Keep packages focused on a single responsibility
 - Avoid circular dependencies between packages
 - Use internal packages for code that shouldn't be imported by other projects
+
+## Project Structure
+
+In this guideline, we synthesize the community-driven **Standard Go Project Layout** patterns, the **official Go module** recommendations, and expert advice from Smart Byte Labs and Alex Edwards to propose a flexible yet consistent structure for your OneDriver repository.
+
+### 1. Core Principles
+
+#### 1.1 Embrace Go Modules  
+All projects should use Go Modules. Place a `go.mod` file in the repository root to declare your module path and track dependencies, eliminating `$GOPATH` constraints.
+
+#### 1.2 Start Small and Evolve  
+Begin with only `main.go` and `go.mod` in the root for prototypes or small tools. As functionality grows, let your code organically drive the creation of packages and directories—avoid over-structuring upfront.
+
+#### 1.3 Prioritize Effectiveness Over Perfection  
+Aim for a structure that is easy to navigate, supports testing, and scales with team size. Resist the urge to chase an elusive "perfect" layout—iteratively refine as real-world needs emerge.
+
+### 2. Standard Skeletons
+
+#### 2.1 Basic Layout  
+For simple libraries or command-line tools with minimal assets:
+```
+├── go.mod
+├── main.go
+├── foo.go
+├── foo_test.go
+└── README.md
+```  
+Use this when only one package exists; it keeps discovery trivial.
+
+#### 2.2 Supporting-Packages Layout  
+When you need internal helpers but still have a single `main`:
+```
+├── go.mod
+├── main.go
+├── internal/
+│   └── helpers/
+│       └── helpers.go
+└── README.md
+```  
+Leverage the `internal/` directory to restrict package use to your module, enabling safe refactoring.
+
+#### 2.3 Server (Cmd-Internal-Assets) Layout  
+For larger applications with multiple executables or non-Go assets:
+```
+├── go.mod
+├── cmd/
+│   ├── onedriver/
+│   │   └── main.go
+│   └── cli/
+│       └── main.go
+├── internal/
+│   └── storage/
+│       └── storage.go
+├── pkg/             # optional, for public libraries
+├── configs/         # YAML/JSON configurations
+├── migrations/      # DB migrations
+├── scripts/         # build/test/deploy scripts
+└── README.md
+```  
+This clear separation of **cmd/**, **internal/**, and other assets aligns with the official Go module guidelines for medium-to-large codebases.
+
+### 3. Directory Roles
+
+#### 3.1 `cmd/`  
+Houses entry points—each subdirectory under `cmd/` produces a distinct executable. Names should match the binary name, e.g., `onedriver`.
+
+#### 3.2 `internal/`  
+Contains code not intended for external consumption. Go's compiler enforces import restrictions on `internal/`, safeguarding your module's private APIs.
+
+#### 3.3 `pkg/` (Optional)  
+Place libraries you intend to share externally. If OneDriver exports reusable functionality, reside it here; otherwise, you can omit `pkg/` to avoid confusion.
+
+#### 3.4 Ancillary Directories  
+- **`configs/`**: Configuration templates and defaults  
+- **`migrations/`**: Database schema evolution  
+- **`scripts/`**: CI/CD, linting, or deployment scripts  
+- **`docs/`**: Design documents, API specs, and usage guides
+
+### 4. Naming Conventions
+
+#### 4.1 Packages  
+Choose **short, clear, lowercase** names without underscores or mixedCaps. Each package name should reflect its purpose concisely, e.g., `storage`, `auth`, `cmd`.
+
+#### 4.2 Files  
+Group related types and functions in the same file. Avoid creating directories solely to tidy files—only create a new package when there's a clear need.
+
+#### 4.3 Modules and Paths  
+Set the module path in `go.mod` to your repository root, e.g., `module github.com/bcherrington/onedriver`, so imports resolve correctly.
+
+### 5. Testing and Documentation
+
+#### 5.1 Tests  
+Place tests adjacent to implementation in `<file>_test.go`. Keep test packages consistent with code packages to access unexported identifiers when needed.
+
+#### 5.2 Documentation  
+Write `godoc`-style comments immediately before declarations. Maintain a high-level README.md describing setup, usage, and contribution guidelines.
+
+### 6. Evolving the Layout
+
+- **Monitor warning signs**: frequent import cycles, difficulty locating code, or monolithic packages may indicate the need for refactoring.
+- **Iterate**: As OneDriver grows—adding features like condition monitoring or IoT integration—refine the project skeleton, splitting or merging packages as warranted.
+- **Balance**: Apply the principle "effective, not perfect" to adapt structure pragmatically without over-engineering.
 
 ### File Organization
 
