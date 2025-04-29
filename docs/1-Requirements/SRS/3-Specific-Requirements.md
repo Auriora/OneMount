@@ -14,6 +14,9 @@ This section details the specific functional and non-functional requirements of 
 | <a id="frFs004">**FR-FS-004**</a> | The system shall download files on-demand when accessed rather than syncing all files. | Must-have | Core feature that differentiates onedriver from traditional sync clients. |
 | <a id="frFs005">**FR-FS-005**</a> | The system shall cache file metadata to improve performance. | Must-have | Necessary for acceptable performance with remote storage. |
 | <a id="frFs006">**FR-FS-006**</a> | The system shall handle file conflicts between local and remote changes. | Should-have | Prevents data loss when conflicts occur. |
+| <a id="frFs007">**FR-FS-007**</a> | The system shall cache thumbnails for quick file previews. | Should-have | Improves user experience by providing fast access to file previews without downloading the entire file. |
+| <a id="frFs008">**FR-FS-008**</a> | The system shall use Microsoft Graph API's direct thumbnail endpoint to retrieve thumbnails without downloading the original file. | Should-have | Optimizes performance and reduces bandwidth usage by retrieving thumbnails directly from the API. |
+| <a id="frFs009">**FR-FS-009**</a> | The system shall use subscription-based change notifications to receive real-time updates from OneDrive. | Should-have | Improves performance and reduces API calls by receiving push notifications instead of polling for changes. |
 
 ### 3.1.2 Authentication
 
@@ -70,8 +73,6 @@ This section details the specific functional and non-functional requirements of 
 | <a id="frDev001">**FR-DEV-001**</a> | The system shall provide a method logging framework for debugging. | Should-have | Improves debugging capabilities for developers. |
 | <a id="frDev002">**FR-DEV-002**</a> | The system shall log method entry and exit with parameters and return values. | Should-have | Enables detailed analysis of method execution. |
 | <a id="frDev003">**FR-DEV-003**</a> | The system shall include execution duration in method logs. | Should-have | Helps identify performance bottlenecks. |
-| <a id="frDev004">**FR-DEV-004**</a> | The system shall provide a workflow analyzer tool for developers. | Could-have | Helps developers understand the internal workings of onedriver. |
-| <a id="frDev005">**FR-DEV-005**</a> | The system shall provide a code complexity analyzer tool. | Could-have | Helps identify complex code that may be difficult to maintain. |
 
 ## 3.2 Non-Functional Requirements
 
@@ -108,6 +109,7 @@ This section details the specific functional and non-functional requirements of 
 | <a id="nfrRel002">**NFR-REL-002**</a> | The system shall recover gracefully from crashes. | Should-have | Prevents data loss and improves user experience. |
 | <a id="nfrRel003">**NFR-REL-003**</a> | The system shall maintain data integrity during synchronization. | Must-have | Prevents corruption or loss of user data. |
 | <a id="nfrRel004">**NFR-REL-004**</a> | The system shall handle API rate limiting gracefully. | Should-have | Prevents service disruption due to API limitations. |
+| <a id="nfrRel005">**NFR-REL-005**</a> | The system shall use QuickXORHash for file integrity verification. | Must-have | Ensures file integrity by using Microsoft's recommended hashing algorithm for OneDrive. |
 
 ### 3.2.5 Maintainability
 

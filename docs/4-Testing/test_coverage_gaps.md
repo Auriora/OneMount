@@ -40,8 +40,6 @@ This document identifies gaps between the requirements, architecture, design, an
 | FR-DEV-001 | The system shall provide a method logging framework for debugging. | No test cases for method logging framework | Create test cases to verify method logging functionality |
 | FR-DEV-002 | The system shall log method entry and exit with parameters and return values. | No test cases for method entry/exit logging | Create test cases to verify method entry/exit logging works correctly |
 | FR-DEV-003 | The system shall include execution duration in method logs. | No test cases for execution duration logging | Create test cases to verify execution duration is correctly logged |
-| FR-DEV-004 | The system shall provide a workflow analyzer tool for developers. | No test cases for workflow analyzer tool | Create test cases for the workflow analyzer tool |
-| FR-DEV-005 | The system shall provide a code complexity analyzer tool. | No test cases for code complexity analyzer | Create test cases for the code complexity analyzer tool |
 
 ## Non-Functional Requirements Gaps
 

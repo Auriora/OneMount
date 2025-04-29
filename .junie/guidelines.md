@@ -127,6 +127,11 @@ Here's a summary of key best practices:
    - Follow the specification in `docs/Guides/README.dbus.md`
    - Ensure backward compatibility with extended attributes
 
+8. **Microsoft Graph API Integration**
+   - Use direct API endpoints when available for better performance
+   - For thumbnail retrieval, use the direct content endpoint (`/thumbnails/0/{size}/content`) instead of making separate metadata and content requests
+   - Cache API responses appropriately to reduce network traffic
+
 ## Common Tasks
 
 - **Adding a new feature**: Create tests first, implement the feature, then verify tests pass

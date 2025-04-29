@@ -26,7 +26,7 @@ Onedriver provides the following major functions:
 12. **D-Bus Interface**: Offers real-time file status updates through D-Bus
 13. **Nemo Integration**: Integrates with the Nemo file manager for improved user experience
 14. **Method Logging**: Provides comprehensive logging for debugging and analysis
-15. **Developer Tools**: Includes workflow analyzer and code complexity analyzer
+15. **Developer Tools**: Includes method logging framework for debugging
 
 ## 2.3 Constraints
 The following constraints apply to the onedriver system:

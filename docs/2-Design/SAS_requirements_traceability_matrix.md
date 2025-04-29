@@ -14,6 +14,8 @@ This document provides a mapping between the numbered requirements in the Softwa
 | FR-FS-004 | The system shall download files on-demand when accessed rather than syncing all files. | SAS 1.3 (System Overview), SAS 3.2.1 (Logical Components - Filesystem Implementation), SAS 3.4.3 (Sequence Diagrams - File Access Workflow), SAS 4.2.2 (Scalability), SAS 5.1 (Key Architectural Decisions - On-demand file download) |
 | FR-FS-005 | The system shall cache file metadata to improve performance. | SAS 3.2.1 (Logical Components - Cache Management), SAS 3.2.3 (Key Abstractions - Cache), SAS 4.2.3 (Caching Strategy), SAS 5.1 (Key Architectural Decisions - Local caching) |
 | FR-FS-006 | The system shall handle file conflicts between local and remote changes. | SAS 4.3 (Other Crosscutting Concerns - Reliability - Conflict resolution for concurrent changes), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
+| FR-FS-007 | The system shall cache thumbnails for quick file previews. | SAS 3.5.1 (Deployment Diagram - thumbnails/), SAS 4.2.3 (Caching Strategy - Thumbnail cache for quick previews) |
+| FR-FS-008 | The system shall use Microsoft Graph API's direct thumbnail endpoint to retrieve thumbnails without downloading the original file. | SAS 3.1.2 (External Entities - Microsoft OneDrive / Graph API), SAS 3.1.3 (System Interfaces - Microsoft Graph API Interface), SAS 4.2.1 (Performance Requirements), SAS 4.2.3 (Caching Strategy - Thumbnail cache for quick previews) |
 
 ### Authentication
 
@@ -30,7 +32,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 |----------------|-------------------------|--------------------------------|
 | FR-OFF-001 | The system shall provide access to previously accessed files when offline. | SAS 3.2.1 (Logical Components - Cache Management), SAS 3.2.3 (Key Abstractions - Cache), SAS 4.3 (Other Crosscutting Concerns - Availability), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
 | FR-OFF-002 | The system shall cache file content for offline access. | SAS 3.2.1 (Logical Components - Cache Management), SAS 3.2.3 (Key Abstractions - Cache), SAS 4.2.3 (Caching Strategy), SAS 5.1 (Key Architectural Decisions - Local caching) |
-| FR-OFF-003 | The system shall automatically detect network connectivity changes. | SAS 4.3 (Other Crosscutting Concerns - Availability - Automatic reconnection), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
+| FR-OFF-003 | The system shall automatically detect network connectivity changes. | SAS 4.3 (Other Crosscutting Concerns - Availability - Network connectivity detection), SAS 4.3 (Other Crosscutting Concerns - Availability - Automatic reconnection), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
 | FR-OFF-004 | The system shall synchronize changes made offline when connectivity is restored. | SAS 4.3 (Other Crosscutting Concerns - Availability - Automatic reconnection), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
 
 ### User Interface
@@ -70,8 +72,6 @@ This document provides a mapping between the numbered requirements in the Softwa
 | FR-DEV-001 | The system shall provide a method logging framework for debugging. | SAS 3.3.3 (Development Environment - Error Handling - Use structured logging with zerolog), SAS 4.2.4 (Performance Monitoring - Structured logging of operation times) |
 | FR-DEV-002 | The system shall log method entry and exit with parameters and return values. | SAS 3.3.3 (Development Environment - Error Handling - Use structured logging with zerolog), SAS 4.2.4 (Performance Monitoring - Structured logging of operation times) |
 | FR-DEV-003 | The system shall include execution duration in method logs. | SAS 3.3.3 (Development Environment - Error Handling - Use structured logging with zerolog), SAS 4.2.4 (Performance Monitoring - Structured logging of operation times) |
-| FR-DEV-004 | The system shall provide a workflow analyzer tool for developers. | SAS 3.3.3 (Development Environment - Tools) |
-| FR-DEV-005 | The system shall provide a code complexity analyzer tool. | SAS 3.3.3 (Development Environment - Tools) |
 
 ## Non-Functional Requirements
 
@@ -105,9 +105,10 @@ This document provides a mapping between the numbered requirements in the Softwa
 | Requirement ID | Requirement Description | Architecture Specification Reference |
 |----------------|-------------------------|--------------------------------|
 | NFR-REL-001 | The system shall handle network errors and retry operations. | SAS 3.2.3 (Key Abstractions - UploadManager/DownloadManager - Implement retry logic and error handling), SAS 4.3 (Other Crosscutting Concerns - Reliability - Retry logic for network operations) |
-| NFR-REL-002 | The system shall recover gracefully from crashes. | SAS 4.3 (Other Crosscutting Concerns - Availability - Crash recovery mechanisms) |
+| NFR-REL-002 | The system shall recover gracefully from crashes. | SAS 4.3 (Other Crosscutting Concerns - Availability - Crash recovery architecture) |
 | NFR-REL-003 | The system shall maintain data integrity during synchronization. | SAS 4.3 (Other Crosscutting Concerns - Reliability - Conflict resolution for concurrent changes) |
 | NFR-REL-004 | The system shall handle API rate limiting gracefully. | SAS 4.3 (Other Crosscutting Concerns - Reliability - Graceful handling of API rate limits) |
+| NFR-REL-005 | The system shall use QuickXORHash for file integrity verification. | SAS 3.3.1 (Module Organization - fs/graph/quickxorhash), SAS 3.2.3 (Key Abstractions - UploadManager/DownloadManager), SAS 4.3 (Other Crosscutting Concerns - Reliability - Data integrity verification) |
 
 ### Maintainability
 
@@ -123,7 +124,7 @@ This document provides a mapping between the numbered requirements in the Softwa
 | Use Case ID | Use Case Name | Related Requirements | Architecture Specification Reference |
 |-------------|---------------|----------------------|--------------------------------|
 | UC-FS-001 | Mount OneDrive Filesystem | FR-FS-001, FR-AUTH-001, FR-AUTH-002, FR-UI-001, FR-UI-002, NFR-SEC-001, NFR-USE-003 | SAS 3.1.1 (System Context Diagram), SAS 3.1.2 (External Entities), SAS 3.1.3 (System Interfaces), SAS 3.2.1 (Logical Components) |
-| UC-FS-002 | Access and Modify Files | FR-FS-002, FR-FS-004, FR-FS-005, NFR-PERF-001, NFR-PERF-003, NFR-PERF-004, NFR-REL-001, NFR-REL-003 | SAS 3.2.1 (Logical Components), SAS 3.2.3 (Key Abstractions), SAS 3.4.3 (Sequence Diagrams - File Access Workflow), SAS 4.2.3 (Caching Strategy) |
+| UC-FS-002 | Access and Modify Files | FR-FS-002, FR-FS-004, FR-FS-005, FR-FS-007, FR-FS-008, NFR-PERF-001, NFR-PERF-003, NFR-PERF-004, NFR-REL-001, NFR-REL-003 | SAS 3.2.1 (Logical Components), SAS 3.2.3 (Key Abstractions), SAS 3.4.3 (Sequence Diagrams - File Access Workflow), SAS 4.2.3 (Caching Strategy) |
 | UC-OFF-001 | Work with Files Offline | FR-OFF-001, FR-OFF-002, FR-OFF-003, FR-OFF-004, NFR-REL-001, NFR-REL-003 | SAS 3.2.1 (Logical Components - Cache Management), SAS 4.3 (Other Crosscutting Concerns - Availability), SAS 5.3 (Quality Attribute Scenarios - Availability Scenario) |
 | UC-FS-003 | Handle File Conflicts | FR-FS-006, FR-OFF-004, NFR-REL-003, NFR-USE-001 | SAS 4.3 (Other Crosscutting Concerns - Reliability - Conflict resolution for concurrent changes) |
 | UC-STAT-001 | Analyze OneDrive Content with Statistics | FR-STAT-001, FR-STAT-002, FR-STAT-003, FR-STAT-004, FR-STAT-005, NFR-PERF-001, NFR-USE-003 | SAS 3.2.1 (Logical Components - Command Line Interface) |

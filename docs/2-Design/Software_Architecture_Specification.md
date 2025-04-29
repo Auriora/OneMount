@@ -343,9 +343,10 @@ onedriver runs as a single process with multiple goroutines for concurrent opera
 
 1. **Main Process**: Handles filesystem mounting and signal handling
 2. **Delta Synchronization**: Background goroutine that periodically fetches changes from OneDrive
-3. **Upload Workers**: Multiple goroutines that handle file uploads to OneDrive
-4. **Download Workers**: Multiple goroutines that handle file downloads from OneDrive
-5. **Cache Cleanup**: Background goroutine that periodically cleans up the cache
+3. **Subscription-based Change Notification**: Background goroutine that listens for real-time change notifications from OneDrive using WebSockets
+4. **Upload Workers**: Multiple goroutines that handle file uploads to OneDrive
+5. **Download Workers**: Multiple goroutines that handle file downloads from OneDrive
+6. **Cache Cleanup**: Background goroutine that periodically cleans up the cache
 
 #### 3.4.2 Process Communication
 
@@ -355,6 +356,11 @@ Components communicate through various mechanisms:
 2. **Channels**: Go channels for asynchronous communication between goroutines
 3. **Callbacks**: Function callbacks for event notification
 4. **D-Bus**: For communication with the desktop environment
+   - Provides file status updates and notifications to desktop applications
+   - Implemented with a fallback mechanism to extended attributes
+   - **D-Bus Unavailability Detection**: The system attempts to start the D-Bus server during filesystem initialization. If the connection to the D-Bus session bus fails or if the server cannot be started (e.g., in environments without D-Bus support), the system logs an error but continues operation.
+   - **Extended Attributes Fallback**: File status information is always stored as extended attributes (`user.onedriver.status` and `user.onedriver.error`) on files and directories, regardless of D-Bus availability. When updating file status, the system first sets these extended attributes and then attempts to send D-Bus signals only if the D-Bus server is available.
+   - **Transparent Transition**: The transition between D-Bus and extended attributes is transparent to users and applications. File managers and other applications that support either mechanism will automatically use whichever is available.
 5. **HTTP**: For communication with the Microsoft Graph API
 
 #### 3.4.3 Sequence Diagrams
@@ -402,7 +408,7 @@ node "User's Linux System" {
   [onedriver] as onedriver
   [GTK Libraries] as GTK
   [Desktop Environment] as Desktop
-  
+
   folder "User's Home Directory" {
     folder ".config/onedriver/" {
       [config.yml]
@@ -533,7 +539,23 @@ onedriver scales to handle large OneDrive accounts through:
 - On-demand file downloading
 - Efficient caching of metadata
 - Delta synchronization for efficient updates
+- Subscription-based change notifications for real-time updates
 - Concurrent file transfers
+
+#### 4.2.2.1 Subscription-based Change Notification
+
+The subscription-based change notification mechanism provides real-time updates about changes in the OneDrive account:
+
+- Uses WebSockets to establish a persistent connection with Microsoft's notification service
+- Receives push notifications when files or folders are created, modified, or deleted in OneDrive
+- Reduces the need for frequent polling, improving performance and reducing API calls
+- Implemented in `fs/subscription.go` with the following components:
+  - `subscription` struct: Manages the WebSocket connection and notification handling
+  - `subscribeChanges` method: Establishes the subscription with Microsoft Graph API
+  - `notificationHandler`: Processes incoming notifications and triggers appropriate actions
+  - Integration with the delta synchronization system to update the local filesystem state
+
+This mechanism complements the delta synchronization by providing immediate notifications of changes, while delta sync ensures completeness and handles cases where notifications might be missed.
 
 #### 4.2.3 Caching Strategy
 
@@ -558,12 +580,41 @@ Performance is monitored through:
 1. **Availability**
    - Offline mode for continued operation without internet
    - Automatic reconnection when connectivity is restored
-   - Crash recovery mechanisms
+   - Network connectivity detection
+     - Detection mechanism: The system uses a passive approach to detect network connectivity changes by monitoring the success or failure of API calls to Microsoft Graph.
+     - Components responsible:
+       - Delta synchronization loop: A background goroutine that periodically fetches changes from OneDrive using the delta API.
+       - IsOffline function: Determines if an error from a network request indicates network connectivity issues by examining error patterns.
+     - Detection process:
+       - When a delta fetch fails with an error that indicates network connectivity issues, the system marks the filesystem as offline.
+       - When a delta fetch succeeds after previously being offline, the system marks the filesystem as online again.
+       - The offline state affects file operations, causing the system to use cached content and queue changes for later synchronization.
+       - When transitioning from offline to online mode, the system processes all changes made while offline.
+   - Crash recovery architecture
+     - State preservation: The system uses a bbolt embedded database to persistently store filesystem metadata, upload sessions, and delta synchronization state. This ensures that critical state is preserved across crashes.
+     - Crash detection: The system detects crashes by checking for stale database lock files during startup. If a lock file exists but is older than 5 minutes, it's considered stale and removed to allow recovery.
+     - Recovery process: During initialization, the system:
+       - Opens the database with retries and exponential backoff to handle potential corruption
+       - Restores filesystem metadata from the persistent store
+       - Recovers and restarts incomplete upload sessions
+       - Processes any changes made while offline
+       - Resumes delta synchronization from the last known state
 
 2. **Reliability**
    - Retry logic for network operations
    - Graceful handling of API rate limits
+     - Detection mechanisms: The system identifies rate limiting through HTTP 429 responses and Retry-After headers from the Microsoft Graph API
+     - Backoff strategies: Implements exponential backoff with jitter for retries, starting with a base delay and increasing up to a maximum delay
+     - Request prioritization: Critical operations (e.g., saving files) are prioritized over background operations during rate limiting
+     - Rate tracking: Maintains a sliding window counter of requests to proactively avoid hitting limits
+     - User notification: Displays system notifications when rate limits are encountered, with different severity levels based on impact
    - Conflict resolution for concurrent changes
+     - **Conflict Detection Mechanism**: The system detects conflicts when a file has both remote changes (newer modification time and different ETag) and local changes. Local changes are detected by checking for offline changes in the database and pending uploads.
+     - **Resolution Strategy**: When a conflict is detected, the system creates a conflict copy of the remote file with a timestamp in the name (e.g., "filename (Conflict Copy 2023-05-15 14:30:25)"). The local version is kept as is, preserving the user's changes, while the remote version is added as a separate file with the conflict copy name.
+     - **User Notification Approach**: Files with conflicts are marked with a special status flag. This status is exposed to users through:
+       1. Extended attributes on the files (`user.onedriver.status` and `user.onedriver.error`) that can be displayed by file managers
+       2. D-Bus signals that notify desktop applications about the conflict
+       3. Visual indicators in the UI showing the conflict status
 
 3. **Maintainability**
    - Modular design for easier maintenance

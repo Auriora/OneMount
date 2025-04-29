@@ -65,41 +65,43 @@ func GetThumbnailContent(itemID string, size string, auth *Auth) ([]byte, error)
 
 // GetThumbnailContentWithContext retrieves the content of a thumbnail with context
 func GetThumbnailContentWithContext(ctx context.Context, itemID string, size string, auth *Auth) ([]byte, error) {
-	// First get the thumbnail set
-	thumbnailSet, err := GetThumbnailsWithContext(ctx, itemID, auth)
+	// Use the direct thumbnail endpoint to get the thumbnail content in a single API call
+	endpoint := fmt.Sprintf("/me/drive/items/%s/thumbnails/0/%s/content", itemID, size)
+
+	// Make the request
+	req, err := http.NewRequestWithContext(ctx, "GET", GraphURL+endpoint, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if thumbnailSet == nil {
-		return nil, fmt.Errorf("no thumbnails available for item %s", itemID)
-	}
+	// Add authorization header
+	req.Header.Add("Authorization", "Bearer "+auth.AccessToken)
 
-	// Get the URL for the requested size
-	var url string
-	switch size {
-	case "small":
-		if thumbnailSet.Small != nil {
-			url = thumbnailSet.Small.URL
+	// Send the request
+	client := getHTTPClient()
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download thumbnail: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Just log the error since we can't return it from a defer
+			fmt.Printf("Error closing response body: %v\n", err)
 		}
-	case "medium":
-		if thumbnailSet.Medium != nil {
-			url = thumbnailSet.Medium.URL
-		}
-	case "large":
-		if thumbnailSet.Large != nil {
-			url = thumbnailSet.Large.URL
-		}
-	default:
-		return nil, fmt.Errorf("invalid thumbnail size: %s", size)
+	}()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download thumbnail: %s", resp.Status)
 	}
 
-	if url == "" {
-		return nil, fmt.Errorf("no thumbnail available for size: %s", size)
+	// Read the response body
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read thumbnail content: %w", err)
 	}
 
-	// Download the thumbnail content
-	return downloadThumbnail(ctx, url, auth)
+	return data, nil
 }
 
 // downloadThumbnail downloads a thumbnail from the given URL
@@ -147,41 +149,11 @@ func GetThumbnailContentStream(itemID string, size string, auth *Auth, output io
 
 // GetThumbnailContentStreamWithContext retrieves the content of a thumbnail as a stream with context
 func GetThumbnailContentStreamWithContext(ctx context.Context, itemID string, size string, auth *Auth, output io.Writer) error {
-	// First get the thumbnail set
-	thumbnailSet, err := GetThumbnailsWithContext(ctx, itemID, auth)
-	if err != nil {
-		return err
-	}
-
-	if thumbnailSet == nil {
-		return fmt.Errorf("no thumbnails available for item %s", itemID)
-	}
-
-	// Get the URL for the requested size
-	var url string
-	switch size {
-	case "small":
-		if thumbnailSet.Small != nil {
-			url = thumbnailSet.Small.URL
-		}
-	case "medium":
-		if thumbnailSet.Medium != nil {
-			url = thumbnailSet.Medium.URL
-		}
-	case "large":
-		if thumbnailSet.Large != nil {
-			url = thumbnailSet.Large.URL
-		}
-	default:
-		return fmt.Errorf("invalid thumbnail size: %s", size)
-	}
-
-	if url == "" {
-		return fmt.Errorf("no thumbnail available for size: %s", size)
-	}
+	// Use the direct thumbnail endpoint to get the thumbnail content in a single API call
+	endpoint := fmt.Sprintf("/me/drive/items/%s/thumbnails/0/%s/content", itemID, size)
 
 	// Create a new request
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", GraphURL+endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
