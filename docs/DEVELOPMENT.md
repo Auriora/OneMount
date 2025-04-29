@@ -9,15 +9,21 @@ onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-d
 ## Project Structure
 
 - **cmd/** - Command-line applications
-  - **common/** - Shared code between applications
-  - **onedriver/** - Main filesystem application
+  - **common/** - Shared code between applications (config handling, etc.)
+  - **onedriver/** - Main filesystem application that implements the FUSE interface
   - **onedriver-launcher/** - GUI launcher application
 - **fs/** - Filesystem implementation
-  - **graph/** - Microsoft Graph API integration
-  - **offline/** - Offline mode functionality
+  - **graph/** - Microsoft Graph API integration for OneDrive communication
+    - Handles authentication (OAuth2)
+    - Implements DriveItem representation
+    - Manages file hashing (QuickXORHash)
+  - **offline/** - Handles offline functionality
 - **ui/** - GUI implementation
-  - **systemd/** - Systemd integration for the UI
+  - **systemd/** - Integration with systemd for service management
+  - Widgets and UI components
 - **pkg/** - Resources and packaging files
+  - **debian/** - Debian packaging files
+  - **resources/** - Application resources (icons, man pages, etc.)
 
 ## Tech Stack
 
@@ -81,14 +87,41 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 - **cgo-helper.sh** - Helps with CGO compilation
 - **curl-graph.sh** - Utility for interacting with Microsoft Graph API
 
+## Key Technical Features
+
+1. **FUSE Filesystem Implementation**
+   - Implements the low-level FUSE API
+   - Handles file operations (read, write, create, delete, etc.)
+
+2. **Caching System**
+   - Local content cache for files
+   - Metadata caching using BoltDB
+   - Delta synchronization to efficiently track changes
+
+3. **Authentication**
+   - OAuth2 authentication with Microsoft
+   - Support for both GUI and headless authentication
+
+4. **Upload Management**
+   - Handles file uploads to OneDrive
+   - Supports large file uploads via upload sessions
+
+## Project Dependencies
+
+The project uses several key libraries:
+- `github.com/hanwen/go-fuse/v2` - FUSE bindings for Go
+- `github.com/gotk3/gotk3` - GTK3 bindings for Go
+- `go.etcd.io/bbolt` - Key/value store for caching
+- `github.com/coreos/go-systemd` - systemd integration
+
 ## Best Practices
 
-The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/Best Practice` directory:
+The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides` directory:
 
-- [Coding Standards](Best%20Practice/coding_standards.md) - Main entry point for all coding standards
-- [Go Coding Standards](Best%20Practice/go_coding_standards.md) - Comprehensive guide for Go code
-- [Go Logging Best Practices](Best%20Practice/go_logging_best_practices.md) - Guidelines for structured logging
-- [Test Best Practices](Best%20Practice/test_best_practices.md) - Best practices for writing tests
+- [Coding Standards](guides/coding_standards.md) - Main entry point for all coding standards
+- [Go Coding Standards](guides/go_coding_standards.md) - Comprehensive guide for Go code
+- [Go Logging Best Practices](guides/go_logging_best_practices.md) - Guidelines for structured logging
+- [Test Best Practices](guides/test_best_practices.md) - Best practices for writing tests
 
 Here's a summary of key best practices:
 
@@ -128,3 +161,7 @@ Here's a summary of key best practices:
 - Use `journalctl --user -u onedriver@.service --since today` to view logs
 - Set the environment variable `ONEDRIVER_DEBUG=1` for verbose logging
 - Use `fusermount3 -uz $MOUNTPOINT` to unmount the filesystem if it hangs
+
+## Architecture Summary
+
+This architecture allows onedriver to provide a seamless experience where OneDrive files appear as local files but are only downloaded when accessed, saving bandwidth and storage space while maintaining full compatibility with the OneDrive service.
