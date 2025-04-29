@@ -12,12 +12,23 @@ onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-d
   - **common/** - Shared code between applications
   - **onedriver/** - Main filesystem application
   - **onedriver-launcher/** - GUI launcher application
-- **fs/** - Filesystem implementation
-  - **graph/** - Microsoft Graph API integration
-  - **offline/** - Offline mode functionality
-- **ui/** - GUI implementation
-  - **systemd/** - Systemd integration for the UI
+- **internal/** - Internal implementation code
+  - **fs/** - Filesystem implementation
+    - **graph/** - Microsoft Graph API integration
+    - **offline/** - Offline mode functionality
+  - **ui/** - GUI implementation
+    - **systemd/** - Systemd integration for the UI
+  - **nemo/** - Nemo file manager integration
+  - **testutil/** - Testing utilities
 - **pkg/** - Resources and packaging files
+- **docs/** - Documentation
+  - **guides/** - Development guides
+  - **design/** - Design documentation
+  - **implementation/** - Implementation details
+  - **requirements/** - Project requirements
+  - **templates/** - Documentation templates
+  - **testing/** - Testing documentation
+- **.run/** - GoLand run configurations
 
 ## Tech Stack
 
@@ -83,12 +94,15 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 
 ## Best Practices
 
-The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/Guides/` directory:
+The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides/` directory:
 
-- [Coding Standards](docs/Guides/coding_standards.md) - Main entry point for all coding standards
-- [Go Coding Standards](docs/Guides/go_coding_standards.md) - Comprehensive guide for Go code
-- [Go Logging Best Practices](docs/Guides/go_logging_best_practices.md) - Guidelines for structured logging
-- [Test Best Practices](docs/Guides/test_best_practices.md) - Best practices for writing tests
+- [Coding Standards](../docs/guides/coding-standards.md) - Main entry point for all coding standards
+- [Design Guidelines](../docs/guides/design-guidelines.md) - Guidelines for designing components
+- [Logging Guidelines](../docs/guides/logging-guidelines.md) - Guidelines for structured logging
+- [Logging Examples](../docs/guides/logging-examples.md) - Examples of proper logging
+- [Test Guidelines](../docs/guides/test-guidelines.md) - Best practices for writing tests
+- [Threading Guidelines](../docs/guides/threading-guidelines.md) - Guidelines for concurrent programming
+- [D-Bus Integration](../docs/guides/dbus-integration.md) - Guidelines for D-Bus integration
 
 Here's a summary of key best practices:
 
@@ -104,7 +118,7 @@ Here's a summary of key best practices:
 
 3. **Testing**
    - Write both unit and integration tests
-   - Use testify for assertions
+   - Use 'testify' for assertions
    - Test edge cases, especially around network connectivity
 
 4. **Performance**
@@ -115,16 +129,16 @@ Here's a summary of key best practices:
 5. **Documentation**
    - Document public APIs with godoc-compatible comments
    - Add comments explaining complex logic
-   - Keep the README up-to-date
+   - Keep the README up to date
 
 6. **Method Logging**
    - Use the method logging framework for all public methods
-   - Follow the patterns in `docs/Guides/README.logging.md`
+   - Follow the patterns in `docs/guides/logging-guidelines.md`
    - Log method entry and exit, including parameters and return values
 
 7. **D-Bus Integration**
    - Use the D-Bus interface for file status updates
-   - Follow the specification in `docs/Guides/README.dbus.md`
+   - Follow the specification in `docs/guides/dbus-integration.md`
    - Ensure backward compatibility with extended attributes
 
 8. **Microsoft Graph API Integration**

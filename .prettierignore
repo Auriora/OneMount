@@ -1,2 +1,2 @@
-pkg/debian/changelog
-pkg/resources/config-example.yml
+scripts/debian/changelog
+configs/resources/config-example.yml
