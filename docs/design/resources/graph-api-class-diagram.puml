@@ -24,6 +24,20 @@ class Auth {
   -handleRefreshResponse(resp: *http.Response, err: error): (bool, error)
   -updateTokenExpiration(oldTime: int64): void
   -handleFailedRefresh(ctx: context.Context, resp: *http.Response, body: []byte, reauth: bool): error
+  +Request(resource, auth, method, content, headers): ([]byte, error)
+  +RequestWithContext(ctx, resource, auth, method, content, headers): ([]byte, error)
+  +Get(resource, auth, headers): ([]byte, error)
+  +GetWithContext(ctx, resource, auth, headers): ([]byte, error)
+  +Post(resource, auth, content, headers): ([]byte, error)
+  +Put(resource, auth, content, headers): ([]byte, error)
+  +Patch(resource, auth, content, headers): ([]byte, error)
+  +Delete(resource, auth, headers): error
+  {static} +getAuthURL(a: AuthConfig): string
+  {static} +getAuthCodeHeadless(a: AuthConfig, accountName: string): (string, error)
+  {static} +parseAuthCode(url: string): (string, error)
+  {static} +getAuthTokens(ctx: context.Context, a: AuthConfig, authCode: string): (*Auth, error)
+  {static} +newAuth(ctx: context.Context, config: AuthConfig, path: string, headless: bool): (*Auth, error)
+  {static} +Authenticate(ctx: context.Context, config: AuthConfig, path: string, headless: bool): (*Auth, error)
 }
 
 class AuthError {
@@ -73,10 +87,26 @@ class DriveItem {
   +ETag: string
   +IsDir(): bool
   +ModTimeUnix(): uint64
+  {static} +GetItem(id, auth): (*DriveItem, error)
+  {static} +GetItemChild(id, name, auth): (*DriveItem, error)
+  {static} +GetItemPath(path, auth): (*DriveItem, error)
+  {static} +GetItemContent(id, auth): ([]byte, uint64, error)
+  {static} +GetItemContentStream(id, auth, output): (uint64, error)
+  {static} +Remove(id, auth): error
+  {static} +Mkdir(name, parentID, auth): (*DriveItem, error)
+  {static} +Rename(itemID, itemName, parentID, auth): error
+  {static} +GetItemChildren(id, auth): ([]*DriveItem, error)
+  {static} +GetItemChildrenPath(path, auth): ([]*DriveItem, error)
+  {static} +IDPath(id: string): string
+  {static} +ResourcePath(path: string): string
+  {static} +childrenPath(path: string): string
+  {static} +childrenPathID(id: string): string
 }
 
 class User {
   +UserPrincipalName: string
+  {static} +GetUser(auth: *Auth): (User, error)
+  {static} +GetUserWithContext(ctx: context.Context, auth: *Auth): (User, error)
 }
 
 class DriveQuota {
@@ -92,6 +122,10 @@ class Drive {
   +ID: string
   +DriveType: string
   +Quota: DriveQuota
+  {static} +GetDrive(auth: *Auth): (Drive, error)
+  {static} +SetOperationalOffline(offline: bool): void
+  {static} +GetOperationalOffline(): bool
+  {static} +IsOffline(err: error): bool
 }
 
 class Header {
@@ -103,7 +137,7 @@ class ResponseCache {
   -cache: map[string]cacheEntry
   -ttl: time.Duration
   -mutex: sync.RWMutex
-  +NewResponseCache(ttl: time.Duration): *ResponseCache
+  {static} +NewResponseCache(ttl: time.Duration): *ResponseCache
   +Get(key: string): ([]byte, bool)
   +Set(key: string, data: []byte): void
   +Invalidate(key: string): void
@@ -111,75 +145,19 @@ class ResponseCache {
 }
 
 class graphError {
-  +Error: struct {
-    +Code: string
-    +Message: string
-  }
+  +Code: string
+  +Message: string
 }
 
-' Functions
-note as DriveItemFunctions
-  Functions:
-  - GetItem(id, auth): (*DriveItem, error)
-  - GetItemChild(id, name, auth): (*DriveItem, error)
-  - GetItemPath(path, auth): (*DriveItem, error)
-  - GetItemContent(id, auth): ([]byte, uint64, error)
-  - GetItemContentStream(id, auth, output): (uint64, error)
-  - Remove(id, auth): error
-  - Mkdir(name, parentID, auth): (*DriveItem, error)
-  - Rename(itemID, itemName, parentID, auth): error
-  - GetItemChildren(id, auth): ([]*DriveItem, error)
-  - GetItemChildrenPath(path, auth): ([]*DriveItem, error)
-end note
-
-note "HTTP Functions:\n\
-- Request(resource, auth, method, content, headers): ([]byte, error)\n\
-- RequestWithContext(ctx, resource, auth, method, content, headers): ([]byte, error)\n\
-- Get(resource, auth, headers): ([]byte, error)\n\
-- GetWithContext(ctx, resource, auth, headers): ([]byte, error)\n\
-- Post(resource, auth, content, headers): ([]byte, error)\n\
-- Put(resource, auth, content, headers): ([]byte, error)\n\
-- Patch(resource, auth, content, headers): ([]byte, error)\n\
-- Delete(resource, auth, headers): error" as HTTPFunctions
-
-note "Auth Functions:\n\
-- getAuthURL(a: AuthConfig): string\n\
-- getAuthCodeHeadless(a: AuthConfig, accountName: string): (string, error)\n\
-- parseAuthCode(url: string): (string, error)\n\
-- getAuthTokens(ctx: context.Context, a: AuthConfig, authCode: string): (*Auth, error)\n\
-- newAuth(ctx: context.Context, config: AuthConfig, path: string, headless: bool): (*Auth, error)\n\
-- Authenticate(ctx: context.Context, config: AuthConfig, path: string, headless: bool): (*Auth, error)" as AuthFunctions
-
-note "Path Functions:\n\
-- IDPath(id: string): string\n\
-- ResourcePath(path: string): string\n\
-- childrenPath(path: string): string\n\
-- childrenPathID(id: string): string" as PathFunctions
-
-note "Other Functions:\n\
-- GetUser(auth: *Auth): (User, error)\n\
-- GetUserWithContext(ctx: context.Context, auth: *Auth): (User, error)\n\
-- GetDrive(auth: *Auth): (Drive, error)\n\
-- SetOperationalOffline(offline: bool): void\n\
-- GetOperationalOffline(): bool\n\
-- IsOffline(err: error): bool" as OtherFunctions
-
 ' Relationships
-DriveItem "1" *-- "0..1" DriveItemParent : has parent
-DriveItem "1" *-- "0..1" Folder : is a
-DriveItem "1" *-- "0..1" File : is a
-DriveItem "1" *-- "0..1" Deleted : can be
-File "1" *-- "1" Hashes : has
+DriveItem "1" --* "0..1" DriveItemParent : has parent
+DriveItem "1" --* "0..1" Folder : is a
+DriveItem "1" --* "0..1" File : is a
+DriveItem "1" --* "0..1" Deleted : can be
+File "1" --* "1" Hashes : has
 
-Auth "1" *-- "1" AuthConfig : has configuration
+Auth "1" --* "1" AuthConfig : has configuration
 
-Drive "1" *-- "1" DriveQuota : has quota
-
-DriveItem .. DriveItemFunctions
-Auth .. AuthFunctions
-Auth .. HTTPFunctions
-DriveItem .. PathFunctions
-User .. OtherFunctions
-Drive .. OtherFunctions
+Drive "1" --* "1" DriveQuota : has quota
 
 @enduml
