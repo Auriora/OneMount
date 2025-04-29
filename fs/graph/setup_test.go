@@ -43,7 +43,11 @@ func TestMain(m *testing.M) {
 	}
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: f, TimeFormat: "15:04:05"})
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close log file")
+		}
+	}()
 
 	// auth and log account metadata so we're extra sure who we're testing against
 	var auth *Auth
