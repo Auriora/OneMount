@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	testutil "github.com/bcherrington/onedriver/testutil/common"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

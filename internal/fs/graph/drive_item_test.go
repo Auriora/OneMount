@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/bcherrington/onedriver/internal/testutil"
-	"github.com/bcherrington/onedriver/internal/testutil/graph"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
