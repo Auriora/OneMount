@@ -63,7 +63,7 @@ func captureFileSystemState() (map[string]os.FileInfo, error) {
 // It sets up the test environment, runs the tests, and cleans up afterward.
 //
 // The setup process:
-// 1. Sets the ONEDRIVER_TEST environment variable to indicate we're in a test environment
+// 1. Sets the D-Bus service name prefix for tests
 // 2. Changes the working directory to the project root
 // 3. Checks if the mount point is already in use and unmounts it if necessary
 // 4. Creates the mount directory if it doesn't exist
@@ -88,11 +88,8 @@ func captureFileSystemState() (map[string]os.FileInfo, error) {
 // avoid having to repeatedly recreate auth_tokens.json and juggle multiple auth
 // sessions.
 func TestMain(m *testing.M) {
-	// Set environment variable to indicate we're in a test environment
-	if err := os.Setenv("ONEDRIVER_TEST", "1"); err != nil {
-		fmt.Println("Failed to set ONEDRIVER_TEST environment variable:", err)
-		os.Exit(1)
-	}
+	// Set the D-Bus service name prefix for tests
+	SetDBusServiceNamePrefix("test")
 	// We used to skip paging test setup for single tests, but that caused issues
 	// when running TestListChildrenPaging individually
 

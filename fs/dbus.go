@@ -23,20 +23,25 @@ const (
 // DBusServiceName returns the D-Bus service name, which may be unique in test environments
 var DBusServiceName string
 
-func init() {
-	// Initialize the DBusServiceName variable
+// SetDBusServiceNamePrefix sets the DBusServiceName with the given prefix
+// This allows tests to set a custom prefix without relying on environment variables
+func SetDBusServiceNamePrefix(prefix string) {
 	// Always generate a unique name to avoid conflicts in tests and parallel mounts
 	// Generate a unique suffix based on process ID and a random number
 	uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
 
-	if os.Getenv("ONEDRIVER_TEST") == "1" {
-		// In test mode, add a test prefix
-		DBusServiceName = fmt.Sprintf("%s.test_%s", DBusServiceNameBase, uniqueSuffix)
-	} else {
-		// In production, still use a unique name but with a different prefix
-		DBusServiceName = fmt.Sprintf("%s.instance_%s", DBusServiceNameBase, uniqueSuffix)
+	// Use the provided prefix or default to "instance"
+	if prefix == "" {
+		prefix = "instance"
 	}
+
+	DBusServiceName = fmt.Sprintf("%s.%s_%s", DBusServiceNameBase, prefix, uniqueSuffix)
 	log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name")
+}
+
+func init() {
+	// Initialize the DBusServiceName variable with the default prefix
+	SetDBusServiceNamePrefix("instance")
 }
 
 // FileStatusDBusServer implements a D-Bus server for file status updates
@@ -218,12 +223,10 @@ func (s *FileStatusDBusServer) Stop() {
 
 	if s.conn != nil {
 		// Release the D-Bus name before closing the connection
-		// This helps prevent name conflicts in subsequent test runs
-		if os.Getenv("ONEDRIVER_TEST") == "1" {
-			log.Debug().Str("dbusName", DBusServiceName).Msg("Releasing D-Bus name for test")
-			if _, err := s.conn.ReleaseName(DBusServiceName); err != nil {
-				log.Warn().Err(err).Msg("Failed to release D-Bus name")
-			}
+		// This helps prevent name conflicts in subsequent runs
+		log.Debug().Str("dbusName", DBusServiceName).Msg("Releasing D-Bus name")
+		if _, err := s.conn.ReleaseName(DBusServiceName); err != nil {
+			log.Warn().Err(err).Msg("Failed to release D-Bus name")
 		}
 
 		// Unexport the objects to clean up resources
