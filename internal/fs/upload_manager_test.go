@@ -30,7 +30,7 @@ func TestUploadDiskSerialization(t *testing.T) {
 	})
 
 	// Copy the file synchronously to avoid race conditions
-	cmd := exec.Command("cp", "tmp/dmel.fa", filePath)
+	cmd := exec.Command("cp", testutil.DmelfaDir, filePath)
 	require.NoError(t, cmd.Run(), "Failed to copy test file")
 
 	// Wait for the file to be recognized by the filesystem

@@ -16,6 +16,9 @@ const TestDBLoc = TestSandboxDir
 // DeltaDir is the directory used for delta tests.
 const DeltaDir = TestDir + "/delta"
 
+// dmel.fa is the directory used for delta tests.
+const DmelfaDir = TestSandboxDir + "/dmel.fa"
+
 // AuthTokensPath is the path to the authentication tokens file.
 const AuthTokensPath = TestSandboxDir + "/.auth_tokens.json"
 

@@ -1,4 +1,4 @@
-package testutil
+package fs
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )
@@ -184,7 +185,7 @@ func CleanupFilesystemState(initialState map[string]os.FileInfo) {
 	log.Info().Msg("Running filesystem state cleanup...")
 
 	// Capture the final state of the filesystem
-	finalState, finalStateErr := CaptureFileSystemState(TestMountPoint)
+	finalState, finalStateErr := CaptureFileSystemState(testutil.TestMountPoint)
 	if finalStateErr != nil {
 		log.Error().Err(finalStateErr).Msg("Failed to capture final filesystem state")
 		return

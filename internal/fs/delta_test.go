@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	testutil "github.com/bcherrington/onedriver/testutil/common"
+	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil/common"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,7 +75,7 @@ func TestDeltaOperations(t *testing.T) {
 
 				// Wait for the directory to be recognized by the server
 				var item *graph.DriveItem
-				testutil.WaitForCondition(t, func() bool {
+				common.WaitForCondition(t, func() bool {
 					item, err = graph.GetItemPath("/onedriver_tests/delta/delete_me", auth)
 					return err == nil && item != nil
 				}, 10*time.Second, time.Second, "Directory was not recognized by server")
@@ -98,7 +99,7 @@ func TestDeltaOperations(t *testing.T) {
 
 				// Wait for the file to be recognized by the server
 				var item *graph.DriveItem
-				testutil.WaitForCondition(t, func() bool {
+				common.WaitForCondition(t, func() bool {
 					item, err = graph.GetItemPath("/onedriver_tests/delta/delta_rename_start", auth)
 					return err == nil && item != nil
 				}, 10*time.Second, time.Second, "File was not recognized by server")
@@ -124,7 +125,7 @@ func TestDeltaOperations(t *testing.T) {
 
 				// Wait for the file to be recognized by the server
 				var item *graph.DriveItem
-				testutil.WaitForCondition(t, func() bool {
+				common.WaitForCondition(t, func() bool {
 					item, err = graph.GetItemPath("/onedriver_tests/delta/delta_move_start", auth)
 					return err == nil && item != nil
 				}, 10*time.Second, time.Second, "File was not recognized by server")
@@ -161,7 +162,7 @@ func TestDeltaOperations(t *testing.T) {
 			// Verify the result
 			if tc.verifyExists {
 				// Wait for the item to exist and verify its content if needed
-				testutil.WaitForCondition(t, func() bool {
+				common.WaitForCondition(t, func() bool {
 					_, err := os.Stat(expectedPath)
 					if err != nil {
 						return false
@@ -188,7 +189,7 @@ func TestDeltaOperations(t *testing.T) {
 				}, retrySeconds, time.Second, "Expected item was not found or had incorrect content")
 			} else {
 				// Wait for the item to not exist
-				testutil.WaitForCondition(t, func() bool {
+				common.WaitForCondition(t, func() bool {
 					_, err := os.Stat(expectedPath)
 					return os.IsNotExist(err)
 				}, retrySeconds, time.Second, "Item still exists but should have been deleted")
@@ -382,7 +383,10 @@ func TestDeltaFolderDeletionNonEmpty(t *testing.T) {
 	require.Error(t, deltaErr, "A delta deletion of a non-empty folder was not an error")
 
 	cache.DeletePath("/folder/file")
-	cache.applyDelta(delta)
+	err = cache.applyDelta(delta)
+	if err != nil {
+		t.Fatalf("Failed to apply delta after emptying folder: %v", err)
+	}
 	assert.Nil(t, cache.GetID(delta.ID),
 		"Still found folder after emptying it first (the correct way).")
 }

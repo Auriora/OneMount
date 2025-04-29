@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bytes"
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"io"
 	"os"
 	"testing"
@@ -11,42 +12,42 @@ import (
 )
 
 func BenchmarkSHA1(b *testing.B) {
-	data, _ := os.ReadFile("tmp/dmel.fa")
+	data, _ := os.ReadFile(testutil.DmelfaDir)
 	for i := 0; i < b.N; i++ {
 		SHA1Hash(&data)
 	}
 }
 
 func BenchmarkSHA256(b *testing.B) {
-	data, _ := os.ReadFile("tmp/dmel.fa")
+	data, _ := os.ReadFile(testutil.DmelfaDir)
 	for i := 0; i < b.N; i++ {
 		SHA256Hash(&data)
 	}
 }
 
 func BenchmarkQuickXORHash(b *testing.B) {
-	data, _ := os.ReadFile("tmp/dmel.fa")
+	data, _ := os.ReadFile(testutil.DmelfaDir)
 	for i := 0; i < b.N; i++ {
 		QuickXORHash(&data)
 	}
 }
 
 func BenchmarkSHA1Stream(b *testing.B) {
-	data, _ := os.Open("tmp/dmel.fa")
+	data, _ := os.Open(testutil.DmelfaDir)
 	for i := 0; i < b.N; i++ {
 		SHA1HashStream(data)
 	}
 }
 
 func BenchmarkSHA256Stream(b *testing.B) {
-	data, _ := os.Open("tmp/dmel.fa")
+	data, _ := os.Open(testutil.DmelfaDir)
 	for i := 0; i < b.N; i++ {
 		SHA256HashStream(data)
 	}
 }
 
 func BenchmarkQuickXORHashStream(b *testing.B) {
-	data, _ := os.Open("tmp/dmel.fa")
+	data, _ := os.Open(testutil.DmelfaDir)
 	for i := 0; i < b.N; i++ {
 		QuickXORHashStream(data)
 	}

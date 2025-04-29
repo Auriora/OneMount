@@ -16,6 +16,7 @@ import (
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
 	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onedriver/internal/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -317,7 +318,7 @@ func TestFilePermissions(t *testing.T) {
 			require.NoError(t, exec.Command("touch", fname).Run(), "Failed to create test file")
 
 			// Wait for the file to be created
-			testutil.WaitForCondition(t, func() bool {
+			common.WaitForCondition(t, func() bool {
 				_, err := os.Stat(fname)
 				return err == nil
 			}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
@@ -524,7 +525,7 @@ func TestDirectoryRemoval(t *testing.T) {
 			require.NoError(t, err, "Failed to setup directory for test")
 
 			// Wait for the directory to be created
-			testutil.WaitForCondition(t, func() bool {
+			common.WaitForCondition(t, func() bool {
 				_, err := os.Stat(dirPath)
 				return err == nil
 			}, 5*time.Second, 100*time.Millisecond, "Directory was not created within timeout")
@@ -537,7 +538,7 @@ func TestDirectoryRemoval(t *testing.T) {
 				require.NoError(t, err, "Expected directory removal to succeed, but got error: %v", err)
 
 				// Verify the directory was actually removed
-				testutil.WaitForCondition(t, func() bool {
+				common.WaitForCondition(t, func() bool {
 					_, err := os.Stat(dirPath)
 					return os.IsNotExist(err)
 				}, 5*time.Second, 100*time.Millisecond, "Directory was not removed within timeout")
@@ -1377,7 +1378,7 @@ func TestFilenameCase(t *testing.T) {
 				"Failed to create test file %s", filePath)
 
 			// Wait for the filesystem to process the file creation
-			testutil.WaitForCondition(t, func() bool {
+			common.WaitForCondition(t, func() bool {
 				_, err := os.Stat(filePath)
 				return err == nil
 			}, 5*time.Second, 100*time.Millisecond, "File was not created within timeout")
@@ -2160,7 +2161,7 @@ func TestDisallowedFilenames(t *testing.T) {
 		require.NoError(t, err, "Failed to create valid directory: %v", err)
 
 		// Wait for the filesystem to process the directory creation
-		testutil.WaitForCondition(t, func() bool {
+		common.WaitForCondition(t, func() bool {
 			_, err := os.Stat(validDir)
 			return err == nil
 		}, 5*time.Second, 100*time.Millisecond, "Directory was not created within timeout")
