@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="fs/offline Tests" type="GoTestRunConfiguration" factoryName="Go Test">
+    <log_file alias="Fuse Race logging" path="$PROJECT_DIR$/fusefs_tests.race.*" show_all="true" />
+    <log_file alias="Fuse Test Log" path="$PROJECT_DIR$/fusefs_tests.log" />
+    <module name="onedriver" />
+    <working_directory value="$PROJECT_DIR$" />
+    <parameters value="-race -v -parallel=1 -count=1" />
+    <kind value="DIRECTORY" />
+    <package value="github.com/jstaf/onedriver/fs" />
+    <directory value="$PROJECT_DIR$/fs/offline" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="all" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
+      <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_External Tools_Remove fusefs test logs" />
+    </method>
+  </configuration>
+</component>
