@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, srpm, rpm, dsc, changes, deb, clean, install, uninstall
+.PHONY: all, test, test-init, test-python, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
 
 # autocalculate software/package versions
 VERSION := $(shell grep Version onedriver.spec | sed 's/Version: *//g')
@@ -20,8 +20,8 @@ GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
 all: onedriver onedriver-launcher
 
 
-onedriver: $(shell find fs/ -type f) cmd/onedriver/main.go
-	bash cgo-helper.sh
+onedriver: $(shell find internal/fs/ -type f) cmd/onedriver/main.go
+	bash scripts/cgo-helper.sh
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onedriver \
@@ -29,16 +29,16 @@ onedriver: $(shell find fs/ -type f) cmd/onedriver/main.go
 		./cmd/onedriver
 
 
-onedriver-headless: $(shell find fs/ cmd/common/ -type f) cmd/onedriver/main.go
+onedriver-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onedriver/main.go
 	CGO_ENABLED=0 go build -v \
 		-o $(OUTPUT_DIR)/onedriver/onedriver-headless \
 		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver
 
 
-onedriver-launcher: $(shell find ui/ cmd/common/ -type f) cmd/onedriver-launcher/main.go
+onedriver-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onedriver-launcher/main.go
 	$(CGO_CFLAGS) go build -v \
-		-o $(OUTPUT_DIR)/onedriver-lanucher \
+		-o $(OUTPUT_DIR)/onedriver-launcher \
 		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver-launcher
 
@@ -47,12 +47,12 @@ install: onedriver onedriver-launcher
 	cp $(OUTPUT_DIR)/onedriver /usr/bin/
 	cp $(OUTPUT_DIR)/onedriver-launcher /usr/bin/
 	mkdir -p /usr/share/icons/onedriver/
-	cp pkg/resources/onedriver.svg /usr/share/icons/onedriver/
-	cp pkg/resources/onedriver.png /usr/share/icons/onedriver/
-	cp pkg/resources/onedriver-128.png /usr/share/icons/onedriver/
-	cp pkg/resources/onedriver-launcher.desktop /usr/share/applications/
-	cp pkg/resources/onedriver@.service /etc/systemd/user/
-	gzip -c pkg/resources/onedriver.1 > /usr/share/man/man1/onedriver.1.gz
+	cp configs/resources/onedriver.svg /usr/share/icons/onedriver/
+	cp configs/resources/onedriver.png /usr/share/icons/onedriver/
+	cp configs/resources/onedriver-128.png /usr/share/icons/onedriver/
+	cp configs/resources/onedriver-launcher.desktop /usr/share/applications/
+	cp configs/resources/onedriver@.service /etc/systemd/user/
+	gzip -c configs/resources/onedriver.1 > /usr/share/man/man1/onedriver.1.gz
 	mandb
 
 
@@ -140,19 +140,25 @@ test-init: onedriver
 # to help pytest find modules and prevent import errors
 # The test file has been modified to mock D-Bus and GLib to prevent hanging during collection
 test-python:
-	PYTHONPATH=.:nemo-onedriver/src pytest -xvs nemo-onedriver/tests/test_nemo_onedriver.py
+	PYTHONPATH=.:internal/nemo/src pytest -xvs internal/nemo/tests/test_nemo_onedriver.py
 
 # For offline tests, the test binary is built online, then network access is
 # disabled and tests are run. sudo is required - otherwise we don't have
 # permission to deny network access to onedriver during the test.
 test: onedriver onedriver-launcher tmp/dmel.fa test-python
 	rm -f *.race* fusefs_tests.log
-	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 ./ui/...
-	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./fs/...
+	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 ./internal/ui/...
+	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./internal/fs/...
 
 
 # will literally purge everything: all built artifacts, all logs, all tests,
 # all files tests depend on, all auth tokens... EVERYTHING
+update-imports:
+	@echo "Updating import paths to reflect new directory structure..."
+	@bash scripts/update_imports.sh
+	@echo "Import paths updated successfully."
+
+
 clean:
 	fusermount3 -uz mount/ || true
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit

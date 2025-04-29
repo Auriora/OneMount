@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/cmd/common"
-	"github.com/bcherrington/onedriver/fs"
-	"github.com/bcherrington/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/internal/fs"
+	"github.com/bcherrington/onedriver/internal/fs/graph"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"

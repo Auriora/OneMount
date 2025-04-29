@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bcherrington/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/internal/fs/graph"
 	"github.com/bcherrington/onedriver/ui"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
