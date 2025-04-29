@@ -144,9 +144,9 @@ Get started with onedriver by installing it using your distribution's package ma
 
 3. **Authenticate** with your Microsoft account when prompted.
 
-For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to the [complete installation guide](docs/installation_guide.md).
+For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to the [complete installation guide](docs/installation-guide.md).
 
-For a step-by-step guide to get started quickly, check out our [quickstart guide](docs/quickstart_guide.md).
+For a step-by-step guide to get started quickly, check out our [quickstart guide](docs/quickstart-guide.md).
 
 ## Contributing guidelines
 
@@ -242,8 +242,8 @@ make deb
 
 For more information about onedriver:
 
-* [Quickstart Guide](docs/quickstart_guide.md) - Step-by-step guide to get started quickly
-* [Installation Guide](docs/installation_guide.md) - Detailed installation and configuration instructions
+* [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
+* [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
 * [GitHub Issues](https://github.com/bcherrington/onedriver/issues) - Report bugs or request features
 * [GitHub Releases](https://github.com/bcherrington/onedriver/releases) - Download the latest releases
@@ -264,7 +264,7 @@ For more information about onedriver:
 
 If you encounter issues with onedriver:
 
-1. Check the [Troubleshooting section in the installation guide](docs/installation_guide.md#troubleshooting)
+1. Check the [Troubleshooting section in the installation guide](docs/installation-guide.md#troubleshooting)
 2. Search existing [GitHub Issues](https://github.com/bcherrington/onedriver/issues) to see if your problem has been reported
 3. Open a new issue with:
    - Log output (`journalctl --user -u $SERVICE_NAME --since today`)

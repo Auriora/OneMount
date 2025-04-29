@@ -105,7 +105,7 @@ onedriver --stats /path/to/mount/onedrive/at
 
 Now that you've completed this quickstart, try these to learn more about onedriver:
 
-* Read the [complete installation guide](installation_guide.md) for advanced configuration options
+* Read the [complete installation guide](installation-guide.md) for advanced configuration options
 * Learn about [offline usage](https://github.com/bcherrington/onedriver/wiki/Offline-Usage) for working with files when disconnected
 * Explore [command-line options](https://github.com/bcherrington/onedriver/wiki/Command-Line-Options) for advanced usage
-* Set up [automatic mounting](installation_guide.md#configuration) on system startup
+* Set up [automatic mounting](installation-guide.md#configuration) on system startup

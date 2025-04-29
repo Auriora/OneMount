@@ -6,7 +6,7 @@ This directory contains best practice documents for the onedriver project. These
 
 ### General Standards
 
-- [Coding Standards](coding_standards.md) - Main entry point for all coding standards and best practices
+- [Coding Standards](coding-standards.md) - Main entry point for all coding standards and best practices
 
 ### Language-Specific Standards
 

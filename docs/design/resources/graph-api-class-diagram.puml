@@ -118,17 +118,19 @@ class graphError {
 }
 
 ' Functions
-note "Functions:\n\
-- GetItem(id, auth): (*DriveItem, error)\n\
-- GetItemChild(id, name, auth): (*DriveItem, error)\n\
-- GetItemPath(path, auth): (*DriveItem, error)\n\
-- GetItemContent(id, auth): ([]byte, uint64, error)\n\
-- GetItemContentStream(id, auth, output): (uint64, error)\n\
-- Remove(id, auth): error\n\
-- Mkdir(name, parentID, auth): (*DriveItem, error)\n\
-- Rename(itemID, itemName, parentID, auth): error\n\
-- GetItemChildren(id, auth): ([]*DriveItem, error)\n\
-- GetItemChildrenPath(path, auth): ([]*DriveItem, error)" as DriveItemFunctions
+note as DriveItemFunctions
+  Functions:
+  - GetItem(id, auth): (*DriveItem, error)
+  - GetItemChild(id, name, auth): (*DriveItem, error)
+  - GetItemPath(path, auth): (*DriveItem, error)
+  - GetItemContent(id, auth): ([]byte, uint64, error)
+  - GetItemContentStream(id, auth, output): (uint64, error)
+  - Remove(id, auth): error
+  - Mkdir(name, parentID, auth): (*DriveItem, error)
+  - Rename(itemID, itemName, parentID, auth): error
+  - GetItemChildren(id, auth): ([]*DriveItem, error)
+  - GetItemChildrenPath(path, auth): ([]*DriveItem, error)
+end note
 
 note "HTTP Functions:\n\
 - Request(resource, auth, method, content, headers): ([]byte, error)\n\
