@@ -7,7 +7,7 @@
     <parameters value="-race -v -parallel=1 -count=1" />
     <kind value="DIRECTORY" />
     <package value="github.com/bcherrington/onedriver/internal/fs" />
-    <directory value="$PROJECT_DIR$/fs/offline" />
+    <directory value="$PROJECT_DIR$/internal/fs/offline" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
     <method v="2">

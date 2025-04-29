@@ -15,8 +15,8 @@ import (
 	"unsafe"
 
 	"github.com/bcherrington/onedriver/cmd/common"
-	"github.com/bcherrington/onedriver/ui"
-	"github.com/bcherrington/onedriver/ui/systemd"
+	"github.com/bcherrington/onedriver/internal/ui"
+	"github.com/bcherrington/onedriver/internal/ui/systemd"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"

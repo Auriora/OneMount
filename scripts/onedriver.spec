@@ -27,7 +27,7 @@ your local computer.
 %autosetup
 
 %build
-bash cgo-helper.sh
+bash scripts/cgo-helper.sh
 if rpm -q pango | grep -q 1.42; then
   BUILD_TAGS=-tags=pango_1_42,gtk_3_22
 fi
@@ -37,7 +37,7 @@ go build -v -mod=vendor $BUILD_TAGS \
 go build -v -mod=vendor $BUILD_TAGS \
   -ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(cat .commit)" \
   ./cmd/onedriver-launcher
-gzip pkg/resources/onedriver.1
+gzip configs/resources/onedriver.1
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -48,12 +48,12 @@ mkdir -p %{buildroot}/usr/lib/systemd/user
 mkdir -p %{buildroot}/usr/share/man/man1
 cp %{name} %{buildroot}/%{_bindir}
 cp %{name}-launcher %{buildroot}/%{_bindir}
-cp pkg/resources/%{name}.png %{buildroot}/usr/share/icons/%{name}
-cp pkg/resources/%{name}-128.png %{buildroot}/usr/share/icons/%{name}
-cp pkg/resources/%{name}.svg %{buildroot}/usr/share/icons/%{name}
-cp pkg/resources/%{name}-launcher.desktop %{buildroot}/usr/share/applications
-cp pkg/resources/%{name}@.service %{buildroot}/usr/lib/systemd/user
-cp pkg/resources/%{name}.1.gz %{buildroot}/usr/share/man/man1
+cp configs/resources/%{name}.png %{buildroot}/usr/share/icons/%{name}
+cp configs/resources/%{name}-128.png %{buildroot}/usr/share/icons/%{name}
+cp configs/resources/%{name}.svg %{buildroot}/usr/share/icons/%{name}
+cp configs/resources/%{name}-launcher.desktop %{buildroot}/usr/share/applications
+cp configs/resources/%{name}@.service %{buildroot}/usr/lib/systemd/user
+cp configs/resources/%{name}.1.gz %{buildroot}/usr/share/man/man1
 
 # fix for el8 build in mock
 %define _empty_manifest_terminate_build 0

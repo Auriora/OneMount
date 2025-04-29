@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/ui"
+	"github.com/bcherrington/onedriver/internal/ui"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v3"

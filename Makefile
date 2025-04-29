@@ -1,8 +1,8 @@
 .PHONY: all, test, test-init, test-python, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
 
 # autocalculate software/package versions
-VERSION := $(shell grep Version onedriver.spec | sed 's/Version: *//g')
-RELEASE := $(shell grep -oP "Release: *[0-9]+" onedriver.spec | sed 's/Release: *//g')
+VERSION := $(shell grep Version scripts/onedriver.spec | sed 's/Version: *//g')
+RELEASE := $(shell grep -oP "Release: *[0-9]+" scripts/onedriver.spec | sed 's/Release: *//g')
 DIST := $(shell rpm --eval "%{?dist}" 2> /dev/null || echo 1)
 RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 
