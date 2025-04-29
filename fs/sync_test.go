@@ -19,6 +19,8 @@ import (
 // This test verifies that the filesystem can successfully synchronize the directory tree from the root
 func TestSyncDirectoryTree(t *testing.T) {
 	// Skip if using mock auth since we need real directory structure
+	// TODO: In the future, this should be updated to use the interface-based approach
+	// instead of checking the environment variable directly
 	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
 		t.Skip("Skipping test with mock authentication")
 	}

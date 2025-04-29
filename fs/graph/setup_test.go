@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,10 +53,20 @@ func TestMain(m *testing.M) {
 	var driveErr error
 
 	// Check if we should use mock authentication
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
-		// Use mock authentication
-		mockClient := NewMockGraphClient()
-		auth = &mockClient.Auth
+	isMock := os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
+
+	// Create authenticator based on configuration
+	authenticator := NewAuthenticator(AuthConfig{}, ".auth_tokens.json", false, isMock)
+
+	// Perform authentication
+	var authErr error
+	auth, authErr = authenticator.Authenticate()
+	if authErr != nil {
+		log.Error().Err(authErr).Msg("Authentication failed")
+		os.Exit(1)
+	}
+
+	if isMock {
 		log.Info().Msg("Using mock authentication for tests")
 
 		// Create mock user and drive for consistent logging
@@ -69,13 +78,7 @@ func TestMain(m *testing.M) {
 			DriveType: "mock",
 		}
 	} else {
-		// Use real authentication
-		var err error
-		auth, err = Authenticate(context.Background(), AuthConfig{}, ".auth_tokens.json", false)
-		if err != nil {
-			log.Error().Err(err).Msg("Authentication failed")
-			os.Exit(1)
-		}
+		// Get user and drive information
 		user, userErr = GetUser(auth)
 		if userErr != nil {
 			log.Warn().Err(userErr).Msg("Failed to get user information, continuing anyway")

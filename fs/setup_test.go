@@ -200,20 +200,23 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	var err error
 	// Check if we should use mock authentication
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
-		// Use mock authentication
-		mockClient := graph.NewMockGraphClient()
-		auth = &mockClient.Auth
+	// Make isMock a package-level variable so it can be accessed from other test files
+	isMock = os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
+
+	// Create authenticator based on configuration
+	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, ".auth_tokens.json", false, isMock)
+
+	// Perform authentication
+	var err error
+	auth, err = authenticator.Authenticate()
+	if err != nil {
+		fmt.Println("Authentication failed:", err)
+		os.Exit(1)
+	}
+
+	if isMock {
 		log.Info().Msg("Using mock authentication for tests")
-	} else {
-		// Use real authentication
-		auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
-		if err != nil {
-			fmt.Println("Authentication failed:", err)
-			os.Exit(1)
-		}
 	}
 	var fsErr error
 	fs, fsErr = NewFilesystem(auth, filepath.Join(testDBLoc, "test"), 30)
@@ -228,7 +231,7 @@ func TestMain(m *testing.M) {
 	var mounted bool = false
 
 	// Check if we should skip FUSE mounting
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+	if isMock {
 		// Skip FUSE mounting when using mock authentication
 		log.Info().Msg("Skipping FUSE mounting for tests with mock authentication")
 
@@ -477,7 +480,7 @@ func TestMain(m *testing.M) {
 		log.Info().Msg("Running emergency cleanup handler...")
 
 		// Check if we're using mock authentication
-		if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+		if isMock {
 			// Skip unmounting when using mock authentication
 			log.Info().Msg("Skipping FUSE unmounting for tests with mock authentication")
 			return
@@ -574,7 +577,7 @@ func TestMain(m *testing.M) {
 	unmountSuccess := false
 
 	// Check if we're using mock authentication
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+	if isMock {
 		// Skip unmounting when using mock authentication
 		log.Info().Msg("Skipping FUSE unmounting for tests with mock authentication")
 		unmountSuccess = true

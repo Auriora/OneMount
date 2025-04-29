@@ -113,20 +113,22 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	var err error
 	// Check if we should use mock authentication
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
-		// Use mock authentication
-		mockClient := graph.NewMockGraphClient()
-		auth = &mockClient.Auth
+	isMock := os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
+
+	// Create authenticator based on configuration
+	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, ".auth_tokens.json", false, isMock)
+
+	// Perform authentication
+	var authErr error
+	auth, authErr = authenticator.Authenticate()
+	if authErr != nil {
+		fmt.Println("Authentication failed:", authErr)
+		os.Exit(1)
+	}
+
+	if isMock {
 		log.Info().Msg("Using mock authentication for tests")
-	} else {
-		// Use real authentication
-		auth, err = graph.Authenticate(context.Background(), graph.AuthConfig{}, ".auth_tokens.json", false)
-		if err != nil {
-			fmt.Println("Authentication failed:", err)
-			os.Exit(1)
-		}
 	}
 
 	f, err := os.OpenFile("fusefs_tests.log", os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
@@ -155,7 +157,7 @@ func TestMain(m *testing.M) {
 	var unmountDone chan struct{}
 
 	// Check if we should skip FUSE mounting
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+	if isMock {
 		// Skip FUSE mounting when using mock authentication
 		log.Info().Msg("Skipping FUSE mounting for tests with mock authentication")
 
@@ -455,7 +457,7 @@ func TestMain(m *testing.M) {
 	unmountSuccess := false
 
 	// Check if we're using mock authentication
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+	if isMock {
 		// Skip unmounting when using mock authentication
 		log.Info().Msg("Skipping FUSE unmounting for tests with mock authentication")
 		unmountSuccess = true
