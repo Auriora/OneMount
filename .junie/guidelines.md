@@ -83,6 +83,15 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 
 ## Best Practices
 
+The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/Guides/` directory:
+
+- [Coding Standards](docs/Guides/coding_standards.md) - Main entry point for all coding standards
+- [Go Coding Standards](docs/Guides/go_coding_standards.md) - Comprehensive guide for Go code
+- [Go Logging Best Practices](docs/Guides/go_logging_best_practices.md) - Guidelines for structured logging
+- [Test Best Practices](docs/Guides/test_best_practices.md) - Best practices for writing tests
+
+Here's a summary of key best practices:
+
 1. **Code Organization**
    - Group related functionality into separate files
    - Use interfaces to decouple components
@@ -110,12 +119,12 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 
 6. **Method Logging**
    - Use the method logging framework for all public methods
-   - Follow the patterns in `docs/implementation/README.logging.md`
+   - Follow the patterns in `docs/Guides/README.logging.md`
    - Log method entry and exit, including parameters and return values
 
 7. **D-Bus Integration**
    - Use the D-Bus interface for file status updates
-   - Follow the specification in `docs/design/README.dbus.md`
+   - Follow the specification in `docs/Guides/README.dbus.md`
    - Ensure backward compatibility with extended attributes
 
 ## Common Tasks
