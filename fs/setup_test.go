@@ -34,8 +34,9 @@ var (
 )
 
 var (
-	auth *graph.Auth
-	fs   *Filesystem
+	auth   *graph.Auth
+	fs     *Filesystem
+	isMock bool // Flag to indicate if mock authentication is being used
 )
 
 // captureFileSystemState captures the current state of the filesystem
@@ -89,7 +90,10 @@ func captureFileSystemState() (map[string]os.FileInfo, error) {
 // sessions.
 func TestMain(m *testing.M) {
 	// Set the D-Bus service name prefix for tests
-	SetDBusServiceNamePrefix("test")
+	// Generate a unique D-Bus service name for tests
+	uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
+	DBusServiceName = fmt.Sprintf("org.onedriver.FileStatus.%s_%s", "test", uniqueSuffix)
+	log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name for tests")
 	// We used to skip paging test setup for single tests, but that caused issues
 	// when running TestListChildrenPaging individually
 
