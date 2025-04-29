@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jstaf/onedriver/fs/graph"
-	testutil "github.com/jstaf/onedriver/testutil/common"
+	"github.com/bcherrington/onedriver/fs/graph"
+	testutil "github.com/bcherrington/onedriver/testutil/common"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
 )

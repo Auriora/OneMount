@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcherrington/onedriver/fs"
+	"github.com/bcherrington/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/jstaf/onedriver/fs"
-	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

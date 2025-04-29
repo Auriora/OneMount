@@ -31,15 +31,12 @@ This section guides you through installing onedriver on your Linux system.
 
 #### For Fedora/CentOS/RHEL:
 ```bash
-sudo dnf copr enable jstaf/onedriver
+sudo dnf copr enable bcherrington/onedriver
 sudo dnf install onedriver
 ```
 
 #### For Ubuntu/Debian:
-Visit the [OpenSUSE Build Service](https://software.opensuse.org/download.html?project=home%3Ajstaf&package=onedriver) and follow the instructions for your distribution.
-
-#### For Arch/Manjaro:
-Install from the [AUR](https://aur.archlinux.org/packages/onedriver/).
+TODO complete these instructions
 
 ## Part 2: Setting up your first OneDrive mount
 
@@ -109,6 +106,6 @@ onedriver --stats /path/to/mount/onedrive/at
 Now that you've completed this quickstart, try these to learn more about onedriver:
 
 * Read the [complete installation guide](installation_guide.md) for advanced configuration options
-* Learn about [offline usage](https://github.com/jstaf/onedriver/wiki/Offline-Usage) for working with files when disconnected
-* Explore [command-line options](https://github.com/jstaf/onedriver/wiki/Command-Line-Options) for advanced usage
+* Learn about [offline usage](https://github.com/bcherrington/onedriver/wiki/Offline-Usage) for working with files when disconnected
+* Explore [command-line options](https://github.com/bcherrington/onedriver/wiki/Command-Line-Options) for advanced usage
 * Set up [automatic mounting](installation_guide.md#configuration) on system startup

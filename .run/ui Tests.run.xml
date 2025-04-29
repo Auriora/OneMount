@@ -7,7 +7,7 @@
       <env name="CGO_ENABLED" value="0" />
     </envs>
     <kind value="DIRECTORY" />
-    <package value="github.com/jstaf/onedriver/ui" />
+    <package value="github.com/bcherrington/onedriver/ui" />
     <directory value="$PROJECT_DIR$/ui" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />

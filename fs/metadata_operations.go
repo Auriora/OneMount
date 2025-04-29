@@ -4,8 +4,8 @@ import (
 	"math"
 	"path/filepath"
 
+	"github.com/bcherrington/onedriver/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/jstaf/onedriver/fs/graph"
 	"github.com/rs/zerolog/log"
 )
 

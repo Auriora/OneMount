@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
+	"github.com/bcherrington/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -3,7 +3,7 @@ package testutil
 import (
 	"time"
 
-	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/fs/graph"
 )
 
 // StandardTestFile returns a standard test file content with predictable content
@@ -47,7 +47,7 @@ func CreateDriveItemFixture(name string, isFolder bool) *graph.DriveItem {
 func CreateFileItemFixture(name string, size uint64, content []byte) *graph.DriveItem {
 	item := CreateDriveItemFixture(name, false)
 	item.Size = size
-	
+
 	// If content is provided, update the hash values
 	if content != nil && len(content) > 0 {
 		// In a real implementation, we would calculate actual hashes here
@@ -55,7 +55,7 @@ func CreateFileItemFixture(name string, size uint64, content []byte) *graph.Driv
 		item.File.Hashes.SHA1Hash = "sha1-" + name
 		item.File.Hashes.QuickXorHash = "qxh-" + name
 	}
-	
+
 	return item
 }
 
@@ -78,7 +78,7 @@ func CreateDeletedItemFixture(name string, isFolder bool) *graph.DriveItem {
 // CreateChildrenFixture creates a slice of DriveItem fixtures representing children of a folder
 func CreateChildrenFixture(parentID string, count int) []*graph.DriveItem {
 	children := make([]*graph.DriveItem, count)
-	
+
 	for i := 0; i < count; i++ {
 		isFolder := i%2 == 0 // Alternate between files and folders
 		name := ""
@@ -87,31 +87,31 @@ func CreateChildrenFixture(parentID string, count int) []*graph.DriveItem {
 		} else {
 			name = "file-" + string(rune('A'+i)) + ".txt"
 		}
-		
+
 		child := CreateDriveItemFixture(name, isFolder)
 		child.Parent.ID = parentID
-		
+
 		children[i] = child
 	}
-	
+
 	return children
 }
 
 // CreateNestedFolderStructure creates a nested folder structure for testing
 func CreateNestedFolderStructure(depth int) *graph.DriveItem {
 	root := CreateFolderItemFixture("root", uint32(depth))
-	
+
 	if depth <= 0 {
 		return root
 	}
-	
+
 	current := root
 	for i := 0; i < depth; i++ {
 		child := CreateFolderItemFixture("folder-"+string(rune('A'+i)), uint32(depth-i-1))
 		child.Parent.ID = current.ID
 		current = child
 	}
-	
+
 	return root
 }
 

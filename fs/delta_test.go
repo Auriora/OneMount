@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcherrington/onedriver/fs/graph"
+	testutil "github.com/bcherrington/onedriver/testutil/common"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/jstaf/onedriver/fs/graph"
-	testutil "github.com/jstaf/onedriver/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -421,7 +421,7 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 }
 
 // deltas can come back missing from the server
-// https://github.com/jstaf/onedriver/issues/111
+// https://github.com/bcherrington/onedriver/issues/111
 func TestDeltaMissingHash(t *testing.T) {
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_missing_hash"), 30)
 	require.NoError(t, err)

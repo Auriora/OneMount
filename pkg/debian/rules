@@ -16,10 +16,10 @@ override_dh_auto_build:
 	bash cgo-helper.sh
 	# GOCACHE will be for a nonexistent user in pbuilder otherwise
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
-		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell cat .commit)" \
+		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell cat .commit)" \
 		./cmd/onedriver
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
-		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell cat .commit)" \
+		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell cat .commit)" \
 		./cmd/onedriver-launcher
 	gzip pkg/resources/onedriver.1
 

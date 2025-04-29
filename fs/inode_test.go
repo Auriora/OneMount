@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcherrington/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -327,7 +327,7 @@ func TestFilenameEscaping(t *testing.T) {
 // TestFileCreationBehavior verifies various behaviors when creating files, including
 // creating a file that already exists (which should truncate the existing file and
 // return the original inode).
-// Related to: https://github.com/jstaf/onedriver/issues/99
+// Related to: https://github.com/bcherrington/onedriver/issues/99
 func TestFileCreationBehavior(t *testing.T) {
 	t.Parallel()
 

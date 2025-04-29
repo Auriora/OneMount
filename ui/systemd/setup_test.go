@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jstaf/onedriver/testutil"
+	"github.com/bcherrington/onedriver/testutil"
 )
 
 func TestMain(m *testing.M) {

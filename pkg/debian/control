@@ -4,9 +4,9 @@ Priority: optional
 Maintainer: Jeff Stafford <jeff.stafford@protonmail.com>
 Build-Depends: golang (>= 1.15), gcc, pkg-config, libwebkit2gtk-4.0-dev, git, debhelper
 Standards-Version: 4.4.1
-Homepage: https://github.com/jstaf/onedriver
-#Vcs-Browser: https://github.com/jstaf/onedriver
-#Vcs-Git: https://github.com/jstaf/onedriver.git
+Homepage: https://github.com/bcherrington/onedriver
+#Vcs-Browser: https://github.com/bcherrington/onedriver
+#Vcs-Git: https://github.com/bcherrington/onedriver.git
 
 Package: onedriver
 Architecture: any

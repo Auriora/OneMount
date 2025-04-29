@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcherrington/onedriver/testutil"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/godbus/dbus/v5"
-	"github.com/jstaf/onedriver/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +48,7 @@ func TestTemplateUnit(t *testing.T) {
 			result := TemplateUnit(tc.template, tc.input)
 
 			// Verify the result
-			require.Equal(t, tc.expectedOutput, result, 
+			require.Equal(t, tc.expectedOutput, result,
 				"Templating did not work correctly for input: %s", tc.input)
 		})
 	}
@@ -162,8 +162,8 @@ func TestUnitEnabled(t *testing.T) {
 			// Check if the unit is in the expected state
 			enabled, err := UnitIsEnabled(unitName)
 			require.NoError(t, err, "Failed to check if unit is enabled")
-			require.Equal(t, tc.expectedState, enabled, 
-				"Unit enabled state does not match expected state. Expected: %v, Got: %v", 
+			require.Equal(t, tc.expectedState, enabled,
+				"Unit enabled state does not match expected state. Expected: %v, Got: %v",
 				tc.expectedState, enabled)
 		})
 	}
@@ -261,8 +261,8 @@ func TestUnitActive(t *testing.T) {
 			// Check if the unit is in the expected state
 			active, err := UnitIsActive(unitName)
 			require.NoError(t, err, "Failed to check if unit is active")
-			require.Equal(t, tc.expectedState, active, 
-				"Unit active state does not match expected state. Expected: %v, Got: %v", 
+			require.Equal(t, tc.expectedState, active,
+				"Unit active state does not match expected state. Expected: %v, Got: %v",
 				tc.expectedState, active)
 		})
 	}

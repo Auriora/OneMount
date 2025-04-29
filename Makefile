@@ -25,21 +25,21 @@ onedriver: $(shell find fs/ -type f) cmd/onedriver/main.go
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onedriver \
-		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
+		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver
 
 
 onedriver-headless: $(shell find fs/ cmd/common/ -type f) cmd/onedriver/main.go
 	CGO_ENABLED=0 go build -v \
 		-o $(OUTPUT_DIR)/onedriver/onedriver-headless \
-		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
+		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver
 
 
 onedriver-launcher: $(shell find ui/ cmd/common/ -type f) cmd/onedriver-launcher/main.go
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onedriver-lanucher \
-		-ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
+		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onedriver-launcher
 
 

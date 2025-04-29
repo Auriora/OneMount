@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bcherrington/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/ui"
 	"github.com/imdario/mergo"
-	"github.com/jstaf/onedriver/fs/graph"
-	"github.com/jstaf/onedriver/ui"
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v3"
 )

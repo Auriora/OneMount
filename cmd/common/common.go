@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jstaf/onedriver/fs"
-	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/fs"
+	"github.com/bcherrington/onedriver/fs/graph"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

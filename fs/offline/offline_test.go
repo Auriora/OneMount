@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jstaf/onedriver/fs"
+	"github.com/bcherrington/onedriver/fs"
 	"github.com/stretchr/testify/require"
 )
 

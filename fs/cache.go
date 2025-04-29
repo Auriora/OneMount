@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bcherrington/onedriver/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/jstaf/onedriver/fs/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
@@ -456,7 +456,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			if inode := f.GetIDWithContext(change.ID, ctx); inode != nil {
 				_, err := f.uploads.QueueUploadWithPriority(inode, PriorityLow)
 				if err != nil {
-					LogErrorWithContext(err, ctx, "Failed to queue upload for offline change", 
+					LogErrorWithContext(err, ctx, "Failed to queue upload for offline change",
 						FieldID, change.ID)
 				}
 			}
@@ -464,7 +464,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			// Handle deletion
 			if !isLocalID(change.ID) {
 				if err := graph.Remove(change.ID, f.auth); err != nil {
-					LogErrorWithContext(err, ctx, "Failed to remove item during offline change processing", 
+					LogErrorWithContext(err, ctx, "Failed to remove item during offline change processing",
 						FieldID, change.ID)
 				}
 			}
@@ -484,7 +484,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 					if oldParent != nil && newParent != nil {
 						if err := f.MovePath(oldParent.ID(), newParent.ID(), oldName, newName, f.auth); err != nil {
-							LogErrorWithContext(err, ctx, "Failed to move item during offline change processing", 
+							LogErrorWithContext(err, ctx, "Failed to move item during offline change processing",
 								FieldID, change.ID,
 								"oldPath", change.OldPath,
 								"newPath", change.NewPath)
@@ -503,7 +503,7 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
 			return b.Delete(key)
 		}); err != nil {
-			LogErrorWithContext(err, ctx, "Failed to remove processed offline change from database", 
+			LogErrorWithContext(err, ctx, "Failed to remove processed offline change from database",
 				FieldID, change.ID,
 				"timestamp", change.Timestamp)
 		}

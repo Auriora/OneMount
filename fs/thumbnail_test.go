@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/fs/graph"
 	"github.com/stretchr/testify/assert"
 	bolt "go.etcd.io/bbolt"
 )
@@ -79,14 +79,14 @@ func TestThumbnailCacheOperations(t *testing.T) {
 
 				// Check if the thumbnails exist
 				for _, size := range sizes {
-					assert.True(t, cache.HasThumbnail(id, size), 
+					assert.True(t, cache.HasThumbnail(id, size),
 						"Thumbnail of size %s should exist after insertion", size)
 				}
 
 				// Retrieve the thumbnails
 				for _, size := range sizes {
 					retrieved := cache.Get(id, size)
-					assert.Equal(t, contents[size], retrieved, 
+					assert.Equal(t, contents[size], retrieved,
 						"Retrieved thumbnail content for size %s should match inserted content", size)
 				}
 
@@ -96,7 +96,7 @@ func TestThumbnailCacheOperations(t *testing.T) {
 
 				// Check that the thumbnails no longer exist
 				for _, size := range sizes {
-					assert.False(t, cache.HasThumbnail(id, size), 
+					assert.False(t, cache.HasThumbnail(id, size),
 						"Thumbnail of size %s should not exist after deletion", size)
 				}
 			},
@@ -127,7 +127,7 @@ func TestThumbnailCacheOperations(t *testing.T) {
 					assert.NoError(t, err, "Failed to delete thumbnail of size %s", size)
 
 					// Check that this thumbnail no longer exists
-					assert.False(t, cache.HasThumbnail(id, size), 
+					assert.False(t, cache.HasThumbnail(id, size),
 						"Thumbnail of size %s should not exist after deletion", size)
 
 					// Check that other thumbnails still exist (if any)
@@ -145,10 +145,10 @@ func TestThumbnailCacheOperations(t *testing.T) {
 						}
 
 						if alreadyDeleted {
-							assert.False(t, cache.HasThumbnail(id, otherSize), 
+							assert.False(t, cache.HasThumbnail(id, otherSize),
 								"Thumbnail of size %s should not exist after deletion", otherSize)
 						} else {
-							assert.True(t, cache.HasThumbnail(id, otherSize), 
+							assert.True(t, cache.HasThumbnail(id, otherSize),
 								"Thumbnail of size %s should still exist", otherSize)
 						}
 					}
@@ -295,21 +295,21 @@ func TestThumbnailCacheCleanup(t *testing.T) {
 			id, size, _ := tc.setupFunc(t, cache)
 
 			// Verify the thumbnail exists before cleanup
-			assert.True(t, cache.HasThumbnail(id, size), 
+			assert.True(t, cache.HasThumbnail(id, size),
 				"Thumbnail should exist before cleanup")
 
 			// Run cleanup with the specified expiration time
 			count, err := cache.CleanupCache(tc.expirationTime)
 			assert.NoError(t, err, "Cleanup should not return an error")
-			assert.Equal(t, tc.expectedCount, count, 
+			assert.Equal(t, tc.expectedCount, count,
 				"Number of removed thumbnails should match expected count")
 
 			// Verify the thumbnail exists or not based on expected count
 			if tc.expectedCount > 0 {
-				assert.False(t, cache.HasThumbnail(id, size), 
+				assert.False(t, cache.HasThumbnail(id, size),
 					"Thumbnail should not exist after cleanup")
 			} else {
-				assert.True(t, cache.HasThumbnail(id, size), 
+				assert.True(t, cache.HasThumbnail(id, size),
 					"Thumbnail should still exist after cleanup")
 			}
 		})
@@ -344,7 +344,7 @@ func TestThumbnailOperations(t *testing.T) {
 				assert.NotEmpty(t, thumbnail, "Thumbnail should not be empty")
 
 				// Check that the thumbnail was cached
-				assert.True(t, fs.thumbnails.HasThumbnail(imageID, size), 
+				assert.True(t, fs.thumbnails.HasThumbnail(imageID, size),
 					"Thumbnail should be cached after getting it")
 			},
 		},
@@ -359,7 +359,7 @@ func TestThumbnailOperations(t *testing.T) {
 				assert.NotEmpty(t, thumbnail, "Thumbnail should not be empty")
 
 				// Check that the thumbnail was cached
-				assert.True(t, fs.thumbnails.HasThumbnail(imageID, size), 
+				assert.True(t, fs.thumbnails.HasThumbnail(imageID, size),
 					"Thumbnail should be cached after getting it")
 
 				// Delete the thumbnail
@@ -367,7 +367,7 @@ func TestThumbnailOperations(t *testing.T) {
 				assert.NoError(t, err, "Failed to delete thumbnail")
 
 				// Check that the thumbnail no longer exists
-				assert.False(t, fs.thumbnails.HasThumbnail(imageID, size), 
+				assert.False(t, fs.thumbnails.HasThumbnail(imageID, size),
 					"Thumbnail should not exist after deletion")
 			},
 		},
@@ -384,7 +384,7 @@ func TestThumbnailOperations(t *testing.T) {
 					assert.NotEmpty(t, thumbnail, "Thumbnail of size %s should not be empty", s)
 
 					// Check that the thumbnail was cached
-					assert.True(t, fs.thumbnails.HasThumbnail(imageID, s), 
+					assert.True(t, fs.thumbnails.HasThumbnail(imageID, s),
 						"Thumbnail of size %s should be cached after getting it", s)
 				}
 
@@ -394,7 +394,7 @@ func TestThumbnailOperations(t *testing.T) {
 					assert.NoError(t, err, "Failed to delete thumbnail of size %s", s)
 
 					// Check that the thumbnail no longer exists
-					assert.False(t, fs.thumbnails.HasThumbnail(imageID, s), 
+					assert.False(t, fs.thumbnails.HasThumbnail(imageID, s),
 						"Thumbnail of size %s should not exist after deletion", s)
 				}
 			},

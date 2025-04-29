@@ -4,8 +4,8 @@ Release:       1%{?dist}
 Summary:       A native Linux filesystem for Microsoft Onedrive
 
 License:       GPL-3.0-or-later
-URL:           https://github.com/jstaf/onedriver
-Source0:       https://github.com/jstaf/onedriver/archive/refs/tags/v%{version}.tar.gz
+URL:           https://github.com/bcherrington/onedriver
+Source0:       https://github.com/bcherrington/onedriver/archive/refs/tags/v%{version}.tar.gz
 
 %if 0%{?suse_version}
 BuildRequires: go >= 1.17
@@ -32,10 +32,10 @@ if rpm -q pango | grep -q 1.42; then
   BUILD_TAGS=-tags=pango_1_42,gtk_3_22
 fi
 go build -v -mod=vendor $BUILD_TAGS \
-  -ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(cat .commit)" \
+  -ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(cat .commit)" \
   ./cmd/onedriver
 go build -v -mod=vendor $BUILD_TAGS \
-  -ldflags="-X github.com/jstaf/onedriver/cmd/common.commit=$(cat .commit)" \
+  -ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(cat .commit)" \
   ./cmd/onedriver-launcher
 gzip pkg/resources/onedriver.1
 

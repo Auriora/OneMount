@@ -1,6 +1,6 @@
-[![Run tests](https://github.com/jstaf/onedriver/workflows/Run%20tests/badge.svg)](https://github.com/jstaf/onedriver/actions?query=workflow%3A%22Run+tests%22)
-[![Coverage Status](https://coveralls.io/repos/github/jstaf/onedriver/badge.svg?branch=master)](https://coveralls.io/github/jstaf/onedriver?branch=master)
-[![Copr build status](https://copr.fedorainfracloud.org/coprs/jstaf/onedriver/package/onedriver/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/jstaf/onedriver/package/onedriver/)
+[![Run tests](https://github.com/bcherrington/onedriver/workflows/Run%20tests/badge.svg)](https://github.com/bcherrington/onedriver/actions?query=workflow%3A%22Run+tests%22)
+[![Coverage Status](https://coveralls.io/repos/github/bcherrington/onedriver/badge.svg?branch=master)](https://coveralls.io/github/bcherrington/onedriver?branch=master)
+[![Copr build status](https://copr.fedorainfracloud.org/coprs/bcherrington/onedriver/package/onedriver/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/bcherrington/onedriver/package/onedriver/)
 
 # onedriver
 
@@ -125,13 +125,9 @@ Get started with onedriver by installing it using your distribution's package ma
 1. **Install onedriver** using your distribution's package manager:
 
    ```bash
-   # Fedora/CentOS/RHEL
-   sudo dnf copr enable jstaf/onedriver
-   sudo dnf install onedriver
-
    # Ubuntu/Debian
-   # Visit: https://software.opensuse.org/download.html?project=home%3Ajstaf&package=onedriver
-
+   # TODO add instructions
+   
    # Arch/Manjaro
    # Install from AUR: https://aur.archlinux.org/packages/onedriver/
    ```
@@ -249,8 +245,8 @@ For more information about onedriver:
 * [Quickstart Guide](docs/quickstart_guide.md) - Step-by-step guide to get started quickly
 * [Installation Guide](docs/installation_guide.md) - Detailed installation and configuration instructions
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
-* [GitHub Issues](https://github.com/jstaf/onedriver/issues) - Report bugs or request features
-* [GitHub Releases](https://github.com/jstaf/onedriver/releases) - Download the latest releases
+* [GitHub Issues](https://github.com/bcherrington/onedriver/issues) - Report bugs or request features
+* [GitHub Releases](https://github.com/bcherrington/onedriver/releases) - Download the latest releases
 
 ### Known limitations
 
@@ -269,7 +265,7 @@ For more information about onedriver:
 If you encounter issues with onedriver:
 
 1. Check the [Troubleshooting section in the installation guide](docs/installation_guide.md#troubleshooting)
-2. Search existing [GitHub Issues](https://github.com/jstaf/onedriver/issues) to see if your problem has been reported
+2. Search existing [GitHub Issues](https://github.com/bcherrington/onedriver/issues) to see if your problem has been reported
 3. Open a new issue with:
    - Log output (`journalctl --user -u $SERVICE_NAME --since today`)
    - Steps to reproduce the issue
@@ -277,6 +273,6 @@ If you encounter issues with onedriver:
 
 ## Terms of use
 
-onedriver is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/jstaf/onedriver/blob/master/LICENSE).
+onedriver is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/bcherrington/onedriver/blob/master/LICENSE).
 
 This project is provided AS IS with no warranties or guarantees. It is in active development.

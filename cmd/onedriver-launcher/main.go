@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	"github.com/bcherrington/onedriver/cmd/common"
+	"github.com/bcherrington/onedriver/ui"
+	"github.com/bcherrington/onedriver/ui/systemd"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"github.com/jstaf/onedriver/cmd/common"
-	"github.com/jstaf/onedriver/ui"
-	"github.com/jstaf/onedriver/ui/systemd"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
@@ -111,7 +111,7 @@ func main() {
 
 	log.Info().Msgf("onedriver-launcher %s", common.Version())
 
-	app, err := gtk.ApplicationNew("com.github.jstaf.onedriver", glib.APPLICATION_FLAGS_NONE)
+	app, err := gtk.ApplicationNew("com.github.bcherrington.onedriver", glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Could not create application.")
 	}
@@ -200,9 +200,9 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	about.Connect("clicked", func(button *gtk.ModelButton) {
 		aboutDialog, _ := gtk.AboutDialogNew()
 		aboutDialog.SetProgramName("Onedriver Launcher")
-		aboutDialog.SetAuthors([]string{"Jeff Stafford", "https://github.com/jstaf"})
-		aboutDialog.SetWebsite("https://github.com/jstaf/onedriver")
-		aboutDialog.SetWebsiteLabel("github.com/jstaf/onedriver")
+		aboutDialog.SetAuthors([]string{"Bruce Cherrington", "https://github.com/bcherrington"})
+		aboutDialog.SetWebsite("https://github.com/bcherrington/onedriver")
+		aboutDialog.SetWebsiteLabel("github.com/bcherrington/onedriver")
 		aboutDialog.SetVersion(fmt.Sprintf("onedriver %s", common.Version()))
 		aboutDialog.SetLicenseType(gtk.LICENSE_GPL_3_0)
 		logo, err := gtk.ImageNewFromFile("/usr/share/icons/onedriver/onedriver-128.png")

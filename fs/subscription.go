@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jstaf/onedriver/fs/graph"
+	"github.com/bcherrington/onedriver/fs/graph"
 	"github.com/rs/zerolog/log"
 	"github.com/yousong/socketio-go/engineio"
 	"github.com/yousong/socketio-go/socketio"
