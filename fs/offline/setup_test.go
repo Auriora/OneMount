@@ -366,8 +366,39 @@ func TestMain(m *testing.M) {
 	}()
 
 	log.Info().Msg("Start offline tests ------------------------------")
-	code := m.Run()
-	log.Info().Msg("Finish offline tests ------------------------------")
+
+	// Create a channel to receive the test result
+	resultChan := make(chan int)
+
+	// Create a context with timeout for the tests
+	testCtx, testCancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer testCancel()
+
+	// Run the tests in a goroutine
+	go func() {
+		code := m.Run()
+		select {
+		case <-testCtx.Done():
+			// Context was canceled, don't try to send on resultChan
+			return
+		default:
+			resultChan <- code
+		}
+	}()
+
+	// Declare the code variable before the select statement
+	var code int
+
+	// Wait for the tests to complete or timeout
+	// Using 8 minutes to ensure we have time for cleanup before the default Go test timeout of 10 minutes
+	select {
+	case code = <-resultChan:
+		log.Info().Int("code", code).Msg("Finish offline tests ------------------------------")
+	case <-testCtx.Done():
+		log.Error().Msg("Tests timed out after 8 minutes, forcing cleanup and exit")
+		// Return a non-zero exit code to indicate failure
+		code = 1
+	}
 
 	// Reset operational offline state to false before exiting
 	log.Info().Msg("Resetting operational offline state to false")
@@ -396,8 +427,9 @@ func TestMain(m *testing.M) {
 	select {
 	case <-ctx.Done():
 		log.Warn().Msg("Timeout waiting for file handles to close")
-	case <-ticker.C:
-		// Just wait for one tick
+	case <-time.After(500 * time.Millisecond):
+		// Wait for a longer period to ensure file handles are closed
+		log.Info().Msg("Waited for file handles to close")
 	}
 
 	// Stop the UnmountHandler goroutine if it exists
@@ -410,8 +442,9 @@ func TestMain(m *testing.M) {
 	select {
 	case <-ctx.Done():
 		log.Warn().Msg("Timeout waiting for UnmountHandler to exit")
-	case <-time.After(100 * time.Millisecond):
-		// Just wait for a short period
+	case <-time.After(500 * time.Millisecond):
+		// Wait for a longer period to ensure the handler has exited
+		log.Info().Msg("Waited for UnmountHandler to exit")
 	}
 
 	// Stop signal notifications if they exist
@@ -461,7 +494,13 @@ func TestMain(m *testing.M) {
 	if unmountSuccess {
 		fmt.Println("Successfully unmounted fuse server!")
 	} else {
-		fmt.Println("Warning: Failed to unmount fuse server. You may need to manually unmount with 'fusermount3 -uz mount'")
+		fmt.Println("Warning: Failed to unmount fuse server. Continuing with exit anyway to prevent hanging.")
+		// Make one final attempt with the most aggressive unmount option
+		if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err != nil {
+			log.Error().Err(err).Msg("Final attempt at lazy unmount failed")
+		} else {
+			log.Info().Msg("Final lazy unmount succeeded")
+		}
 	}
 
 	os.Exit(code)

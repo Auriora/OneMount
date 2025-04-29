@@ -157,7 +157,15 @@ func (l *LoopbackCache) Open(id string) (*os.File, error) {
 		return fd.(*os.File), nil
 	}
 
-	fd, err := os.OpenFile(l.contentPath(id), os.O_CREATE|os.O_RDWR, 0600)
+	// Ensure the parent directory exists before opening the file
+	filePath := l.contentPath(id)
+	dirPath := filepath.Dir(filePath)
+	if err := os.MkdirAll(dirPath, 0700); err != nil {
+		log.Error().Err(err).Str("directory", dirPath).Msg("Failed to create parent directory for content file")
+		return nil, err
+	}
+
+	fd, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}

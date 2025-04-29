@@ -5,9 +5,13 @@
 package offline
 
 import (
+	"bytes"
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jstaf/onedriver/fs"
 	"github.com/stretchr/testify/require"
@@ -17,14 +21,14 @@ import (
 func TestOfflineFileAccess(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name        string
-		description string
+		name         string
+		description  string
 		skipParallel bool
-		testFunc    func(t *testing.T)
+		testFunc     func(t *testing.T)
 	}{
 		{
-			name:        "ReadDirectory_ShouldSucceed",
-			description: "Reading directory contents should succeed in offline mode",
+			name:         "ReadDirectory_ShouldSucceed",
+			description:  "Reading directory contents should succeed in offline mode",
 			skipParallel: false,
 			testFunc: func(t *testing.T) {
 				// Read the test directory
@@ -37,8 +41,8 @@ func TestOfflineFileAccess(t *testing.T) {
 			},
 		},
 		{
-			name:        "BagelFileDetection_ShouldSucceed",
-			description: "Finding and accessing the bagels file should succeed in offline mode",
+			name:         "BagelFileDetection_ShouldSucceed",
+			description:  "Finding and accessing the bagels file should succeed in offline mode",
 			skipParallel: true, // Not running in parallel to ensure this test runs after the file is fully created
 			testFunc: func(t *testing.T) {
 				// Read the test directory
@@ -80,8 +84,8 @@ func TestOfflineFileAccess(t *testing.T) {
 			},
 		},
 		{
-			name:        "BagelFileContents_ShouldMatchExpected",
-			description: "The contents of the bagels file should match what was written",
+			name:         "BagelFileContents_ShouldMatchExpected",
+			description:  "The contents of the bagels file should match what was written",
 			skipParallel: true, // Not running in parallel to ensure this test runs before TestOfflineFileModification
 			testFunc: func(t *testing.T) {
 				bagelPath := filepath.Join(TestDir, "bagels")
@@ -89,8 +93,8 @@ func TestOfflineFileAccess(t *testing.T) {
 				require.NoError(t, err, "Failed to read bagels file at %s in offline mode", bagelPath)
 
 				expectedContent := []byte("bagels\n")
-				require.Equal(t, expectedContent, contents, 
-					"Offline file contents did not match expected content. Got %q, expected %q", 
+				require.Equal(t, expectedContent, contents,
+					"Offline file contents did not match expected content. Got %q, expected %q",
 					string(contents), string(expectedContent))
 			},
 		},
@@ -172,12 +176,12 @@ func TestOfflineFileSystemOperations(t *testing.T) {
 				modifiedContent, err := os.ReadFile(path)
 				require.NoError(t, err, "Failed to read modified content")
 
-				require.Equal(t, newContent, modifiedContent, 
-					"File contents after modification did not match expected content. Got %q, expected %q", 
+				require.Equal(t, newContent, modifiedContent,
+					"File contents after modification did not match expected content. Got %q, expected %q",
 					string(modifiedContent), string(newContent))
 
-				require.NotEqual(t, initialContent, modifiedContent, 
-					"File contents were not changed after modification. Content is still %q", 
+				require.NotEqual(t, initialContent, modifiedContent,
+					"File contents were not changed after modification. Content is still %q",
 					string(modifiedContent))
 			},
 		},
@@ -208,7 +212,7 @@ func TestOfflineFileSystemOperations(t *testing.T) {
 				// Verify the file was deleted
 				_, err = os.Stat(path)
 				require.Error(t, err, "Test file should not exist after deletion but was found")
-				require.True(t, os.IsNotExist(err), 
+				require.True(t, os.IsNotExist(err),
 					"Error for deleted file should be 'file does not exist', but got: %v", err)
 			},
 		},
@@ -228,7 +232,7 @@ func TestOfflineFileSystemOperations(t *testing.T) {
 				// Verify the directory was created
 				info, err := os.Stat(path)
 				require.NoError(t, err, "Directory should exist after creation but was not found")
-				require.True(t, info.IsDir(), 
+				require.True(t, info.IsDir(),
 					"Path should be a directory but has file mode %s", info.Mode().String())
 			},
 		},
@@ -258,7 +262,7 @@ func TestOfflineFileSystemOperations(t *testing.T) {
 				// Verify the directory was deleted
 				_, err = os.Stat(path)
 				require.Error(t, err, "Test directory should not exist after deletion but was found")
-				require.True(t, os.IsNotExist(err), 
+				require.True(t, os.IsNotExist(err),
 					"Error for deleted directory should be 'file does not exist', but got: %v", err)
 			},
 		},
@@ -348,8 +352,8 @@ func TestOfflineChangesCached(t *testing.T) {
 	// Verify the file exists and has the correct content
 	content, err := os.ReadFile(testFilePath)
 	require.NoError(t, err, "Failed to read content from file %s in offline mode", testFilePath)
-	require.Equal(t, testContent, content, 
-		"File content in %s did not match what was written. Got %q, expected %q", 
+	require.Equal(t, testContent, content,
+		"File content in %s did not match what was written. Got %q, expected %q",
 		testFilePath, string(content), string(testContent))
 
 	// The file should be marked as changed in the filesystem
@@ -360,6 +364,11 @@ func TestOfflineChangesCached(t *testing.T) {
 // Test that when going back online, files are synchronized
 func TestOfflineSynchronization(t *testing.T) {
 	// This test is not run in parallel because it changes the global offline state
+
+	// Set a timeout for this test to ensure it doesn't run too long
+	// This is especially important since this test is the last one and doesn't run in parallel
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create a test file in offline mode
 	syncFilePath := filepath.Join(TestDir, "sync_test.txt")
@@ -372,15 +381,42 @@ func TestOfflineSynchronization(t *testing.T) {
 		}
 	})
 
-	err := os.WriteFile(syncFilePath, syncContent, 0644)
-	require.NoError(t, err, "Failed to create file %s in offline mode", syncFilePath)
+	// Use a channel to signal when the test is done
+	done := make(chan struct{})
+	var testErr error
 
-	// Verify the file exists and has the correct content
-	content, err := os.ReadFile(syncFilePath)
-	require.NoError(t, err, "Failed to read content from file %s in offline mode", syncFilePath)
-	require.Equal(t, syncContent, content, 
-		"File content in %s did not match what was written. Got %q, expected %q", 
-		syncFilePath, string(content), string(syncContent))
+	go func() {
+		defer close(done)
+
+		err := os.WriteFile(syncFilePath, syncContent, 0644)
+		if err != nil {
+			testErr = err
+			return
+		}
+
+		// Verify the file exists and has the correct content
+		content, err := os.ReadFile(syncFilePath)
+		if err != nil {
+			testErr = err
+			return
+		}
+
+		if !bytes.Equal(syncContent, content) {
+			testErr = fmt.Errorf("File content in %s did not match what was written. Got %q, expected %q",
+				syncFilePath, string(content), string(syncContent))
+			return
+		}
+	}()
+
+	// Wait for the test to complete or timeout
+	select {
+	case <-ctx.Done():
+		t.Fatalf("Test timed out after 30 seconds: %v", ctx.Err())
+	case <-done:
+		if testErr != nil {
+			t.Fatalf("Test failed: %v", testErr)
+		}
+	}
 
 	// Note: We can't actually test the synchronization in this test suite because:
 	// 1. We're running with network access disabled via unshare
