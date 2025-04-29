@@ -90,7 +90,7 @@ func (ma *MockAuthenticator) Authenticate() (*Auth, error) {
 }
 
 // AuthenticateWithContext performs mock authentication with context and returns Auth information
-func (ma *MockAuthenticator) AuthenticateWithContext(ctx context.Context) (*Auth, error) {
+func (ma *MockAuthenticator) AuthenticateWithContext(_ctx context.Context) (*Auth, error) {
 	return ma.auth, nil
 }
 
@@ -100,7 +100,7 @@ func (ma *MockAuthenticator) Refresh() error {
 }
 
 // RefreshWithContext refreshes the mock authentication tokens with context (no-op for mock)
-func (ma *MockAuthenticator) RefreshWithContext(ctx context.Context) error {
+func (ma *MockAuthenticator) RefreshWithContext(_ctx context.Context) error {
 	return nil
 }
 
