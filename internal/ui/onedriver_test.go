@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,14 +36,18 @@ func TestMountpointIsValid(t *testing.T) {
 
 	// For the test mount directory, ensure it exists and is empty
 	// This is test-specific setup code that was previously in the production code
-	mountDir := "tmp/mount"
+	mountDir := testutil.TestMountPoint
 	if _, err := os.Stat(mountDir); err == nil {
 		// Directory exists, make sure it's empty
 		dirents, err := os.ReadDir(mountDir)
 		if err != nil {
 			// If we can't read the directory, it might be a stale mount point
 			t.Logf("Mount directory exists but can't be read, attempting to remove: %v", err)
-			os.Remove(mountDir)
+			err := os.Remove(mountDir)
+			if err != nil {
+				t.Logf("Failed to remove stale mount directory: %v", err)
+				return
+			}
 			err = os.Mkdir(mountDir, 0700)
 			require.NoError(t, err, "Failed to recreate mount directory")
 		} else if len(dirents) > 0 {
@@ -92,7 +97,7 @@ func TestMountpointIsValid(t *testing.T) {
 		},
 		{
 			name:       "MountDirectory",
-			mountpoint: "tmp/mount",
+			mountpoint: testutil.TestMountPoint,
 			expected:   true,
 			reason:     "mount directory should be a valid mountpoint",
 		},
@@ -194,7 +199,7 @@ func TestGetAccountName(t *testing.T) {
 	// Get current working directory and create escaped path for test instance
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
-	escaped := unit.UnitNamePathEscape(filepath.Join(wd, "tmp/mount"))
+	escaped := unit.UnitNamePathEscape(filepath.Join(wd, testutil.TestMountPoint))
 
 	// Get user cache directory
 	cacheDir, err := os.UserCacheDir()

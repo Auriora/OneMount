@@ -2,7 +2,6 @@ package systemd
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -114,9 +113,7 @@ func TestUnitEnabled(t *testing.T) {
 	t.Parallel()
 
 	// Get the current directory and create a unit name for testing
-	testDir, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current directory")
-	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testDir+"/mount"))
+	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testutil.TestMountPoint))
 
 	// Define test cases
 	testCases := []struct {
@@ -142,7 +139,7 @@ func TestUnitEnabled(t *testing.T) {
 	}
 
 	// Make sure everything is disabled before we start
-	err = UnitSetEnabled(unitName, false)
+	err := UnitSetEnabled(unitName, false)
 	require.NoError(t, err, "Failed to disable unit before test")
 	enabled, err := UnitIsEnabled(unitName)
 	require.NoError(t, err, "Failed to check if unit is enabled")
@@ -182,9 +179,7 @@ func TestUnitActive(t *testing.T) {
 	t.Parallel()
 
 	// Get the current directory and create a unit name for testing
-	testDir, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current directory")
-	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testDir+"/mount"))
+	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testutil.TestMountPoint))
 
 	// Check if the unit exists before proceeding
 	conn, err := dbus.ConnectSessionBus()

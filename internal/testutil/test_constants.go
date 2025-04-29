@@ -2,7 +2,7 @@
 package testutil
 
 // TestSandboxDir is the directory used for test files.
-const TestSandboxDir = "tmp"
+const TestSandboxDir = "../tmp"
 
 // TestMountPoint is the location where the filesystem is mounted during tests.
 const TestMountPoint = TestSandboxDir + "/mount"
