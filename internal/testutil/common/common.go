@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/rs/zerolog/log"
 )
 
@@ -70,27 +71,6 @@ func RetryWithBackoff(t *testing.T, operation func() error, maxRetries int, init
 	}
 
 	return err
-}
-
-// CaptureFileSystemState captures the current state of the filesystem
-// by listing all files and directories in the mount location
-func CaptureFileSystemState(mountLoc string) (map[string]os.FileInfo, error) {
-	state := make(map[string]os.FileInfo)
-
-	err := filepath.Walk(mountLoc, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the mount point itself
-		if path == mountLoc {
-			return nil
-		}
-		// Store the file info in the state map
-		state[path] = info
-		return nil
-	})
-
-	return state, err
 }
 
 // CheckAndUnmountMountPoint checks if the mount point is already in use by another process
@@ -207,7 +187,7 @@ func CleanupFilesystemState(initialState map[string]os.FileInfo, mountLoc string
 	log.Info().Msg("Running filesystem state cleanup...")
 
 	// Capture the final state of the filesystem
-	finalState, finalStateErr := CaptureFileSystemState(mountLoc)
+	finalState, finalStateErr := testutil.CaptureFileSystemState(mountLoc)
 	if finalStateErr != nil {
 		log.Error().Err(finalStateErr).Msg("Failed to capture final filesystem state")
 		return

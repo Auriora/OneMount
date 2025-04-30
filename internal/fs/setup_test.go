@@ -39,27 +39,6 @@ var (
 	isMock bool // Flag to indicate if mock authentication is being used
 )
 
-// captureFileSystemState captures the current state of the filesystem
-// by listing all files and directories in the mount location
-func captureFileSystemState() (map[string]os.FileInfo, error) {
-	state := make(map[string]os.FileInfo)
-
-	err := filepath.Walk(mountLoc, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the mount point itself
-		if path == mountLoc {
-			return nil
-		}
-		// Store the file info in the state map
-		state[path] = info
-		return nil
-	})
-
-	return state, err
-}
-
 // TestMain is the entry point for all tests in this package.
 // It sets up the test environment, runs the tests, and cleans up afterward.
 //
@@ -425,7 +404,7 @@ func TestMain(m *testing.M) {
 	log.Info().Msg("Filesystem is fully initialized, starting tests...")
 
 	// Capture the initial state of the filesystem before running tests
-	initialState, initialStateErr := captureFileSystemState()
+	initialState, initialStateErr := testutil.CaptureFileSystemState(mountLoc)
 	if initialStateErr != nil {
 		log.Error().Err(initialStateErr).Msg("Failed to capture initial filesystem state")
 	} else {
@@ -438,7 +417,7 @@ func TestMain(m *testing.M) {
 
 		// Capture the final state of the filesystem after tests
 		if initialStateErr == nil {
-			finalState, finalStateErr := captureFileSystemState()
+			finalState, finalStateErr := testutil.CaptureFileSystemState(mountLoc)
 			if finalStateErr != nil {
 				log.Error().Err(finalStateErr).Msg("Failed to capture final filesystem state")
 			} else {

@@ -14,27 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// CaptureFileSystemState captures the current state of the filesystem
-// by listing all files and directories in the mount location
-func CaptureFileSystemState(mountLoc string) (map[string]os.FileInfo, error) {
-	state := make(map[string]os.FileInfo)
-
-	err := filepath.Walk(mountLoc, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the mount point itself
-		if path == mountLoc {
-			return nil
-		}
-		// Store the file info in the state map
-		state[path] = info
-		return nil
-	})
-
-	return state, err
-}
-
 // CheckAndUnmountMountPoint checks if the mount point is already in use by another process
 // and attempts to unmount it if necessary.
 func CheckAndUnmountMountPoint(mountLoc string) bool {
@@ -185,7 +164,7 @@ func CleanupFilesystemState(initialState map[string]os.FileInfo) {
 	log.Info().Msg("Running filesystem state cleanup...")
 
 	// Capture the final state of the filesystem
-	finalState, finalStateErr := CaptureFileSystemState(testutil.TestMountPoint)
+	finalState, finalStateErr := testutil.CaptureFileSystemState(testutil.TestMountPoint)
 	if finalStateErr != nil {
 		log.Error().Err(finalStateErr).Msg("Failed to capture final filesystem state")
 		return

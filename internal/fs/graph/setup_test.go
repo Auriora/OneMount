@@ -10,27 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// captureFileSystemState captures the current state of the filesystem
-// by listing all files and directories in the specified directory
-func captureFileSystemState(dir string) (map[string]os.FileInfo, error) {
-	state := make(map[string]os.FileInfo)
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the directory itself
-		if path == dir {
-			return nil
-		}
-		// Store the file info in the state map
-		state[path] = info
-		return nil
-	})
-
-	return state, err
-}
-
 func TestMain(m *testing.M) {
 	if err := os.Chdir("../.."); err != nil {
 		log.Error().Err(err).Msg("Failed to change directory")
@@ -122,7 +101,7 @@ func TestMain(m *testing.M) {
 	testutil.EnsureDmelfaExists()
 
 	// Capture the initial state of the filesystem before running tests
-	initialState, initialStateErr := captureFileSystemState(testDir)
+	initialState, initialStateErr := testutil.CaptureFileSystemState(testDir)
 	if initialStateErr != nil {
 		log.Error().Err(initialStateErr).Msg("Failed to capture initial filesystem state")
 	} else {
@@ -135,7 +114,7 @@ func TestMain(m *testing.M) {
 
 		// Capture the final state of the filesystem after tests
 		if initialStateErr == nil {
-			finalState, finalStateErr := captureFileSystemState(testDir)
+			finalState, finalStateErr := testutil.CaptureFileSystemState(testDir)
 			if finalStateErr != nil {
 				log.Error().Err(finalStateErr).Msg("Failed to capture final filesystem state")
 			} else {

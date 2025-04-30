@@ -67,7 +67,11 @@ func CreateTempFile(t *testing.T, dir, pattern string, content []byte) string {
 
 	if content != nil {
 		if _, err := file.Write(content); err != nil {
-			file.Close()
+			err := file.Close()
+			if err != nil {
+				t.Logf("Warning: Failed to close temporary file %s: %v", file.Name(), err)
+				return ""
+			}
 			t.Fatalf("Failed to write content to temporary file %s: %v", file.Name(), err)
 		}
 	}
@@ -121,4 +125,25 @@ func AssertFileContains(t *testing.T, path string, expected []byte) {
 		content, _ := os.ReadFile(path)
 		t.Fatalf("Expected file %s to contain %q, but got %q", path, expected, content)
 	}
+}
+
+// CaptureFileSystemState captures the current state of the filesystem
+// by listing all files and directories in the specified directory
+func CaptureFileSystemState(dir string) (map[string]os.FileInfo, error) {
+	state := make(map[string]os.FileInfo)
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip the directory itself
+		if path == dir {
+			return nil
+		}
+		// Store the file info in the state map
+		state[path] = info
+		return nil
+	})
+
+	return state, err
 }

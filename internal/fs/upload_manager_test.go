@@ -42,7 +42,7 @@ func TestUploadDiskSerialization(t *testing.T) {
 	}, 10*time.Second, 500*time.Millisecond, "File was not recognized by filesystem")
 
 	// Wait for the upload session to be created and serialized to disk
-	var session UploadSession
+	var session *UploadSession
 	var found bool
 	testutil.WaitForCondition(t, func() bool {
 		session, found = findUploadSession(fs.db, inode.ID())
@@ -107,8 +107,8 @@ func TestUploadDiskSerialization(t *testing.T) {
 }
 
 // Helper function to find an upload session in the database
-func findUploadSession(db *bolt.DB, inodeID string) (UploadSession, bool) {
-	var session UploadSession
+func findUploadSession(db *bolt.DB, inodeID string) (*UploadSession, bool) {
+	var session *UploadSession
 	var found bool
 
 	_ = db.View(func(tx *bolt.Tx) error {
@@ -122,7 +122,8 @@ func findUploadSession(db *bolt.DB, inodeID string) (UploadSession, bool) {
 			return nil
 		}
 
-		if err := json.Unmarshal(diskSession, &session); err != nil {
+		session = new(UploadSession)
+		if err := json.Unmarshal(diskSession, session); err != nil {
 			return err
 		}
 
@@ -130,6 +131,9 @@ func findUploadSession(db *bolt.DB, inodeID string) (UploadSession, bool) {
 		return nil
 	})
 
+	if !found {
+		return nil, false
+	}
 	return session, found
 }
 

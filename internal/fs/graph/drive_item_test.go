@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"github.com/rs/zerolog/log"
 	"testing"
 
 	"github.com/bcherrington/onedriver/internal/testutil"
@@ -41,7 +42,11 @@ func TestGetItem(t *testing.T) {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			var auth Auth
-			auth.FromFile(testutil.AuthTokensPath)
+			err := auth.FromFile(testutil.AuthTokensPath)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to load auth tokens")
+				return
+			}
 
 			item, err := GetItemPath(tc.path, &auth)
 

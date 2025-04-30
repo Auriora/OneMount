@@ -4,6 +4,7 @@ package testutil
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 )
@@ -32,7 +33,12 @@ func GenerateDmelfa() error {
 	if err != nil {
 		return fmt.Errorf("failed to create dmel.fa file: %w", err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to close dmel.fa file")
+		}
+	}(file)
 
 	// Write the FASTA header
 	header := ">X dna:chromosome chromosome:BDGP6.22:X:1:23542271:1 REF\n"
