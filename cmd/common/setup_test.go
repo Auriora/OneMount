@@ -26,6 +26,12 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Ensure mount directory exists
+	if err := os.MkdirAll(testutil.TestMountPoint, 0755); err != nil {
+		log.Error().Err(err).Msg("Failed to create mount directory")
+		os.Exit(1)
+	}
+
 	f, err := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to open log file")

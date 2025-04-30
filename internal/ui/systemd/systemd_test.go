@@ -138,8 +138,22 @@ func TestUnitEnabled(t *testing.T) {
 		},
 	}
 
+	// Check if the unit exists before proceeding
+	conn, err := dbus.ConnectSessionBus()
+	if err != nil {
+		t.Skip("Could not connect to session bus:", err)
+	}
+	defer conn.Close()
+
+	obj := conn.Object(SystemdBusName, SystemdObjectPath)
+	call := obj.Call("org.freedesktop.systemd1.Manager.GetUnitFileState", 0, unitName)
+	if call.Err != nil {
+		// Unit doesn't exist, skip the test
+		t.Skipf("Unit %s not found, skipping test", unitName)
+	}
+
 	// Make sure everything is disabled before we start
-	err := UnitSetEnabled(unitName, false)
+	err = UnitSetEnabled(unitName, false)
 	require.NoError(t, err, "Failed to disable unit before test")
 	enabled, err := UnitIsEnabled(unitName)
 	require.NoError(t, err, "Failed to check if unit is enabled")
