@@ -38,7 +38,7 @@ func TestResourcePath(t *testing.T) {
 		{
 			name:     "path with spaces",
 			path:     "/Onedriver My Documents/Work Files",
-			expected: "/me/drive/root:%2FOnedriver-%20My%20Documents%2FWork%20Files",
+			expected: "/me/drive/root:%2FOnedriver%20My%20Documents%2FWork%20Files",
 		},
 	}
 

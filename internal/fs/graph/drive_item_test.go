@@ -32,9 +32,9 @@ func TestGetItem(t *testing.T) {
 		},
 		{
 			name:          "DocumentsPath_ShouldReturnDocumentsItem",
-			path:          "/Onedriver-Documents",
+			path:          "/Documents",
 			shouldSucceed: true,
-			expectedName:  "Onedriver-Documents",
+			expectedName:  "Documents",
 		},
 	}
 

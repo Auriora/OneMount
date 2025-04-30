@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,10 +35,61 @@ var (
 )
 
 var (
-	auth   *graph.Auth
-	fs     *Filesystem
-	isMock bool // Flag to indicate if mock authentication is being used
+	auth     *graph.Auth
+	fs       *Filesystem
+	isMock   bool // Flag to indicate if mock authentication is being used
+	profiler *Profiler
 )
+
+// validateTestEnvironment checks that all required tools and resources are available
+// for the tests to run properly. It logs warnings if any dependencies are missing.
+func validateTestEnvironment() {
+	log.Info().Msg("Validating test environment...")
+
+	// Check for fusermount3 (required for mounting/unmounting)
+	if _, err := exec.LookPath("fusermount3"); err != nil {
+		log.Warn().Err(err).Msg("fusermount3 not found in PATH - unmounting may fail")
+	}
+
+	// Check for lsof (used for diagnostics)
+	if _, err := exec.LookPath("lsof"); err != nil {
+		log.Warn().Err(err).Msg("lsof not found in PATH - some diagnostics will be unavailable")
+	}
+
+	// Check for findmnt (used to check mount status)
+	if _, err := exec.LookPath("findmnt"); err != nil {
+		log.Warn().Err(err).Msg("findmnt not found in PATH - mount status checks may be incomplete")
+	}
+
+	// Check if we have permission to create the mount directory
+	if err := os.MkdirAll(mountLoc, 0755); err != nil {
+		log.Error().Err(err).Str("path", mountLoc).Msg("Cannot create mount directory")
+	}
+
+	// Check if we have permission to create the test database directory
+	if err := os.MkdirAll(testDBLoc, 0755); err != nil {
+		log.Error().Err(err).Str("path", testDBLoc).Msg("Cannot create test database directory")
+	}
+
+	// Check available disk space
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(testDBLoc, &stat); err == nil {
+		// Calculate available space in MB
+		availableMB := (stat.Bavail * uint64(stat.Bsize)) / (1024 * 1024)
+		if availableMB < 100 {
+			log.Warn().Uint64("available_mb", availableMB).Msg("Low disk space for tests (< 100MB)")
+		} else {
+			log.Info().Uint64("available_mb", availableMB).Msg("Sufficient disk space for tests")
+		}
+	}
+
+	// Check if we're running as root (not recommended)
+	if os.Geteuid() == 0 {
+		log.Warn().Msg("Tests are running as root, which is not recommended")
+	}
+
+	log.Info().Msg("Test environment validation complete")
+}
 
 // TestMain is the entry point for all tests in this package.
 // It sets up the test environment, runs the tests, and cleans up afterward.
@@ -68,11 +120,33 @@ var (
 // avoid having to repeatedly recreate auth_tokens.json and juggle multiple auth
 // sessions.
 func TestMain(m *testing.M) {
-	// Set the D-Bus service name prefix for tests
-	// Generate a unique D-Bus service name for tests
-	uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
-	DBusServiceName = fmt.Sprintf("org.onedriver.FileStatus.%s_%s", "test", uniqueSuffix)
-	log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name for tests")
+	// Limit the number of CPUs that can execute simultaneously to reduce resource contention
+	// This helps prevent test failures due to resource exhaustion
+	originalMaxProcs := runtime.GOMAXPROCS(0) // Get current setting
+	maxProcs := originalMaxProcs
+
+	// If GOMAXPROCS is not explicitly set, use a reasonable default
+	// Otherwise, reduce it slightly to leave some headroom for the OS
+	if envMaxProcs := os.Getenv("GOMAXPROCS"); envMaxProcs == "" {
+		// If not explicitly set, use 75% of available CPUs, but at least 2
+		maxProcs = max(2, (runtime.NumCPU()*3)/4)
+		runtime.GOMAXPROCS(maxProcs)
+	} else if maxProcs > 2 {
+		// If explicitly set but > 2, reduce by 1 to leave some headroom
+		maxProcs = maxProcs - 1
+		runtime.GOMAXPROCS(maxProcs)
+	}
+
+	log.Info().Int("original_max_procs", originalMaxProcs).Int("new_max_procs", maxProcs).Msg("Adjusted GOMAXPROCS to reduce resource contention")
+
+	// Validate the test environment
+	validateTestEnvironment()
+
+	// Set a unique D-Bus service name prefix for this test run
+	// This helps avoid conflicts with other test runs
+	uniquePrefix := fmt.Sprintf("fs_test_%d", time.Now().UnixNano())
+	SetDBusServiceNamePrefix(uniquePrefix)
+	log.Info().Str("dbusPrefix", uniquePrefix).Msg("Set unique D-Bus service name prefix for tests")
 	// We used to skip paging test setup for single tests, but that caused issues
 	// when running TestListChildrenPaging individually
 
@@ -402,6 +476,72 @@ func TestMain(m *testing.M) {
 	time.Sleep(500 * time.Millisecond)
 
 	log.Info().Msg("Filesystem is fully initialized, starting tests...")
+
+	// Initialize the profiler for resource monitoring
+	profilerDir := filepath.Join(testDBLoc, "profiles")
+	profiler = NewProfiler(profilerDir)
+	if profiler == nil {
+		log.Error().Msg("Failed to create profiler")
+	} else {
+		log.Info().Str("dir", profilerDir).Msg("Created profiler for resource monitoring")
+
+		// Create a channel to signal the monitoring goroutine to stop
+		monitoringStopChan := make(chan struct{})
+
+		// Start a goroutine to periodically capture resource usage
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+
+			// Capture initial resource usage
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			log.Info().
+				Int("goroutines", runtime.NumGoroutine()).
+				Uint64("alloc_mb", m.Alloc/1024/1024).
+				Uint64("total_alloc_mb", m.TotalAlloc/1024/1024).
+				Uint64("sys_mb", m.Sys/1024/1024).
+				Uint32("gc_cycles", m.NumGC).
+				Msg("Initial resource usage")
+
+			for {
+				select {
+				case <-ticker.C:
+					// Capture memory usage
+					if err := profiler.Stop(ProfileMemory); err != nil {
+						log.Error().Err(err).Msg("Failed to capture memory profile")
+					}
+
+					// Capture goroutine count
+					if err := profiler.Stop(ProfileGoroutine); err != nil {
+						log.Error().Err(err).Msg("Failed to capture goroutine profile")
+					}
+
+					// Log current resource usage
+					runtime.ReadMemStats(&m)
+					log.Info().
+						Int("goroutines", runtime.NumGoroutine()).
+						Uint64("alloc_mb", m.Alloc/1024/1024).
+						Uint64("total_alloc_mb", m.TotalAlloc/1024/1024).
+						Uint64("sys_mb", m.Sys/1024/1024).
+						Uint32("gc_cycles", m.NumGC).
+						Msg("Resource usage")
+				case <-monitoringStopChan:
+					// Stop monitoring when signaled
+					log.Info().Msg("Stopping resource monitoring")
+					return
+				}
+			}
+		}()
+
+		// Add a deferred function to stop the monitoring goroutine
+		defer func() {
+			close(monitoringStopChan)
+			// Wait a moment for the goroutine to exit
+			time.Sleep(100 * time.Millisecond)
+			log.Info().Msg("Resource monitoring stopped")
+		}()
+	}
 
 	// Capture the initial state of the filesystem before running tests
 	initialState, initialStateErr := testutil.CaptureFileSystemState(mountLoc)
