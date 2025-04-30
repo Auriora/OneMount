@@ -1,16 +1,16 @@
 Name:          onemount
 Version:       0.14.1
 Release:       1%{?dist}
-Summary:       A native Linux filesystem for Microsoft Onedrive
+Summary:       Linux acces to OneDrive made simple.
 
 License:       GPL-3.0-or-later
 URL:           https://github.com/bcherrington/onemount
 Source0:       https://github.com/bcherrington/onemount/archive/refs/tags/v%{version}.tar.gz
 
 %if 0%{?suse_version}
-BuildRequires: go >= 1.17
+BuildRequires: go >= 1.24
 %else
-BuildRequires: golang >= 1.17.0
+BuildRequires: golang >= 1.24.0
 %endif
 BuildRequires: git
 BuildRequires: gcc
@@ -19,9 +19,11 @@ BuildRequires: webkit2gtk3-devel
 Requires: fuse3
 
 %description
-OneMount is a native Linux filesystem for Microsoft Onedrive. Files and
-metadata are downloaded on-demand instead of syncing the entire drive to
-your local computer.
+OneMount is a network filesystem that gives your computer direct access to your
+files on Microsoft OneDrive. This is not a sync client. Instead of syncing
+files, OneMount performs an on-demand download of files when your computer
+attempts to use them. OneMount allows you to use files on OneDrive as if they
+were files on your local computer.
 
 %prep
 %autosetup
@@ -71,127 +73,3 @@ cp configs/resources/%{name}.1.gz %{buildroot}/usr/share/man/man1
 %attr(644, root, root) /usr/share/man/man1/%{name}.1.gz
 
 %changelog
-* Wed Oct 18 2023 Jeff Stafford <jeff.stafford@protonmail.com> - 0.14.1
-- Fixes a bug with file corruption in some scenarios from version 0.14.0.
-
-* Fri Jul 14 2023 Jeff Stafford <jeff.stafford@protonmail.com> - 0.14.0
-- We now use quickxorhash checksums for both personal and business accounts.
-- The cache for file contents has been moved out of boltdb and onto the local filesystem.
-  This makes accessing, reading, and writing files faster than before.
-- onemount no longer allows you to create filenames that are not allowed by OneDrive.
-
-* Tue Nov 1 2022 Jeff Stafford <jeff.stafford@protonmail.com> - 0.13.0
-- The GUI has been rewritten in golang for ease of maintenance and code sharing with 
-  the rest of the onemount application.
-- onemount can now be configured with a config file at "~/.config/onemount/config.yml".
-- There is now a configuration menu in the GUI. You can now set a couple configuration
-  options that were previously only possible with "systemctl edit".
-- The onemount CLI now stores its cache in the same path that the GUI expects,
-  meaning that invoking the onemount filesystem directly and via the GUI will share the
-  cache as long as the mountpoint is the same.
-- onemount now prefers multipart downloads for files >10MB instead of a single massive
-  GET request. This should significantly improve reliability when working with large files.
-
-* Tue Nov 2 2021 Jeff Stafford <jeff.stafford@protonmail.com> - 0.12.0
-- Major internal rewrite - onemount now talks directly to the kernel instead of using
-  go-fuse/fs as an intermediary. This makes metadata operations a bit faster.
-- onemount better handles completion of multipart uploads and does not repeatedly
-  upload files on success. This significantly improves upload speed.
-- Fixes a crash when writes begin at an offset beyond maximum file length. This fixes a
-  bug where running ld inside the filesystem would cause it to crash.
-- Switch to using zerolog instead of logrus for logging. Though zerolog is supposedly 
-  faster, the real reason to switch is that it's much easier for me (and hopefully you)
-  to read! Also, pretty colors!
-- onemount now gives you the option to choose to authenticate via the terminal when
-  authenticating via the new --no-browser option (this is the functionality from the 
-  old "headless" build).
-- Add a workaround for the TLS cert authentication issue from
-  https://bugzilla.redhat.com/show_bug.cgi?id=2024296
-
-* Tue Aug 17 2021 Jeff Stafford <jeff.stafford@protonmail.com> - 0.11.2
-- onemount now disallows rmdir on nonempty directories.
-- The filesystem now detects if it is offline more reliably.
-
-* Sun Jul 11 2021 Jeff Stafford <jeff.stafford@protonmail.com> - 0.11.1
-- Fix startup crash in onemount-launcher when onemount has not been launched before.
-
-* Sat Jul 3 2021 Jeff Stafford <jeff.stafford@protonmail.com> - 0.11.0
-- Now includes a snazzy GUI for managing your mountpoints. No terminal skills are required
-  to use onemount now.
-- The upload logic has been rewritten to no longer use 0-byte files as placeholders in 
-  any scenario. This fixes a race condition where software like LibreOffice, KeepassXC, or 
-  Krita could generate a 0-byte file instead of the intended file when the file was 4MB or
-  larger.
-- onemount now uses etags AND modification times when syncing server-side changes back to
-  the client. This reduces the number of times that files must be redownloaded because of
-  bad timestamp data from the Microsoft API.
-
-* Mon May 17 2021 Jeff Stafford <jeff.stafford@protonmail.com> - 0.10.1
-- Fix the onemount .desktop launcher so it uses the new systemd unit name.
-
-* Mon May 17 2021 Jeff Stafford <jeff.stafford@protonmail.com> - 0.10.0
-- Add AUR installation method for Arch-based distros - thanks fmoledina!
-- Add manpage for onemount - thanks GenericGuy!
-- The onemount systemd service now restarts itself in the event of a crash -
-  thanks dipunm!
-- Fix a rare crash while syncing server-side changes missing checksums.
-- Fix a race-condition that caused uploaded files to occasionally be replaced by a 0-byte 
-  copy (most commonly caused by the way LibreOffice saves files).
-- Cap number of uploads that can be in-progress at any time to 5. This makes uploading 
-  uploading directories with lots of files appear to go a bit faster.
-- The account name is now displayed in the title bar if you need to reauthenticate to
-  OneDrive (makes it easier to know which credentials to use when prompted).
-
-* Tue Sep 29 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.9.2
-- Adds fix for server-side update to Microsoft's authentication APIs.
-- Fix a crash on auth renewal after computer suspend or other network interruption.
-
-* Sat Jun 6 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.9.1
-- Filenames are now sanitized when uploading new files.
-- onemount now only syncs metadata changes for a file from server to client if its
-  contents have changed as well. This means that programs like LibreOffice will no longer
-  complain about their lockfiles being updated while saving.
-
-* Wed Jun 3 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.9.0
-- Multiple OneDrive drives can now be mounted simultaneously via systemd.
-- Uploads are now retried, with failed uploads retried automatically.
-- In-progress uploads are now cached on disk and resumed the next time onemount starts
-  if the upload is terminated prematurely (for instance, if a user shuts down their computer)
-- All uploads are now verified against checksums of their local content.
-
-* Thu Apr 2 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.8.0
-- Add a desktop launcher for single drive scenarios (better multi-drive support coming soon!).
-- Fix for directories containing more than 200 items.
-- Miscellaneous fixes and tests for OneDrive for Business
-- Compatibility with Go 1.14
-
-* Mon Feb 17 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.7.2
-- Allow use of disk cache after filesystem transitions from offline to online.
-
-* Mon Feb 17 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.7.1
-- Fix for filesystem coming up blank after user systemd session start.
-
-* Wed Feb 12 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.7.0
-- Now has drive username in Nautilus sidebar and small OneDrive logo on mountpoint.
-- No longer requires manually closing the authentication window.
-- Add systemd user service for automount on boot.
-- Now transitions gracefully from online to offline (or vice-versa) depending on network availability.
-
-* Thu Jan 16 2020 Jeff Stafford <jeff.stafford@protonmail.com> - 0.6
-- Filesystem metadata is now serialized to disk at regular intervals.
-- Using on-disk metadata, onemount can now be used in read-only mode while offline.
-- onemount now stores its on-disk cache and auth tokens under the normal user cache directory.
-
-* Mon Nov 4 2019 Jeff Stafford <jeff.stafford@protonmail.com> - 0.5
-- Add a dedicated thread responsible for syncing remote changes to local cache every 30s.
-- Add a dedicated thread to monitor, deduplicate, and retry uploads.
-- Now all HTTP requests will retry server-side 5xx errors a single time by default.
-- Print HTTP status code with Graph API errors where they occur.
-- Purge file contents from memory on flush() and store them on disk.
-- onemount now validates on-disk file contents using checksums before using them.
-
-* Sun Sep 15 2019 Jeff Stafford <jeff.stafford@protonmail.com> - 0.4
-- Port to go-fuse version 2 and the new nodefs API for improved performance.
-
-* Sat Sep 7 2019 Jeff Stafford <jeff.stafford@protonmail.com> - 0.3
-- Initial .spec file

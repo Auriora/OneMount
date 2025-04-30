@@ -1,6 +1,6 @@
 .\" Manpage for OneMount
 
-.TH man 1 "Nov 2021" "0.14.1" "onemount man page"
+.TH man 1 "May 2023" "1.0.0" "onemount man page"
 
 .SH NAME
 onemount \- A native Linux client for Microsoft OneDrive.
@@ -11,11 +11,28 @@ onemount \- A native Linux client for Microsoft OneDrive.
 
 
 .SH DESCRIPTION
-This program will mount your OneDrive account as a Linux filesystem at the
-location specified by \fImountpoint\fR. Note that this is not a sync client -
+This program will mount your Microsoft OneDrive account as a native Linux filesystem at the
+location specified by \fImountpoint\fR. OneMount is not a traditional sync client -
 files are fetched on-demand and cached locally. Only files you actually use will
-be downloaded. While offline, the filesystem will be read-only until
-connectivity is re-established.
+be downloaded, saving bandwidth and storage space.
+
+Key features include:
+.IP \(bu 2
+On-demand file downloading with local caching
+.IP \(bu 2
+Offline mode with read access to previously cached files
+.IP \(bu 2
+Background synchronization of changes
+.IP \(bu 2
+File status indicators in file managers
+.IP \(bu 2
+Support for multiple OneDrive accounts
+.IP \(bu 2
+Low memory footprint and efficient operation
+
+While offline, the filesystem will be read-only until
+connectivity is re-established. Changes made while online are automatically
+uploaded to OneDrive in the background.
 
 
 .SH OPTIONS
@@ -60,6 +77,35 @@ Display program version.
 .BR \-w , " \-\-wipe-cache"
 Delete the existing onemount cache directory and then exit. Equivalent to
 resetting the program.
+
+.TP
+.BR \-o , " \-\-log-output " \fIlocation
+Set the output location for logs. \fIlocation\fR can be STDOUT, STDERR, or a file path.
+Default is STDOUT.
+
+.TP
+.BR \-s , " \-\-sync-tree"
+Sync the full directory tree to the local metadata store in the background.
+This improves performance by pre-caching directory structure without blocking startup.
+
+.TP
+.BR \-i , " \-\-delta-interval " \fIseconds
+Set the interval in seconds between delta query checks.
+Default is 1 second. Set to 0 to use the default.
+
+.TP
+.BR \-e , " \-\-cache-expiration " \fIdays
+Set the number of days after which files will be removed from the content cache.
+Default is 30 days. Set to 0 to use the default.
+
+.TP
+.BR " \-\-stats"
+Display statistics about the metadata, content caches, outstanding changes for upload, etc.
+Does not start a mount point.
+
+.TP
+.BR " \-\-daemon"
+Run onemount in daemon mode (detached from terminal).
 
 
 .SH SYSTEM INTEGRATION
@@ -108,39 +154,121 @@ journalctl --user -u $SERVICE_NAME
 
 .SH TROUBLESHOOTING
 
-Most errors can be solved by simply restarting the program. onemount is
-designed to recover cleanly from errors with no extra effort.
+Most errors can be solved by simply restarting the program. OneMount is
+designed to recover cleanly from errors with minimal user intervention.
 
-It's possible that there may be a deadlock or segfault that I haven't caught in 
-my tests. If this happens, the onemount filesystem and subsequent ops may hang
-indefinitely (ops will hang while the kernel waits for the dead onemount
-process to respond). When this happens, you can cleanly unmount the filesystem 
-with: \fBfusermount3 -uz $MOUNTPOINT\fR
+.TP
+.B Common Issues and Solutions:
+
+.TP
+.B Filesystem hangs or becomes unresponsive
+If the filesystem becomes unresponsive due to a deadlock or crash, you can cleanly unmount it with:
+.br
+\fBfusermount3 -uz $MOUNTPOINT\fR
+
+.TP
+.B Authentication problems
+If you encounter authentication issues, try running:
+.br
+\fBonemount -a\fR
+.br
+This will force a new authentication process.
+
+.TP
+.B Slow performance or high CPU usage
+Try enabling the sync-tree option to pre-cache directory structure:
+.br
+\fBonemount -s $MOUNTPOINT\fR
+
+.TP
+.B File status not updating
+File status indicators may sometimes not update immediately. You can refresh the view in your file manager or run:
+.br
+\fBonemount --stats $MOUNTPOINT\fR
+.br
+to check the current status of files.
+
+.TP
+.B Offline mode issues
+If you're having problems with offline mode, ensure you've accessed the files while online first so they can be cached.
+
+.TP
+.B Complete reset
+To reset OneMount completely (wipe all local state), use:
+.br
+\fBonemount -w\fR
+
+.TP
+.B Checking logs
+To view detailed logs for troubleshooting:
+.br
+\fBjournalctl --user -u onemount@.service --since today\fR
+.br
+Or set a more verbose logging level with \fB-l debug\fR or \fB-l trace\fR
 
 
-In the event that you want to reset onemount completely (wipe all local state)
-you can do so via: \fBonemount -w\fR
+.SH KNOWN ISSUES AND LIMITATIONS
 
-
-.SH KNOWN ISSUES AND DISCLAIMER
-
+.TP
+.B Thumbnail Generation
 Many file browsers (like GNOME's Nautilus) will attempt to automatically 
 download all files within a directory in order to create thumbnail images.
-This is somewhat annoying, but only needs to happen once - after the initial
-thumbnail images have been created, thumbnails will persist between
+This can cause increased network activity when browsing new directories.
+After the initial thumbnail images have been created, they will persist between
 filesystem restarts.
 
-Microsoft does not support symbolic links (or anything remotely like them) on
-OneDrive. Attempting to create symbolic links within the filesystem returns
-ENOSYS (function not implemented) because the functionality hasn't been
-implemented... by Microsoft. Similarly, Microsoft does not expose the OneDrive
-Recycle Bin APIs - if you want to empty or restore the OneDrive Recycle Bin, you
-must do so through the OneDrive web UI (onemount uses the native system
-trash/restore functionality independently of the OneDrive Recycle Bin).
+.TP
+.B Symbolic Links
+Microsoft does not support symbolic links on OneDrive. Attempting to create 
+symbolic links within the filesystem returns ENOSYS (function not implemented).
+This is a limitation of the OneDrive platform, not OneMount.
 
-This project is still in active development and is provided AS IS. There are no
-guarantees. It might kill your cat.
+.TP
+.B Recycle Bin
+Microsoft does not expose the OneDrive Recycle Bin APIs. If you want to empty 
+or restore items from the OneDrive Recycle Bin, you must do so through the 
+OneDrive web UI. OneMount uses the native system trash/restore functionality 
+independently of the OneDrive Recycle Bin.
+
+.TP
+.B Large Files
+Files larger than 4GB may experience slower upload and download speeds due to 
+chunked transfer requirements imposed by the Microsoft Graph API.
+
+.TP
+.B Special Files
+Device files, named pipes, and other special file types are not supported by 
+OneDrive and cannot be created in the filesystem.
+
+.TP
+.B File Name Restrictions
+OneDrive has certain restrictions on file names that are more limiting than Linux.
+Characters like '/', '\\', ':', '*', '?', '"', '<', '>', '|' are not allowed in file names.
+File names cannot end with a space or period, and certain reserved names like "CON", "PRN", 
+"AUX", etc. are not allowed.
+
+.SH DISCLAIMER
+This project is provided AS IS without warranty of any kind. While every effort 
+has been made to ensure reliability and data integrity, users should maintain 
+backups of important data. The developers are not responsible for any data loss 
+or damage that may occur through the use of this software.
 
 
 .SH SEE ALSO
-Further information can be found at https://github.com/bcherrington/OneMount
+.TP
+.B Project Website:
+https://github.com/bcherrington/OneMount
+.TP
+.B Documentation:
+https://github.com/bcherrington/OneMount/tree/main/docs
+.TP
+.B Bug Reports:
+https://github.com/bcherrington/OneMount/issues
+.TP
+.B Related Commands:
+.BR fusermount3 (1),
+.BR systemctl (1),
+.BR journalctl (1)
+.TP
+.B Microsoft OneDrive:
+https://onedrive.live.com

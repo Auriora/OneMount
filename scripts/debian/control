@@ -1,8 +1,8 @@
 Source: onemount
 Section: utils
 Priority: optional
-Maintainer: Jeff Stafford <jeff.stafford@protonmail.com>
-Build-Depends: golang (>= 1.15), gcc, pkg-config, libwebkit2gtk-4.0-dev, git, debhelper
+Maintainer: Bruce Cherrington <993834.bcherrington@gmail.com>
+Build-Depends: golang (>= 1.24), gcc, pkg-config, libwebkit2gtk-4.0-dev, git, debhelper
 Standards-Version: 4.4.1
 Homepage: https://github.com/bcherrington/onemount
 #Vcs-Browser: https://github.com/bcherrington/onemount
