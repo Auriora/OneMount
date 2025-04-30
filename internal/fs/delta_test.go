@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
 	"github.com/bcherrington/onedriver/internal/testutil/common"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
@@ -406,7 +405,7 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 	// The DeltaLoop polls every 5 seconds, so we'll wait for 15 seconds
 	// While waiting, periodically check that the modification time hasn't changed
 	var mtimeNew time.Time
-	testutil.WaitForCondition(t, func() bool {
+	common.WaitForCondition(t, func() bool {
 		currentInfo, err := os.Stat(fname)
 		if err != nil {
 			t.Logf("Error stating file: %v", err)
@@ -434,7 +433,7 @@ func TestDeltaMissingHash(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the filesystem to process the insertion
-	testutil.WaitForCondition(t, func() bool {
+	common.WaitForCondition(t, func() bool {
 		// Check if the file exists in the filesystem
 		return cache.GetID(file.ID()) != nil
 	}, 5*time.Second, 100*time.Millisecond, "File was not inserted into filesystem within timeout")

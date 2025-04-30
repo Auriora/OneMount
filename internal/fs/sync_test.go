@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bcherrington/onedriver/internal/fs/graph"
-	testutil "github.com/bcherrington/onedriver/testutil/common"
+	"github.com/bcherrington/onedriver/internal/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -80,7 +80,7 @@ func createTestDir(t *testing.T, path string) {
 	require.NoError(t, err, "Failed to create directory: %s", path)
 
 	// Wait for the directory to be recognized by the filesystem
-	testutil.WaitForCondition(t, func() bool {
+	common.WaitForCondition(t, func() bool {
 		fsPath := strings.TrimPrefix(path, mountLoc)
 		if fsPath == "" {
 			fsPath = "/"
