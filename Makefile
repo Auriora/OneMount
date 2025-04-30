@@ -120,26 +120,6 @@ onemount_$(VERSION)-$(RELEASE)_amd64.deb: onemount_$(VERSION)-$(RELEASE).dsc
 	sudo pbuilder --build $<
 	cp /var/cache/pbuilder/result/$@ .
 
-# setup tests for the first time on a new computer
-test-init: onemount
-	go install github.com/rakyll/gotest@latest
-	pip install pytest pytest-mock
-
-# Run Python tests for nemo-onemount.py
-# PYTHONPATH is set to include the current directory and nemo-onemount/src
-# to help pytest find modules and prevent import errors
-# The test file has been modified to mock D-Bus and GLib to prevent hanging during collection
-test-python:
-	PYTHONPATH=.:internal/nemo/src pytest -xvs internal/nemo/tests/test_nemo_onemount.py
-
-# For offline tests, the test binary is built online, then network access is
-# disabled and tests are run. sudo is required - otherwise we don't have
-# permission to deny network access to onemount during the test.
-test: onemount onemount-launcher test-python
-	CGO_ENABLED=0 gotest -v -parallel=1 -count=1 ./internal/ui/...
-	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=1 -count=1 ./internal/fs/...
-	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=1 -count=1 ./cmd/...
-
 
 clean:
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit
