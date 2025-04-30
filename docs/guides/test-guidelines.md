@@ -68,11 +68,11 @@ func TestFileOperations(t *testing.T) {
         tc := tc // Capture range variable for parallel execution
         t.Run(tc.name, func(t *testing.T) {
             t.Parallel() // Run subtests in parallel
-            
+
             // Test-specific setup
-            
+
             // Perform the operation
-            
+
             // Verify the results
             tc.verifyFunc(t, filePath, tc.content, tc.iterations)
         })
@@ -110,14 +110,14 @@ Running tests in parallel can significantly reduce test execution time. However,
 ```go
 func TestSomething(t *testing.T) {
     t.Parallel() // Mark the test for parallel execution
-    
+
     // Test logic...
 }
 
 // For subtests
 t.Run("SubtestName", func(t *testing.T) {
     t.Parallel() // Mark the subtest for parallel execution
-    
+
     // Subtest logic...
 })
 ```
@@ -148,14 +148,14 @@ func TestWithCleanup(t *testing.T) {
     filePath := filepath.Join(TestDir, "test_file.txt")
     err := os.WriteFile(filePath, []byte("test content"), 0644)
     require.NoError(t, err, "Failed to create test file")
-    
+
     // Register cleanup function
     t.Cleanup(func() {
         if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
             t.Logf("Warning: Failed to clean up test file %s: %v", filePath, err)
         }
     })
-    
+
     // Test logic...
 }
 ```
@@ -239,7 +239,7 @@ Mocking is essential for isolating components during testing and simulating exte
 
 OneMount provides the following mock components:
 
-1. **MockGraphClient**: Simulates the Microsoft Graph API
+1. **MockGraphClient**: Simulates the Microsoft Graph API with configurable responses, network condition simulation, and call recording
 2. **MockFileSystem**: Simulates filesystem operations
 3. **MockUIComponent**: Simulates UI interactions
 
@@ -252,15 +252,41 @@ For example, when testing code that interacts with the Microsoft Graph API, use 
 ```go
 // Example of using MockGraphClient in a test
 mockClient := graph.NewMockGraphClient()
-mockClient.SetResponse("GetItemPath", &graph.DriveItem{
+
+// Configure responses for specific resources
+resource := "/me/drive/root:/test.txt"
+mockItem := &graph.DriveItem{
     ID:   "item123",
     Name: "test.txt",
+}
+mockClient.AddMockItem(resource, mockItem)
+
+// Simulate network conditions (latency, packet loss, bandwidth)
+mockClient.SetNetworkConditions(100*time.Millisecond, 0.1, 1024) // 100ms latency, 10% packet loss, 1MB/s bandwidth
+
+// Configure custom behavior
+mockClient.SetConfig(graph.MockConfig{
+    ErrorRate: 0.05, // 5% random error rate
+    ResponseDelay: 50*time.Millisecond,
+    CustomBehavior: map[string]interface{}{
+        "retryCount": 3,
+    },
 })
 
 // Use the mock client in your test
-item, err := mockClient.GetItemPath("/test.txt", auth)
+item, err := mockClient.GetItemPath("/test.txt")
 require.NoError(t, err)
 assert.Equal(t, "test.txt", item.Name)
+
+// Verify calls were recorded
+recorder := mockClient.GetRecorder()
+calls := recorder.GetCalls()
+assert.True(t, recorder.VerifyCall("GetItemPath", 1))
+
+// Examine call details
+for _, call := range calls {
+    fmt.Printf("Method: %s, Args: %v, Timestamp: %v\n", call.Method, call.Args, call.Timestamp)
+}
 ```
 
 ## Test Coverage Reporting
@@ -310,18 +336,18 @@ func TestFileUploadIntegration(t *testing.T) {
     // Setup test environment
     env := testutil.NewIntegrationTestEnvironment()
     defer env.Cleanup()
-    
+
     // Create test file
     filePath := filepath.Join(env.MountPoint, "test.txt")
     err := os.WriteFile(filePath, []byte("test content"), 0644)
     require.NoError(t, err)
-    
+
     // Wait for file to be uploaded
     testutil.WaitForCondition(t, func() bool {
         // Check if file exists on remote
         return env.FileExistsOnRemote("test.txt")
     }, 10*time.Second, 100*time.Millisecond, "File was not uploaded within timeout")
-    
+
     // Verify file content on remote
     content, err := env.GetRemoteFileContent("test.txt")
     require.NoError(t, err)
@@ -352,10 +378,10 @@ func BenchmarkFileDownload(b *testing.B) {
     // Setup benchmark environment
     env := testutil.NewBenchmarkEnvironment()
     defer env.Cleanup()
-    
+
     // Create test file on remote
     env.CreateRemoteFile("benchmark.txt", generateTestData(1024*1024)) // 1MB file
-    
+
     // Run benchmark
     b.ResetTimer()
     for i := 0; i < b.N; i++ {

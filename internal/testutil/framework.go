@@ -130,6 +130,9 @@ type TestFramework struct {
 	// Coverage reporting.
 	coverageReporter CoverageReporter
 
+	// Network simulation.
+	networkSimulator NetworkSimulator
+
 	// Context for timeout/cancellation.
 	ctx context.Context
 
@@ -140,11 +143,12 @@ type TestFramework struct {
 // NewTestFramework creates a new TestFramework with the given configuration.
 func NewTestFramework(config TestConfig, logger Logger) *TestFramework {
 	return &TestFramework{
-		Config:        config,
-		resources:     make([]TestResource, 0),
-		mockProviders: make(map[string]MockProvider),
-		ctx:           context.Background(),
-		logger:        logger,
+		Config:           config,
+		resources:        make([]TestResource, 0),
+		mockProviders:    make(map[string]MockProvider),
+		networkSimulator: NewNetworkSimulator(),
+		ctx:              context.Background(),
+		logger:           logger,
 	}
 }
 
@@ -172,6 +176,11 @@ func (tf *TestFramework) CleanupResources() error {
 // RegisterMockProvider registers a mock provider with the given name.
 func (tf *TestFramework) RegisterMockProvider(name string, provider MockProvider) {
 	tf.mockProviders[name] = provider
+
+	// Register the provider with the network simulator
+	if tf.networkSimulator != nil {
+		tf.networkSimulator.RegisterProvider(provider)
+	}
 }
 
 // GetMockProvider returns the mock provider with the given name.
@@ -261,4 +270,39 @@ func (tf *TestFramework) WithCancel() (context.Context, context.CancelFunc) {
 // SetContext sets the base context for the test framework.
 func (tf *TestFramework) SetContext(ctx context.Context) {
 	tf.ctx = ctx
+}
+
+// GetNetworkSimulator returns the network simulator.
+func (tf *TestFramework) GetNetworkSimulator() NetworkSimulator {
+	return tf.networkSimulator
+}
+
+// SetNetworkSimulator sets the network simulator.
+func (tf *TestFramework) SetNetworkSimulator(simulator NetworkSimulator) {
+	tf.networkSimulator = simulator
+}
+
+// SetNetworkConditions sets the network conditions.
+func (tf *TestFramework) SetNetworkConditions(latency time.Duration, packetLoss float64, bandwidth int) error {
+	return tf.networkSimulator.SetConditions(latency, packetLoss, bandwidth)
+}
+
+// ApplyNetworkPreset applies a predefined network condition preset.
+func (tf *TestFramework) ApplyNetworkPreset(preset NetworkCondition) error {
+	return tf.networkSimulator.ApplyPreset(preset)
+}
+
+// DisconnectNetwork simulates a network disconnection.
+func (tf *TestFramework) DisconnectNetwork() error {
+	return tf.networkSimulator.Disconnect()
+}
+
+// ReconnectNetwork restores the network connection.
+func (tf *TestFramework) ReconnectNetwork() error {
+	return tf.networkSimulator.Reconnect()
+}
+
+// IsNetworkConnected returns whether the network is currently connected.
+func (tf *TestFramework) IsNetworkConnected() bool {
+	return tf.networkSimulator.IsConnected()
 }

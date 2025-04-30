@@ -7,6 +7,7 @@ The `TestFramework` provides a centralized test configuration and execution envi
 - Test environment configuration
 - Resource management with automatic cleanup
 - Mock provider registration and retrieval
+- Network condition simulation
 - Test execution with timeout support
 - Context management for cancellation and timeouts
 - Structured logging
@@ -99,6 +100,38 @@ tests := map[string]func(ctx context.Context) error{
 results := framework.RunTestSuite("suite-name", tests)
 ```
 
+### Network Simulation
+
+```go
+// Set network conditions (latency, packet loss, bandwidth)
+framework.SetNetworkConditions(100*time.Millisecond, 0.1, 1000) // 100ms latency, 10% packet loss, 1Mbps bandwidth
+
+// Apply a predefined network condition preset
+framework.ApplyNetworkPreset(testutil.SlowNetwork)
+
+// Available presets:
+// - FastNetwork: Fast, reliable network connection (10ms latency, 0% packet loss, 100Mbps)
+// - AverageNetwork: Average home broadband (50ms latency, 1% packet loss, 20Mbps)
+// - SlowNetwork: Slow connection (200ms latency, 5% packet loss, 1Mbps)
+// - MobileNetwork: Mobile data connection (100ms latency, 2% packet loss, 5Mbps)
+// - IntermittentConnection: Unstable connection (300ms latency, 15% packet loss, 2Mbps)
+// - SatelliteConnection: High-latency satellite (700ms latency, 3% packet loss, 10Mbps)
+
+// Simulate network disconnection
+framework.DisconnectNetwork()
+
+// Check if the network is connected
+if !framework.IsNetworkConnected() {
+    // Handle disconnected state
+}
+
+// Restore network connection
+framework.ReconnectNetwork()
+
+// Access the network simulator directly for advanced usage
+simulator := framework.GetNetworkSimulator()
+```
+
 ### Context Management
 
 ```go
@@ -152,9 +185,12 @@ func TestMyFeature(t *testing.T) {
     tempDir := createTempDir()
     framework.AddResource(tempDir)
 
-    // Run the test
-    result := framework.RunTest("my-feature-test", func(ctx context.Context) error {
-        // Test logic using the context
+    // Configure network conditions for the test
+    framework.ApplyNetworkPreset(testutil.AverageNetwork)
+
+    // Run the test with normal network conditions
+    result := framework.RunTest("my-feature-test-normal-network", func(ctx context.Context) error {
+        // Test logic using the context with normal network conditions
         select {
         case <-ctx.Done():
             return ctx.Err()
@@ -163,6 +199,24 @@ func TestMyFeature(t *testing.T) {
             return nil
         }
     })
+
+    // Test with slow network
+    framework.ApplyNetworkPreset(testutil.SlowNetwork)
+    result = framework.RunTest("my-feature-test-slow-network", func(ctx context.Context) error {
+        // Test logic using the context with slow network
+        return nil
+    })
+
+    // Test with network disconnection
+    framework.DisconnectNetwork()
+    result = framework.RunTest("my-feature-test-disconnected", func(ctx context.Context) error {
+        // Test logic with network disconnection
+        // Should handle offline mode or return appropriate errors
+        return nil
+    })
+
+    // Reconnect for cleanup
+    framework.ReconnectNetwork()
 
     // Check the result
     if result.Status != testutil.TestStatusPassed {
@@ -178,3 +232,8 @@ func TestMyFeature(t *testing.T) {
 3. Register mock providers with descriptive names
 4. Use structured logging for better test diagnostics
 5. Add resources in the order they should be cleaned up (cleanup happens in reverse order)
+6. Test with different network conditions to ensure robustness
+7. Always reconnect the network after disconnection tests
+8. Use network presets for consistent test conditions
+9. Test both normal operation and error handling under poor network conditions
+10. Consider using network simulation in CI/CD pipelines to catch network-related issues early
