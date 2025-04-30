@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Test nemo_onedriver.py" type="tests" factoryName="py.test">
-    <module name="onedriver" />
+  <configuration default="false" name="Test nemo_onemount.py" type="tests" factoryName="py.test">
+    <module name="onemount" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
@@ -15,7 +15,7 @@
     <option name="_new_keywords" value="&quot;&quot;" />
     <option name="_new_parameters" value="&quot;&quot;" />
     <option name="_new_additionalArguments" value="&quot;&quot;" />
-    <option name="_new_target" value="&quot;$PROJECT_DIR$/nemo-onedriver/tests/test_nemo_onedriver.py&quot;" />
+    <option name="_new_target" value="&quot;$PROJECT_DIR$/nemo-onemount/tests/test_nemo_onemount.py&quot;" />
     <option name="_new_targetType" value="&quot;PATH&quot;" />
     <method v="2" />
   </configuration>

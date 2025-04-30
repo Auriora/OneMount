@@ -1,10 +1,10 @@
 [Unit]
-Description=onedriver
+Description=onemount
 
 [Service]
 Type=dbus
-BusName=org.onedriver.FileStatus
-ExecStart=/usr/bin/onedriver %f
+BusName=org.onemount.FileStatus
+ExecStart=/usr/bin/onemount %f
 ExecStopPost=/usr/bin/fusermount3 -uz /%I
 Restart=on-abnormal
 RestartSec=3

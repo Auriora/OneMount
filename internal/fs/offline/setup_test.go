@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs"
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/fs"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -159,7 +159,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Check if we should use mock authentication
-	isMock := os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
+	isMock := os.Getenv("ONEMOUNT_MOCK_AUTH") == "1"
 
 	// Create authenticator based on configuration
 	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, testutil.AuthTokensPath, false, isMock)
@@ -252,8 +252,8 @@ func TestMain(m *testing.M) {
 			filesystem,
 			mountLoc,
 			&fuse.MountOptions{
-				Name:          "onedriver",
-				FsName:        "onedriver",
+				Name:          "onemount",
+				FsName:        "onemount",
 				DisableXAttrs: false,
 				MaxBackground: 1024,
 			},

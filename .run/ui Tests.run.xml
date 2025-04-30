@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="ui Tests" type="GoTestRunConfiguration" factoryName="Go Test">
-    <module name="onedriver" />
+    <module name="onemount" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-v -parallel=8 -count=1" />
     <envs>
@@ -8,7 +8,7 @@
       <env name="CGO_ENABLED" value="0" />
     </envs>
     <kind value="DIRECTORY" />
-    <package value="github.com/bcherrington/onedriver/internal/ui" />
+    <package value="github.com/bcherrington/onemount/internal/ui" />
     <directory value="$PROJECT_DIR$/internal/ui" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />

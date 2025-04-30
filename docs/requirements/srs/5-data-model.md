@@ -1,10 +1,10 @@
 # 5. Data Model
 
-This section describes the data structures and relationships used in the onedriver system.
+This section describes the data structures and relationships used in the OneMount system.
 
 ## 5.1 Entity Relationship Diagram
 
-The onedriver system uses the following key entities and their relationships:
+The OneMount system uses the following key entities and their relationships:
 
 ```plantuml
 @startditaa < scale=2

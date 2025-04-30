@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	// DBusInterface is the D-Bus interface name for onedriver
-	DBusInterface = "org.onedriver.FileStatus"
-	// DBusObjectPath is the D-Bus object path for onedriver
-	DBusObjectPath = "/org/onedriver/FileStatus"
-	// DBusServiceNameBase is the base D-Bus service name for onedriver
-	DBusServiceNameBase = "org.onedriver.FileStatus"
+	// DBusInterface is the D-Bus interface name for onemount
+	DBusInterface = "org.onemount.FileStatus"
+	// DBusObjectPath is the D-Bus object path for onemount
+	DBusObjectPath = "/org/onemount/FileStatus"
+	// DBusServiceNameBase is the base D-Bus service name for onemount
+	DBusServiceNameBase = "org.onemount.FileStatus"
 )
 
 // DBusServiceName returns the D-Bus service name, which may be unique in test environments

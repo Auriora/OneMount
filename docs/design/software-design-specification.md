@@ -1,12 +1,12 @@
-# Software Design Specification for onedriver
+# Software Design Specification for OneMount
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-This software design specification document provides a detailed technical description of the onedriver system architecture, components, and interfaces. It serves as a reference for developers working on the project and helps ensure consistent implementation across the codebase.
+This software design specification document provides a detailed technical description of the OneMount system architecture, components, and interfaces. It serves as a reference for developers working on the project and helps ensure consistent implementation across the codebase.
 
 ### 1.2 Scope
-This document covers the design of onedriver, a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content. It includes the filesystem implementation, Microsoft Graph API integration, user interfaces, authentication mechanisms, caching strategies, and offline functionality.
+This document covers the design of onemount, a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content. It includes the filesystem implementation, Microsoft Graph API integration, user interfaces, authentication mechanisms, caching strategies, and offline functionality.
 
 ### 1.3 Definitions, Acronyms, and Abbreviations
 - **FUSE**: Filesystem in Userspace - allows implementing a filesystem in user space
@@ -25,7 +25,7 @@ This document covers the design of onedriver, a native Linux filesystem for Micr
 ## 2. Class & Component Diagrams
 
 ### 2.1 Class Diagram
-The following class diagram shows the core classes of the onedriver system and their relationships:
+The following class diagram shows the core classes of the onemount system and their relationships:
 
 ```plantuml
 @startuml
@@ -199,7 +199,7 @@ DownloadManager "1" o-- "1" Auth : uses
 ```
 
 ### 2.2 Component Diagram
-The following component diagram shows the major components of the onedriver system and their interactions:
+The following component diagram shows the major components of the onemount system and their interactions:
 
 ```plantuml
 @startuml
@@ -251,7 +251,7 @@ Config --> Inode : configures
 ## 3. Sequence & Collaboration Diagrams
 
 ### 3.1 Sequence Diagram
-The following sequence diagram illustrates the file access workflow in onedriver:
+The following sequence diagram illustrates the file access workflow in OneMount:
 
 ```plantuml
 @startuml
@@ -304,19 +304,19 @@ App -> User: Display file content
 @enduml
 ```
 
-The following sequence diagram illustrates the authentication workflow in onedriver:
+The following sequence diagram illustrates the authentication workflow in OneMount:
 
 ```plantuml
 @startuml
 actor User
-participant "onedriver" as App
+participant "onemount" as App
 participant "Auth" as Auth
 participant "Browser" as Browser
 participant "Microsoft Graph API" as API
 
 == Initial Authentication ==
 
-User -> App: Start onedriver
+User -> App: Start onemount
 App -> Auth: Authenticate(config, path, headless)
 Auth -> Auth: Check if auth tokens exist
 
@@ -371,7 +371,7 @@ end
 ```
 
 ### 3.2 Collaboration Diagram
-The following collaboration diagram shows the interactions between key objects in the onedriver system:
+The following collaboration diagram shows the interactions between key objects in the onemount system:
 
 ```plantuml
 @startuml
@@ -402,7 +402,7 @@ Auth --> API: authenticates with
 ## 4. API Specifications
 
 ### 4.1 API Overview
-onedriver interacts with Microsoft's Graph API to access and manipulate OneDrive files and folders. The API integration is implemented in the `fs/graph` package and provides a Go interface to the REST API.
+onemount interacts with Microsoft's Graph API to access and manipulate OneDrive files and folders. The API integration is implemented in the `fs/graph` package and provides a Go interface to the REST API.
 
 ### 4.2 API Endpoints/Methods
 
@@ -478,7 +478,7 @@ onedriver interacts with Microsoft's Graph API to access and manipulate OneDrive
   ```
 
 ### 4.3 Authentication and Authorization
-onedriver uses OAuth2 for authentication with Microsoft's Graph API. The authentication process is implemented in the `fs/graph` package and provides the following features:
+onemount uses OAuth2 for authentication with Microsoft's Graph API. The authentication process is implemented in the `fs/graph` package and provides the following features:
 
 - OAuth2 authorization code flow for interactive authentication
 - Device code flow for headless authentication
@@ -486,7 +486,7 @@ onedriver uses OAuth2 for authentication with Microsoft's Graph API. The authent
 - Automatic token refresh when needed
 
 ### 4.4 Rate Limiting and Quotas
-Microsoft's Graph API has rate limits that onedriver must respect. The API integration includes mechanisms to handle rate limiting:
+Microsoft's Graph API has rate limits that onemount must respect. The API integration includes mechanisms to handle rate limiting:
 
 - Exponential backoff for retrying requests
 - Caching to reduce the number of API calls
@@ -495,7 +495,7 @@ Microsoft's Graph API has rate limits that onedriver must respect. The API integ
 ## 5. Data Model Definitions
 
 ### 5.1 Data Model Overview
-onedriver's data model consists of several key entities that represent the filesystem and its interaction with OneDrive:
+onemount's data model consists of several key entities that represent the filesystem and its interaction with OneDrive:
 
 1. **Filesystem**: The main entity that manages the filesystem operations
 2. **Inode**: Represents files and directories in the filesystem
@@ -557,7 +557,7 @@ onedriver's data model consists of several key entities that represent the files
   - Is either a File or a Folder
 
 ### 5.3 Database Schema
-onedriver uses BBolt, an embedded key/value database, to store metadata. The database schema is organized as follows:
+onemount uses BBolt, an embedded key/value database, to store metadata. The database schema is organized as follows:
 
 ```plantuml
 @startuml
@@ -588,7 +588,7 @@ entity "Config" as config {
 ```
 
 ### 5.4 Data Validation Rules
-onedriver implements several data validation rules to ensure data integrity:
+onemount implements several data validation rules to ensure data integrity:
 
 1. **File Names**: Must be valid in both OneDrive and Linux filesystems
 2. **File Sizes**: Must be within OneDrive's limits
@@ -598,7 +598,7 @@ onedriver implements several data validation rules to ensure data integrity:
 ## 6. Implementation Considerations
 
 ### 6.1 Dependencies
-onedriver has the following external dependencies:
+onemount has the following external dependencies:
 
 1. **go-fuse/v2**: For filesystem implementation
 2. **gotk3**: For GUI components
@@ -611,7 +611,7 @@ onedriver has the following external dependencies:
 9. **go-systemd**: For systemd integration
 
 ### 6.2 Performance Considerations
-onedriver implements several performance optimizations:
+onemount implements several performance optimizations:
 
 1. **Caching**: Metadata and content are cached locally to reduce API calls
 2. **Delta Synchronization**: Only changes are synchronized to reduce bandwidth usage
@@ -620,7 +620,7 @@ onedriver implements several performance optimizations:
 5. **Response Caching**: API responses are cached to reduce duplicate requests
 
 ### 6.3 Security Considerations
-onedriver implements several security measures:
+onemount implements several security measures:
 
 1. **Token Storage**: Authentication tokens are stored with appropriate file permissions
 2. **HTTPS**: All API communications use HTTPS
@@ -629,7 +629,7 @@ onedriver implements several security measures:
 5. **Error Handling**: Security-related errors are handled gracefully
 
 ### 6.4 Error Handling
-onedriver implements a comprehensive error handling strategy:
+onemount implements a comprehensive error handling strategy:
 
 1. **Structured Logging**: Errors are logged with context information
 2. **Retry Logic**: Transient errors are retried with exponential backoff
@@ -644,10 +644,10 @@ onedriver implements a comprehensive error handling strategy:
 2. FUSE Documentation: https://github.com/libfuse/libfuse
 3. BBolt Documentation: https://github.com/etcd-io/bbolt
 4. GTK3 Documentation: https://docs.gtk.org/gtk3/
-5. onedriver Software Architecture Specification
+5. onemount Software Architecture Specification
 
 ### 7.2 Revision History
 
 | Version | Date       | Description | Author |
 |---------|------------|-------------|--------|
-| 0.1.0   | 2025-04-28 | Initial draft | onedriver Team |
+| 0.1.0   | 2025-04-28 | Initial draft | onemount Team |

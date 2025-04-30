@@ -3,7 +3,7 @@ package graph
 import (
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 )
 
 // StandardTestFile returns a standard test file content with predictable content

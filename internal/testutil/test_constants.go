@@ -11,7 +11,7 @@ const TestSandboxTmpDir = TestSandboxDir + "/tmp"
 const TestMountPoint = TestSandboxTmpDir + "/mount"
 
 // TestDir is the directory within the mount point used for tests.
-const TestDir = TestMountPoint + "/onedriver_tests"
+const TestDir = TestMountPoint + "/onemount_tests"
 
 // TestDBLoc is the location of the test database.
 const TestDBLoc = TestSandboxTmpDir

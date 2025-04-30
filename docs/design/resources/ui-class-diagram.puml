@@ -58,7 +58,7 @@ package "UI Components" {
   }
 
   class "SystemdIntegration" as SystemdIntegration {
-    +OnedriverServiceTemplate: string
+    +OneMountServiceTemplate: string
     +SystemdBusName: string
     +SystemdObjectPath: string
     +TemplateUnit(template, instance: string): string
@@ -71,7 +71,7 @@ package "UI Components" {
 }
 
 package "Command Line Interface" {
-  class "OnedriverCLI" as OnedriverCLI {
+  class "OneMountCLI" as OneMountCLI {
     +main()
     -usage()
     -setupFlags(): (*common.Config, bool, bool, bool, bool, bool, string)
@@ -116,7 +116,7 @@ MountRow ..> SystemdIntegration : uses
 SettingsDialog ..> UIUtils : uses
 SettingsDialog ..> CommonConfig : uses
 
-OnedriverCLI ..> CommonConfig : uses
-OnedriverCLI ..> SystemdIntegration : uses
+OneMountCLI ..> CommonConfig : uses
+OneMountCLI ..> SystemdIntegration : uses
 
 @enduml

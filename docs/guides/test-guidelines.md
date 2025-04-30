@@ -1,6 +1,6 @@
-# Test Guidelines for onedriver
+# Test Guidelines for OneMount
 
-This document outlines the best practices for writing tests in the onedriver project, based on the patterns and practices established during the test code refactoring.
+This document outlines the best practices for writing tests in the OneMount project, based on the patterns and practices established during the test code refactoring.
 
 ## Table-Driven Tests
 
@@ -210,7 +210,7 @@ Tests should be isolated from each other to prevent interference.
 
 ## Conclusion
 
-Following these best practices will help ensure that tests in the onedriver project are:
+Following these best practices will help ensure that tests in the OneMount project are:
 1. Reliable - Tests produce consistent results
 2. Maintainable - Tests are easy to understand and modify
 3. Efficient - Tests run quickly and don't waste resources

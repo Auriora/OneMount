@@ -1,16 +1,16 @@
 # 2. Overall Description
 
-This section provides a high-level overview of the onedriver system, its context, and major functions.
+This section provides a high-level overview of the OneMount system, its context, and major functions.
 
 ## 2.1 Product Perspective
-Onedriver is a native Linux filesystem implementation for Microsoft OneDrive that integrates with the Linux operating system using FUSE (Filesystem in Userspace). It serves as a bridge between the local Linux filesystem and Microsoft's OneDrive cloud storage service.
+OneMount is a native Linux filesystem implementation for Microsoft OneDrive that integrates with the Linux operating system using FUSE (Filesystem in Userspace). It serves as a bridge between the local Linux filesystem and Microsoft's OneDrive cloud storage service.
 
-Unlike traditional sync clients that download all files to local storage, onedriver performs on-demand file downloads, saving local storage space. It integrates with the Microsoft Graph API to access OneDrive resources and uses local caching to improve performance and enable offline functionality.
+Unlike traditional sync clients that download all files to local storage, OneMount performs on-demand file downloads, saving local storage space. It integrates with the Microsoft Graph API to access OneDrive resources and uses local caching to improve performance and enable offline functionality.
 
-Onedriver fits into the ecosystem of cloud storage solutions for Linux, providing a native filesystem approach rather than a sync-based approach. It complements the Microsoft OneDrive service by providing Linux users with direct filesystem access to their OneDrive content.
+OneMount fits into the ecosystem of cloud storage solutions for Linux, providing a native filesystem approach rather than a sync-based approach. It complements the Microsoft OneDrive service by providing Linux users with direct filesystem access to their OneDrive content.
 
 ## 2.2 Product Functions
-Onedriver provides the following major functions:
+OneMount provides the following major functions:
 
 1. **OneDrive Filesystem Mounting**: Mounts OneDrive as a native Linux filesystem using FUSE
 2. **On-demand File Access**: Downloads files only when accessed, rather than syncing everything
@@ -29,7 +29,7 @@ Onedriver provides the following major functions:
 15. **Developer Tools**: Includes method logging framework for debugging
 
 ## 2.3 Constraints
-The following constraints apply to the onedriver system:
+The following constraints apply to the OneMount system:
 
 1. **Technical Constraints**:
    - Requires FUSE support in the Linux kernel
@@ -46,7 +46,7 @@ The following constraints apply to the onedriver system:
    - Must handle user data with appropriate permissions
 
 ## 2.4 Assumptions
-The following assumptions are made regarding the onedriver system:
+The following assumptions are made regarding the OneMount system:
 
 1. Users have a Microsoft account with OneDrive access
 2. The Linux system has FUSE installed and properly configured

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil/common"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,12 +21,12 @@ func TestSyncDirectoryTree(t *testing.T) {
 	// Skip if using mock auth since we need real directory structure
 	// TODO: In the future, this should be updated to use the interface-based approach
 	// instead of checking the environment variable directly
-	if os.Getenv("ONEDRIVER_MOCK_AUTH") == "1" {
+	if os.Getenv("ONEMOUNT_MOCK_AUTH") == "1" {
 		t.Skip("Skipping test with mock authentication")
 	}
 
 	// Create a test directory structure if it doesn't exist
-	testDirPath := filepath.Join(mountLoc, "onedriver_sync_test")
+	testDirPath := filepath.Join(mountLoc, "onemount_sync_test")
 	subDirPath := filepath.Join(testDirPath, "subdir")
 	subSubDirPath := filepath.Join(subDirPath, "subsubdir")
 
@@ -59,13 +59,13 @@ func TestSyncDirectoryTree(t *testing.T) {
 	require.NoError(t, err, "SyncDirectoryTree failed")
 
 	// Verify that the test directories are cached in the filesystem metadata
-	verifyDirectoryCached(t, "/onedriver_sync_test")
-	verifyDirectoryCached(t, "/onedriver_sync_test/subdir")
-	verifyDirectoryCached(t, "/onedriver_sync_test/subdir/subsubdir")
+	verifyDirectoryCached(t, "/onemount_sync_test")
+	verifyDirectoryCached(t, "/onemount_sync_test/subdir")
+	verifyDirectoryCached(t, "/onemount_sync_test/subdir/subsubdir")
 
 	// Verify that other known directories are also cached
-	verifyDirectoryCached(t, "/Onedriver-Documents")
-	verifyDirectoryCached(t, "/onedriver_tests")
+	verifyDirectoryCached(t, "/OneMount-Documents")
+	verifyDirectoryCached(t, "/onemount_tests")
 }
 
 // Helper function to create a test directory

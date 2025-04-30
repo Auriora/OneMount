@@ -21,7 +21,7 @@ func LogMethodCall() (string, time.Time) {
 
 	fullName := funcObj.Name()
 	// Extract just the method name from the full function name
-	// Format is typically: github.com/bcherrington/onedriver/internal/fs.(*Filesystem).MethodName
+	// Format is typically: github.com/bcherrington/onemount/internal/fs.(*Filesystem).MethodName
 	methodName := fullName
 	if lastDot := lastIndexDot(fullName); lastDot >= 0 {
 		methodName = fullName[lastDot+1:]

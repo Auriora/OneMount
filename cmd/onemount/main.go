@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bcherrington/onedriver/cmd/common"
-	"github.com/bcherrington/onedriver/internal/fs"
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/cmd/common"
+	"github.com/bcherrington/onemount/internal/fs"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"
@@ -24,7 +24,7 @@ import (
 )
 
 func usage() {
-	fmt.Printf(`onedriver - A Linux client for Microsoft OneDrive.
+	fmt.Printf(`onemount - A Linux client for Microsoft OneDrive.
 
 This program will mount your OneDrive account as a Linux filesystem at the
 specified mountpoint. Note that this is not a sync client - files are only
@@ -32,7 +32,7 @@ fetched on-demand and cached locally. Only files you actually use will be
 downloaded. While offline, the filesystem will be read-only until
 connectivity is re-established.
 
-Usage: onedriver [options] <mountpoint>
+Usage: onemount [options] <mountpoint>
 
 Valid options:
 `)
@@ -48,7 +48,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		"This disables launching the built-in web browser during authentication. "+
 			"Follow the instructions in the terminal to authenticate to OneDrive.")
 	configPath := flag.StringP("config-file", "f", common.DefaultConfigPath(),
-		"A YAML-formatted configuration file used by onedriver.")
+		"A YAML-formatted configuration file used by onemount.")
 	logLevel := flag.StringP("log", "l", "",
 		"Set logging level/verbosity for the filesystem. "+
 			"Can be one of: fatal, error, warn, info, debug, trace")
@@ -56,14 +56,14 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		"Set the output location for logs. "+
 			"Can be STDOUT, STDERR, or a file path. Default is STDOUT.")
 	cacheDir := flag.StringP("cache-dir", "c", "",
-		"Change the default cache directory used by onedriver. "+
+		"Change the default cache directory used by onemount. "+
 			"Will be created if the path does not already exist.")
 	wipeCache := flag.BoolP("wipe-cache", "w", false,
-		"Delete the existing onedriver cache directory and then exit. "+
+		"Delete the existing onemount cache directory and then exit. "+
 			"This is equivalent to resetting the program.")
 	versionFlag := flag.BoolP("version", "v", false, "Display program version.")
 	debugOnFlag := flag.BoolP("debug", "d", false, "Enable FUSE debug logging. "+
-		"This logs communication between onedriver and the kernel.")
+		"This logs communication between onemount and the kernel.")
 	syncTree := flag.BoolP("sync-tree", "s", false,
 		"Sync the full directory tree to the local metadata store in the background. "+
 			"This improves performance by pre-caching directory structure without blocking startup.")
@@ -75,7 +75,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 			"Default is 30 days. Set to 0 to use the default.")
 	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
 		"outstanding changes for upload, etc. Does not start a mount point.")
-	daemonFlag := flag.BoolP("daemon", "", false, "Run onedriver in daemon mode (detached from terminal).")
+	daemonFlag := flag.BoolP("daemon", "", false, "Run onemount in daemon mode (detached from terminal).")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
 	flag.Parse()
@@ -85,7 +85,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		os.Exit(0)
 	}
 	if *versionFlag {
-		fmt.Println("onedriver", common.Version())
+		fmt.Println("onemount", common.Version())
 		os.Exit(0)
 	}
 
@@ -164,7 +164,7 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	}
 
 	// create the filesystem
-	log.Info().Msgf("onedriver %s", common.Version())
+	log.Info().Msgf("onemount %s", common.Version())
 	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 	if err != nil {
 		log.Error().Err(err).Msg("Authentication failed")
@@ -202,8 +202,8 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 
 	// Create mount options
 	mountOptions := &fuse.MountOptions{
-		Name:          "onedriver",
-		FsName:        "onedriver",
+		Name:          "onemount",
+		FsName:        "onemount",
 		DisableXAttrs: false,
 		MaxBackground: 1024,
 		Debug:         debugOn,
@@ -260,7 +260,7 @@ func displayStats(config *common.Config, mountpoint string) {
 	}
 
 	// Display statistics header
-	fmt.Println("onedriver Statistics")
+	fmt.Println("onemount Statistics")
 	fmt.Println("===================")
 
 	// Metadata statistics
@@ -394,7 +394,7 @@ func setupLogging(config *common.Config, daemon bool) error {
 	// If running in daemon mode and no specific log file is set, use a default log file
 	if daemon && (config.LogOutput == "STDOUT" || config.LogOutput == "STDERR") {
 		// Use a default log file in the cache directory
-		logFile := filepath.Join(config.CacheDir, "onedriver.log")
+		logFile := filepath.Join(config.CacheDir, "onemount.log")
 		log.Info().Str("logFile", logFile).Msg("Daemon mode: redirecting logs to file")
 
 		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -444,7 +444,7 @@ func main() {
 
 	// If daemon flag is set, daemonize the process
 	if daemon {
-		log.Info().Msg("Starting onedriver in daemon mode...")
+		log.Info().Msg("Starting onemount in daemon mode...")
 		daemonize()
 	}
 
@@ -519,7 +519,7 @@ func checkIfMounted(mountpoint string) bool {
 
 	// Additional check: try to create and remove a test file
 	// If the mountpoint is already mounted but empty, the previous check might not catch it
-	testFile := filepath.Join(mountpoint, ".onedriver-mount-test")
+	testFile := filepath.Join(mountpoint, ".onemount-mount-test")
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		log.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to write test file, mountpoint might be mounted or inaccessible")
 		return true

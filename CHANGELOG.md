@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the onedriver project will be documented in this file.
+All notable changes to the OneMount project will be documented in this file.
 
 ## [Unreleased]
 
@@ -70,7 +70,7 @@ All notable changes to the onedriver project will be documented in this file.
 - Added NixOS installation instructions
 - Updated openSUSE Leap installation instructions
 - Updated Gentoo overlay URL in README
-- Added mention of the manual page and "onedriver --help" in the README
+- Added mention of the manual page and "OneMount --help" in the README
 - Removed outdated documentation and added threading design documentation
 - Added comprehensive SRS (Software Requirements Specification) documentation with detailed requirements
 - Added guidelines for method logging and D-Bus integration

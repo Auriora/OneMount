@@ -1,6 +1,6 @@
 # 3. Specific Requirements
 
-This section details the specific functional and non-functional requirements of the onedriver system.
+This section details the specific functional and non-functional requirements of the OneMount system.
 
 ## 3.1 Functional Requirements
 
@@ -11,7 +11,7 @@ This section details the specific functional and non-functional requirements of 
 | <a id="frFs001">**FR-FS-001**</a> | The system shall mount OneDrive as a native Linux filesystem using FUSE. | Must-have | Essential for providing filesystem access to OneDrive content. |
 | <a id="frFs002">**FR-FS-002**</a> | The system shall support standard file operations (read, write, create, delete, rename). | Must-have | Basic functionality required for any filesystem. |
 | <a id="frFs003">**FR-FS-003**</a> | The system shall support standard directory operations (list, create, delete, rename). | Must-have | Basic functionality required for any filesystem. |
-| <a id="frFs004">**FR-FS-004**</a> | The system shall download files on-demand when accessed rather than syncing all files. | Must-have | Core feature that differentiates onedriver from traditional sync clients. |
+| <a id="frFs004">**FR-FS-004**</a> | The system shall download files on-demand when accessed rather than syncing all files. | Must-have | Core feature that differentiates OneMount from traditional sync clients. |
 | <a id="frFs005">**FR-FS-005**</a> | The system shall cache file metadata to improve performance. | Must-have | Necessary for acceptable performance with remote storage. |
 | <a id="frFs006">**FR-FS-006**</a> | The system shall handle file conflicts between local and remote changes. | Should-have | Prevents data loss when conflicts occur. |
 | <a id="frFs007">**FR-FS-007**</a> | The system shall cache thumbnails for quick file previews. | Should-have | Improves user experience by providing fast access to file previews without downloading the entire file. |

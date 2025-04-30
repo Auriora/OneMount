@@ -137,11 +137,11 @@ char *webkit_auth_window(char *auth_url, char *account_name) {
     GtkWidget *auth_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     if (account_name && strlen(account_name) > 0) {
         char title[512];
-        snprintf(title, 511, "onedriver (%s)", account_name);
+        snprintf(title, 511, "onemount (%s)", account_name);
         gtk_window_set_title(GTK_WINDOW(auth_window), title);
         gtk_window_set_default_size(GTK_WINDOW(auth_window), 525, 600);
     } else {
-        gtk_window_set_title(GTK_WINDOW(auth_window), "onedriver");
+        gtk_window_set_title(GTK_WINDOW(auth_window), "onemount");
         gtk_window_set_default_size(GTK_WINDOW(auth_window), 450, 600);
     }
 

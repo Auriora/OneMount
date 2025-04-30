@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	OnedriverServiceTemplate = "onedriver@.service"
-	SystemdBusName           = "org.freedesktop.systemd1"
-	SystemdObjectPath        = "/org/freedesktop/systemd1"
+	OneMountServiceTemplate = "onemount@.service"
+	SystemdBusName          = "org.freedesktop.systemd1"
+	SystemdObjectPath       = "/org/freedesktop/systemd1"
 )
 
 // TemplateUnit templates a unit name as systemd would

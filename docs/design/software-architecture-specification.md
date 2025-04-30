@@ -1,19 +1,19 @@
-# Software Architecture Specification for onedriver
+# Software Architecture Specification for OneMount
 
 ## 1. Introduction & Context
 
 ### 1.1 Purpose
-This Software Architecture Specification provides a comprehensive architectural overview of the onedriver system. It presents multiple architectural views to address different stakeholder concerns and serves as a communication medium between the software architect and other project stakeholders.
+This Software Architecture Specification provides a comprehensive architectural overview of the OneMount system. It presents multiple architectural views to address different stakeholder concerns and serves as a communication medium between the software architect and other project stakeholders.
 
 ### 1.2 Scope
-This document covers the architecture of onedriver, a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content. It includes the filesystem implementation, Microsoft Graph API integration, user interfaces, and deployment considerations.
+This document covers the architecture of onemount, a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content. It includes the filesystem implementation, Microsoft Graph API integration, user interfaces, and deployment considerations.
 
 ### 1.3 System Overview
-onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem. The system allows Linux users to access their OneDrive files as if they were local files, but only downloads them when they are accessed, saving bandwidth and storage space.
+onemount is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem. The system allows Linux users to access their OneDrive files as if they were local files, but only downloads them when they are accessed, saving bandwidth and storage space.
 
 ### 1.4 Document Overview
 This document is structured according to the "Views and Beyond" approach, presenting the architecture through multiple views:
-- Context View: Shows how onedriver fits into its environment
+- Context View: Shows how onemount fits into its environment
 - Logical View: Describes the functional components of the system
 - Development View: Describes the architecture that supports the software development process
 - Process View: Describes the system's dynamic aspects
@@ -48,11 +48,11 @@ Each view addresses different stakeholder concerns and provides a different pers
 | Mobile Device Users                  | Users who upload content from mobile devices               | Access photos and files uploaded from mobile devices on Linux         |
 | Users with Limited Storage           | Users with large OneDrive accounts but limited local space | Access large OneDrive accounts without using equivalent local storage |
 | Users with Poor Internet             | Users with unreliable internet connections                 | Work with OneDrive files even with unreliable internet connection     |
-| Developers                           | Contributors to the onedriver codebase                     | Extend and improve the onedriver codebase                             |
-| File Manager Developers              | Developers of Linux file managers                          | Integrate file managers with onedriver for better user experience     |
-| Package Maintainers                  | Maintainers of Linux distribution packages                 | Package onedriver for different Linux distributions                   |
+| Developers                           | Contributors to the onemount codebase                     | Extend and improve the onemount codebase                             |
+| File Manager Developers              | Developers of Linux file managers                          | Integrate file managers with onemount for better user experience     |
+| Package Maintainers                  | Maintainers of Linux distribution packages                 | Package onemount for different Linux distributions                   |
 | Microsoft                            | Provider of the OneDrive service                           | Enable cross-platform access to OneDrive service                      |
-| System Administrators                | IT staff who deploy and maintain software                  | Deploy onedriver in organizational environments                       |
+| System Administrators                | IT staff who deploy and maintain software                  | Deploy onemount in organizational environments                       |
 
 ### 2.2 Architectural Viewpoints
 
@@ -77,7 +77,7 @@ rectangle "Linux Filesystem" as LinuxFS
 rectangle "User Applications" as Apps
 rectangle "Desktop Environment" as Desktop
 
-package "onedriver" {
+package "onemount" {
   [Filesystem Implementation] as FS
   [Graph API Integration] as Graph
   [UI Components] as UI
@@ -99,21 +99,21 @@ Graph --> FS : Provides data
 1. **Microsoft OneDrive / Graph API**
    - Cloud storage service that hosts user files and folders
    - Provides RESTful HTTP API with OAuth2 authentication
-   - onedriver authenticates with Microsoft, then performs CRUD operations on files and folders
+   - onemount authenticates with Microsoft, then performs CRUD operations on files and folders
 
 2. **Linux Filesystem**
    - The host operating system's filesystem
-   - onedriver mounts a virtual filesystem using FUSE that appears as a normal directory
+   - onemount mounts a virtual filesystem using FUSE that appears as a normal directory
    - Applications interact with this virtual filesystem using standard file operations
 
 3. **User Applications**
    - Any application that needs to access OneDrive files
-   - Interact with onedriver through normal filesystem operations
+   - Interact with onemount through normal filesystem operations
    - Unaware that they are accessing cloud storage rather than local files
 
 4. **Desktop Environment**
    - The Linux desktop environment (GNOME, KDE, etc.)
-   - Interacts with onedriver through GTK3 for UI integration and D-Bus for system integration
+   - Interacts with onemount through GTK3 for UI integration and D-Bus for system integration
    - Provides status information and basic controls through system tray icon
 
 #### 3.1.3 System Interfaces
@@ -131,12 +131,12 @@ Graph --> FS : Provides data
 3. **GTK3 Interface**
    - Provides graphical user interface components
    - Displays status information and configuration options
-   - Allows user to control the onedriver service
+   - Allows user to control the onemount service
 
 4. **D-Bus Interface**
    - Enables communication with the desktop environment
    - Provides status updates and notifications
-   - Allows control of the onedriver service
+   - Allows control of the onemount service
 
 ### 3.2 Logical View
 
@@ -158,7 +158,7 @@ Graph --> FS : Provides data
    - Manages cache cleanup and consistency
 
 4. **Command Line Interface (cmd package)**
-   - Provides user interface for mounting, unmounting, and configuring onedriver
+   - Provides user interface for mounting, unmounting, and configuring OneMount
    - Handles command-line arguments and configuration
    - Manages signals and graceful shutdown
 
@@ -252,7 +252,7 @@ Config --> Inode : configures
 
 #### 3.3.1 Module Organization
 
-onedriver follows a modular code organization that separates concerns and promotes maintainability:
+onemount follows a modular code organization that separates concerns and promotes maintainability:
 
 | Module                 | Description                                | Key Dependencies                  |
 |------------------------|--------------------------------------------|-----------------------------------|
@@ -260,8 +260,8 @@ onedriver follows a modular code organization that separates concerns and promot
 | fs/graph               | Microsoft Graph API integration            | net/http, json, zerolog           |
 | fs/graph/quickxorhash  | Hash implementation for OneDrive           | hash, encoding/base64             |
 | fs/offline             | Offline mode functionality                 | fs, fs/graph                      |
-| cmd/onedriver          | Main filesystem application                | fs, fs/graph, pflag               |
-| cmd/onedriver-launcher | GUI launcher application                   | ui, ui/systemd, gtk               |
+| cmd/onemount          | Main filesystem application                | fs, fs/graph, pflag               |
+| cmd/onemount-launcher | GUI launcher application                   | ui, ui/systemd, gtk               |
 | cmd/common             | Shared code between applications           | fs, yaml, zerolog                 |
 | ui                     | GUI implementation                         | gtk, fs/graph                     |
 | ui/systemd             | Systemd integration for the UI             | dbus, go-systemd                  |
@@ -272,11 +272,11 @@ onedriver follows a modular code organization that separates concerns and promot
 The source code is organized according to Go's standard project layout:
 
 ```
-onedriver/
+onemount/
 ├── cmd/                  # Command-line applications
 │   ├── common/           # Shared code between applications
-│   ├── onedriver/        # Main filesystem application
-│   └── onedriver-launcher/ # GUI launcher application
+│   ├── onemount/        # Main filesystem application
+│   └── onemount-launcher/ # GUI launcher application
 ├── fs/                   # Filesystem implementation
 │   ├── graph/            # Microsoft Graph API integration
 │   │   └── quickxorhash/ # Hash implementation for OneDrive
@@ -292,7 +292,7 @@ onedriver/
 
 #### 3.3.3 Development Environment
 
-onedriver uses a Makefile-based build system that supports various targets:
+onemount uses a Makefile-based build system that supports various targets:
 
 - **build**: Compiles the main binaries
 - **install**: Installs the application system-wide
@@ -339,7 +339,7 @@ The codebase follows Go's standard coding conventions and best practices:
 
 #### 3.4.1 Runtime Processes
 
-onedriver runs as a single process with multiple goroutines for concurrent operations:
+onemount runs as a single process with multiple goroutines for concurrent operations:
 
 1. **Main Process**: Handles filesystem mounting and signal handling
 2. **Delta Synchronization**: Background goroutine that periodically fetches changes from OneDrive
@@ -359,7 +359,7 @@ Components communicate through various mechanisms:
    - Provides file status updates and notifications to desktop applications
    - Implemented with a fallback mechanism to extended attributes
    - **D-Bus Unavailability Detection**: The system attempts to start the D-Bus server during filesystem initialization. If the connection to the D-Bus session bus fails or if the server cannot be started (e.g., in environments without D-Bus support), the system logs an error but continues operation.
-   - **Extended Attributes Fallback**: File status information is always stored as extended attributes (`user.onedriver.status` and `user.onedriver.error`) on files and directories, regardless of D-Bus availability. When updating file status, the system first sets these extended attributes and then attempts to send D-Bus signals only if the D-Bus server is available.
+   - **Extended Attributes Fallback**: File status information is always stored as extended attributes (`user.onemount.status` and `user.onemount.error`) on files and directories, regardless of D-Bus availability. When updating file status, the system first sets these extended attributes and then attempts to send D-Bus signals only if the D-Bus server is available.
    - **Transparent Transition**: The transition between D-Bus and extended attributes is transparent to users and applications. File managers and other applications that support either mechanism will automatically use whichever is available.
 5. **HTTP**: For communication with the Microsoft Graph API
 
@@ -372,7 +372,7 @@ The following sequence diagram illustrates the file access workflow:
 actor User
 participant "File Manager" as FM
 participant "FUSE" as FUSE
-participant "onedriver Filesystem" as FS
+participant "onemount Filesystem" as FS
 participant "Cache" as Cache
 participant "Download Manager" as DM
 participant "Graph API" as API
@@ -405,19 +405,19 @@ FM --> User: Show file content
 node "User's Linux System" {
   [Linux Kernel] as Kernel
   [FUSE Module] as FUSE
-  [onedriver] as onedriver
+  [onemount] as OneMount
   [GTK Libraries] as GTK
   [Desktop Environment] as Desktop
 
   folder "User's Home Directory" {
-    folder ".config/onedriver/" {
+    folder ".config/onemount/" {
       [config.yml]
       [auth_tokens.json]
     }
-    folder ".cache/onedriver/" {
+    folder ".cache/onemount/" {
       [content/]
       [thumbnails/]
-      [onedriver.db]
+      [onemount.db]
     }
     folder "OneDrive/" {
       [Virtual Filesystem]
@@ -431,23 +431,23 @@ cloud "Microsoft Cloud" {
 }
 
 Kernel -- FUSE
-FUSE -- onedriver
-onedriver -- GTK
+FUSE -- onemount
+onemount -- GTK
 GTK -- Desktop
-onedriver -- [config.yml]
-onedriver -- [auth_tokens.json]
-onedriver -- [content/]
-onedriver -- [thumbnails/]
-onedriver -- [onedriver.db]
-onedriver -- [Virtual Filesystem]
-onedriver -- Graph : HTTPS
+onemount -- [config.yml]
+onemount -- [auth_tokens.json]
+onemount -- [content/]
+onemount -- [thumbnails/]
+onemount -- [onemount.db]
+onemount -- [Virtual Filesystem]
+onemount -- Graph : HTTPS
 Graph -- Storage
 @enduml
 ```
 
 #### 3.5.2 Physical Nodes
 
-onedriver is designed to run on Linux systems with the following components:
+onemount is designed to run on Linux systems with the following components:
 
 - **Operating System**: Linux (various distributions)
 - **Required Libraries**: FUSE, GTK3
@@ -459,25 +459,25 @@ onedriver is designed to run on Linux systems with the following components:
 
 #### 3.5.3 Network Requirements
 
-onedriver requires outbound HTTPS access to the following endpoints:
+onemount requires outbound HTTPS access to the following endpoints:
 
 - `https://login.microsoftonline.com` - Authentication
 - `https://graph.microsoft.com` - Microsoft Graph API
 
 No inbound network access is required.
 
-When deployed, onedriver creates the following directory structure:
+When deployed, onemount creates the following directory structure:
 
 ```
 $HOME/
-├── .config/onedriver/
+├── .config/onemount/
 │   ├── config.yml       # User configuration
 │   ├── auth_tokens.json # Authentication tokens
-│   └── onedriver.log    # Log file
-├── .cache/onedriver/
+│   └── onemount.log    # Log file
+├── .cache/onemount/
 │   ├── content/         # Cached file content
 │   ├── thumbnails/      # Cached thumbnails
-│   └── onedriver.db     # Metadata cache database
+│   └── onemount.db     # Metadata cache database
 └── OneDrive/            # Mount point (configurable)
 ```
 
@@ -487,7 +487,7 @@ $HOME/
 
 #### 4.1.1 Security Requirements
 
-onedriver must securely handle user authentication and protect user data:
+onemount must securely handle user authentication and protect user data:
 
 - Secure storage of authentication tokens
 - Secure communication with Microsoft Graph API
@@ -496,7 +496,7 @@ onedriver must securely handle user authentication and protect user data:
 
 #### 4.1.2 Authentication and Authorization
 
-onedriver uses OAuth2 for authentication with Microsoft:
+onemount uses OAuth2 for authentication with Microsoft:
 
 - OAuth2 authorization code flow for interactive authentication
 - Device code flow for headless authentication
@@ -514,7 +514,7 @@ User data is protected through several mechanisms:
 
 #### 4.1.4 Security Patterns
 
-onedriver implements several security patterns:
+onemount implements several security patterns:
 
 - Principle of least privilege
 - Defense in depth
@@ -525,7 +525,7 @@ onedriver implements several security patterns:
 
 #### 4.2.1 Performance Requirements
 
-onedriver must provide responsive file access while minimizing resource usage:
+onemount must provide responsive file access while minimizing resource usage:
 
 - Fast access to frequently used files
 - Efficient use of network bandwidth
@@ -534,7 +534,7 @@ onedriver must provide responsive file access while minimizing resource usage:
 
 #### 4.2.2 Scalability
 
-onedriver scales to handle large OneDrive accounts through:
+onemount scales to handle large OneDrive accounts through:
 
 - On-demand file downloading
 - Efficient caching of metadata
@@ -559,7 +559,7 @@ This mechanism complements the delta synchronization by providing immediate noti
 
 #### 4.2.3 Caching Strategy
 
-onedriver uses a sophisticated caching system:
+onemount uses a sophisticated caching system:
 
 - Metadata cache using BBolt database
 - Content cache on local filesystem
@@ -612,7 +612,7 @@ Performance is monitored through:
      - **Conflict Detection Mechanism**: The system detects conflicts when a file has both remote changes (newer modification time and different ETag) and local changes. Local changes are detected by checking for offline changes in the database and pending uploads.
      - **Resolution Strategy**: When a conflict is detected, the system creates a conflict copy of the remote file with a timestamp in the name (e.g., "filename (Conflict Copy 2023-05-15 14:30:25)"). The local version is kept as is, preserving the user's changes, while the remote version is added as a separate file with the conflict copy name.
      - **User Notification Approach**: Files with conflicts are marked with a special status flag. This status is exposed to users through:
-       1. Extended attributes on the files (`user.onedriver.status` and `user.onedriver.error`) that can be displayed by file managers
+       1. Extended attributes on the files (`user.onemount.status` and `user.onemount.error`) that can be displayed by file managers
        2. D-Bus signals that notify desktop applications about the conflict
        3. Visual indicators in the UI showing the conflict status
 
@@ -691,4 +691,4 @@ Performance is monitored through:
 
 | Version | Date       | Description | Author |
 |---------|------------|-------------|--------|
-| 0.1.0   | 2025-04-28 | Initial version | onedriver Team |
+| 0.1.0   | 2025-04-28 | Initial version | onemount Team |

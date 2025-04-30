@@ -1,6 +1,6 @@
-# Onedriver Code Review Checklist
+# OneMount Code Review Checklist
 
-This document provides a comprehensive checklist for reviewing code contributions to the onedriver project.
+This document provides a comprehensive checklist for reviewing code contributions to the OneMount project.
 
 ## Code Style and Conventions
 

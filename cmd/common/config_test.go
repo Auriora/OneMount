@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,7 +41,7 @@ func TestLoadNonexistentConfig(t *testing.T) {
 
 	home, err := os.UserHomeDir()
 	require.NoError(t, err, "Failed to get user home directory")
-	assert.Equal(t, filepath.Join(home, ".cache/onedriver"), conf.CacheDir)
+	assert.Equal(t, filepath.Join(home, ".cache/onemount"), conf.CacheDir)
 	assert.Equal(t, "debug", conf.LogLevel)
 }
 

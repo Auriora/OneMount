@@ -31,9 +31,9 @@ This section provides a comprehensive framework for prioritizing requirements ba
    - Dependencies between requirements
 7. **Document your rationale** for prioritization decisions
 
-## Onedriver Requirements Prioritization Matrix
+## OneMount Requirements Prioritization Matrix
 
-The following matrix prioritizes the functional and non-functional requirements for the onedriver system based on their importance, complexity, and value.
+The following matrix prioritizes the functional and non-functional requirements for the OneMount system based on their importance, complexity, and value.
 
 | Requirement ID | Priority (MoSCoW) | Complexity (1-5) | Value (1-5) | Value/Complexity Ratio | Implementation Order | Rationale/Notes |
 |----------------|-------------------|------------------|-------------|------------------------|----------------------|-----------------|
@@ -81,7 +81,7 @@ The following matrix prioritizes the functional and non-functional requirements 
 
 ## Implementation Strategy
 
-Based on the prioritization matrix, the implementation strategy for onedriver should follow these principles:
+Based on the prioritization matrix, the implementation strategy for onemount should follow these principles:
 
 1. **Core Filesystem Functionality First**: Implement the basic filesystem mounting and operations (FR-FS-001, FR-FS-002, FR-FS-003) as the foundation.
 

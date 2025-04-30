@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/fs"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )

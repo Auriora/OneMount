@@ -1,6 +1,6 @@
-# Go Logging Guidelines for onedriver
+# Go Logging Guidelines for OneMount
 
-This guide provides comprehensive recommendations for logging in Go applications, with a focus on the onedriver project. It covers structured logging, log levels, the method logging framework, context propagation, performance considerations, and error handling.
+This guide provides comprehensive recommendations for logging in Go applications, with a focus on the onemount project. It covers structured logging, log levels, the method logging framework, context propagation, performance considerations, and error handling.
 
 ## General Principles
 
@@ -12,7 +12,7 @@ This guide provides comprehensive recommendations for logging in Go applications
 
 ## Structured Logging with zerolog
 
-The onedriver project uses [zerolog](https://github.com/rs/zerolog) for structured logging, which is a good choice for performance and usability.
+The onemount project uses [zerolog](https://github.com/rs/zerolog) for structured logging, which is a good choice for performance and usability.
 
 ### Best Practices
 
@@ -146,7 +146,7 @@ log.Fatal().
 
 ## Method Logging Framework
 
-The onedriver project implements a method logging framework that provides a way to log method entry and exit, including parameters and return values, for all public methods in the core module.
+The onemount project implements a method logging framework that provides a way to log method entry and exit, including parameters and return values, for all public methods in the core module.
 
 ### Overview
 
@@ -454,11 +454,11 @@ Proper error handling and logging is crucial for debugging and monitoring.
    }
    ```
 
-## Implementation in onedriver
+## Implementation in OneMount
 
 ### Current Implementation
 
-The onedriver project uses zerolog for structured logging and has a method logging framework that logs method entry and exit with parameters and return values.
+The onemount project uses zerolog for structured logging and has a method logging framework that logs method entry and exit with parameters and return values.
 
 ### Recommendations for Improvement
 
@@ -485,4 +485,4 @@ The onedriver project uses zerolog for structured logging and has a method loggi
 
 ## Conclusion
 
-Following these best practices will improve the quality and usefulness of logs in the onedriver project, making debugging and monitoring easier while maintaining good performance. The method logging framework provides a consistent way to instrument methods with entry and exit logging, which is particularly valuable for tracing execution flow and diagnosing issues in a complex filesystem implementation.
+Following these best practices will improve the quality and usefulness of logs in the onemount project, making debugging and monitoring easier while maintaining good performance. The method logging framework provides a consistent way to instrument methods with entry and exit logging, which is particularly valuable for tracing execution flow and diagnosing issues in a complex filesystem implementation.

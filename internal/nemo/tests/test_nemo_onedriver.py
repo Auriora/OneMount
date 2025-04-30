@@ -9,22 +9,22 @@ import pytest
 import dbus
 import dbus.mainloop.glib
 
-# Create a mock for the OneDriverExtension class
-class MockOneDriverExtension:
+# Create a mock for the OneMountExtension class
+class MockOneMountExtension:
     def __init__(self):
         self.bus = None
         self.dbus_proxy = None
         self.file_status_cache = {}
-        self.onedriver_mounts = []
+        self.onemount_mounts = []
 
     def connect_to_dbus(self):
-        """Connect to the OneDriver D-Bus service"""
+        """Connect to the OneMount D-Bus service"""
         try:
             self.dbus_proxy = self.bus.get_object(
-                'org.onedriver.FileStatus',
-                '/org/onedriver/FileStatus'
+                'org.onemount.FileStatus',
+                '/org/onemount/FileStatus'
             )
-            print("Connected to OneDriver D-Bus service")
+            print("Connected to OneMount D-Bus service")
         except Exception as e:
             self.dbus_proxy = None
 
@@ -33,7 +33,7 @@ class MockOneDriverExtension:
         if self.bus is not None:
             self.bus.add_signal_receiver(
                 self._on_file_status_changed,
-                dbus_interface='org.onedriver.FileStatus',
+                dbus_interface='org.onemount.FileStatus',
                 signal_name='FileStatusChanged'
             )
 
@@ -44,20 +44,20 @@ class MockOneDriverExtension:
 
         # Request Nemo to refresh the file's emblems
         try:
-            import nemo_onedriver
+            import nemo_onemount
             # Create a mock location object
             location = mock.MagicMock()
             location.get_path.return_value = path
-            nemo_onedriver.Nemo.FileInfo.invalidate_extension_info(location)
+            nemo_onemount.Nemo.FileInfo.invalidate_extension_info(location)
         except Exception as e:
             print(f"Error refreshing file emblems: {e}")
 
-    def _get_onedriver_mounts(self):
-        """Get list of OneDriver mount points"""
+    def _get_onemount_mounts(self):
+        """Get list of OneMount mount points"""
         return []
 
     def update_file_info(self, file, info=None, update_complete_callback=None):
-        """Add emblems based on OneDriver file status"""
+        """Add emblems based on OneMount file status"""
         # Get the file path
         path = file.get_location().get_path()
         if not path:
@@ -65,7 +65,7 @@ class MockOneDriverExtension:
                 update_complete_callback()
             return 0  # COMPLETE
 
-        # Query OneDriver status for this file
+        # Query OneMount status for this file
         status = self._get_file_status(path)
 
         if info is not None:
@@ -97,7 +97,7 @@ class MockOneDriverExtension:
         return 0  # COMPLETE
 
     def _get_file_status(self, path):
-        """Get the OneDriver status via D-Bus or extended attributes as fallback"""
+        """Get the OneMount status via D-Bus or extended attributes as fallback"""
         # First check if we have a cached status
         if path in self.file_status_cache:
             return self.file_status_cache[path]
@@ -107,7 +107,7 @@ class MockOneDriverExtension:
             try:
                 get_status = self.dbus_proxy.get_dbus_method(
                     'GetFileStatus',
-                    'org.onedriver.FileStatus'
+                    'org.onemount.FileStatus'
                 )
                 status = get_status(path)
                 self.file_status_cache[path] = status
@@ -119,7 +119,7 @@ class MockOneDriverExtension:
 
         # Fallback: Get the status from extended attributes
         try:
-            status = os.getxattr(path, "user.onedriver.status")
+            status = os.getxattr(path, "user.onemount.status")
             status_str = status.decode('utf-8')
             self.file_status_cache[path] = status_str
             return status_str
@@ -127,7 +127,7 @@ class MockOneDriverExtension:
             print(f"Error getting status for {path}: {e}")
             return "Unknown"
 
-# Create a mock module for nemo_onedriver
+# Create a mock module for nemo_onemount
 class MockNemoForModule:
     class FileInfo:
         @staticmethod
@@ -136,14 +136,14 @@ class MockNemoForModule:
 
 class MockModule:
     def __init__(self):
-        self.OneDriverExtension = MockOneDriverExtension
+        self.OneMountExtension = MockOneMountExtension
         self.Nemo = MockNemoForModule
 
 # Install the mock module
-nemo_onedriver = MockModule()
-sys.modules['nemo_onedriver'] = nemo_onedriver
+nemo_onemount = MockModule()
+sys.modules['nemo_onemount'] = nemo_onemount
 
-class TestOneDriverExtension(unittest.TestCase):
+class TestOneMountExtension(unittest.TestCase):
     def setUp(self):
         # Mock the D-Bus session bus
         self.mock_bus_patcher = mock.patch('dbus.SessionBus')
@@ -164,10 +164,10 @@ class TestOneDriverExtension(unittest.TestCase):
         self.temp_file.close()
 
         # Initialize the extension
-        self.extension = nemo_onedriver.OneDriverExtension()
+        self.extension = nemo_onemount.OneMountExtension()
 
-        # Mock the _get_onedriver_mounts method to return our temp directory
-        self.extension._get_onedriver_mounts = mock.MagicMock(
+        # Mock the _get_onemount_mounts method to return our temp directory
+        self.extension._get_onemount_mounts = mock.MagicMock(
             return_value=[os.path.dirname(self.temp_file.name)]
         )
 
@@ -188,8 +188,8 @@ class TestOneDriverExtension(unittest.TestCase):
 
         # Verify that the method tried to connect to the D-Bus service
         self.mock_bus.return_value.get_object.assert_called_with(
-            'org.onedriver.FileStatus',
-            '/org/onedriver/FileStatus'
+            'org.onemount.FileStatus',
+            '/org/onemount/FileStatus'
         )
 
         # Verify that the proxy was set
@@ -206,7 +206,7 @@ class TestOneDriverExtension(unittest.TestCase):
         # Verify that the method tried to add a signal receiver
         self.mock_bus.return_value.add_signal_receiver.assert_called_with(
             self.extension._on_file_status_changed,
-            dbus_interface='org.onedriver.FileStatus',
+            dbus_interface='org.onemount.FileStatus',
             signal_name='FileStatusChanged'
         )
 
@@ -221,7 +221,7 @@ class TestOneDriverExtension(unittest.TestCase):
         # Verify that the method tried to get the status via D-Bus
         self.mock_proxy.get_dbus_method.assert_called_with(
             'GetFileStatus',
-            'org.onedriver.FileStatus'
+            'org.onemount.FileStatus'
         )
         self.mock_get_status.assert_called_with(self.temp_file.name)
 
@@ -244,7 +244,7 @@ class TestOneDriverExtension(unittest.TestCase):
             # Verify that the method tried to get the status via D-Bus
             self.mock_proxy.get_dbus_method.assert_called_with(
                 'GetFileStatus',
-                'org.onedriver.FileStatus'
+                'org.onemount.FileStatus'
             )
             self.mock_get_status.assert_called_with(self.temp_file.name)
 
@@ -255,7 +255,7 @@ class TestOneDriverExtension(unittest.TestCase):
     def test_on_file_status_changed(self):
         """Test handling file status change signals"""
         # Mock the Nemo.FileInfo.invalidate_extension_info method
-        with mock.patch('nemo_onedriver.Nemo.FileInfo.invalidate_extension_info') as mock_invalidate:
+        with mock.patch('nemo_onemount.Nemo.FileInfo.invalidate_extension_info') as mock_invalidate:
             # Call the method
             self.extension._on_file_status_changed(self.temp_file.name, "Syncing")
 

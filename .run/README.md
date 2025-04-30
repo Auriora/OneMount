@@ -1,4 +1,4 @@
-# GoLand Run Configurations for onedriver
+# GoLand Run Configurations for OneMount
 
 This directory contains run configurations for JetBrains GoLand that replicate the functionality of the `make test` command.
 

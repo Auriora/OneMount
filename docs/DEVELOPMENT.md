@@ -1,17 +1,17 @@
-# Onedriver Development Guidelines
+# OneMount Development Guidelines
 
-This document provides concise guidance for new developers working on the onedriver project.
+This document provides concise guidance for new developers working on the OneMount project.
 
 ## Project Overview
 
-onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem.
+OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem.
 
 ## Project Structure
 
 - **cmd/** - Command-line applications
   - **common/** - Shared code between applications
-  - **onedriver/** - Main filesystem application
-  - **onedriver-launcher/** - GUI launcher application
+  - **onemount/** - Main filesystem application
+  - **onemount-launcher/** - GUI launcher application
 - **internal/** - Internal packages not meant for external use
   - **fs/** - Filesystem implementation
     - **graph/** - Microsoft Graph API integration
@@ -120,7 +120,7 @@ The project uses several key libraries:
 
 ## Best Practices
 
-The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides` directory:
+The OneMount project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides` directory:
 
 - [Coding Standards](guides/coding-standards.md) - Main entry point for all coding standards
 - [Go Coding Standards](guides/coding-standards.md#go-standards) - Comprehensive guide for Go code
@@ -162,10 +162,10 @@ Here's a summary of key best practices:
 
 ## Debugging
 
-- Use `journalctl --user -u onedriver@.service --since today` to view logs
-- Set the environment variable `ONEDRIVER_DEBUG=1` for verbose logging
+- Use `journalctl --user -u onemount@.service --since today` to view logs
+- Set the environment variable `ONEMOUNT_DEBUG=1` for verbose logging
 - Use `fusermount3 -uz $MOUNTPOINT` to unmount the filesystem if it hangs
 
 ## Architecture Summary
 
-This architecture allows onedriver to provide a seamless experience where OneDrive files appear as local files but are only downloaded when accessed, saving bandwidth and storage space while maintaining full compatibility with the OneDrive service.
+This architecture allows OneMount to provide a seamless experience where OneDrive files appear as local files but are only downloaded when accessed, saving bandwidth and storage space while maintaining full compatibility with the OneDrive service.

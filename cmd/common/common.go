@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bcherrington/onedriver/internal/fs"
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -47,8 +47,8 @@ func LogLevels() []string {
 // TemplateXDGVolumeInfo returns a formatted .xdg-volume-info file content
 func TemplateXDGVolumeInfo(name string) string {
 	xdgVolumeInfo := fmt.Sprintf("[Volume Info]\nName=%s\nIcon=dk-onedrive\n", name)
-	if _, err := os.Stat("/usr/share/icons/onedriver/onedriver.png"); err == nil {
-		xdgVolumeInfo += "IconFile=/usr/share/icons/onedriver.png\n"
+	if _, err := os.Stat("/usr/share/icons/onemount/onemount.png"); err == nil {
+		xdgVolumeInfo += "IconFile=/usr/share/icons/onemount.png\n"
 	} else {
 		xdgVolumeInfo += "Icon=dk-onedrive\n"
 	}

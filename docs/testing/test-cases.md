@@ -1,6 +1,6 @@
-# OneDriver Test Cases
+# OneMount Test Cases
 
-This document contains standardized test cases for the OneDriver project, covering successful sync, network failure, invalid credentials scenarios, file system operations, authentication and configuration, and offline functionality.
+This document contains standardized test cases for the OneMount project, covering successful sync, network failure, invalid credentials scenarios, file system operations, authentication and configuration, and offline functionality.
 
 ## Successful Sync Scenarios
 

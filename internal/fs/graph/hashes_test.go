@@ -2,7 +2,7 @@ package graph
 
 import (
 	"bytes"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"io"
 	"os"
 	"testing"
@@ -77,7 +77,7 @@ func TestHashSeekPosition(t *testing.T) {
 	t.Parallel()
 
 	// Create a temporary file for testing
-	tmp, err := os.CreateTemp("", "onedriverHashTest")
+	tmp, err := os.CreateTemp("", "onemountHashTest")
 	require.NoError(t, err, "Failed to create temporary file")
 	t.Cleanup(func() {
 		if err := os.Remove(tmp.Name()); err != nil && !os.IsNotExist(err) {

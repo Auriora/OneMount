@@ -1,14 +1,14 @@
 @startuml Authentication Workflow
 
 actor User
-participant "onedriver" as App
+participant "onemount" as App
 participant "Auth" as Auth
 participant "Browser" as Browser
 participant "Microsoft Graph API" as API
 
 == Initial Authentication ==
 
-User -> App: Start onedriver
+User -> App: Start onemount
 App -> Auth: Authenticate(config, path, headless)
 Auth -> Auth: Check if auth tokens exist
 
@@ -77,7 +77,7 @@ Auth -> App: Return response data
 
 == Headless Authentication (Terminal Mode) ==
 
-User -> App: Start onedriver with --headless
+User -> App: Start onemount with --headless
 App -> Auth: Authenticate(config, path, true)
 Auth -> Auth: Check if auth tokens exist
 

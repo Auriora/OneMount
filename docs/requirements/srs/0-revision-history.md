@@ -1,12 +1,12 @@
 # 0. Revision History
 
-This section tracks the revisions made to the Software Requirements Specification (SRS) document for the onedriver system. It provides a chronological record of changes, including version numbers, dates, descriptions of changes, and the individuals responsible for those changes.
+This section tracks the revisions made to the Software Requirements Specification (SRS) document for the OneMount system. It provides a chronological record of changes, including version numbers, dates, descriptions of changes, and the individuals responsible for those changes.
 
 ## Revision History Table
 
 | Version | Date       | Description | Author |
 |---------|------------|-------------|--------|
-| 0.1.0   | 2025-04-28 | Initial SRS document creation | onedriver Team |
+| 0.1.0   | 2025-04-28 | Initial SRS document creation | OneMount Team |
 
 ## Using This Document
 

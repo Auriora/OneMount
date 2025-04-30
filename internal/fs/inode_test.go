@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -109,7 +109,7 @@ func TestInodeProperties(t *testing.T) {
 	}{
 		{
 			name:         "Directory_ShouldHaveCorrectModeAndIsDir",
-			path:         "/Onedriver-Documents",
+			path:         "/OneMount-Documents",
 			isDirectory:  true,
 			expectedMode: 0755 | fuse.S_IFDIR,
 			setupFunc: func(t *testing.T, path string) string {
@@ -134,7 +134,7 @@ func TestInodeProperties(t *testing.T) {
 		},
 		{
 			name:         "File_ShouldHaveCorrectModeAndIsNotDir",
-			path:         "/onedriver_tests/test_inode_properties.txt",
+			path:         "/onemount_tests/test_inode_properties.txt",
 			isDirectory:  false,
 			expectedMode: 0644 | fuse.S_IFREG,
 			setupFunc: func(t *testing.T, path string) string {
@@ -283,14 +283,14 @@ func TestFilenameEscaping(t *testing.T) {
 
 			// Make sure it made it to the server
 			assert.Eventually(t, func() bool {
-				children, err := graph.GetItemChildrenPath("/onedriver_tests", auth)
+				children, err := graph.GetItemChildrenPath("/onemount_tests", auth)
 				if err != nil {
 					t.Logf("Error getting children: %v", err)
 					return false
 				}
 
 				// Log all children to help debug
-				t.Logf("Found %d children in /onedriver_tests", len(children))
+				t.Logf("Found %d children in /onemount_tests", len(children))
 				for i, child := range children {
 					t.Logf("Child %d: %s", i, child.Name)
 					if child.Name == tc.filename {
@@ -321,7 +321,7 @@ func TestFilenameEscaping(t *testing.T) {
 // TestFileCreationBehavior verifies various behaviors when creating files, including
 // creating a file that already exists (which should truncate the existing file and
 // return the original inode).
-// Related to: https://github.com/bcherrington/onedriver/issues/99
+// Related to: https://github.com/bcherrington/onemount/issues/99
 func TestFileCreationBehavior(t *testing.T) {
 	t.Parallel()
 
@@ -365,7 +365,7 @@ func TestFileCreationBehavior(t *testing.T) {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
 			// Get the parent directory
-			parent, err := fs.GetPath("/onedriver_tests", auth)
+			parent, err := fs.GetPath("/onemount_tests", auth)
 			require.NoError(t, err, "Failed to get parent directory")
 
 			// Create the file for the first time
@@ -398,7 +398,7 @@ func TestFileCreationBehavior(t *testing.T) {
 			// For the "CreateAfterWrite" test case, write content to the file
 			if tc.name == "CreateAfterWrite_ShouldTruncateAndReturnSameInode" {
 				// Write content to the file
-				filePath := filepath.Join("tmp", "mount/onedriver_tests", tc.filename)
+				filePath := filepath.Join("tmp", "mount/onemount_tests", tc.filename)
 				err := os.WriteFile(filePath, []byte(tc.content), 0644)
 				require.NoError(t, err, "Failed to write content to file")
 
@@ -431,7 +431,7 @@ func TestFileCreationBehavior(t *testing.T) {
 
 			// For the "CreateAfterWrite" test case, verify the file was truncated
 			if tc.name == "CreateAfterWrite_ShouldTruncateAndReturnSameInode" {
-				filePath := filepath.Join("tmp", "mount/onedriver_tests", tc.filename)
+				filePath := filepath.Join("tmp", "mount/onemount_tests", tc.filename)
 				content, err := os.ReadFile(filePath)
 				require.NoError(t, err, "Failed to read file content after second creation")
 				assert.Empty(t, string(content), "File was not truncated after second creation")

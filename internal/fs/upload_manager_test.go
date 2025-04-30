@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
 )
@@ -37,7 +37,7 @@ func TestUploadDiskSerialization(t *testing.T) {
 	var inode *Inode
 	testutil.WaitForCondition(t, func() bool {
 		var err error
-		inode, err = fs.GetPath("/onedriver_tests/upload_to_disk.fa", nil)
+		inode, err = fs.GetPath("/onemount_tests/upload_to_disk.fa", nil)
 		return err == nil && inode != nil
 	}, 10*time.Second, 500*time.Millisecond, "File was not recognized by filesystem")
 
@@ -57,7 +57,7 @@ func TestUploadDiskSerialization(t *testing.T) {
 	var driveItem *graph.DriveItem
 	var err error
 	testutil.WaitForCondition(t, func() bool {
-		driveItem, err = graph.GetItemPath("/onedriver_tests/upload_to_disk.fa", auth)
+		driveItem, err = graph.GetItemPath("/onemount_tests/upload_to_disk.fa", auth)
 		// If we can't find the item or it has no content, the test can proceed
 		return err != nil || driveItem == nil || driveItem.Size == 0
 	}, 5*time.Second, 500*time.Millisecond, "File was uploaded before the upload could be canceled")
@@ -101,7 +101,7 @@ func TestUploadDiskSerialization(t *testing.T) {
 
 	// Wait for the file to be uploaded
 	testutil.WaitForCondition(t, func() bool {
-		driveItem, err = graph.GetItemPath("/onedriver_tests/upload_to_disk.fa", auth)
+		driveItem, err = graph.GetItemPath("/onemount_tests/upload_to_disk.fa", auth)
 		return err == nil && driveItem != nil && driveItem.Size > 0
 	}, 30*time.Second, 1*time.Second, "Could not find uploaded file after unserializing from disk and resuming upload")
 }
@@ -156,7 +156,7 @@ func TestRepeatedUploads(t *testing.T) {
 	var inode *Inode
 	testutil.WaitForCondition(t, func() bool {
 		var err error
-		inode, err = fs.GetPath("/onedriver_tests/repeated_upload.txt", auth)
+		inode, err = fs.GetPath("/onemount_tests/repeated_upload.txt", auth)
 		if err != nil || inode == nil {
 			return false
 		}
@@ -172,7 +172,7 @@ func TestRepeatedUploads(t *testing.T) {
 		// Wait for the file to be uploaded
 		testutil.WaitForCondition(t, func() bool {
 			// Get the item from the server
-			item, err := graph.GetItemPath("/onedriver_tests/repeated_upload.txt", auth)
+			item, err := graph.GetItemPath("/onemount_tests/repeated_upload.txt", auth)
 			if err != nil || item == nil {
 				return false
 			}

@@ -1,6 +1,6 @@
 # Logging Examples
 
-This document provides examples of how to use the improved logging framework in the onedriver project.
+This document provides examples of how to use the improved logging framework in the OneMount project.
 
 ## Basic Method Logging
 
@@ -283,4 +283,4 @@ log.Fatal().
 
 ## Conclusion
 
-By following these examples and using the standardized logging functions and field names, you can improve the consistency and usefulness of logs in the onedriver project, making debugging and monitoring easier while maintaining good performance.
+By following these examples and using the standardized logging functions and field names, you can improve the consistency and usefulness of logs in the OneMount project, making debugging and monitoring easier while maintaining good performance.

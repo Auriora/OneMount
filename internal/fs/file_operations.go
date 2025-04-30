@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )

@@ -1,6 +1,6 @@
-# Contributing to onedriver
+# Contributing to OneMount
 
-Thank you for your interest in contributing to onedriver! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to OneMount! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Thank you for your interest in contributing to onedriver! This document provides
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [onedriver Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
+This project and everyone participating in it is governed by the [OneMount Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
 
 ## Getting Started
 
@@ -26,9 +26,9 @@ This project and everyone participating in it is governed by the [onedriver Code
 4. Create a new branch for your changes
 
 ```bash
-git clone https://github.com/yourusername/onedriver.git
-cd onedriver
-git remote add upstream https://github.com/bcherrington/onedriver.git
+git clone https://github.com/yourusername/OneMount.git
+cd onemount
+git remote add upstream https://github.com/bcherrington/OneMount.git
 git checkout -b feature/your-feature-name
 ```
 
@@ -68,7 +68,7 @@ make deb    # For Debian-based distributions
 
 ## Running Tests
 
-The tests will write and delete files/folders on your OneDrive account at the path `/onedriver_tests`. Note that the offline test suite requires `sudo` to remove network access to simulate being offline.
+The tests will write and delete files/folders on your OneDrive account at the path `/onemount_tests`. Note that the offline test suite requires `sudo` to remove network access to simulate being offline.
 
 ```bash
 # Setup test environment for first time run
@@ -97,7 +97,7 @@ Available run configurations:
 
 ## Coding Standards
 
-The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides/` directory:
+The OneMount project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides/` directory:
 
 - [Coding Standards](docs/guides/coding-standards.md) - Main entry point for all coding standards
 - [Go Coding Standards](docs/guides/go-coding-standards.md) - Comprehensive guide for Go code
@@ -147,7 +147,7 @@ When reporting bugs, please include:
 2. Steps to reproduce the issue
 3. Expected behavior
 4. Actual behavior
-5. Log output (`journalctl --user -u onedriver@.service --since today`)
+5. Log output (`journalctl --user -u onemount@.service --since today`)
 6. Your Linux distribution and version
 
 ## Feature Requests

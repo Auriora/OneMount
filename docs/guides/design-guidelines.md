@@ -1,6 +1,6 @@
-# Onedriver Design Documentation
+# OneMount Design Documentation
 
-This directory contains design documentation for the onedriver project, including class diagrams, sequence diagrams, and mappings between design elements and code artifacts.
+This directory contains design documentation for the OneMount project, including class diagrams, sequence diagrams, and mappings between design elements and code artifacts.
 
 ## Class Diagrams
 
@@ -37,12 +37,12 @@ The PlantUML diagrams can be viewed using various tools:
 
 ## Architecture Overview
 
-onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content. The architecture consists of several key components:
+OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing the entire OneDrive content. The architecture consists of several key components:
 
 1. **Filesystem Implementation (fs package)**: Implements the FUSE filesystem interface to provide a native filesystem experience
 2. **Graph API Integration (fs/graph package)**: Handles communication with Microsoft's Graph API for accessing OneDrive
 3. **Cache Management**: Manages local caching of file content and metadata to improve performance and enable offline access
-4. **Command Line Interface (cmd/onedriver package)**: Provides a command-line interface for mounting and configuring onedriver
-5. **Graphical User Interface (ui package and cmd/onedriver-launcher package)**: Provides a graphical interface for managing onedriver mountpoints
+4. **Command Line Interface (cmd/onemount package)**: Provides a command-line interface for mounting and configuring OneMount
+5. **Graphical User Interface (ui package and cmd/onemount-launcher package)**: Provides a graphical interface for managing onemount mountpoints
 
 For a more detailed overview of the architecture, see the [Software Architecture Specification](../design/software-architecture-specification.md).

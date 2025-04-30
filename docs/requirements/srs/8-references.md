@@ -1,6 +1,6 @@
 # 8. References
 
-This section provides references to the libraries, library documentation, Microsoft Graph API, and other external resources used in the onedriver project.
+This section provides references to the libraries, library documentation, Microsoft Graph API, and other external resources used in the OneMount project.
 
 ## 8.1 Go Libraries
 
@@ -20,7 +20,7 @@ This section provides references to the libraries, library documentation, Micros
 
 ## 8.2 Microsoft Graph API
 
-The onedriver project uses the Microsoft Graph API to interact with OneDrive. The following resources are relevant:
+The OneMount project uses the Microsoft Graph API to interact with OneDrive. The following resources are relevant:
 
 | Resource | Description | URL |
 |----------|-------------|-----|

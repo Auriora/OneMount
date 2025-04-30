@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/ui"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/ui"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v3"
@@ -23,20 +23,20 @@ type Config struct {
 	graph.AuthConfig `yaml:"auth"`
 }
 
-// DefaultConfigPath returns the default config location for onedriver
+// DefaultConfigPath returns the default config location for onemount
 func DefaultConfigPath() string {
 	confDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not determine configuration directory.")
 	}
-	return filepath.Join(confDir, "onedriver/config.yml")
+	return filepath.Join(confDir, "onemount/config.yml")
 }
 
 // createDefaultConfig returns a Config struct with default values
 func createDefaultConfig() Config {
 	xdgCacheDir, _ := os.UserCacheDir()
 	return Config{
-		CacheDir:        filepath.Join(xdgCacheDir, "onedriver"),
+		CacheDir:        filepath.Join(xdgCacheDir, "onemount"),
 		LogLevel:        "debug",
 		LogOutput:       "STDOUT", // Default to standard output
 		SyncTree:        false,
@@ -125,7 +125,7 @@ func validateConfig(config *Config) error {
 	if config.CacheDir == "" {
 		log.Warn().Msg("Cache directory cannot be empty, using default.")
 		xdgCacheDir, _ := os.UserCacheDir()
-		config.CacheDir = filepath.Join(xdgCacheDir, "onedriver")
+		config.CacheDir = filepath.Join(xdgCacheDir, "onemount")
 	}
 
 	// Validate AuthConfig if provided
@@ -138,7 +138,7 @@ func validateConfig(config *Config) error {
 	return nil
 }
 
-// LoadConfig is the primary way of loading onedriver's config
+// LoadConfig is the primary way of loading onemount's config
 func LoadConfig(path string) *Config {
 	// Create default configuration
 	defaults := createDefaultConfig()

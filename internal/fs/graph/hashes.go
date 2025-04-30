@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph/quickxorhash"
+	"github.com/bcherrington/onemount/internal/fs/graph/quickxorhash"
 )
 
 func SHA256Hash(data *[]byte) string {

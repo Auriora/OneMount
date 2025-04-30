@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
 

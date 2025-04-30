@@ -1,17 +1,17 @@
-# onedriver Development Guidelines
+# OneMount Development Guidelines
 
-This document provides concise guidance for new developers working on the onedriver project.
+This document provides concise guidance for new developers working on the OneMount project.
 
 ## Project Overview
 
-onedriver is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem.
+OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem.
 
 ## Project Structure
 
 - **cmd/** - Command-line applications
   - **common/** - Shared code between applications
-  - **onedriver/** - Main filesystem application
-  - **onedriver-launcher/** - GUI launcher application
+  - **onemount/** - Main filesystem application
+  - **onemount-launcher/** - GUI launcher application
 - **internal/** - Internal implementation code
   - **fs/** - Filesystem implementation
     - **graph/** - Microsoft Graph API integration
@@ -94,7 +94,7 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 
 ## Best Practices
 
-The onedriver project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides/` directory:
+The OneMount project follows a set of comprehensive coding standards and best practices. For detailed guidelines, refer to the documents in the `docs/guides/` directory:
 
 - [Coding Standards](../docs/guides/coding-standards.md) - Main entry point for all coding standards
 - [Design Guidelines](../docs/guides/design-guidelines.md) - Guidelines for designing components
@@ -154,6 +154,6 @@ Here's a summary of key best practices:
 
 ## Debugging
 
-- Use `journalctl --user -u onedriver@.service --since today` to view logs
-- Set the environment variable `ONEDRIVER_DEBUG=1` for verbose logging
+- Use `journalctl --user -u onemount@.service --since today` to view logs
+- Set the environment variable `ONEMOUNT_DEBUG=1` for verbose logging
 - Use `fusermount3 -uz $MOUNTPOINT` to unmount the filesystem if it hangs

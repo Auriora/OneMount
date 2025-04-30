@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
@@ -253,14 +253,14 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	}
 
 	// Set the status xattr
-	inode.xattrs["user.onedriver.status"] = []byte(statusStr)
+	inode.xattrs["user.onemount.status"] = []byte(statusStr)
 
 	// If there's an error message, set it too
 	if status.ErrorMsg != "" {
-		inode.xattrs["user.onedriver.error"] = []byte(status.ErrorMsg)
+		inode.xattrs["user.onemount.error"] = []byte(status.ErrorMsg)
 	} else {
 		// Remove the error xattr if it exists
-		delete(inode.xattrs, "user.onedriver.error")
+		delete(inode.xattrs, "user.onemount.error")
 	}
 
 	// Unlock the inode before sending D-Bus signal to avoid potential deadlocks

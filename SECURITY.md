@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The following versions of onedriver are currently being supported with security updates:
+The following versions of OneMount are currently being supported with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -10,11 +10,11 @@ The following versions of onedriver are currently being supported with security 
 
 ## Reporting a Vulnerability
 
-The onedriver team takes security vulnerabilities seriously. We appreciate your efforts to responsibly disclose your findings.
+The OneMount team takes security vulnerabilities seriously. We appreciate your efforts to responsibly disclose your findings.
 
 ### How to Report a Vulnerability
 
-If you believe you've found a security vulnerability in onedriver, please follow these steps:
+If you believe you've found a security vulnerability in OneMount, please follow these steps:
 
 1. **Do not disclose the vulnerability publicly** until it has been addressed by the maintainers.
 2. Email your findings to [INSERT SECURITY EMAIL]. If you don't receive a response within 48 hours, please follow up.
@@ -35,26 +35,26 @@ After you report a vulnerability:
 
 ## Security Best Practices for Users
 
-To ensure the security of your onedriver installation:
+To ensure the security of your OneMount installation:
 
-1. **Keep onedriver updated**: Always use the latest version to benefit from security patches.
+1. **Keep OneMount updated**: Always use the latest version to benefit from security patches.
 2. **Protect your Microsoft account**: Use strong passwords and enable two-factor authentication for your Microsoft account.
-3. **Be cautious with permissions**: Only grant onedriver access to the OneDrive folders you need.
+3. **Be cautious with permissions**: Only grant OneMount access to the OneDrive folders you need.
 4. **Review application logs**: Regularly check logs for any unusual activity.
 5. **Report suspicious behavior**: If you notice anything unusual, report it to the maintainers.
 
 ## Security Design Principles
 
-onedriver follows these security principles:
+OneMount follows these security principles:
 
-1. **Minimal permissions**: onedriver only requests the permissions it needs to function.
+1. **Minimal permissions**: OneMount only requests the permissions it needs to function.
 2. **Secure authentication**: We use Microsoft's OAuth 2.0 implementation for secure authentication.
 3. **Local encryption**: Cached files are stored with appropriate filesystem permissions.
-4. **No telemetry**: onedriver does not collect or transmit user data beyond what's needed for OneDrive operations.
+4. **No telemetry**: OneMount does not collect or transmit user data beyond what's needed for OneDrive operations.
 
 ## Third-Party Dependencies
 
-onedriver relies on several third-party libraries. We regularly review and update these dependencies to address known vulnerabilities.
+OneMount relies on several third-party libraries. We regularly review and update these dependencies to address known vulnerabilities.
 
 Key dependencies include:
 - Go standard library
@@ -65,6 +65,6 @@ Key dependencies include:
 
 ## Acknowledgments
 
-We would like to thank the following individuals who have helped improve the security of onedriver through responsible disclosure:
+We would like to thank the following individuals who have helped improve the security of OneMount through responsible disclosure:
 
 - [List will be updated as contributions are received]

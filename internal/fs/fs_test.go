@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
-	"github.com/bcherrington/onedriver/internal/testutil/common"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,9 +33,9 @@ func TestReaddir(t *testing.T) {
 		{
 			name:          "RootDirectory_ShouldContainDocumentsFolder",
 			directory:     testutil.TestMountPoint,
-			expectedItems: []string{"Onedriver-Documents"},
+			expectedItems: []string{"OneMount-Documents"},
 			checkItemTypes: map[string]string{
-				"Onedriver-Documents": "dir",
+				"OneMount-Documents": "dir",
 			},
 		},
 		{
@@ -48,7 +48,7 @@ func TestReaddir(t *testing.T) {
 		},
 		{
 			name:          "DocumentsDirectory_ShouldBeReadable",
-			directory:     filepath.Join(testutil.TestMountPoint, "Onedriver-Documents"),
+			directory:     filepath.Join(testutil.TestMountPoint, "OneMount-Documents"),
 			expectedItems: []string{}, // We don't care about specific files, just that we can read the directory
 		},
 	}
@@ -122,7 +122,7 @@ func TestLs(t *testing.T) {
 			name:          "RootDirectory_ShouldContainDocumentsFolder",
 			directory:     testutil.TestMountPoint,
 			options:       []string{},
-			expectedItems: []string{"Onedriver-Documents"},
+			expectedItems: []string{"OneMount-Documents"},
 		},
 		{
 			name:          "TestDirectory_ShouldContainExpectedFiles",
@@ -140,7 +140,7 @@ func TestLs(t *testing.T) {
 			name:          "ListingWithLongFormat_ShouldShowPermissions",
 			directory:     testutil.TestMountPoint,
 			options:       []string{"-l"},
-			expectedItems: []string{"Onedriver-Documents"},
+			expectedItems: []string{"OneMount-Documents"},
 		},
 	}
 
@@ -1515,7 +1515,7 @@ func TestFileInfo(t *testing.T) {
 			name: "Directory_ShouldHaveCorrectAttributes",
 			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
 				// Ensure the Documents directory exists
-				docDir := filepath.Join(testutil.TestMountPoint, "Onedriver-Documents")
+				docDir := filepath.Join(testutil.TestMountPoint, "OneMount-Documents")
 				if _, err := os.Stat(docDir); os.IsNotExist(err) {
 					if err := os.Mkdir(docDir, 0755); err != nil {
 						return "", 0, err
@@ -1529,7 +1529,7 @@ func TestFileInfo(t *testing.T) {
 				}
 				return docDir, 0755, nil
 			},
-			expectedName: "Onedriver-Documents",
+			expectedName: "OneMount-Documents",
 			isDir:        true,
 			verifyFunc: func(t *testing.T, stat os.FileInfo) error {
 				if stat.ModTime().Year() < 1971 {
@@ -1827,7 +1827,7 @@ func TestGIOTrash(t *testing.T) {
 				if st, err2 := os.Stat(fname); err2 == nil {
 					if !st.IsDir() && strings.Contains(string(out), "Is a directory") {
 						t.Skip("This is a GIO bug (it complains about test file being " +
-							"a directory despite correct metadata from onedriver), skipping.")
+							"a directory despite correct metadata from onemount), skipping.")
 					}
 					require.Fail(t, fmt.Sprintf("%s still exists after deletion!", fname))
 				}
@@ -1872,7 +1872,7 @@ func TestListChildrenPaging(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// files have been prepopulated during test setup to avoid being picked up by
 			// the delta thread
-			apiPath := "/onedriver_tests"
+			apiPath := "/onemount_tests"
 			if tc.dirPath != "" {
 				apiPath = filepath.Join(apiPath, tc.dirPath)
 			}
@@ -2011,7 +2011,7 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 			t.Logf("LibreOffice conversion output: %s", out)
 
 			// Construct the API path for the target file
-			apiPath := fmt.Sprintf("/onedriver_tests/%s", targetFileName)
+			apiPath := fmt.Sprintf("/onemount_tests/%s", targetFileName)
 
 			// Format the error message before passing it to WaitForCondition
 			errorMessage := fmt.Sprintf("Could not find %s post-upload or file size was too small", apiPath)

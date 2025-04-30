@@ -12,13 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
 
-// Filesystem is the actual FUSE filesystem implementation for onedriver.
+// Filesystem is the actual FUSE filesystem implementation for onemount.
 // It provides a native Linux filesystem for Microsoft OneDrive using the
 // "low-level" FUSE API (https://github.com/libfuse/libfuse/blob/master/include/fuse_lowlevel.h).
 // The Filesystem handles file operations, caching, synchronization with OneDrive,
@@ -89,7 +89,7 @@ type OfflineChange struct {
 	NewPath   string    `json:"new_path,omitempty"` // For rename operations
 }
 
-// NewFilesystem creates a new filesystem instance for onedriver.
+// NewFilesystem creates a new filesystem instance for onemount.
 // It initializes the filesystem with the provided authentication, cache directory,
 // and cache expiration settings. The function sets up the database, content cache,
 // and starts background processes for synchronization and cache management.
@@ -113,7 +113,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	// Try to open the database with retries and exponential backoff
 	var db *bolt.DB
 	var err error
-	dbPath := filepath.Join(cacheDir, "onedriver.db")
+	dbPath := filepath.Join(cacheDir, "onemount.db")
 
 	// Check if the database file exists
 	if _, statErr := os.Stat(dbPath); statErr == nil {

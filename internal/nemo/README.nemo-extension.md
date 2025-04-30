@@ -1,6 +1,6 @@
-# OneDriver Nemo Extension
+# OneMount Nemo Extension
 
-This extension adds file status indicators (emblems) to files and folders managed by OneDriver in the Nemo file manager.
+This extension adds file status indicators (emblems) to files and folders managed by OneMount in the Nemo file manager.
 
 ## Status Indicators
 
@@ -25,8 +25,8 @@ The extension shows the following status indicators:
 2. Copy the extension to the Nemo extensions directory:
    ```
    mkdir -p ~/.local/share/nemo-python/extensions/
-   cp nemo-onedriver.py ~/.local/share/nemo-python/extensions/
-   chmod +x ~/.local/share/nemo-python/extensions/nemo-onedriver.py
+   cp nemo-onemount.py ~/.local/share/nemo-python/extensions/
+   chmod +x ~/.local/share/nemo-python/extensions/nemo-onemount.py
    ```
 
 3. Restart Nemo:
@@ -44,11 +44,11 @@ If the extension doesn't work:
    nemo --quit
    nemo --debug
    ```
-   Look for messages related to "nemo-onedriver" in the output.
+   Look for messages related to "nemo-onemount" in the output.
 
 2. Verify that the extension has execute permissions:
    ```
-   chmod +x ~/.local/share/nemo-python/extensions/nemo-onedriver.py
+   chmod +x ~/.local/share/nemo-python/extensions/nemo-onemount.py
    ```
 
 3. Make sure you have the required dependencies installed:
@@ -56,16 +56,16 @@ If the extension doesn't work:
    sudo apt install python3-nemo python3-gi
    ```
 
-4. Check if OneDriver is properly mounted:
+4. Check if OneMount is properly mounted:
    ```
-   mount | grep onedriver
+   mount | grep onemount
    ```
 
 ## Uninstallation
 
 To remove the extension:
 ```
-rm ~/.local/share/nemo-python/extensions/nemo-onedriver.py
+rm ~/.local/share/nemo-python/extensions/nemo-onemount.py
 nemo -q
 nemo
 ```

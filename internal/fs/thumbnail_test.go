@@ -3,13 +3,13 @@ package fs
 import (
 	"context"
 	"encoding/json"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/stretchr/testify/assert"
 	bolt "go.etcd.io/bbolt"
 )
@@ -166,7 +166,7 @@ func TestThumbnailCacheOperations(t *testing.T) {
 			t.Parallel()
 
 			// Create a temporary directory for the thumbnail cache
-			tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
+			tempDir, err := os.MkdirTemp("", "onemount-thumbnail-test-*")
 			assert.NoError(t, err, "Failed to create temporary directory")
 
 			// Setup cleanup to remove the temp directory after test completes or fails
@@ -278,7 +278,7 @@ func TestThumbnailCacheCleanup(t *testing.T) {
 			t.Parallel()
 
 			// Create a temporary directory for the thumbnail cache
-			tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
+			tempDir, err := os.MkdirTemp("", "onemount-thumbnail-test-*")
 			assert.NoError(t, err, "Failed to create temporary directory")
 
 			// Setup cleanup to remove the temp directory after test completes or fails
@@ -409,7 +409,7 @@ func TestThumbnailOperations(t *testing.T) {
 			t.Parallel()
 
 			// Create a temporary directory for the filesystem
-			tempDir, err := os.MkdirTemp("", "onedriver-thumbnail-test-*")
+			tempDir, err := os.MkdirTemp("", "onemount-thumbnail-test-*")
 			assert.NoError(t, err, "Failed to create temporary directory")
 
 			// Setup cleanup to remove the temp directory after test completes or fails

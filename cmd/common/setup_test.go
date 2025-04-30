@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

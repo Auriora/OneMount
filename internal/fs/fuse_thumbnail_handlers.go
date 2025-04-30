@@ -50,7 +50,7 @@ func (f *Filesystem) HandleThumbnailRequest(_ <-chan struct{}, in *fuse.OpenIn, 
 	ctx.Debug().Msg("Handling thumbnail request")
 
 	// Create a temporary file to store the thumbnail
-	tempFile, err := os.CreateTemp("", "onedriver-thumbnail-*")
+	tempFile, err := os.CreateTemp("", "onemount-thumbnail-*")
 	if err != nil {
 		ctx.Error().Err(err).Msg("Failed to create temporary file for thumbnail")
 		return fuse.EIO, 0

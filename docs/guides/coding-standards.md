@@ -1,6 +1,6 @@
-# onedriver Coding Standards
+# OneMount Coding Standards
 
-This document serves as the comprehensive guide for all coding standards and best practices in the onedriver project. It provides detailed guidelines to ensure consistency, maintainability, and quality across the codebase.
+This document serves as the comprehensive guide for all coding standards and best practices in the OneMount project. It provides detailed guidelines to ensure consistency, maintainability, and quality across the codebase.
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ This document serves as the comprehensive guide for all coding standards and bes
 
 ## Overview
 
-The onedriver project follows industry best practices for software development, with a focus on code quality, maintainability, and performance. These standards ensure consistency across the codebase and make it easier for new developers to contribute to the project.
+The OneMount project follows industry best practices for software development, with a focus on code quality, maintainability, and performance. These standards ensure consistency across the codebase and make it easier for new developers to contribute to the project.
 
 For specific aspects of development, we also provide additional detailed guides:
 - [Go Logging Best Practices](go_logging_best_practices.md) - Guidelines for structured logging with zerolog
@@ -40,7 +40,7 @@ For specific aspects of development, we also provide additional detailed guides:
 
 ## Go Standards
 
-The majority of the onedriver codebase is written in Go. This section provides comprehensive guidelines for Go development.
+The majority of the OneMount codebase is written in Go. This section provides comprehensive guidelines for Go development.
 
 ### Code Organization
 
@@ -59,7 +59,7 @@ The majority of the onedriver codebase is written in Go. This section provides c
 
 ### Project Structure
 
-In this guideline, we synthesize the community-driven **Standard Go Project Layout** patterns, the **official Go module** recommendations, and expert advice from Smart Byte Labs and Alex Edwards to propose a flexible yet consistent structure for your OneDriver repository.
+In this guideline, we synthesize the community-driven **Standard Go Project Layout** patterns, the **official Go module** recommendations, and expert advice from Smart Byte Labs and Alex Edwards to propose a flexible yet consistent structure for your OneMount repository.
 
 #### 1. Core Principles
 
@@ -349,6 +349,6 @@ For Python code (used in testing and utilities), follow these guidelines:
 
 ## Conclusion
 
-Following these coding standards will help maintain a consistent, high-quality codebase for the onedriver project. These standards should be applied to all new code and, when feasible, to existing code during refactoring.
+Following these coding standards will help maintain a consistent, high-quality codebase for the OneMount project. These standards should be applied to all new code and, when feasible, to existing code during refactoring.
 
 For questions or suggestions regarding these standards, please open an issue or pull request in the project repository.

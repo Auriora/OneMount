@@ -1,7 +1,7 @@
 package graph
 
 import (
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 	var driveErr error
 
 	// Check if we should use mock authentication
-	isMock := os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
+	isMock := os.Getenv("ONEMOUNT_MOCK_AUTH") == "1"
 
 	// Create authenticator based on configuration
 	authenticator := NewAuthenticator(AuthConfig{}, testutil.AuthTokensPath, false, isMock)

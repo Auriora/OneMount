@@ -140,7 +140,7 @@ func TestFileStatusXattr(t *testing.T) {
 
 		// Verify the xattr was set
 		inode.RLock()
-		statusValue, exists := inode.xattrs["user.onedriver.status"]
+		statusValue, exists := inode.xattrs["user.onemount.status"]
 		inode.RUnlock()
 
 		assert.True(t, exists, "Status xattr was not set")
@@ -162,12 +162,12 @@ func TestFileStatusXattr(t *testing.T) {
 
 		// Verify the status xattr was set
 		inode.RLock()
-		statusValue, exists := inode.xattrs["user.onedriver.status"]
+		statusValue, exists := inode.xattrs["user.onemount.status"]
 		assert.True(t, exists, "Status xattr was not set")
 		assert.Equal(t, []byte("Error"), statusValue, "Status xattr value does not match")
 
 		// Verify the error xattr was set
-		errorValue, errorExists := inode.xattrs["user.onedriver.error"]
+		errorValue, errorExists := inode.xattrs["user.onemount.error"]
 		inode.RUnlock()
 
 		assert.True(t, errorExists, "Error xattr was not set")
@@ -188,7 +188,7 @@ func TestFileStatusXattr(t *testing.T) {
 
 		// Verify the error xattr was removed
 		inode.RLock()
-		_, errorExists := inode.xattrs["user.onedriver.error"]
+		_, errorExists := inode.xattrs["user.onemount.error"]
 		inode.RUnlock()
 
 		assert.False(t, errorExists, "Error xattr was not removed")

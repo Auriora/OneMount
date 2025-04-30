@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs"
+	"github.com/bcherrington/onemount/internal/fs"
 	"github.com/stretchr/testify/require"
 )
 

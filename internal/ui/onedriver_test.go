@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -206,7 +206,7 @@ func TestGetAccountName(t *testing.T) {
 	require.NoError(t, err, "Failed to get user cache directory")
 
 	// Create test directory structure
-	testCacheDir := filepath.Join(cacheDir, "onedriver")
+	testCacheDir := filepath.Join(cacheDir, "onemount")
 	testInstanceDir := filepath.Join(testCacheDir, escaped)
 	err = os.MkdirAll(testInstanceDir, 0700)
 	require.NoError(t, err, "Failed to create test instance directory")

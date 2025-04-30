@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +40,7 @@ func TestUploadSessionOperations(t *testing.T) {
 				return fileName, data, cleanup
 			},
 			testFunc: func(t *testing.T, fileName string, data []byte) {
-				testDir, err := fs.GetPath("/onedriver_tests", auth)
+				testDir, err := fs.GetPath("/onemount_tests", auth)
 				require.NoError(t, err, "Failed to get test directory")
 
 				inode := NewInode(fileName, 0644, testDir)
@@ -114,7 +114,7 @@ func TestUploadSessionOperations(t *testing.T) {
 
 				// Get the file name from the path
 				fileName := filepath.Base(filePath)
-				remotePath := "/onedriver_tests/" + fileName
+				remotePath := "/onemount_tests/" + fileName
 
 				// Wait for the file to be uploaded and available on the server
 				testutil.WaitForCondition(t, func() bool {
@@ -219,7 +219,7 @@ func TestUploadSessionOperations(t *testing.T) {
 
 				// Get the file name from the path
 				fileName := filepath.Base(filePath)
-				remotePath := "/onedriver_tests/" + fileName
+				remotePath := "/onemount_tests/" + fileName
 
 				// Poll endpoint to make sure it has a size greater than 0
 				size := uint64(len(contents))

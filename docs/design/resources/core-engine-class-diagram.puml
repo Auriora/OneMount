@@ -1,4 +1,4 @@
-@startuml OneDriver Core Engine
+@startuml OneMount Core Engine
 
 ' Class definitions
 class Filesystem {

@@ -1,4 +1,4 @@
-# Code Quality CI Pipeline for onedriver
+# Code Quality CI Pipeline for onemount
 # This workflow performs code quality checks including SRS ID verification,
 # PlantUML diagram generation, and static complexity analysis.
 

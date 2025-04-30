@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
 
-// onedriver specific utility functions
+// onemount specific utility functions
 
 // PollUntilAvail will block until the mountpoint is available or a timeout is reached.
 // If timeout is -1, default timeout is 120s.
@@ -73,7 +73,7 @@ func GetKnownMounts(cacheDir string) []string {
 
 	if cacheDir == "" {
 		userCacheDir, _ := os.UserCacheDir()
-		cacheDir = filepath.Join(userCacheDir, "onedriver")
+		cacheDir = filepath.Join(userCacheDir, "onemount")
 	}
 	os.MkdirAll(cacheDir, 0700)
 	dirents, err := os.ReadDir(cacheDir)

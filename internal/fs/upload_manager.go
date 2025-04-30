@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
@@ -126,7 +126,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			contents, _ := json.Marshal(session)
 			u.db.Batch(func(tx *bolt.Tx) error {
 				// persist to disk in case the user shuts off their computer or
-				// kills onedriver prematurely
+				// kills onemount prematurely
 				b, _ := tx.CreateBucketIfNotExists(bucketUploads)
 				return b.Put([]byte(session.ID), contents)
 			})
@@ -143,7 +143,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			contents, _ := json.Marshal(session)
 			u.db.Batch(func(tx *bolt.Tx) error {
 				// persist to disk in case the user shuts off their computer or
-				// kills onedriver prematurely
+				// kills onemount prematurely
 				b, _ := tx.CreateBucketIfNotExists(bucketUploads)
 				return b.Put([]byte(session.ID), contents)
 			})
@@ -160,7 +160,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			contents, _ := json.Marshal(session)
 			u.db.Batch(func(tx *bolt.Tx) error {
 				// persist to disk in case the user shuts off their computer or
-				// kills onedriver prematurely
+				// kills onemount prematurely
 				b, _ := tx.CreateBucketIfNotExists(bucketUploads)
 				return b.Put([]byte(session.ID), contents)
 			})

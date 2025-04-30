@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/bcherrington/onedriver/cmd/common"
-	"github.com/bcherrington/onedriver/internal/ui"
-	"github.com/bcherrington/onedriver/internal/ui/systemd"
+	"github.com/bcherrington/onemount/cmd/common"
+	"github.com/bcherrington/onemount/internal/ui"
+	"github.com/bcherrington/onemount/internal/ui/systemd"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -54,9 +54,9 @@ func setupLogging(config *common.Config) error {
 }
 
 func usage() {
-	fmt.Printf(`onedriver-launcher - Manage and configure onedriver mountpoints
+	fmt.Printf(`onemount-launcher - Manage and configure onemount mountpoints
 
-Usage: onedriver-launcher [options]
+Usage: onemount-launcher [options]
 
 Valid options:
 `)
@@ -71,10 +71,10 @@ func main() {
 		"Set the output location for logs. "+
 			"Can be STDOUT, STDERR, or a file path. Default is STDOUT.")
 	cacheDir := flag.StringP("cache-dir", "c", "",
-		"Change the default cache directory used by onedriver. "+
+		"Change the default cache directory used by onemount. "+
 			"Will be created if it does not already exist.")
 	configPath := flag.StringP("config-file", "f", common.DefaultConfigPath(),
-		"A YAML-formatted configuration file used by onedriver.")
+		"A YAML-formatted configuration file used by onemount.")
 	versionFlag := flag.BoolP("version", "v", false, "Display program version.")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
@@ -85,7 +85,7 @@ func main() {
 		os.Exit(0)
 	}
 	if *versionFlag {
-		fmt.Println("onedriver-launcher", common.Version())
+		fmt.Println("onemount-launcher", common.Version())
 		os.Exit(0)
 	}
 
@@ -109,9 +109,9 @@ func main() {
 
 	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
-	log.Info().Msgf("onedriver-launcher %s", common.Version())
+	log.Info().Msgf("onemount-launcher %s", common.Version())
 
-	app, err := gtk.ApplicationNew("com.github.bcherrington.onedriver", glib.APPLICATION_FLAGS_NONE)
+	app, err := gtk.ApplicationNew("com.github.bcherrington.onemount", glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Could not create application.")
 	}
@@ -128,10 +128,10 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 
 	header, _ := gtk.HeaderBarNew()
 	header.SetShowCloseButton(true)
-	header.SetTitle("Onedriver")
+	header.SetTitle("OneMount")
 	window.SetTitlebar(header)
 
-	err := window.SetIconFromFile("/usr/share/icons/onedriver/onedriver.svg")
+	err := window.SetIconFromFile("/usr/share/icons/onemount/OneMount-Logo.svg")
 	if err != nil {
 		log.Warn().Err(err).Msg("Could not find logo.")
 	}
@@ -158,7 +158,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 		}
 
 		escapedMount := unit.UnitNamePathEscape(mount)
-		systemdUnit := systemd.TemplateUnit(systemd.OnedriverServiceTemplate, escapedMount)
+		systemdUnit := systemd.TemplateUnit(systemd.OneMountServiceTemplate, escapedMount)
 		log.Info().
 			Str("mountpoint", mount).
 			Str("systemdUnit", systemdUnit).
@@ -199,13 +199,13 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	about.SetLabel("About")
 	about.Connect("clicked", func(button *gtk.ModelButton) {
 		aboutDialog, _ := gtk.AboutDialogNew()
-		aboutDialog.SetProgramName("Onedriver Launcher")
+		aboutDialog.SetProgramName("OneMount Launcher")
 		aboutDialog.SetAuthors([]string{"Bruce Cherrington", "https://github.com/bcherrington"})
-		aboutDialog.SetWebsite("https://github.com/bcherrington/onedriver")
-		aboutDialog.SetWebsiteLabel("github.com/bcherrington/onedriver")
-		aboutDialog.SetVersion(fmt.Sprintf("onedriver %s", common.Version()))
+		aboutDialog.SetWebsite("https://github.com/bcherrington/onemount")
+		aboutDialog.SetWebsiteLabel("github.com/bcherrington/onemount")
+		aboutDialog.SetVersion(fmt.Sprintf("onemount %s", common.Version()))
 		aboutDialog.SetLicenseType(gtk.LICENSE_GPL_3_0)
-		logo, err := gtk.ImageNewFromFile("/usr/share/icons/onedriver/onedriver-128.png")
+		logo, err := gtk.ImageNewFromFile("/usr/share/icons/onemount/onemount-128.png")
 		if err != nil {
 			log.Warn().Err(err).Msg("Could not find logo.")
 		} else {
@@ -236,7 +236,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	listbox.Connect("row-activated", func() {
 		row := listbox.GetSelectedRow()
 		mount, _ := row.GetName()
-		unitName := systemd.TemplateUnit(systemd.OnedriverServiceTemplate,
+		unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate,
 			unit.UnitNamePathEscape(mount))
 
 		log.Debug().
@@ -288,7 +288,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	row.Add(box)
 
 	escapedMount := unit.UnitNamePathEscape(mount)
-	unitName := systemd.TemplateUnit(systemd.OnedriverServiceTemplate, escapedMount)
+	unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate, escapedMount)
 
 	driveName, err := common.GetXDGVolumeInfoName(filepath.Join(mount, ".xdg-volume-info"))
 	if err != nil {
@@ -476,7 +476,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 			}
 
 			cachedir, _ := os.UserCacheDir()
-			err = os.RemoveAll(fmt.Sprintf("%s/onedriver/%s/", cachedir, escapedMount))
+			err = os.RemoveAll(fmt.Sprintf("%s/onemount/%s/", cachedir, escapedMount))
 			if err != nil {
 				log.Error().Err(err).Msg("Could not remove mount.")
 				return
@@ -592,7 +592,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 		// actually perform the stop+move op
 		isMounted := make([]string, 0)
 		for _, mount := range ui.GetKnownMounts(oldPath) {
-			unitName := systemd.TemplateUnit(systemd.OnedriverServiceTemplate, mount)
+			unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate, mount)
 			log.Info().
 				Str("mount", mount).
 				Str("unit", unitName).

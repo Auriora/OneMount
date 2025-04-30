@@ -8,29 +8,29 @@ override_dh_auto_test:
 
 
 override_dh_auto_clean:
-	rm -f *.db *.rpm *.deb *.dsc *.log *.fa *.xz *.gz *.test onedriver onedriver-headless unshare .auth_tokens.json filelist.txt
-	rm -rf util-linux-*/ onedriver-*/
+	rm -f *.db *.rpm *.deb *.dsc *.log *.fa *.xz *.gz *.test onemount onemount-headless unshare .auth_tokens.json filelist.txt
+	rm -rf util-linux-*/ onemount-*/
 
 
 override_dh_auto_build:
 	bash cgo-helper.sh
 	# GOCACHE will be for a nonexistent user in pbuilder otherwise
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
-		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell cat .commit)" \
-		./cmd/onedriver
+		-ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(shell cat .commit)" \
+		./cmd/onemount
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
-		-ldflags="-X github.com/bcherrington/onedriver/cmd/common.commit=$(shell cat .commit)" \
-		./cmd/onedriver-launcher
-	gzip pkg/resources/onedriver.1
+		-ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(shell cat .commit)" \
+		./cmd/onemount-launcher
+	gzip pkg/resources/onemount.1
 
 
 override_dh_auto_install:
-	install -D -m 0755 onedriver $$(pwd)/debian/onedriver/usr/bin/onedriver
-	install -D -m 0755 onedriver-launcher $$(pwd)/debian/onedriver/usr/bin/onedriver-launcher
-	install -D -m 0644 pkg/resources/onedriver.png $$(pwd)/debian/onedriver/usr/share/icons/onedriver/onedriver.png
-	install -D -m 0644 pkg/resources/onedriver-128.png $$(pwd)/debian/onedriver/usr/share/icons/onedriver/onedriver-128.png
-	install -D -m 0644 pkg/resources/onedriver.svg $$(pwd)/debian/onedriver/usr/share/icons/onedriver/onedriver.svg
-	install -D -m 0644 pkg/resources/onedriver-launcher.desktop $$(pwd)/debian/onedriver/usr/share/applications/onedriver-launcher.desktop
-	install -D -m 0644 pkg/resources/onedriver@.service $$(pwd)/debian/onedriver/usr/lib/systemd/user/onedriver@.service
-	install -D -m 0644 pkg/resources/onedriver.1.gz $$(pwd)/debian/onedriver/usr/share/man/man1/onedriver.1.gz
+	install -D -m 0755 onemount $$(pwd)/debian/onemount/usr/bin/onemount
+	install -D -m 0755 onemount-launcher $$(pwd)/debian/onemount/usr/bin/onemount-launcher
+	install -D -m 0644 pkg/resources/onemount.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount.png
+	install -D -m 0644 pkg/resources/onemount-128.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount-128.png
+	install -D -m 0644 pkg/resources/OneMount-Logo.svg $$(pwd)/debian/onemount/usr/share/icons/onemount/OneMount-Logo.svg
+	install -D -m 0644 pkg/resources/onemount-launcher.desktop $$(pwd)/debian/onemount/usr/share/applications/onemount-launcher.desktop
+	install -D -m 0644 pkg/resources/onemount@.service $$(pwd)/debian/onemount/usr/lib/systemd/user/onemount@.service
+	install -D -m 0644 pkg/resources/onemount.1.gz $$(pwd)/debian/onemount/usr/share/man/man1/onemount.1.gz
 

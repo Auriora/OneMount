@@ -1,6 +1,6 @@
 # Test Coverage Gaps Analysis
 
-This document identifies gaps between the requirements, architecture, design, and test cases in the onedriver project. It highlights areas where test coverage may be insufficient and provides recommendations for addressing these gaps.
+This document identifies gaps between the requirements, architecture, design, and test cases in the OneMount project. It highlights areas where test coverage may be insufficient and provides recommendations for addressing these gaps.
 
 ## Functional Requirements Gaps
 
@@ -89,4 +89,4 @@ This document identifies gaps between the requirements, architecture, design, an
 6. **Test Architectural Decisions**: Ensure all architectural decisions are properly tested, especially GTK3 and zerolog integration.
 7. **Cover Missing Use Cases**: Develop test cases for the statistics analysis use case.
 
-By addressing these gaps, the onedriver project can improve its test coverage and ensure that all requirements, architectural elements, and design elements are properly verified.
+By addressing these gaps, the OneMount project can improve its test coverage and ensure that all requirements, architectural elements, and design elements are properly verified.

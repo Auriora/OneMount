@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -163,13 +163,13 @@ func TestMain(m *testing.M) {
 			log.Error().Err(cdErr).Msg("Failed to change to project root directory")
 			os.Exit(1)
 		}
-	} else if !strings.HasSuffix(cwd, "/onedriver") {
+	} else if !strings.HasSuffix(cwd, "/onemount") {
 		// If we're not in the project root, try to find it
 		// This handles the case where tests are run from GoLand with a different working directory
-		if strings.Contains(cwd, "/onedriver") {
-			// Extract the path up to and including "onedriver"
-			index := strings.Index(cwd, "/onedriver")
-			projectRoot := cwd[:index+len("/onedriver")]
+		if strings.Contains(cwd, "/onemount") {
+			// Extract the path up to and including "onemount"
+			index := strings.Index(cwd, "/onemount")
+			projectRoot := cwd[:index+len("/onemount")]
 			if cdErr := os.Chdir(projectRoot); cdErr != nil {
 				log.Error().Err(cdErr).Msg("Failed to change to project root directory")
 				os.Exit(1)
@@ -259,7 +259,7 @@ func TestMain(m *testing.M) {
 
 	// Check if we should use mock authentication
 	// Make isMock a package-level variable so it can be accessed from other test files
-	isMock = os.Getenv("ONEDRIVER_MOCK_AUTH") == "1"
+	isMock = os.Getenv("ONEMOUNT_MOCK_AUTH") == "1"
 
 	// Create authenticator based on configuration
 	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, testutil.AuthTokensPath, false, isMock)
@@ -311,7 +311,7 @@ func TestMain(m *testing.M) {
 			log.Error().Err(err).Msg("Failed to create paging directory")
 			os.Exit(1)
 		}
-		if err := os.MkdirAll(filepath.Join(mountLoc, "Onedriver-Documents"), 0755); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(filepath.Join(mountLoc, "OneMount-Documents"), 0755); err != nil && !os.IsExist(err) {
 			log.Error().Err(err).Msg("Failed to create Documents directory")
 		}
 
@@ -319,8 +319,8 @@ func TestMain(m *testing.M) {
 	} else {
 		// Create mount options
 		mountOptions := &fuse.MountOptions{
-			Name:          "onedriver",
-			FsName:        "onedriver",
+			Name:          "onemount",
+			FsName:        "onemount",
 			DisableXAttrs: false,
 			MaxBackground: 1024,
 		}
@@ -440,7 +440,7 @@ func TestMain(m *testing.M) {
 	go fs.DeltaLoop(5 * time.Second)
 
 	// not created by default on onedrive for business
-	if mkdirErr := os.Mkdir(mountLoc+"/Onedriver-Documents", 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+	if mkdirErr := os.Mkdir(mountLoc+"/OneMount-Documents", 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
 		log.Error().Err(mkdirErr).Msg("Failed to create Documents directory")
 		// Not exiting here as this is not critical
 	}
@@ -793,7 +793,7 @@ func createPagingTestFiles() {
 			}()
 
 			_, err := graph.Put(
-				graph.ResourcePath(fmt.Sprintf("/onedriver_tests/paging/%d.txt", n))+":/content",
+				graph.ResourcePath(fmt.Sprintf("/onemount_tests/paging/%d.txt", n))+":/content",
 				auth,
 				strings.NewReader("test\n"),
 			)

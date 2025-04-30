@@ -23,12 +23,12 @@ vgcore.*
 __debug_bin*
 
 # do not include binaries, but do include sources
-onedriver
-onedriver-headless
-onedriver-launcher
-onedriver-*/
-!cmd/onedriver-launcher
-!cmd/onedriver
+onemount
+onemount-headless
+onemount-launcher
+onemount-*/
+!cmd/onemount-launcher
+!cmd/onemount
 vendor/
 
 # rpm build stuff

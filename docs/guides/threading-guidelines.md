@@ -1,10 +1,10 @@
-# Threading Implementation in onedriver
+# Threading Implementation in OneMount
 
-This document describes the threading implementation in onedriver, including the concurrency patterns, synchronization mechanisms, and thread management strategies used throughout the codebase.
+This document describes the threading implementation in onemount, including the concurrency patterns, synchronization mechanisms, and thread management strategies used throughout the codebase.
 
 ## Overview
 
-onedriver uses Go's concurrency primitives to implement a multi-threaded architecture that enables efficient file operations while maintaining responsiveness. The system runs as a single process with multiple goroutines (lightweight threads) for concurrent operations.
+onemount uses Go's concurrency primitives to implement a multi-threaded architecture that enables efficient file operations while maintaining responsiveness. The system runs as a single process with multiple goroutines (lightweight threads) for concurrent operations.
 
 ## Key Threading Components
 
@@ -132,7 +132,7 @@ The Subscription system handles real-time notifications from OneDrive using WebS
 
 ## Synchronization Mechanisms
 
-onedriver uses several synchronization mechanisms to coordinate goroutines and protect shared state:
+onemount uses several synchronization mechanisms to coordinate goroutines and protect shared state:
 
 ### 1. Mutexes
 
@@ -178,7 +178,7 @@ Context is used for cancellation and timeout handling:
 
 ## Thread Lifecycle Management
 
-onedriver carefully manages the lifecycle of its goroutines to ensure proper startup and shutdown:
+onemount carefully manages the lifecycle of its goroutines to ensure proper startup and shutdown:
 
 ### 1. Startup
 
@@ -201,7 +201,7 @@ onedriver carefully manages the lifecycle of its goroutines to ensure proper sta
 
 ## Concurrency Patterns
 
-onedriver uses several concurrency patterns:
+onemount uses several concurrency patterns:
 
 ### 1. Worker Pool
 
@@ -225,7 +225,7 @@ Used to stop goroutines gracefully.
 
 ## Error Handling in Concurrent Code
 
-onedriver implements robust error handling in its concurrent code:
+onemount implements robust error handling in its concurrent code:
 
 - Errors are logged with context
 - Retries are implemented for transient failures
@@ -234,4 +234,4 @@ onedriver implements robust error handling in its concurrent code:
 
 ## Conclusion
 
-The threading implementation in onedriver demonstrates a well-designed concurrent system that leverages Go's goroutines, channels, and synchronization primitives to achieve efficient and reliable file operations. The system carefully manages thread lifecycle, protects shared state, and handles errors gracefully, resulting in a responsive and robust filesystem implementation.
+The threading implementation in onemount demonstrates a well-designed concurrent system that leverages Go's goroutines, channels, and synchronization primitives to achieve efficient and reliable file operations. The system carefully manages thread lifecycle, protects shared state, and handles errors gracefully, resulting in a responsive and robust filesystem implementation.

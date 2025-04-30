@@ -1,14 +1,14 @@
 [![Run tests](https://github.com/bcherrington/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/bcherrington/OneMount/actions?query=workflow%3A%22Run+tests%22)
 
-# OneMount
+![OneMount](configs/resources/OneMount-Logo-64.png)
 
-**OneMount: Linux Access to OneDrive Made Simple**
+# OneMount
 
 Mount your Microsoft OneDrive account as a native filesystem on Linux.
 
 ---
 
-This repository was forked from [Jeff Stafford's onedriver](https://github.com/jstaf/onedriver) repository. Extensive changes have been made, leading to the decision to rename the project. 
+This repository was forked from [Jeff Stafford's one-driver](https://github.com/jstaf/one-driver) repository. Extensive changes have been made, leading to the decision to rename the project. 
 
 ---
 
@@ -197,7 +197,7 @@ fusermount3 -uz mount
 ### Running the tests
 
 The tests will write and delete files/folders on your onedrive account at the
-path `/onedriver_tests`. Note that the offline test suite requires `sudo` to
+path `/onemount_tests`. Note that the offline test suite requires `sudo` to
 remove network access to simulate being offline.
 
 ```bash

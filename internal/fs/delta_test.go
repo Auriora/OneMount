@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
-	"github.com/bcherrington/onedriver/internal/testutil/common"
+	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/testutil/common"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,7 +50,7 @@ func TestDeltaOperations(t *testing.T) {
 		{
 			name: "CreateDirectoryOnServer_ShouldSyncToClient",
 			setup: func(t *testing.T) (string, *graph.DriveItem, error) {
-				parent, err := graph.GetItemPath("/onedriver_tests/delta", auth)
+				parent, err := graph.GetItemPath("/onemount_tests/delta", auth)
 				if err != nil {
 					return "", nil, err
 				}
@@ -75,7 +75,7 @@ func TestDeltaOperations(t *testing.T) {
 				// Wait for the directory to be recognized by the server
 				var item *graph.DriveItem
 				common.WaitForCondition(t, func() bool {
-					item, err = graph.GetItemPath("/onedriver_tests/delta/delete_me", auth)
+					item, err = graph.GetItemPath("/onemount_tests/delta/delete_me", auth)
 					return err == nil && item != nil
 				}, 10*time.Second, time.Second, "Directory was not recognized by server")
 
@@ -99,7 +99,7 @@ func TestDeltaOperations(t *testing.T) {
 				// Wait for the file to be recognized by the server
 				var item *graph.DriveItem
 				common.WaitForCondition(t, func() bool {
-					item, err = graph.GetItemPath("/onedriver_tests/delta/delta_rename_start", auth)
+					item, err = graph.GetItemPath("/onemount_tests/delta/delta_rename_start", auth)
 					return err == nil && item != nil
 				}, 10*time.Second, time.Second, "File was not recognized by server")
 
@@ -125,14 +125,14 @@ func TestDeltaOperations(t *testing.T) {
 				// Wait for the file to be recognized by the server
 				var item *graph.DriveItem
 				common.WaitForCondition(t, func() bool {
-					item, err = graph.GetItemPath("/onedriver_tests/delta/delta_move_start", auth)
+					item, err = graph.GetItemPath("/onemount_tests/delta/delta_move_start", auth)
 					return err == nil && item != nil
 				}, 10*time.Second, time.Second, "File was not recognized by server")
 
 				return filepath.Join(TestDir, "delta_rename_end"), item, nil
 			},
 			operation: func(t *testing.T, item *graph.DriveItem) error {
-				newParent, err := graph.GetItemPath("/onedriver_tests/", auth)
+				newParent, err := graph.GetItemPath("/onemount_tests/", auth)
 				if err != nil {
 					return err
 				}
@@ -210,7 +210,7 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 	var item *graph.DriveItem
 	var err error
 	require.Eventually(t, func() bool {
-		item, err = graph.GetItemPath("/onedriver_tests/delta/remote_content", auth)
+		item, err = graph.GetItemPath("/onemount_tests/delta/remote_content", auth)
 		return err == nil && item != nil
 	}, 30*time.Second, time.Second, "Could not find remote_content file")
 	inode := NewInodeDriveItem(item)
@@ -313,7 +313,7 @@ func TestDeltaBadContentInCache(t *testing.T) {
 	))
 	var id string
 	require.Eventually(t, func() bool {
-		item, err := graph.GetItemPath("/onedriver_tests/delta/corrupted", auth)
+		item, err := graph.GetItemPath("/onemount_tests/delta/corrupted", auth)
 		if err == nil {
 			id = item.ID
 			return true
@@ -344,7 +344,7 @@ func TestDeltaBadContentInCache(t *testing.T) {
 // changes.
 func TestDeltaFolderDeletion(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(DeltaDir, "nested/directory"), 0755))
-	nested, err := graph.GetItemPath("/onedriver_tests/delta/nested", auth)
+	nested, err := graph.GetItemPath("/onemount_tests/delta/nested", auth)
 	require.NoError(t, err)
 	require.NoError(t, graph.Remove(nested.ID, auth))
 
@@ -424,7 +424,7 @@ func TestDeltaNoModTimeUpdate(t *testing.T) {
 }
 
 // deltas can come back missing from the server
-// https://github.com/bcherrington/onedriver/issues/111
+// https://github.com/bcherrington/onemount/issues/111
 func TestDeltaMissingHash(t *testing.T) {
 	cache, err := NewFilesystem(auth, filepath.Join(testDBLoc, "test_delta_missing_hash"), 30)
 	require.NoError(t, err)

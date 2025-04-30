@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
@@ -25,15 +25,15 @@ func TestTemplateUnit(t *testing.T) {
 	}{
 		{
 			name:           "StandardTemplate_ShouldCreateCorrectUnitName",
-			template:       OnedriverServiceTemplate,
+			template:       OneMountServiceTemplate,
 			input:          "this-is-a-test",
-			expectedOutput: "onedriver@this-is-a-test.service",
+			expectedOutput: "onemount@this-is-a-test.service",
 		},
 		{
 			name:           "PathWithSpecialChars_ShouldCreateCorrectUnitName",
-			template:       OnedriverServiceTemplate,
+			template:       OneMountServiceTemplate,
 			input:          "path/with-special_chars",
-			expectedOutput: "onedriver@path-with-special_chars.service",
+			expectedOutput: "onemount@path-with-special_chars.service",
 		},
 	}
 
@@ -73,14 +73,14 @@ func TestUntemplateUnit(t *testing.T) {
 		},
 		{
 			name:           "ValidUnitNameWithoutSuffix_ShouldUntemplate",
-			input:          "onedriver@home-some-path",
+			input:          "onemount@home-some-path",
 			expectedOutput: "home-some-path",
 			expectError:    false,
 			errorMessage:   "Failed to untemplate unit",
 		},
 		{
 			name:           "ValidUnitNameWithSuffix_ShouldUntemplate",
-			input:          "onedriver@opt-other.service",
+			input:          "onemount@opt-other.service",
 			expectedOutput: "opt-other",
 			expectError:    false,
 			errorMessage:   "Failed to untemplate unit",
@@ -113,7 +113,7 @@ func TestUnitEnabled(t *testing.T) {
 	t.Parallel()
 
 	// Get the current directory and create a unit name for testing
-	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testutil.TestMountPoint))
+	unitName := TemplateUnit(OneMountServiceTemplate, unit.UnitNamePathEscape(testutil.TestMountPoint))
 
 	// Define test cases
 	testCases := []struct {
@@ -179,7 +179,7 @@ func TestUnitActive(t *testing.T) {
 	t.Parallel()
 
 	// Get the current directory and create a unit name for testing
-	unitName := TemplateUnit(OnedriverServiceTemplate, unit.UnitNamePathEscape(testutil.TestMountPoint))
+	unitName := TemplateUnit(OneMountServiceTemplate, unit.UnitNamePathEscape(testutil.TestMountPoint))
 
 	// Check if the unit exists before proceeding
 	conn, err := dbus.ConnectSessionBus()

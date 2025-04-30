@@ -4,7 +4,7 @@ import (
 	"math"
 	"path/filepath"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )
@@ -21,7 +21,7 @@ func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.Statf
 
 	if drive.DriveType == graph.DriveTypePersonal {
 		ctx.Warn().Msg("Personal OneDrive accounts do not show number of files, " +
-			"inode counts reported by onedriver will be bogus.")
+			"inode counts reported by onemount will be bogus.")
 	} else if drive.Quota.Total == 0 { // <-- check for if microsoft ever fixes their API
 		ctx.Warn().Msg("OneDrive for Business accounts do not report quotas, " +
 			"pretending the quota is 5TB and it's all unused.")

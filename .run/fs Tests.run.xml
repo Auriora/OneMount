@@ -2,14 +2,14 @@
   <configuration default="false" name="fs Tests" type="GoTestRunConfiguration" factoryName="Go Test">
     <log_file alias="Fuse Race logging" path="$PROJECT_DIR$/test-sandbox/fusefs_tests.race.*" show_all="true" />
     <log_file alias="Fuse Test Log" path="$PROJECT_DIR$/test-sandbox/fusefs_tests.log" />
-    <module name="onedriver" />
+    <module name="onemount" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-race -v -parallel=1 -count=1" />
     <envs>
       <env name="CGO_CFLAGS" value="-Wno-deprecated-declarations" />
     </envs>
     <kind value="DIRECTORY" />
-    <package value="github.com/bcherrington/onedriver/internal/fs" />
+    <package value="github.com/bcherrington/onemount/internal/fs" />
     <directory value="$PROJECT_DIR$/internal/fs" />
     <filePath value="$PROJECT_DIR$/intenal/fs" />
     <framework value="gotest" />

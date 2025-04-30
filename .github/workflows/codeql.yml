@@ -34,8 +34,8 @@ jobs:
         languages: ${{ matrix.language }}
 
     # Autobuild attempts to build any compiled languages  (C/C++, C#, Go, or Java).
-    - name: Build onedriver
-      run: make onedriver
+    - name: Build onemount
+      run: make onemount
       env:
         CGO_ENABLED: "0"
 

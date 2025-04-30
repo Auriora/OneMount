@@ -1,6 +1,6 @@
 # Design to Code Mapping
 
-This document provides a mapping between the design elements in the PlantUML diagrams and the actual code artifacts in the onedriver codebase.
+This document provides a mapping between the design elements in the PlantUML diagrams and the actual code artifacts in the OneMount codebase.
 
 ## Core Engine Class Diagram
 
@@ -59,13 +59,13 @@ This document provides a mapping between the design elements in the PlantUML dia
 
 | Design Element | Code Artifact | Description |
 |----------------|---------------|-------------|
-| LauncherApplication | cmd/onedriver-launcher/main.go | The main launcher application |
-| MountRow | cmd/onedriver-launcher/main.go:newMountRow | Creates a row in the list box for a mountpoint |
-| SettingsDialog | cmd/onedriver-launcher/main.go:newSettingsDialog | Creates the settings dialog |
-| UIUtilities | ui/onedriver.go, ui/widgets.go | Utility functions for the UI |
+| LauncherApplication | cmd/onemount-launcher/main.go | The main launcher application |
+| MountRow | cmd/onemount-launcher/main.go:newMountRow | Creates a row in the list box for a mountpoint |
+| SettingsDialog | cmd/onemount-launcher/main.go:newSettingsDialog | Creates the settings dialog |
+| UIUtilities | ui/onemount.go, ui/widgets.go | Utility functions for the UI |
 | UIWidgets | ui/widgets.go | Custom GTK widgets for the UI |
 | SystemdIntegration | ui/systemd/systemd.go | Functions for interacting with systemd |
-| OnedriverCLI | cmd/onedriver/main.go | The main command-line interface |
+| OneMountCLI | cmd/onemount/main.go | The main command-line interface |
 | CommonConfig | cmd/common/config.go | Configuration shared between the launcher and CLI |
 
 ## Authentication Workflow Sequence Diagram

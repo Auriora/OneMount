@@ -1,4 +1,4 @@
-// Package fs provides the filesystem implementation for onedriver.
+// Package fs provides the filesystem implementation for onemount.
 package fs
 
 // The download_manager.go file implements a background download manager for OneDrive files.
@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
 

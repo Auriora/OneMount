@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bcherrington/onedriver/internal/fs/graph"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
 
@@ -110,7 +110,7 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 	// Cache the thumbnail in the background
 	go func() {
 		// Create a temporary file to store the thumbnail
-		tempFile, err := os.CreateTemp("", "onedriver-thumbnail-*")
+		tempFile, err := os.CreateTemp("", "onemount-thumbnail-*")
 		if err != nil {
 			log.Error().Err(err).
 				Str("id", inode.ID()).
