@@ -1,8 +1,12 @@
-# TestFramework
+# Test Utilities
+
+This package provides testing utilities for the OneMount project, including the TestFramework and IntegrationTestEnvironment.
+
+## TestFramework
 
 The `TestFramework` provides a centralized test configuration and execution environment for the OneMount project. It helps manage test resources, mock providers, test execution, and context management.
 
-## Features
+### Features
 
 - Test environment configuration
 - Resource management with automatic cleanup
@@ -12,9 +16,9 @@ The `TestFramework` provides a centralized test configuration and execution envi
 - Context management for cancellation and timeouts
 - Structured logging
 
-## Usage
+### Usage
 
-### Creating a TestFramework
+#### Creating a TestFramework
 
 ```go
 import (
@@ -38,7 +42,7 @@ config := testutil.TestConfig{
 framework := testutil.NewTestFramework(config, &logger)
 ```
 
-### Managing Resources
+#### Managing Resources
 
 ```go
 // Add a resource to be cleaned up after tests
@@ -52,7 +56,7 @@ if err != nil {
 }
 ```
 
-### Using Mock Providers
+#### Using Mock Providers
 
 ```go
 // Register a mock provider
@@ -66,7 +70,7 @@ if exists {
 }
 ```
 
-### Running Tests
+#### Running Tests
 
 ```go
 // Run a single test
@@ -100,7 +104,7 @@ tests := map[string]func(ctx context.Context) error{
 results := framework.RunTestSuite("suite-name", tests)
 ```
 
-### Network Simulation
+#### Network Simulation
 
 ```go
 // Set network conditions (latency, packet loss, bandwidth)
@@ -132,7 +136,7 @@ framework.ReconnectNetwork()
 simulator := framework.GetNetworkSimulator()
 ```
 
-### Context Management
+#### Context Management
 
 ```go
 // Create a context with timeout
@@ -147,7 +151,7 @@ customCtx := context.WithValue(context.Background(), "key", "value")
 framework.SetContext(customCtx)
 ```
 
-## Example: Complete Test
+### Example: Complete Test
 
 ```go
 package mypackage_test
@@ -225,7 +229,7 @@ func TestMyFeature(t *testing.T) {
 }
 ```
 
-## Best Practices
+### Best Practices
 
 1. Always use `t.Cleanup()` to ensure resources are cleaned up, even if tests panic
 2. Use context timeouts for tests that might hang
@@ -237,3 +241,357 @@ func TestMyFeature(t *testing.T) {
 8. Use network presets for consistent test conditions
 9. Test both normal operation and error handling under poor network conditions
 10. Consider using network simulation in CI/CD pipelines to catch network-related issues early
+
+## IntegrationTestEnvironment
+
+The `IntegrationTestEnvironment` provides a controlled environment for integration tests. It allows configuring which components are real and which are mocked, integrates with the NetworkSimulator, implements the TestDataManager interface for managing test data, and supports component isolation via the IsolationConfig.
+
+### Features
+
+- Component configuration (real vs mocked)
+- Network simulation integration
+- Test data management
+- Component isolation via network rules
+- Scenario-based testing
+- Setup and teardown methods
+
+### Usage
+
+#### Creating an IntegrationTestEnvironment
+
+```go
+import (
+    "context"
+    "github.com/yourusername/onemount/internal/testutil"
+)
+
+// Create a logger
+logger := &testutil.TestLogger{}
+
+// Create a context
+ctx := context.Background()
+
+// Create a new IntegrationTestEnvironment
+env := testutil.NewIntegrationTestEnvironment(ctx, logger)
+```
+
+#### Configuring Components
+
+```go
+// Configure which components should be mocked
+env.SetIsolationConfig(testutil.IsolationConfig{
+    MockedServices: []string{"graph", "filesystem", "ui"},
+    NetworkRules:   []testutil.NetworkRule{},
+    DataIsolation:  true,
+})
+
+// Set up the environment
+err := env.SetupEnvironment()
+if err != nil {
+    // Handle error
+}
+
+// Get a component
+graphComponent, err := env.GetComponent("graph")
+if err != nil {
+    // Handle error
+}
+
+// Use the component
+mockGraph := graphComponent.(*testutil.MockGraphProvider)
+mockGraph.AddMockItem("/drive/root", &graph.DriveItem{
+    Name: "root",
+    // ...
+})
+```
+
+#### Managing Test Data
+
+```go
+// Get the test data manager
+testDataManager := env.GetTestDataManager()
+
+// Load test data
+err := testDataManager.LoadTestData("test-data-set")
+if err != nil {
+    // Handle error
+}
+
+// Get test data
+data := testDataManager.GetTestData("test-file.txt")
+
+// Clean up test data
+err = testDataManager.CleanupTestData()
+if err != nil {
+    // Handle error
+}
+```
+
+#### Network Simulation
+
+```go
+// Get the network simulator
+networkSimulator := env.GetNetworkSimulator()
+
+// Disconnect the network
+err := networkSimulator.Disconnect()
+if err != nil {
+    // Handle error
+}
+
+// Check if the network is connected
+if !networkSimulator.IsConnected() {
+    // Handle disconnected state
+}
+
+// Reconnect the network
+err = networkSimulator.Reconnect()
+if err != nil {
+    // Handle error
+}
+
+// Set network conditions
+err = networkSimulator.SetConditions(100*time.Millisecond, 0.1, 1000)
+if err != nil {
+    // Handle error
+}
+```
+
+#### Component Isolation
+
+```go
+// Configure component isolation
+env.SetIsolationConfig(testutil.IsolationConfig{
+    MockedServices: []string{"graph", "filesystem"},
+    NetworkRules: []testutil.NetworkRule{
+        {
+            Source:      "graph",
+            Destination: "filesystem",
+            Allow:       false,
+        },
+    },
+    DataIsolation: true,
+})
+
+// Set up the environment with the new isolation config
+err := env.SetupEnvironment()
+if err != nil {
+    // Handle error
+}
+```
+
+#### Scenario-Based Testing
+
+```go
+// Create a test scenario
+scenario := testutil.TestScenario{
+    Name:        "File Operations",
+    Description: "Tests file creation, modification, and deletion",
+    Steps: []testutil.TestStep{
+        {
+            Name: "Create file",
+            Action: func(ctx context.Context) error {
+                // Implementation would create a file
+                return nil
+            },
+            Validation: func(ctx context.Context) error {
+                // Implementation would verify file was created
+                return nil
+            },
+        },
+        {
+            Name: "Modify file",
+            Action: func(ctx context.Context) error {
+                // Implementation would modify the file
+                return nil
+            },
+            Validation: func(ctx context.Context) error {
+                // Implementation would verify file was modified
+                return nil
+            },
+        },
+        // More steps...
+    },
+    Assertions: []testutil.TestAssertion{
+        {
+            Name: "File operations completed successfully",
+            Condition: func(ctx context.Context) bool {
+                // Implementation would check if all operations were successful
+                return true
+            },
+            Message: "File operations did not complete successfully",
+        },
+    },
+    Cleanup: []testutil.CleanupStep{
+        {
+            Name: "Clean up test files",
+            Action: func(ctx context.Context) error {
+                // Implementation would clean up any remaining test files
+                return nil
+            },
+            AlwaysRun: true,
+        },
+    },
+}
+
+// Add the scenario to the environment
+env.AddScenario(scenario)
+
+// Run the scenario
+err := env.RunScenario("File Operations")
+if err != nil {
+    // Handle error
+}
+
+// Run all scenarios
+errors := env.RunAllScenarios()
+if len(errors) > 0 {
+    // Handle errors
+}
+```
+
+#### Teardown
+
+```go
+// Tear down the environment
+err := env.TeardownEnvironment()
+if err != nil {
+    // Handle error
+}
+```
+
+### Example: Complete Integration Test
+
+```go
+package mypackage_test
+
+import (
+    "context"
+    "testing"
+    "time"
+
+    "github.com/stretchr/testify/require"
+    "github.com/yourusername/onemount/internal/testutil"
+)
+
+func TestIntegration(t *testing.T) {
+    // Create a logger
+    logger := &testutil.TestLogger{}
+
+    // Create a context
+    ctx := context.Background()
+
+    // Create a test environment
+    env := testutil.NewIntegrationTestEnvironment(ctx, logger)
+    require.NotNil(t, env)
+
+    // Set up isolation config to mock all components
+    env.SetIsolationConfig(testutil.IsolationConfig{
+        MockedServices: []string{"graph", "filesystem", "ui"},
+        NetworkRules:   []testutil.NetworkRule{},
+        DataIsolation:  true,
+    })
+
+    // Set up the environment
+    err := env.SetupEnvironment()
+    require.NoError(t, err)
+
+    // Add cleanup using t.Cleanup to ensure resources are cleaned up
+    t.Cleanup(func() {
+        env.TeardownEnvironment()
+    })
+
+    // Create a test scenario
+    scenario := testutil.TestScenario{
+        Name:        "Authentication Flow",
+        Description: "Tests the complete authentication process",
+        Steps: []testutil.TestStep{
+            {
+                Name: "Initialize authentication",
+                Action: func(ctx context.Context) error {
+                    // Implementation would initialize the authentication process
+                    return nil
+                },
+            },
+            {
+                Name: "Request authorization",
+                Action: func(ctx context.Context) error {
+                    // Implementation would request authorization
+                    return nil
+                },
+            },
+            // More steps...
+        },
+        Assertions: []testutil.TestAssertion{
+            {
+                Name: "Token is valid",
+                Condition: func(ctx context.Context) bool {
+                    // Implementation would check if token is valid
+                    return true
+                },
+                Message: "Authentication token is not valid",
+            },
+        },
+        Cleanup: []testutil.CleanupStep{
+            {
+                Name: "Clear authentication tokens",
+                Action: func(ctx context.Context) error {
+                    // Implementation would clear authentication tokens
+                    return nil
+                },
+                AlwaysRun: true,
+            },
+        },
+    }
+
+    // Add the scenario to the environment
+    env.AddScenario(scenario)
+
+    // Run the scenario
+    err = env.RunScenario("Authentication Flow")
+    require.NoError(t, err)
+
+    // Test with network disconnection
+    networkSimulator := env.GetNetworkSimulator()
+    err = networkSimulator.Disconnect()
+    require.NoError(t, err)
+
+    // Create an offline scenario
+    offlineScenario := testutil.TestScenario{
+        Name:        "Offline Mode",
+        Description: "Tests operation in offline mode",
+        Steps: []testutil.TestStep{
+            {
+                Name: "Verify offline status",
+                Action: func(ctx context.Context) error {
+                    // Implementation would verify offline status
+                    return nil
+                },
+            },
+            // More steps...
+        },
+    }
+
+    // Add and run the offline scenario
+    env.AddScenario(offlineScenario)
+    err = env.RunScenario("Offline Mode")
+    require.NoError(t, err)
+
+    // Reconnect for cleanup
+    err = networkSimulator.Reconnect()
+    require.NoError(t, err)
+}
+```
+
+### Best Practices
+
+1. Always use `t.Cleanup()` to ensure the environment is torn down, even if tests panic
+2. Configure component isolation to match the test requirements
+3. Use scenario-based testing for complex integration tests
+4. Test with different network conditions to ensure robustness
+5. Always reconnect the network after disconnection tests
+6. Clean up test data after each test
+7. Use descriptive names for scenarios, steps, and assertions
+8. Include validation steps to verify the results of actions
+9. Use cleanup steps to ensure the environment is left in a clean state
+10. Test both normal operation and error handling under various conditions
