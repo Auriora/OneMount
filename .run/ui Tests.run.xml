@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="ui Tests" type="GoTestRunConfiguration" factoryName="Go Test">
-    <module name="onemount" />
+    <module name="OneMount" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-v -parallel=8 -count=1" />
     <envs>
@@ -13,7 +13,6 @@
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
     <method v="2">
-      <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_External Tools_Remove fusefs test logs" />
       <option name="RunConfigurationTask" enabled="true" run_configuration_name="all" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
     </method>
   </configuration>

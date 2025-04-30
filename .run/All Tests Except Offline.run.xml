@@ -1,7 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All Tests Except Offline" type="CompoundRunConfigurationType">
-    <toRun name="All Tests" type="GoTestRunConfiguration" />
-    <toRun name="Test nemo_onemount.py" type="tests" />
-    <method v="2" />
-  </configuration>
-</component>
