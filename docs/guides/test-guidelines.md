@@ -2,6 +2,29 @@
 
 This document outlines the best practices for writing tests in the OneMount project, based on the patterns and practices established during the test code refactoring.
 
+## Test Architecture Overview
+
+OneMount follows a comprehensive test architecture designed to ensure code quality and reliability. For detailed information about the test architecture, refer to the [Test Architecture Design](/docs/design/test-architecture-design.md) document.
+
+### Key Components
+
+The test architecture consists of the following key components:
+
+1. **Test Framework**: Provides centralized test configuration, setup, and execution
+2. **Mocking Infrastructure**: Simulates external dependencies and components
+3. **Test Coverage Reporting**: Tracks and reports test coverage metrics
+4. **Integration Test Framework**: Verifies interaction between components
+5. **Performance Benchmarks**: Measures key performance indicators
+
+### Test Directory Structure
+
+```
+internal/testutil/           # Test utilities
+├── common/                  # Common test utilities
+├── fs/                      # Filesystem test utilities
+└── graph/                   # Graph API test utilities
+```
+
 ## Table-Driven Tests
 
 Table-driven tests are a powerful pattern for testing multiple scenarios with similar logic. They help reduce code duplication and make it easier to add new test cases.
@@ -207,6 +230,141 @@ Tests should be isolated from each other to prevent interference.
 3. Don't rely on the state created by other tests
 4. Use subtests to group related tests
 5. Use parallel execution when possible
+
+## Mocking Infrastructure
+
+Mocking is essential for isolating components during testing and simulating external dependencies.
+
+### Available Mock Components
+
+OneMount provides the following mock components:
+
+1. **MockGraphClient**: Simulates the Microsoft Graph API
+2. **MockFileSystem**: Simulates filesystem operations
+3. **MockUIComponent**: Simulates UI interactions
+
+### Using Mock Components
+
+When testing components that interact with external systems, use the appropriate mock component to simulate the external system's behavior. This allows you to test your code in isolation and control the behavior of the external system.
+
+For example, when testing code that interacts with the Microsoft Graph API, use the MockGraphClient to simulate API responses:
+
+```go
+// Example of using MockGraphClient in a test
+mockClient := graph.NewMockGraphClient()
+mockClient.SetResponse("GetItemPath", &graph.DriveItem{
+    ID:   "item123",
+    Name: "test.txt",
+})
+
+// Use the mock client in your test
+item, err := mockClient.GetItemPath("/test.txt", auth)
+require.NoError(t, err)
+assert.Equal(t, "test.txt", item.Name)
+```
+
+## Test Coverage Reporting
+
+Test coverage reporting helps identify areas of the codebase that need additional testing.
+
+### Coverage Metrics
+
+OneMount tracks the following coverage metrics:
+
+1. **Line Coverage**: Percentage of code lines executed during tests
+2. **Function Coverage**: Percentage of functions called during tests
+3. **Branch Coverage**: Percentage of code branches executed during tests
+4. **Package Coverage**: Coverage metrics aggregated by package
+
+### Running Tests with Coverage
+
+To run tests with coverage reporting:
+
+```bash
+# Run tests with coverage
+go test -coverprofile=coverage.out ./...
+
+# Generate HTML coverage report
+go tool cover -html=coverage.out -o coverage.html
+```
+
+## Integration Testing
+
+Integration tests verify the interaction between different components of the system.
+
+### Integration Test Types
+
+OneMount uses the following types of integration tests:
+
+1. **Component Integration**: Tests interaction between internal components
+2. **External Integration**: Tests interaction with external systems (OneDrive API)
+3. **End-to-End**: Tests complete user workflows
+
+### Writing Integration Tests
+
+When writing integration tests, focus on testing the interaction between components rather than the internal implementation details of each component. Use the IntegrationTestEnvironment to set up a controlled environment for your tests:
+
+```go
+// Example of an integration test
+func TestFileUploadIntegration(t *testing.T) {
+    // Setup test environment
+    env := testutil.NewIntegrationTestEnvironment()
+    defer env.Cleanup()
+    
+    // Create test file
+    filePath := filepath.Join(env.MountPoint, "test.txt")
+    err := os.WriteFile(filePath, []byte("test content"), 0644)
+    require.NoError(t, err)
+    
+    // Wait for file to be uploaded
+    testutil.WaitForCondition(t, func() bool {
+        // Check if file exists on remote
+        return env.FileExistsOnRemote("test.txt")
+    }, 10*time.Second, 100*time.Millisecond, "File was not uploaded within timeout")
+    
+    // Verify file content on remote
+    content, err := env.GetRemoteFileContent("test.txt")
+    require.NoError(t, err)
+    assert.Equal(t, "test content", string(content))
+}
+```
+
+## Performance Benchmarking
+
+Performance benchmarks measure the performance of critical operations.
+
+### Key Performance Metrics
+
+OneMount measures the following performance metrics:
+
+1. **Latency**: Response time for operations
+2. **Throughput**: Operations per second
+3. **Resource Usage**: CPU, memory, and network utilization
+4. **Scalability**: Performance under increasing load
+
+### Writing Performance Benchmarks
+
+Use Go's built-in benchmarking framework to write performance benchmarks:
+
+```go
+// Example of a performance benchmark
+func BenchmarkFileDownload(b *testing.B) {
+    // Setup benchmark environment
+    env := testutil.NewBenchmarkEnvironment()
+    defer env.Cleanup()
+    
+    // Create test file on remote
+    env.CreateRemoteFile("benchmark.txt", generateTestData(1024*1024)) // 1MB file
+    
+    // Run benchmark
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        filePath := filepath.Join(env.MountPoint, "benchmark.txt")
+        _, err := os.ReadFile(filePath)
+        require.NoError(b, err)
+    }
+}
+```
 
 ## Conclusion
 
