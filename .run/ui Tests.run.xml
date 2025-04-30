@@ -4,6 +4,7 @@
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-v -parallel=8 -count=1" />
     <envs>
+      <env name="CGO_CFLAGS" value="-Wno-deprecated-declarations" />
       <env name="CGO_ENABLED" value="0" />
     </envs>
     <kind value="DIRECTORY" />

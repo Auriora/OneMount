@@ -56,3 +56,4 @@ debian/files
 __pycache__
 /.auth_tokens.json
 !README.*.md
+/test-sandbox/

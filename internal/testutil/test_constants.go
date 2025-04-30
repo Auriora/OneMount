@@ -5,7 +5,7 @@ package testutil
 const TestSandboxDir = "../test-sandbox"
 
 // TestSandboxTmpDir is the directory used for temporary files. These files should be deleted are testing is complete
-const TestSandboxTmpDir = TestSandboxDir + "../tmp"
+const TestSandboxTmpDir = TestSandboxDir + "/tmp"
 
 // TestMountPoint is the location where the filesystem is mounted during tests.
 const TestMountPoint = TestSandboxTmpDir + "/mount"

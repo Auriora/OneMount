@@ -5,6 +5,9 @@
     <module name="onedriver" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-race -v -parallel=1 -count=1" />
+    <envs>
+      <env name="CGO_CFLAGS" value="-Wno-deprecated-declarations" />
+    </envs>
     <kind value="DIRECTORY" />
     <package value="github.com/jstaf/onedriver/fs" />
     <directory value="$PROJECT_DIR$/fs/graph" />
