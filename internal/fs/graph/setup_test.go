@@ -118,6 +118,9 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Ensure dmel.fa file exists for hash tests
+	testutil.EnsureDmelfaExists()
+
 	// Capture the initial state of the filesystem before running tests
 	initialState, initialStateErr := captureFileSystemState(testDir)
 	if initialStateErr != nil {

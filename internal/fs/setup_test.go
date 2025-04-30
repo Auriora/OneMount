@@ -381,6 +381,9 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	createPagingTestFiles()
+
+	// Ensure dmel.fa file exists for upload session tests
+	testutil.EnsureDmelfaExists()
 	go fs.DeltaLoop(5 * time.Second)
 
 	// not created by default on onedrive for business
