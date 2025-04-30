@@ -285,7 +285,7 @@ func TestMain(m *testing.M) {
 	var server *fuse.Server
 	var sigChan chan os.Signal
 	var unmountDone chan struct{}
-	var mounted bool = false
+	var mounted = false
 
 	// Check if we should skip FUSE mounting
 	if isMock {

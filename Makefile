@@ -142,7 +142,6 @@ test: onemount onemount-launcher test-python
 
 
 clean:
-	fusermount3 -uz mount/ || true
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit
 	rm -f *.log *.fa *.gz *.test vgcore.* onemount onemount-headless onemount-launcher .auth_tokens.json
 	rm -rf util-linux-*/ onemount-*/ vendor/ build/

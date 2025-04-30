@@ -96,7 +96,11 @@ func main() {
 	config := common.LoadConfig(*configPath)
 
 	// Now configure the logger based on the configuration
-	setupLogging(config)
+	err := setupLogging(config)
+	if err != nil {
+		fmt.Printf("Failed to setup logging: %s\n", err)
+		return
+	}
 	if *cacheDir != "" {
 		config.CacheDir = *cacheDir
 	}

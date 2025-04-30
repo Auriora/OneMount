@@ -97,14 +97,16 @@ func (s *subscription) Start() {
 		}
 		nextDur := resp.ExpirationDateTime.Sub(time.Now())
 		ctx := context.Background()
-		ctx, _ = context.WithTimeout(ctx, setupEventChanTimeout)
+		ctx, cancel := context.WithTimeout(ctx, setupEventChanTimeout)
 		cleanup, err := s.setupEventChan(ctx, resp.NotificationUrl)
 		if err != nil {
+			cancel() // Cancel the context to prevent leaks
 			log.Error().Err(err).Msg("subscription chan setup")
 			triggerOnErr()
 			time.Sleep(errRetryInterval)
 			continue
 		}
+		cancel() // Context no longer needed after setupEventChan completes
 		// Trigger once so subscribers can pick up deltas ocurred
 		// between expiration of last subscription and start of this
 		// subscription

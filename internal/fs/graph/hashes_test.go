@@ -89,7 +89,10 @@ func TestHashSeekPosition(t *testing.T) {
 	content := []byte("some test content")
 	_, err = io.Copy(tmp, bytes.NewBuffer(content))
 	require.NoError(t, err, "Failed to write to temporary file")
-	tmp.Close()
+	err = tmp.Close()
+	if err != nil {
+		t.Logf("Warning: Failed to close temporary file: %v", err)
+	}
 
 	// Open the file for reading
 	file, err := os.Open(tmp.Name())

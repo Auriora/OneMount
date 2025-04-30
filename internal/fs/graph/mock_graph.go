@@ -67,7 +67,7 @@ func (m *MockGraphClient) AddMockItems(resource string, items []*DriveItem) {
 }
 
 // RequestWithContext is a mock implementation of the real RequestWithContext function
-func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource string, method string, content io.Reader, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) RequestWithContext(_ctx context.Context, resource string, method string, content io.Reader, headers ...Header) ([]byte, error) {
 	if m.ShouldFailRequest {
 		return nil, errors.New("mock request failure")
 	}

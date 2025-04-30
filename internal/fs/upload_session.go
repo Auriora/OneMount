@@ -143,8 +143,8 @@ func (u *UploadSession) cancel(auth *graph.Auth) {
 // the HTTP request at all).
 func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, int, error) {
 	u.Lock()
-	url := u.UploadURL
-	if url == "" {
+	uploadURL := u.UploadURL
+	if uploadURL == "" {
 		u.Unlock()
 		return nil, -1, errors.New("UploadSession UploadURL cannot be empty")
 	}
@@ -166,7 +166,7 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 	client := &http.Client{}
 	request, _ := http.NewRequest(
 		"PUT",
-		url,
+		uploadURL,
 		bytes.NewReader((u.Data)[offset:end]),
 	)
 	// no Authorization header - it will throw a 401 if present

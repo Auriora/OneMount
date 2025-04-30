@@ -215,7 +215,7 @@ func TestDBusServerFunctionality(t *testing.T) {
 
 				// Verify the signal
 				// Convert dbus.ObjectPath to string for comparison
-				assert.Equal(t, string(DBusObjectPath), string(signal.Path), "Signal path should match")
+				assert.Equal(t, DBusObjectPath, string(signal.Path), "Signal path should match")
 				assert.Equal(t, DBusInterface+".FileStatusChanged", signal.Name, "Signal name should match")
 				assert.Len(t, signal.Body, 2, "Signal should have 2 arguments")
 				// The path in the signal is the OneDrive API path, not the local filesystem path

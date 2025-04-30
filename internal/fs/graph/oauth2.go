@@ -181,7 +181,12 @@ func (a *Auth) Refresh(ctx context.Context) error {
 		}
 
 		if resp != nil {
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					log.Warn().Err(err).Msg("Failed to close refresh response body")
+				}
+			}(resp.Body)
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return fmt.Errorf("failed to read refresh response body: %w", err)
@@ -263,7 +268,12 @@ func getAuthTokens(ctx context.Context, a AuthConfig, authCode string) (*Auth, e
 	if err != nil {
 		return nil, fmt.Errorf("could not POST to obtain auth tokens: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to close auth token response body")
+		}
+	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -321,7 +331,11 @@ func newAuth(ctx context.Context, config AuthConfig, path string, headless bool)
 	old := Auth{}
 	_ = old.FromFile(path) // Ignore error, we just want the account name if available
 
-	config.applyDefaults()
+	config_err := config.applyDefaults()
+	if config_err != nil {
+		log.Warn().Err(config_err).Msg("Failed to apply default auth config")
+		return nil, config_err
+	}
 	var code string
 	var err error
 

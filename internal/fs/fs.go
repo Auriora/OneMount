@@ -83,7 +83,7 @@ func (f *Filesystem) remoteID(i *Inode) (string, error) {
 	return originalID, nil
 }
 
-var disallowedRexp = regexp.MustCompile(`(?i)LPT[0-9]|COM[0-9]|_vti_|["*:<>?\/\\\|]`)
+var disallowedRexp = regexp.MustCompile(`(?i)LPT[0-9]|COM[0-9]|_vti_|["*:<>?/\\|]`)
 
 // isNameRestricted returns true if the name is disallowed according to the doc here:
 // https://support.microsoft.com/en-us/office/restrictions-and-limitations-in-onedrive-and-sharepoint-64883a5d-228e-48f5-b3d2-eb39e07630fa

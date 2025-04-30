@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Statfs returns information about the filesystem. Mainly useful for checking
+// StatFs Statfs returns information about the filesystem. Mainly useful for checking
 // quotas and storage limits.
 func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.StatfsOut) fuse.Status {
 	ctx := log.With().Str("op", "StatFs").Logger()
@@ -42,7 +42,7 @@ func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.Statf
 	return fuse.OK
 }
 
-// Getattr returns a the Inode as a UNIX stat. Holds the read mutex for all of
+// GetAttr Getattr returns a the Inode as a UNIX stat. Holds the read mutex for all of
 // the "metadata fetch" operations.
 func (f *Filesystem) GetAttr(_ <-chan struct{}, in *fuse.GetAttrIn, out *fuse.AttrOut) fuse.Status {
 	id := f.TranslateID(in.NodeId)
@@ -62,7 +62,7 @@ func (f *Filesystem) GetAttr(_ <-chan struct{}, in *fuse.GetAttrIn, out *fuse.At
 	return fuse.OK
 }
 
-// Setattr is the workhorse for setting filesystem attributes. Does the work of
+// SetAttr Setattr is the workhorse for setting filesystem attributes. Does the work of
 // operations like utimens, chmod, chown (not implemented, FUSE is single-user),
 // and truncate.
 func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.AttrOut) fuse.Status {

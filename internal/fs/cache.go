@@ -211,7 +211,7 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 
 	content := NewLoopbackCache(contentDir)
 	thumbnails := NewThumbnailCache(thumbnailDir)
-	db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
 			log.Error().Err(err).Msg("Failed to create metadata bucket")
 			return err
@@ -254,6 +254,9 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 		}
 		return versionBucket.Put([]byte("version"), []byte(fsVersion))
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// ok, ready to start fs
 	ctx, cancel := context.WithCancel(context.Background())
