@@ -1,15 +1,23 @@
-[![Run tests](https://github.com/bcherrington/onedriver/workflows/Run%20tests/badge.svg)](https://github.com/bcherrington/onedriver/actions?query=workflow%3A%22Run+tests%22)
+[![Run tests](https://github.com/bcherrington/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/bcherrington/OneMount/actions?query=workflow%3A%22Run+tests%22)
 
-# onedriver
+# OneMount
 
-**onedriver is a native Linux filesystem for Microsoft OneDrive.**
+**OneMount: Linux Access to OneDrive Made Simple**
+
+Mount your Microsoft OneDrive account as a native filesystem on Linux.
+
+---
+
+This repository was forked from [Jeff Stafford's onedriver](https://github.com/jstaf/onedriver) repository. Extensive changes have been made, leading to the decision to rename the project. 
+
+---
 
 ## Table of contents
 
 1. [Project description](#project-description)
 2. [Who this project is for](#who-this-project-is-for)
 3. [Project dependencies](#project-dependencies)
-4. [Instructions for using onedriver](#instructions-for-using-onedriver)
+4. [Instructions for using OneMount](#instructions-for-using-OneMount)
    - [Quick Installation Guide](#quick-installation-guide)
 5. [Contributing guidelines](#contributing-guidelines)
 6. [Additional documentation](#additional-documentation)
@@ -17,15 +25,15 @@
 
 ## Project description
 
-onedriver is a network filesystem that gives your computer direct access to your
+OneMount is a network filesystem that gives your computer direct access to your
 files on Microsoft OneDrive. This is not a sync client. Instead of syncing
-files, onedriver performs an on-demand download of files when your computer
-attempts to use them. onedriver allows you to use files on OneDrive as if they
+files, OneMount performs an on-demand download of files when your computer
+attempts to use them. OneMount allows you to use files on OneDrive as if they
 were files on your local computer.
 
-onedriver is extremely straightforward to use:
+OneMount is extremely straightforward to use:
 
-- Install onedriver using your favorite installation method.
+- Install OneMount using your favorite installation method.
 - Click the "+" button in the app to setup one or more OneDrive accounts.
   (There's a command-line workflow for those who prefer doing things that way
   too!)
@@ -34,12 +42,12 @@ onedriver is extremely straightforward to use:
 **Microsoft OneDrive works on Linux.**
 
 Getting started with your files on OneDrive is as easy as running:
-`onedriver /path/to/mount/onedrive/at` (there's also a helpful GUI!). To get a
-list of all the arguments onedriver can be run with you can read the manual page
-by typing `man onedriver` or get a quick summary with `onedriver --help`.
+`OneMount /path/to/mount/onedrive/at` (there's also a helpful GUI!). To get a
+list of all the arguments OneMount can be run with you can read the manual page
+by typing `man OneMount` or get a quick summary with `OneMount --help`.
 
 You can also view statistics about your OneDrive cache without mounting by using
-the `--stats` flag: `onedriver --stats /path/to/mount/onedrive/at`. This will
+the `--stats` flag: `OneMount --stats /path/to/mount/onedrive/at`. This will
 display information about the metadata cache, content cache, upload queue, 
 file statuses, and the embedded bbolt database used for persistent storage.
 The stats command now includes detailed metadata analysis such as file type distribution,
@@ -48,19 +56,19 @@ from the bbolt database.
 
 ### Key features
 
-onedriver has several nice features that make it significantly more useful than
+OneMount has several nice features that make it significantly more useful than
 other OneDrive clients:
 
-- **Files are only downloaded when you use them.** onedriver will only download
+- **Files are only downloaded when you use them.** OneMount will only download
   a file if you (or a program on your computer) uses that file. You don't need
   to wait hours for a sync client to sync your entire OneDrive account to your
   local computer or try to guess which files and folders you might need later
-  while setting up a "selective sync". onedriver gives you instant access to
+  while setting up a "selective sync". OneMount gives you instant access to
   _all_ of your files and only downloads the ones you use.
 
-- **Bidirectional sync.** Although onedriver doesn't actually "sync" any files,
+- **Bidirectional sync.** Although OneMount doesn't actually "sync" any files,
   any changes that occur on OneDrive will be automatically reflected on your
-  local machine. onedriver will only redownload a file when you access a file
+  local machine. OneMount will only redownload a file when you access a file
   that has been changed remotely on OneDrive. If you somehow simultaneously
   modify a file both locally on your computer and also remotely on OneDrive,
   your local copy will always take priority (to avoid you losing any local
@@ -71,8 +79,8 @@ other OneDrive clients:
   read-only if you lose internet access, and automatically enables write access
   again when you reconnect to the internet.
 
-- **Fast.** Great care has been taken to ensure that onedriver never makes a
-  network request unless it actually needs to. onedriver caches both filesystem
+- **Fast.** Great care has been taken to ensure that OneMount never makes a
+  network request unless it actually needs to. OneMount caches both filesystem
   metadata and file contents both in memory and on-disk. Accessing your OneDrive
   files will be fast and snappy even if you're engaged in a fight to the death
   for the last power outlet at a coffeeshop with bad wifi. (This has definitely
@@ -83,8 +91,8 @@ other OneDrive clients:
   there's no special interface beyond your normal file browser.
 
 - **Free and open-source.** They're your files. Why should you have to pay to
-  access them? onedriver is licensed under the GPLv3, which means you will
-  _always_ have access to use onedriver to access your files on OneDrive.
+  access them? OneMount is licensed under the GPLv3, which means you will
+  _always_ have access to use OneMount to access your files on OneDrive.
 
 ## Who this project is for
 
@@ -95,7 +103,7 @@ This project is intended for Linux users who want to:
 - Easily switch between working on files locally and in Microsoft 365 online apps
 - Migrate from Windows to Linux while keeping their files accessible
 
-onedriver is particularly useful for:
+OneMount is particularly useful for:
 - Linux desktop users who need to access OneDrive files
 - Users with limited disk space who can't sync their entire OneDrive
 - Users who work across multiple platforms (Windows, Mac, Linux)
@@ -103,7 +111,7 @@ onedriver is particularly useful for:
 
 ## Project dependencies
 
-Before using onedriver, ensure you have:
+Before using OneMount, ensure you have:
 
 * A Linux system with FUSE support
 * A Microsoft OneDrive account
@@ -114,30 +122,30 @@ For building from source, you'll need:
 * GCC compiler
 * webkit2gtk-4.0 and json-glib development headers
 
-## Instructions for using onedriver
+## Instructions for using OneMount
 
-Get started with onedriver by installing it using your distribution's package manager.
+Get started with OneMount by installing it using your distribution's package manager.
 
 ### Quick Installation Guide
 
-1. **Install onedriver** using your distribution's package manager:
+1. **Install OneMount** using your distribution's package manager:
 
    ```bash
    # Ubuntu/Debian
    # TODO add instructions
 
    # Arch/Manjaro
-   # Install from AUR: https://aur.archlinux.org/packages/onedriver/
+   # Install from AUR: https://aur.archlinux.org/packages/OneMount/
    ```
 
 2. **Launch the application** using the GUI launcher or command line:
 
    ```bash
    # Using GUI
-   onedriver-launcher
+   OneMount-launcher
 
    # Using command line
-   onedriver /path/to/mount/onedrive/at
+   OneMount /path/to/mount/onedrive/at
    ```
 
 3. **Authenticate** with your Microsoft account when prompted.
@@ -148,7 +156,7 @@ For a step-by-step guide to get started quickly, check out our [quickstart guide
 
 ## Contributing guidelines
 
-If you're interested in contributing to onedriver or understanding its internals, please refer to our [Development Guidelines](docs/DEVELOPMENT.md) document. It provides information about:
+If you're interested in contributing to OneMount or understanding its internals, please refer to our [Development Guidelines](docs/DEVELOPMENT.md) document. It provides information about:
 
 * Project structure
 * Tech stack
@@ -176,14 +184,14 @@ Basic build and run:
 # to build and run the binary
 make
 mkdir mount
-./onedriver mount/
+./OneMount mount/
 
 # in new window, check out the mounted filesystem
 ls -l mount
 
 # unmount the filesystem
 fusermount3 -uz mount
-# you can also just "ctrl-c" onedriver to unmount it
+# you can also just "ctrl-c" OneMount to unmount it
 ```
 
 ### Running the tests
@@ -199,7 +207,7 @@ make test-init
 # actually run tests
 make test
 
-# run only the Python tests for nemo-onedriver.py
+# run only the Python tests for nemo-OneMount.py
 make test-python
 
 # run only the Go tests for the D-Bus interface
@@ -209,12 +217,12 @@ go test -v ./fs -run TestDBus
 The test suite includes:
 - Go tests for the filesystem functionality
 - Go tests for the D-Bus interface that provides file status updates
-- Python pytest tests for the nemo-onedriver.py extension that uses the D-Bus interface
+- Python pytest tests for the nemo-OneMount.py extension that uses the D-Bus interface
 - Offline tests that simulate network disconnection
 
 ### Installation from source
 
-onedriver has multiple installation methods depending on your needs.
+OneMount has multiple installation methods depending on your needs.
 
 ```bash
 # install directly from source
@@ -238,13 +246,13 @@ make deb
 
 ## Additional documentation
 
-For more information about onedriver:
+For more information about OneMount:
 
 * [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
 * [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
-* [GitHub Issues](https://github.com/bcherrington/onedriver/issues) - Report bugs or request features
-* [GitHub Releases](https://github.com/bcherrington/onedriver/releases) - Download the latest releases
+* [GitHub Issues](https://github.com/bcherrington/OneMount/issues) - Report bugs or request features
+* [GitHub Releases](https://github.com/bcherrington/OneMount/releases) - Download the latest releases
 
 ### Known limitations
 
@@ -252,18 +260,18 @@ For more information about onedriver:
 
 * **Symbolic links**: Microsoft does not support symbolic links on OneDrive. Attempting to create symbolic links returns ENOSYS (function not implemented).
 
-* **OneDrive Recycle Bin**: Microsoft does not expose the OneDrive Recycle Bin APIs. To empty or restore the OneDrive Recycle Bin, you must use the OneDrive web UI. onedriver uses the native system trash/restore functionality independently.
+* **OneDrive Recycle Bin**: Microsoft does not expose the OneDrive Recycle Bin APIs. To empty or restore the OneDrive Recycle Bin, you must use the OneDrive web UI. OneMount uses the native system trash/restore functionality independently.
 
-* **Large files**: onedriver loads files into memory when you access them. This makes things fast but doesn't work well with very large files. Use a sync client like [rclone](https://rclone.org/) for multi-gigabyte files.
+* **Large files**: OneMount loads files into memory when you access them. This makes things fast but doesn't work well with very large files. Use a sync client like [rclone](https://rclone.org/) for multi-gigabyte files.
 
 * **Backups**: OneDrive is not recommended for backups. Use tools like [restic](https://restic.net/) or [borg](https://www.borgbackup.org/) for reliable encrypted backups.
 
 ## How to get help
 
-If you encounter issues with onedriver:
+If you encounter issues with OneMount:
 
 1. Check the [Troubleshooting section in the installation guide](docs/installation-guide.md#troubleshooting)
-2. Search existing [GitHub Issues](https://github.com/bcherrington/onedriver/issues) to see if your problem has been reported
+2. Search existing [GitHub Issues](https://github.com/bcherrington/OneMount/issues) to see if your problem has been reported
 3. Open a new issue with:
    - Log output (`journalctl --user -u $SERVICE_NAME --since today`)
    - Steps to reproduce the issue
@@ -271,6 +279,6 @@ If you encounter issues with onedriver:
 
 ## Terms of use
 
-onedriver is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/bcherrington/onedriver/blob/master/LICENSE).
+OneMount is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/bcherrington/OneMount/blob/master/LICENSE).
 
 This project is provided AS IS with no warranties or guarantees. It is in active development.
