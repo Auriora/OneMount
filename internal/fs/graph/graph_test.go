@@ -28,17 +28,17 @@ func TestResourcePath(t *testing.T) {
 		{
 			name:     "simple path",
 			path:     "/Onedriver-Documents",
-			expected: "/me/drive/root:%2FDocuments",
+			expected: "/me/drive/root:%2FOnedriver-Documents",
 		},
 		{
 			name:     "nested path",
-			path:     "/Documents/Work",
-			expected: "/me/drive/root:%2FDocuments%2FWork",
+			path:     "/Onedriver-Documents/Work",
+			expected: "/me/drive/root:%2FOnedriver-Documents%2FWork",
 		},
 		{
 			name:     "path with spaces",
-			path:     "/My Documents/Work Files",
-			expected: "/me/drive/root:%2FMy%20Documents%2FWork%20Files",
+			path:     "/Onedriver My Documents/Work Files",
+			expected: "/me/drive/root:%2FOnedriver-%20My%20Documents%2FWork%20Files",
 		},
 	}
 

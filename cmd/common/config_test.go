@@ -48,7 +48,7 @@ func TestLoadNonexistentConfig(t *testing.T) {
 func TestWriteConfig(t *testing.T) {
 	t.Parallel()
 
-	configPath := "tmp/nested/config.yml"
+	configPath := testutil.TestSandboxTmpDir + "/nested/config.yml"
 
 	// Setup cleanup to remove the file after test completes or fails
 	t.Cleanup(func() {

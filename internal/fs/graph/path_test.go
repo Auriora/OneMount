@@ -56,17 +56,17 @@ func TestChildrenPath(t *testing.T) {
 		{
 			name:     "simple path children",
 			path:     "/Onedriver-Documents",
-			expected: "/me/drive/root:%2FDocuments:/children",
+			expected: "/me/drive/root:%2FOnedriver-Documents:/children",
 		},
 		{
 			name:     "nested path children",
-			path:     "/Documents/Work",
-			expected: "/me/drive/root:%2FDocuments%2FWork:/children",
+			path:     "/Onedriver-Documents/Work",
+			expected: "/me/drive/root:%2FOnedriver-Documents%2FWork:/children",
 		},
 		{
 			name:     "path with spaces children",
-			path:     "/My Documents/Work Files",
-			expected: "/me/drive/root:%2FMy%20Documents%2FWork%20Files:/children",
+			path:     "/Onedriver My Documents/Work Files",
+			expected: "/me/drive/root:%2FOnedriver%20My%20Documents%2FWork%20Files:/children",
 		},
 	}
 
