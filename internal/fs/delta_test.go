@@ -185,13 +185,13 @@ func TestDeltaOperations(t *testing.T) {
 					}
 
 					return true
-				}, retrySeconds, time.Second, "Expected item was not found or had incorrect content")
+				}, retry, time.Second, "Expected item was not found or had incorrect content")
 			} else {
 				// Wait for the item to not exist
 				common.WaitForCondition(t, func() bool {
 					_, err := os.Stat(expectedPath)
 					return os.IsNotExist(err)
-				}, retrySeconds, time.Second, "Item still exists but should have been deleted")
+				}, retry, time.Second, "Item still exists but should have been deleted")
 			}
 		})
 	}
@@ -236,7 +236,7 @@ func TestDeltaContentChangeRemote(t *testing.T) {
 		content, err = os.ReadFile(filepath.Join(DeltaDir, "remote_content"))
 		require.NoError(t, err)
 		return bytes.Equal(content, newContent)
-	}, retrySeconds, time.Second,
+	}, retry, time.Second,
 		"Failed to sync content to local machine. Got content: \"%s\". "+
 			"Wanted: \"because it has been changed remotely!\". "+
 			"Remote content: \"%s\".",
@@ -319,7 +319,7 @@ func TestDeltaBadContentInCache(t *testing.T) {
 			return true
 		}
 		return false
-	}, retrySeconds, time.Second)
+	}, retry, time.Second)
 
 	insertErr := fs.content.Insert(id, []byte("wrong contents"))
 	require.NoError(t, insertErr)
@@ -331,7 +331,7 @@ func TestDeltaBadContentInCache(t *testing.T) {
 	require.Eventually(t, func() bool {
 		contents, err = os.ReadFile(filepath.Join(DeltaDir, "corrupted"))
 		return err == nil && !bytes.HasPrefix(contents, []byte("wrong"))
-	}, retrySeconds, time.Second, "File contents were wrong! Got \"%s\", wanted \"correct contents\"",
+	}, retry, time.Second, "File contents were wrong! Got \"%s\", wanted \"correct contents\"",
 		func() string {
 			if err != nil {
 				return err.Error()
@@ -357,7 +357,7 @@ func TestDeltaFolderDeletion(t *testing.T) {
 			}
 		}
 		return true
-	}, retrySeconds, time.Second, "\"nested/\" directory was not deleted.")
+	}, retry, time.Second, "\"nested/\" directory was not deleted.")
 }
 
 // We should only perform a delta deletion of a folder if it was nonempty

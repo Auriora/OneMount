@@ -31,17 +31,15 @@ func TestGetItem(t *testing.T) {
 		},
 		{
 			name:          "DocumentsPath_ShouldReturnDocumentsItem",
-			path:          "/Documents",
+			path:          "/Onedriver-Documents",
 			shouldSucceed: true,
-			expectedName:  "Documents",
+			expectedName:  "Onedriver-Documents",
 		},
 	}
 
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			var auth Auth
 			auth.FromFile(testutil.AuthTokensPath)
 

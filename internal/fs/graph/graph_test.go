@@ -27,7 +27,7 @@ func TestResourcePath(t *testing.T) {
 		},
 		{
 			name:     "simple path",
-			path:     "/Documents",
+			path:     "/Onedriver-Documents",
 			expected: "/me/drive/root:%2FDocuments",
 		},
 		{
@@ -45,7 +45,6 @@ func TestResourcePath(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := ResourcePath(tc.path)
 			assert.Equal(t, tc.expected, result, "Escaped path was wrong.")
 		})

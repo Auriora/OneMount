@@ -112,7 +112,7 @@ func TestMain(m *testing.M) {
 	logEvent.Msg("Starting tests")
 
 	// Create a test directory for capturing filesystem state under tmp/
-	testDir := filepath.Join("tmp", "graph_test_dir")
+	testDir := filepath.Join(testutil.TestSandboxTmpDir, "graph_test_dir")
 	if err := os.MkdirAll(testDir, 0755); err != nil {
 		log.Error().Err(err).Msg("Failed to create test directory")
 		os.Exit(1)

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -51,7 +52,7 @@ func TestWriteConfig(t *testing.T) {
 
 	// Setup cleanup to remove the file after test completes or fails
 	t.Cleanup(func() {
-		if err := os.RemoveAll("tmp/nested"); err != nil && !os.IsNotExist(err) {
+		if err := os.RemoveAll(testutil.TestSandboxTmpDir + "/nested"); err != nil && !os.IsNotExist(err) {
 			t.Logf("Warning: Failed to clean up test directory: %v", err)
 		}
 	})

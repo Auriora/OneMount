@@ -33,9 +33,9 @@ func TestReaddir(t *testing.T) {
 		{
 			name:          "RootDirectory_ShouldContainDocumentsFolder",
 			directory:     testutil.TestMountPoint,
-			expectedItems: []string{"Documents"},
+			expectedItems: []string{"Onedriver-Documents"},
 			checkItemTypes: map[string]string{
-				"Documents": "dir",
+				"Onedriver-Documents": "dir",
 			},
 		},
 		{
@@ -48,7 +48,7 @@ func TestReaddir(t *testing.T) {
 		},
 		{
 			name:          "DocumentsDirectory_ShouldBeReadable",
-			directory:     filepath.Join(testutil.TestMountPoint, "Documents"),
+			directory:     filepath.Join(testutil.TestMountPoint, "Onedriver-Documents"),
 			expectedItems: []string{}, // We don't care about specific files, just that we can read the directory
 		},
 	}
@@ -122,7 +122,7 @@ func TestLs(t *testing.T) {
 			name:          "RootDirectory_ShouldContainDocumentsFolder",
 			directory:     testutil.TestMountPoint,
 			options:       []string{},
-			expectedItems: []string{"Documents"},
+			expectedItems: []string{"Onedriver-Documents"},
 		},
 		{
 			name:          "TestDirectory_ShouldContainExpectedFiles",
@@ -140,7 +140,7 @@ func TestLs(t *testing.T) {
 			name:          "ListingWithLongFormat_ShouldShowPermissions",
 			directory:     testutil.TestMountPoint,
 			options:       []string{"-l"},
-			expectedItems: []string{"Documents"},
+			expectedItems: []string{"Onedriver-Documents"},
 		},
 	}
 
@@ -1515,7 +1515,7 @@ func TestFileInfo(t *testing.T) {
 			name: "Directory_ShouldHaveCorrectAttributes",
 			setupFunc: func(t *testing.T) (string, os.FileMode, error) {
 				// Ensure the Documents directory exists
-				docDir := filepath.Join(testutil.TestMountPoint, "Documents")
+				docDir := filepath.Join(testutil.TestMountPoint, "Onedriver-Documents")
 				if _, err := os.Stat(docDir); os.IsNotExist(err) {
 					if err := os.Mkdir(docDir, 0755); err != nil {
 						return "", 0, err
@@ -1529,7 +1529,7 @@ func TestFileInfo(t *testing.T) {
 				}
 				return docDir, 0755, nil
 			},
-			expectedName: "Documents",
+			expectedName: "Onedriver-Documents",
 			isDir:        true,
 			verifyFunc: func(t *testing.T, stat os.FileInfo) error {
 				if stat.ModTime().Year() < 1971 {
@@ -2034,7 +2034,7 @@ func TestLibreOfficeSavePattern(t *testing.T) {
 					t.Logf("File found but size is 0, waiting for upload to complete...")
 				}
 				return false
-			}, retrySeconds, 3*time.Second, errorMessage)
+			}, retry, 3*time.Second, errorMessage)
 		})
 	}
 }

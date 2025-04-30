@@ -2,16 +2,19 @@
 package testutil
 
 // TestSandboxDir is the directory used for test files.
-const TestSandboxDir = "../tmp"
+const TestSandboxDir = "../test-sandbox"
+
+// TestSandboxTmpDir is the directory used for temporary files. These files should be deleted are testing is complete
+const TestSandboxTmpDir = TestSandboxDir + "../tmp"
 
 // TestMountPoint is the location where the filesystem is mounted during tests.
-const TestMountPoint = TestSandboxDir + "/mount"
+const TestMountPoint = TestSandboxTmpDir + "/mount"
 
 // TestDir is the directory within the mount point used for tests.
 const TestDir = TestMountPoint + "/onedriver_tests"
 
 // TestDBLoc is the location of the test database.
-const TestDBLoc = TestSandboxDir
+const TestDBLoc = TestSandboxTmpDir
 
 // DeltaDir is the directory used for delta tests.
 const DeltaDir = TestDir + "/delta"

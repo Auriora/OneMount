@@ -64,7 +64,7 @@ func TestSyncDirectoryTree(t *testing.T) {
 	verifyDirectoryCached(t, "/onedriver_sync_test/subdir/subsubdir")
 
 	// Verify that other known directories are also cached
-	verifyDirectoryCached(t, "/Documents")
+	verifyDirectoryCached(t, "/Onedriver-Documents")
 	verifyDirectoryCached(t, "/onedriver_tests")
 }
 

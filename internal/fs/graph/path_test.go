@@ -34,7 +34,6 @@ func TestIDPath(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := IDPath(tc.id)
 			assert.Equal(t, tc.expected, result)
 		})
@@ -56,7 +55,7 @@ func TestChildrenPath(t *testing.T) {
 		},
 		{
 			name:     "simple path children",
-			path:     "/Documents",
+			path:     "/Onedriver-Documents",
 			expected: "/me/drive/root:%2FDocuments:/children",
 		},
 		{
@@ -74,7 +73,6 @@ func TestChildrenPath(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := childrenPath(tc.path)
 			assert.Equal(t, tc.expected, result)
 		})
@@ -109,7 +107,6 @@ func TestChildrenPathID(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := childrenPathID(tc.id)
 			assert.Equal(t, tc.expected, result)
 		})

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/bcherrington/onedriver/internal/testutil"
 	"os"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestXDGVolumeInfo(t *testing.T) {
 	const expected = "some-volume name *()! $"
 	content := TemplateXDGVolumeInfo(expected)
 
-	file, err := os.CreateTemp("", "onedriver-test-*")
+	file, err := os.CreateTemp(testutil.TestMountPoint, "onedriver-test-*")
 	require.NoError(t, err, "Failed to create temporary file")
 
 	t.Cleanup(func() {

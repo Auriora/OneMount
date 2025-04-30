@@ -157,7 +157,7 @@ func TestRepeatedUploads(t *testing.T) {
 			return false
 		}
 		return !isLocalID(inode.ID())
-	}, retrySeconds, 2*time.Second, "ID was local after upload")
+	}, retry, 2*time.Second, "ID was local after upload")
 
 	// Test multiple uploads of the same file
 	for i := 0; i < 5; i++ {

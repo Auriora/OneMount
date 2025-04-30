@@ -43,7 +43,6 @@ func TestDriveItemIsDir(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := tc.item.IsDir()
 			assert.Equal(t, tc.expected, result, "IsDir returned incorrect result")
 		})
@@ -75,7 +74,6 @@ func TestDriveItemModTimeUnix(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := tc.item.ModTimeUnix()
 			assert.Equal(t, tc.expected, result, "ModTimeUnix returned incorrect result")
 		})
@@ -146,7 +144,6 @@ func TestDriveItemVerifyChecksum(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := tc.item.VerifyChecksum(tc.checksum)
 			assert.Equal(t, tc.expected, result, "VerifyChecksum returned incorrect result")
 		})
@@ -197,7 +194,6 @@ func TestDriveItemETagIsMatch(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := tc.item.ETagIsMatch(tc.etag)
 			assert.Equal(t, tc.expected, result, "ETagIsMatch returned incorrect result")
 		})

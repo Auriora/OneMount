@@ -43,7 +43,7 @@ func TestCacheOperations(t *testing.T) {
 				// Get the children of the root
 				children, err := cache.GetChildrenPath(path, auth)
 				require.NoError(t, err, "Failed to get root children")
-				require.Contains(t, children, "documents", "Could not find documents folder")
+				require.Contains(t, children, "Onedriver-Documents", "Could not find documents folder")
 
 				// Log the children for debugging
 				t.Logf("Root children: %v", children)
@@ -53,26 +53,26 @@ func TestCacheOperations(t *testing.T) {
 			name:        "GetDocumentsPath_ShouldReturnDocumentsItem",
 			dbName:      "test_subdir_get",
 			operation:   "get_path",
-			path:        "/Documents",
+			path:        "/Onedriver-Documents",
 			description: "Get the Documents directory from the cache",
 			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
 				// Get the Documents item
 				documents, err := cache.GetPath(path, auth)
 				require.NoError(t, err, "Failed to get Documents path")
-				assert.Equal(t, "Documents", documents.Name(), "Failed to fetch \"/Documents\"")
+				assert.Equal(t, "Onedriver-Documents", documents.Name(), "Failed to fetch \"/Documents\"")
 			},
 		},
 		{
 			name:        "GetDocumentsChildren_ShouldNotContainDocumentsFolder",
 			dbName:      "test_subdir_children_update",
 			operation:   "get_children",
-			path:        "/Documents",
+			path:        "/Onedriver-Documents",
 			description: "Get the children of the Documents directory",
 			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
 				// Get the children of Documents
 				children, err := cache.GetChildrenPath(path, auth)
 				require.NoError(t, err, "Failed to get Documents children")
-				require.NotContains(t, children, "documents",
+				require.NotContains(t, children, "Onedriver-Documents",
 					"Documents directory found inside itself. Likely the cache did not traverse correctly.\nChildren: %v",
 					children)
 
@@ -84,7 +84,7 @@ func TestCacheOperations(t *testing.T) {
 			name:        "GetSamePathTwice_ShouldReturnSamePointer",
 			dbName:      "test_same_pointer",
 			operation:   "check_pointers",
-			path:        "/Documents",
+			path:        "/Onedriver-Documents",
 			description: "Check that getting the same item twice returns the same pointer",
 			verifyFunc: func(t *testing.T, cache *Filesystem, path string) {
 				// Get the item twice

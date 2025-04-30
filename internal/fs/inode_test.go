@@ -84,8 +84,6 @@ func TestInodeCreation(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			// Create the inode
 			inode := NewInode(tc.itemName, tc.mode, tc.parent)
 
@@ -111,7 +109,7 @@ func TestInodeProperties(t *testing.T) {
 	}{
 		{
 			name:         "Directory_ShouldHaveCorrectModeAndIsDir",
-			path:         "/Documents",
+			path:         "/Onedriver-Documents",
 			isDirectory:  true,
 			expectedMode: 0755 | fuse.S_IFDIR,
 			setupFunc: func(t *testing.T, path string) string {
@@ -173,8 +171,6 @@ func TestInodeProperties(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			// Setup test resources
 			fullPath := tc.setupFunc(t, tc.path)
 
@@ -259,8 +255,6 @@ func TestFilenameEscaping(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			// Create a unique file path for this test
 			filePath := filepath.Join(TestDir, tc.filename)
 
@@ -370,8 +364,6 @@ func TestFileCreationBehavior(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc // Capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			// Get the parent directory
 			parent, err := fs.GetPath("/onedriver_tests", auth)
 			require.NoError(t, err, "Failed to get parent directory")

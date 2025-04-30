@@ -40,7 +40,6 @@ func TestSHA256Hash(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := SHA256Hash(&tc.data)
 			assert.Equal(t, tc.expected, result, "SHA256Hash returned incorrect result")
 		})
@@ -80,7 +79,6 @@ func TestSHA256HashStream(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			reader := bytes.NewReader([]byte(tc.data))
 			result := SHA256HashStream(reader)
 			assert.Equal(t, tc.expected, result, "SHA256HashStream returned incorrect result")
@@ -116,7 +114,6 @@ func TestSHA1Hash(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := SHA1Hash(&tc.data)
 			assert.Equal(t, tc.expected, result, "SHA1Hash returned incorrect result")
 		})
@@ -151,7 +148,6 @@ func TestSHA1HashStream(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			reader := bytes.NewReader([]byte(tc.data))
 			result := SHA1HashStream(reader)
 			assert.Equal(t, tc.expected, result, "SHA1HashStream returned incorrect result")
@@ -192,7 +188,6 @@ func TestQuickXORHash(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			result := QuickXORHash(&tc.data)
 			assert.Equal(t, tc.expected, result, "QuickXORHash returned incorrect result")
 		})
@@ -232,7 +227,6 @@ func TestQuickXORHashStream(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			reader := bytes.NewReader([]byte(tc.data))
 			result := QuickXORHashStream(reader)
 			assert.Equal(t, tc.expected, result, "QuickXORHashStream returned incorrect result")

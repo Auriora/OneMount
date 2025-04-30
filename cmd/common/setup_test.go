@@ -37,13 +37,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err := os.RemoveAll("tmp"); err != nil {
+	if err := os.RemoveAll(testutil.TestSandboxTmpDir); err != nil {
 		log.Error().Err(err).Msg("Failed to remove tmp directory")
 		os.Exit(1)
 	}
 
 	// Ensure tmp directory exists
-	if err := os.MkdirAll("tmp", 0755); err != nil {
+	if err := os.MkdirAll(testutil.TestSandboxTmpDir, 0755); err != nil {
 		log.Error().Err(err).Msg("Failed to create tmp directory")
 		os.Exit(1)
 	}

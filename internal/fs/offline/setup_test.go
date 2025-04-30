@@ -2,7 +2,6 @@ package offline
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -82,7 +81,7 @@ func TestMain(m *testing.M) {
 	if wd, _ := os.Getwd(); strings.HasSuffix(wd, "/offline") {
 		// depending on how this test gets launched, the working directory can be wrong
 		if err := os.Chdir("../.."); err != nil {
-			fmt.Println("Failed to change directory:", err)
+			log.Error().Err(err).Msg("Failed to change directory:")
 			os.Exit(1)
 		}
 	}
@@ -92,24 +91,24 @@ func TestMain(m *testing.M) {
 	// First check if the mount point exists before attempting to unmount
 	if _, err := os.Stat(mountLoc); err == nil {
 		if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err != nil {
-			fmt.Println("Warning: Failed to unmount:", err)
+			log.Error().Err(err).Msg("Warning: Failed to unmount:")
 			// Continue anyway as it might not be mounted
 		}
 	} else {
-		fmt.Println("Mount point does not exist, no need to unmount")
+		log.Warn().Msg("Mount point does not exist, no need to unmount")
 	}
 
 	// Remove the mount directory if it exists, then recreate it
 	// This ensures we start with a clean state
 	if _, err := os.Stat(mountLoc); err == nil {
 		if err := os.RemoveAll(mountLoc); err != nil {
-			fmt.Println("Warning: Failed to remove existing mount directory:", err)
+			log.Warn().Err(err).Msg("Warning: Failed to remove existing mount directory:")
 		}
 	}
 
 	// Create the mount directory
 	if err := os.MkdirAll(mountLoc, 0755); err != nil {
-		fmt.Println("Failed to create mount directory:", err)
+		log.Error().Err(err).Msg("Failed to create mount directory:")
 		os.Exit(1)
 	}
 
@@ -123,7 +122,7 @@ func TestMain(m *testing.M) {
 	var authErr error
 	auth, authErr = authenticator.Authenticate()
 	if authErr != nil {
-		fmt.Println("Authentication failed:", authErr)
+		log.Error().Err(authErr).Msg("Authentication failed:")
 		os.Exit(1)
 	}
 
@@ -133,7 +132,7 @@ func TestMain(m *testing.M) {
 
 	f, err := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		fmt.Println("Failed to open log file:", err)
+		log.Error().Err(err).Msg("Failed to open log file:")
 		os.Exit(1)
 	}
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
@@ -495,9 +494,9 @@ func TestMain(m *testing.M) {
 	}
 
 	if unmountSuccess {
-		fmt.Println("Successfully unmounted fuse server!")
+		log.Info().Msg("Successfully unmounted fuse server!")
 	} else {
-		fmt.Println("Warning: Failed to unmount fuse server. Continuing with exit anyway to prevent hanging.")
+		log.Warn().Msg("Warning: Failed to unmount fuse server. Continuing with exit anyway to prevent hanging.")
 		// Make one final attempt with the most aggressive unmount option
 		if err := exec.Command("fusermount3", "-uz", mountLoc).Run(); err != nil {
 			log.Error().Err(err).Msg("Final attempt at lazy unmount failed")

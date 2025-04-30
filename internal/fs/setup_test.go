@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	retrySeconds = 60 * time.Second //lint:ignore ST1011 a
+	retry = 60 * time.Second //lint:ignore ST1011 a
 )
 
 // Use constants from testutil package
@@ -100,14 +100,14 @@ func TestMain(m *testing.M) {
 	// Check if we're already in the project root directory
 	cwd, cwdErr := os.Getwd()
 	if cwdErr != nil {
-		fmt.Println("Failed to get current working directory:", cwdErr)
+		log.Error().Err(cwdErr).Msg("Failed to get current working directory")
 		os.Exit(1)
 	}
 
 	if strings.HasSuffix(cwd, "/fs") {
 		// If we're in the fs directory, change to the project root
 		if cdErr := os.Chdir(".."); cdErr != nil {
-			fmt.Println("Failed to change to project root directory:", cdErr)
+			log.Error().Err(cdErr).Msg("Failed to change to project root directory")
 			os.Exit(1)
 		}
 	} else if !strings.HasSuffix(cwd, "/onedriver") {
@@ -118,7 +118,7 @@ func TestMain(m *testing.M) {
 			index := strings.Index(cwd, "/onedriver")
 			projectRoot := cwd[:index+len("/onedriver")]
 			if cdErr := os.Chdir(projectRoot); cdErr != nil {
-				fmt.Println("Failed to change to project root directory:", cdErr)
+				log.Error().Err(cdErr).Msg("Failed to change to project root directory")
 				os.Exit(1)
 			}
 		}
@@ -152,7 +152,7 @@ func TestMain(m *testing.M) {
 			if lazyErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); lazyErr != nil {
 				log.Error().Err(lazyErr).Msg("Lazy unmount also failed, mount point may be in use by another process")
 				// Continue anyway, but warn the user
-				fmt.Println("WARNING: Failed to unmount existing filesystem. Tests may fail if mount point is in use.")
+				log.Warn().Msg("Failed to unmount existing filesystem. Tests may fail if mount point is in use")
 			} else {
 				log.Info().Msg("Successfully performed lazy unmount")
 			}
@@ -165,35 +165,35 @@ func TestMain(m *testing.M) {
 	// This ensures we start with a clean state
 	if _, err := os.Stat(mountLoc); err == nil {
 		if err := os.RemoveAll(mountLoc); err != nil {
-			fmt.Println("Warning: Failed to remove existing mount directory:", err)
+			log.Warn().Err(err).Msg("Failed to remove existing mount directory")
 		}
 	}
 
 	// Create the mount directory
 	if err := os.MkdirAll(mountLoc, 0755); err != nil {
-		fmt.Println("Failed to create mount directory:", err)
+		log.Error().Err(err).Msg("Failed to create mount directory")
 		os.Exit(1)
 	}
 	// wipe all cached data from previous tests
 	if rmErr := os.RemoveAll(testDBLoc); rmErr != nil {
-		fmt.Println("Failed to remove test database location:", rmErr)
+		log.Error().Err(rmErr).Msg("Failed to remove test database location")
 		os.Exit(1)
 	}
 	if mkdirErr := os.Mkdir(testDBLoc, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
-		fmt.Println("Failed to create test database directory:", mkdirErr)
+		log.Error().Err(mkdirErr).Msg("Failed to create test database directory")
 		os.Exit(1)
 	}
 
 	// Explicitly create content directory structure for tests
 	contentDir := filepath.Join(testDBLoc, "test", "content")
 	if mkdirErr := os.MkdirAll(contentDir, 0755); mkdirErr != nil {
-		fmt.Println("Failed to create content directory:", mkdirErr)
+		log.Error().Err(mkdirErr).Msg("Failed to create content directory")
 		os.Exit(1)
 	}
 
 	f, openErr := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if openErr != nil {
-		fmt.Println("Failed to open log file:", openErr)
+		log.Error().Err(openErr).Msg("Failed to open log file")
 		os.Exit(1)
 	}
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
@@ -215,7 +215,7 @@ func TestMain(m *testing.M) {
 	var err error
 	auth, err = authenticator.Authenticate()
 	if err != nil {
-		fmt.Println("Authentication failed:", err)
+		log.Error().Err(err).Msg("Authentication failed")
 		os.Exit(1)
 	}
 
@@ -258,7 +258,7 @@ func TestMain(m *testing.M) {
 			log.Error().Err(err).Msg("Failed to create paging directory")
 			os.Exit(1)
 		}
-		if err := os.MkdirAll(filepath.Join(mountLoc, "Documents"), 0755); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(filepath.Join(mountLoc, "Onedriver-Documents"), 0755); err != nil && !os.IsExist(err) {
 			log.Error().Err(err).Msg("Failed to create Documents directory")
 		}
 
@@ -363,7 +363,7 @@ func TestMain(m *testing.M) {
 	// cleanup from last run
 	log.Info().Msg("Setup test environment ---------------------------------")
 	if err := os.RemoveAll(TestDir); err != nil {
-		fmt.Println(err)
+		log.Error().Err(err).Msg("Failed to remove test directory")
 		os.Exit(1)
 	}
 	if mkdirErr := os.Mkdir(TestDir, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
@@ -384,7 +384,7 @@ func TestMain(m *testing.M) {
 	go fs.DeltaLoop(5 * time.Second)
 
 	// not created by default on onedrive for business
-	if mkdirErr := os.Mkdir(mountLoc+"/Documents", 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
+	if mkdirErr := os.Mkdir(mountLoc+"/Onedriver-Documents", 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
 		log.Error().Err(mkdirErr).Msg("Failed to create Documents directory")
 		// Not exiting here as this is not critical
 	}
@@ -571,12 +571,12 @@ func TestMain(m *testing.M) {
 
 	// Normal cleanup path
 	log.Info().Msg("Test session end -----------------------------------")
-	fmt.Printf("Waiting 5 seconds for any remaining uploads to complete")
+	log.Info().Msg("Waiting 5 seconds for any remaining uploads to complete")
 	for i := 0; i < 5; i++ {
 		time.Sleep(time.Second)
-		fmt.Printf(".")
+		log.Info().Msg(".")
 	}
-	fmt.Printf("\n")
+	log.Info().Msg("\n")
 
 	unmountSuccess := false
 
@@ -627,9 +627,9 @@ func TestMain(m *testing.M) {
 	}
 
 	if unmountSuccess {
-		fmt.Println("Successfully unmounted fuse server!")
+		log.Info().Msg("Successfully unmounted fuse server!")
 	} else {
-		fmt.Println("Warning: Failed to unmount fuse server. You may need to manually unmount with 'fusermount3 -uz mount'")
+		log.Warn().Msg("Warning: Failed to unmount fuse server. You may need to manually unmount with 'fusermount3 -uz mount'")
 	}
 
 	// Clean up the test database directory by stopping all services
@@ -653,7 +653,7 @@ func TestMain(m *testing.M) {
 // Apparently 200 reqests is the default paging limit.
 // Upload at least this many for a later test before the delta thread is created.
 func createPagingTestFiles() {
-	fmt.Println("Setting up paging test files.")
+	log.Info().Msg("Setting up paging test files.")
 	var group sync.WaitGroup
 	var errCounter int64
 
@@ -683,5 +683,5 @@ func createPagingTestFiles() {
 	}
 	group.Wait()
 	log.Info().Msgf("%d failed paging uploads.\n", errCounter)
-	fmt.Println("Finished with paging test setup.")
+	log.Info().Msg("Finished with paging test setup.")
 }

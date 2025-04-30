@@ -131,9 +131,6 @@ tmp/dmel.fa:
 test-init: onedriver
 	go install github.com/rakyll/gotest@latest
 	pip install pytest pytest-mock
-	mkdir -p mount/
-	$< -a mount/
-
 
 # Run Python tests for nemo-onedriver.py
 # PYTHONPATH is set to include the current directory and nemo-onedriver/src
@@ -146,9 +143,8 @@ test-python:
 # disabled and tests are run. sudo is required - otherwise we don't have
 # permission to deny network access to onedriver during the test.
 test: onedriver onedriver-launcher tmp/dmel.fa test-python
-	rm -f *.race* fusefs_tests.log
-	CGO_ENABLED=0 gotest -v -parallel=8 -count=1 ./internal/ui/...
-	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=8 -count=1 ./internal/fs/...
+	CGO_ENABLED=0 gotest -v -parallel=1 -count=1 ./internal/ui/...
+	$(CGO_CFLAGS) $(GORACE) gotest -race -v -parallel=1 -count=1 ./internal/fs/...
 
 
 # will literally purge everything: all built artifacts, all logs, all tests,

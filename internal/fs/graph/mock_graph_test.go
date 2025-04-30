@@ -15,7 +15,6 @@ func TestMockGraphClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("basic functionality", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Test default values
@@ -25,7 +24,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock item responses", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Create a mock item
@@ -50,7 +48,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock children responses", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Create mock items
@@ -86,7 +83,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock content responses", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Create mock content
@@ -109,7 +105,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock error responses", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Create a mock error response
@@ -124,7 +119,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock mkdir", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Mock the response for the POST request
@@ -145,7 +139,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock rename", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Test Rename (just verifying it doesn't error with default responses)
@@ -154,7 +147,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("mock remove", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 
 		// Test Remove (just verifying it doesn't error with default responses)
@@ -163,7 +155,6 @@ func TestMockGraphClient(t *testing.T) {
 	})
 
 	t.Run("global request failure", func(t *testing.T) {
-		t.Parallel()
 		client := NewMockGraphClient()
 		client.ShouldFailRequest = true
 
