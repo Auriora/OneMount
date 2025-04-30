@@ -1,4 +1,5 @@
-// common functions used by both binaries
+// Package common
+// Common functions used by both binaries
 package common
 
 import (
@@ -110,7 +111,12 @@ func IsUserAllowOtherEnabled() bool {
 		log.Debug().Err(err).Msg("Could not open /etc/fuse.conf, assuming user_allow_other is not enabled")
 		return false
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Error closing /etc/fuse.conf")
+		}
+	}(file)
 
 	// Scan the file line by line
 	scanner := bufio.NewScanner(file)

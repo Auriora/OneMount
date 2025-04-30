@@ -10,7 +10,7 @@ import (
 	"github.com/bcherrington/onemount/internal/ui"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -187,7 +187,7 @@ func LoadConfig(path string) *Config {
 	return config
 }
 
-// Write config to a file
+// WriteConfig - Write config to a file
 func (c Config) WriteConfig(path string) error {
 	out, err := yaml.Marshal(c)
 	if err != nil {

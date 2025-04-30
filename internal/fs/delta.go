@@ -195,7 +195,9 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			}
 
 			// failures should explicitly be ignored the second time around as per docs
-			f.applyDelta(deltas[id])
+			if err := f.applyDelta(deltas[id]); err != nil {
+				log.Debug().Err(err).Str("id", id).Msg("Ignoring error in second pass delta application")
+			}
 		}
 
 		// Clean up the apply context
@@ -232,9 +234,11 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			}
 
 			log.Debug().Msg("Saving delta link to database")
-			f.db.Batch(func(tx *bolt.Tx) error {
+			if err := f.db.Batch(func(tx *bolt.Tx) error {
 				return tx.Bucket(bucketDelta).Put([]byte("deltaLink"), []byte(f.deltaLink))
-			})
+			}); err != nil {
+				log.Error().Err(err).Msg("Failed to save delta link to database")
+			}
 
 			// If we were offline and now we're online, process offline changes
 			if wasOffline {
@@ -448,8 +452,12 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 		oldParentID := local.ParentID()
 		// local rename only
 		ctx.Debug().Msg("Calling MovePath to rename/move item")
-		f.MovePath(oldParentID, parentID, localName, name, f.auth)
-		ctx.Debug().Msg("Successfully renamed/moved item")
+		if err := f.MovePath(oldParentID, parentID, localName, name, f.auth); err != nil {
+			ctx.Error().Err(err).Msg("Failed to rename/move item")
+			// Continue processing as there may be additional changes
+		} else {
+			ctx.Debug().Msg("Successfully renamed/moved item")
+		}
 		// do not return, there may be additional changes
 	}
 
@@ -484,7 +492,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 
 			// Check if the item has been modified offline
 			ctx.Debug().Msg("Checking for offline changes")
-			f.db.View(func(tx *bolt.Tx) error {
+			if err := f.db.View(func(tx *bolt.Tx) error {
 				b := tx.Bucket(bucketOfflineChanges)
 				if b == nil {
 					return nil
@@ -492,17 +500,19 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 
 				c := b.Cursor()
 				prefix := []byte(delta.ID + "-")
-				for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+				k, _ := c.Seek(prefix)
+				if k != nil && bytes.HasPrefix(k, prefix) {
 					hasLocalChanges = true
-					return nil
 				}
 				return nil
-			})
+			}); err != nil {
+				ctx.Error().Err(err).Msg("Failed to check for offline changes")
+			}
 
 			// Also check if the item has pending uploads
 			if !hasLocalChanges {
 				ctx.Debug().Msg("Checking for pending uploads")
-				f.db.View(func(tx *bolt.Tx) error {
+				if err := f.db.View(func(tx *bolt.Tx) error {
 					b := tx.Bucket(bucketUploads)
 					if b == nil {
 						return nil
@@ -512,7 +522,9 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 						hasLocalChanges = true
 					}
 					return nil
-				})
+				}); err != nil {
+					ctx.Error().Err(err).Msg("Failed to check for pending uploads")
+				}
 			}
 
 			ctx.Debug().Bool("hasLocalChanges", hasLocalChanges).Msg("Local modification check result")
