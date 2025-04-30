@@ -1,10 +1,13 @@
 // Package testutil provides utility functions and constants for testing.
 package testutil
 
-// TestSandboxDir is the directory used for test files.
-const TestSandboxDir = "../test-sandbox"
+// All paths in this file are relative to the project root directory.
+// Tests should ensure they are running from the project root before using these paths.
 
-// TestSandboxTmpDir is the directory used for temporary files. These files should be deleted are testing is complete
+// TestSandboxDir is the directory used for test files.
+const TestSandboxDir = "test-sandbox"
+
+// TestSandboxTmpDir is the directory used for temporary files. These files should be deleted after testing is complete.
 const TestSandboxTmpDir = TestSandboxDir + "/tmp"
 
 // TestMountPoint is the location where the filesystem is mounted during tests.
@@ -19,7 +22,7 @@ const TestDBLoc = TestSandboxTmpDir
 // DeltaDir is the directory used for delta tests.
 const DeltaDir = TestDir + "/delta"
 
-// DmelfaDir dmel.fa is the directory used for delta tests.
+// DmelfaDir is the path to the dmel.fa file used for tests.
 const DmelfaDir = TestSandboxDir + "/dmel.fa"
 
 // AuthTokensPath is the path to the authentication tokens file.

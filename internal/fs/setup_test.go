@@ -18,7 +18,6 @@ import (
 	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/bcherrington/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -150,107 +149,12 @@ func TestMain(m *testing.M) {
 	// We used to skip paging test setup for single tests, but that caused issues
 	// when running TestListChildrenPaging individually
 
-	// Check if we're already in the project root directory
-	cwd, cwdErr := os.Getwd()
-	if cwdErr != nil {
-		log.Error().Err(cwdErr).Msg("Failed to get current working directory")
+	// Setup test environment
+	f, setupErr := testutil.SetupTestEnvironment("..", true)
+	if setupErr != nil {
+		log.Error().Err(setupErr).Msg("Failed to setup test environment")
 		os.Exit(1)
 	}
-
-	if strings.HasSuffix(cwd, "/fs") {
-		// If we're in the fs directory, change to the project root
-		if cdErr := os.Chdir(".."); cdErr != nil {
-			log.Error().Err(cdErr).Msg("Failed to change to project root directory")
-			os.Exit(1)
-		}
-	} else if !strings.HasSuffix(cwd, "/onemount") {
-		// If we're not in the project root, try to find it
-		// This handles the case where tests are run from GoLand with a different working directory
-		if strings.Contains(cwd, "/onemount") {
-			// Extract the path up to and including "onemount"
-			index := strings.Index(cwd, "/onemount")
-			projectRoot := cwd[:index+len("/onemount")]
-			if cdErr := os.Chdir(projectRoot); cdErr != nil {
-				log.Error().Err(cdErr).Msg("Failed to change to project root directory")
-				os.Exit(1)
-			}
-		}
-	}
-
-	// Check if the mount point is already in use by another process
-	isMounted := false
-	if _, err := os.Stat(mountLoc); err == nil {
-		// Check if it's a mount point by trying to read from it
-		if _, err := os.ReadDir(mountLoc); err != nil {
-			// If we can't read the directory, it might be a stale mount point
-			log.Warn().Err(err).Msg("Mount point exists but can't be read, attempting to unmount")
-			isMounted = true
-		} else {
-			// Check if it's a mount point using findmnt
-			cmd := exec.Command("findmnt", "--noheadings", "--output", "TARGET", mountLoc)
-			if output, err := cmd.Output(); err == nil && len(output) > 0 {
-				log.Warn().Msg("Mount point is already mounted, attempting to unmount")
-				isMounted = true
-			}
-		}
-	}
-
-	// Attempt to unmount if necessary
-	if isMounted {
-		log.Info().Msg("Attempting to unmount previous instance")
-		// Try normal unmount first
-		if unmountErr := exec.Command("fusermount3", "-u", mountLoc).Run(); unmountErr != nil {
-			log.Warn().Err(unmountErr).Msg("Normal unmount failed, trying lazy unmount")
-			// Try lazy unmount
-			if lazyErr := exec.Command("fusermount3", "-uz", mountLoc).Run(); lazyErr != nil {
-				log.Error().Err(lazyErr).Msg("Lazy unmount also failed, mount point may be in use by another process")
-				// Continue anyway, but warn the user
-				log.Warn().Msg("Failed to unmount existing filesystem. Tests may fail if mount point is in use")
-			} else {
-				log.Info().Msg("Successfully performed lazy unmount")
-			}
-		} else {
-			log.Info().Msg("Successfully unmounted previous instance")
-		}
-	}
-
-	// Remove the mount directory if it exists, then recreate it
-	// This ensures we start with a clean state
-	if _, err := os.Stat(mountLoc); err == nil {
-		if err := os.RemoveAll(mountLoc); err != nil {
-			log.Warn().Err(err).Msg("Failed to remove existing mount directory")
-		}
-	}
-
-	// Create the mount directory
-	if err := os.MkdirAll(mountLoc, 0755); err != nil {
-		log.Error().Err(err).Msg("Failed to create mount directory")
-		os.Exit(1)
-	}
-	// wipe all cached data from previous tests
-	if rmErr := os.RemoveAll(testDBLoc); rmErr != nil {
-		log.Error().Err(rmErr).Msg("Failed to remove test database location")
-		os.Exit(1)
-	}
-	if mkdirErr := os.Mkdir(testDBLoc, 0755); mkdirErr != nil && !os.IsExist(mkdirErr) {
-		log.Error().Err(mkdirErr).Msg("Failed to create test database directory")
-		os.Exit(1)
-	}
-
-	// Explicitly create content directory structure for tests
-	contentDir := filepath.Join(testDBLoc, "test", "content")
-	if mkdirErr := os.MkdirAll(contentDir, 0755); mkdirErr != nil {
-		log.Error().Err(mkdirErr).Msg("Failed to create content directory")
-		os.Exit(1)
-	}
-
-	f, openErr := os.OpenFile(testutil.TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
-	if openErr != nil {
-		log.Error().Err(openErr).Msg("Failed to open log file")
-		os.Exit(1)
-	}
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: f, TimeFormat: "15:04:05"})
 	defer func() {
 		if closeErr := f.Close(); closeErr != nil {
 			log.Error().Err(closeErr).Msg("Failed to close log file")
@@ -265,10 +169,10 @@ func TestMain(m *testing.M) {
 	authenticator := graph.NewAuthenticator(graph.AuthConfig{}, testutil.AuthTokensPath, false, isMock)
 
 	// Perform authentication
-	var err error
-	auth, err = authenticator.Authenticate()
-	if err != nil {
-		log.Error().Err(err).Msg("Authentication failed")
+	var authErr error
+	auth, authErr = authenticator.Authenticate()
+	if authErr != nil {
+		log.Error().Err(authErr).Msg("Authentication failed")
 		os.Exit(1)
 	}
 

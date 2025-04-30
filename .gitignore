@@ -57,3 +57,4 @@ __pycache__
 /.auth_tokens.json
 !README.*.md
 /test-sandbox/
+/internal/test-sandbox/.auth_tokens.json
