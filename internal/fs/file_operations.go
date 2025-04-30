@@ -513,3 +513,22 @@ func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHea
 	// Just return OK to indicate that the file is ready for I/O
 	return fuse.OK
 }
+
+// PollOperationHandler is an alternative implementation of the poll operation.
+// This is provided as a fallback in case the Poll method is not recognized by the go-fuse library.
+func (f *Filesystem) PollOperationHandler(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
+	log.Trace().
+		Str("op", "PollOperationHandler").
+		Uint64("nodeID", in.NodeId).
+		Msg("Poll operation (alternative handler)")
+
+	// Get the inode for the node ID
+	inode := f.GetNodeID(in.NodeId)
+	if inode == nil {
+		return fuse.EBADF
+	}
+
+	// We don't need to do any special handling for polling
+	// Just return OK to indicate that the file is ready for I/O
+	return fuse.OK
+}
