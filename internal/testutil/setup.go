@@ -33,7 +33,10 @@ func SetupTestEnvironment(relPath string, unmountFirst bool) (*os.File, error) {
 
 	// Ensure test directories exist
 	if err := ensureTestDirectories(unmountFirst); err != nil {
-		f.Close()
+		err := f.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, err
 	}
 

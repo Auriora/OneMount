@@ -261,7 +261,6 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	// ok, ready to start fs
 	ctx, cancel := context.WithCancel(context.Background())
 	fs := &Filesystem{
-		RawFileSystem:       fuse.NewDefaultRawFileSystem(),
 		content:             content,
 		thumbnails:          thumbnails,
 		db:                  db,
@@ -274,6 +273,9 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 		deltaLoopCtx:        ctx,
 		deltaLoopCancel:     cancel,
 	}
+
+	// Initialize with our custom RawFileSystem implementation that supports the POLL opcode
+	fs.RawFileSystem = NewCustomRawFileSystem(fs)
 
 	rootItem, err := graph.GetItem("root", auth)
 	root := NewInodeDriveItem(rootItem)
