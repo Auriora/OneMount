@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -42,31 +41,21 @@ func SetupTestEnvironment(relPath string, unmountFirst bool) (*os.File, error) {
 }
 
 // changeToProjectRoot changes the current working directory to the project root.
-// It tries to find the project root by looking for the "onemount" directory.
+// It uses the provided relative path to navigate to the project root.
 func changeToProjectRoot(relPath string) error {
-	// If relPath is provided, try to change to that directory first
+	// If relPath is provided, try to change to that directory
 	if relPath != "" {
 		if err := os.Chdir(relPath); err != nil {
-			log.Error().Err(err).Str("path", relPath).Msg("Failed to change to relative directory")
+			log.Error().Err(err).Str("path", relPath).Msg("Failed to change to project root directory using relative path")
 			return err
 		}
-	}
 
-	// Check if we're already in the project root directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get current working directory")
-		return err
-	}
-
-	// If we're in a subdirectory of the project, navigate up to the root
-	if strings.Contains(cwd, "/onemount") && !strings.HasSuffix(cwd, "/onemount") {
-		// Extract the path up to and including "onemount"
-		index := strings.Index(cwd, "/onemount")
-		projectRoot := cwd[:index+len("/onemount")]
-		if err := os.Chdir(projectRoot); err != nil {
-			log.Error().Err(err).Str("path", projectRoot).Msg("Failed to change to project root directory")
-			return err
+		// Log the current working directory for debugging
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get current working directory")
+		} else {
+			log.Debug().Str("cwd", cwd).Msg("Changed to project root directory")
 		}
 	}
 
@@ -75,6 +64,12 @@ func changeToProjectRoot(relPath string) error {
 
 // setupLogging sets up logging for tests.
 func setupLogging() (*os.File, error) {
+	// Ensure test-sandbox directory exists
+	if err := os.MkdirAll(TestSandboxDir, 0755); err != nil {
+		log.Error().Err(err).Msg("Failed to create test-sandbox directory")
+		return nil, err
+	}
+
 	f, err := os.OpenFile(TestLogPath, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to open log file")

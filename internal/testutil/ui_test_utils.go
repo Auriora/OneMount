@@ -20,6 +20,12 @@ func SetupUITest(relPath string) (*os.File, error) {
 		return nil, err
 	}
 
+	// Ensure test-sandbox directory exists
+	if err := os.MkdirAll(TestSandboxDir, 0755); err != nil {
+		log.Error().Err(err).Msg("Failed to create test-sandbox directory")
+		return nil, err
+	}
+
 	// Setup logging
 	f, err := os.OpenFile(TestLogPath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {

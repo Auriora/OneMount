@@ -124,13 +124,17 @@ func TestMain(m *testing.M) {
 	// Validate the test environment first
 	validateTestEnvironment()
 
-	if wd, _ := os.Getwd(); strings.HasSuffix(wd, "/offline") {
-		// depending on how this test gets launched, the working directory can be wrong
-		if err := os.Chdir("../.."); err != nil {
-			log.Error().Err(err).Msg("Failed to change directory:")
-			os.Exit(1)
-		}
+	// Setup test environment
+	f, setupErr := testutil.SetupTestEnvironment("../../../", false)
+	if setupErr != nil {
+		log.Error().Err(setupErr).Msg("Failed to setup test environment")
+		os.Exit(1)
 	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close log file")
+		}
+	}()
 
 	// attempt to unmount regardless of what happens (in case previous tests
 	// failed and didn't clean themselves up)
@@ -443,23 +447,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// Create directories for specific tests
-	testDirs := []string{
-		filepath.Join(TestDir, "donuts_TestOfflineFileSystemOperations"),
-		filepath.Join(TestDir, "modify_TestOfflineFileSystemOperations"),
-		filepath.Join(TestDir, "delete_TestOfflineFileSystemOperations"),
-		filepath.Join(TestDir, "dir_create_TestOfflineFileSystemOperations"),
-		filepath.Join(TestDir, "dir_delete_TestOfflineFileSystemOperations"),
-		filepath.Join(TestDir, "parent_dir_TestOfflineFileSystemOperations"),
-		filepath.Join(TestDir, "parent_dir_TestOfflineFileSystemOperations/FileInDirectory_ShouldWorkOffline"),
-	}
-
-	for _, dir := range testDirs {
-		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
-			log.Error().Err(err).Str("dir", dir).Msg("Failed to create test subdirectory")
-			os.Exit(1)
-		}
-	}
+	// Let the tests create their own directories as needed
 
 	// Set operational offline state to true to simulate offline mode
 	log.Info().Msg("Setting operational offline state to true")

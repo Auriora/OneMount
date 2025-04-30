@@ -244,9 +244,13 @@ func TestOfflineFileSystemOperations(t *testing.T) {
 				// Create a directory to delete
 				path := filepath.Join(TestDir, "dir_delete_"+t.Name())
 
-				// Create the directory
-				err := os.Mkdir(path, 0755)
+				// Create the directory with MkdirAll to ensure parent directories exist
+				err := os.MkdirAll(path, 0755)
 				require.NoError(t, err, "Failed to create directory for deletion test")
+
+				// Verify the directory exists
+				_, err = os.Stat(path)
+				require.NoError(t, err, "Test directory should exist after creation but was not found")
 
 				return path, nil, nil
 			},
@@ -271,10 +275,14 @@ func TestOfflineFileSystemOperations(t *testing.T) {
 			description: "Creating a file in a directory should work in offline mode",
 			isDir:       false,
 			setupFunc: func(t *testing.T) (string, []byte, []byte) {
-				// Create a directory
+				// Create a directory with MkdirAll to ensure parent directories exist
 				dirPath := filepath.Join(TestDir, "parent_dir_"+t.Name())
-				err := os.Mkdir(dirPath, 0755)
+				err := os.MkdirAll(dirPath, 0755)
 				require.NoError(t, err, "Failed to create parent directory")
+
+				// Verify the directory exists
+				_, err = os.Stat(dirPath)
+				require.NoError(t, err, "Parent directory should exist after creation but was not found")
 
 				// Create a path for a file in that directory
 				filePath := filepath.Join(dirPath, "nested_file.txt")

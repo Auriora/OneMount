@@ -11,7 +11,7 @@ import (
 
 func TestMain(m *testing.M) {
 	// Setup test environment
-	f, err := testutil.SetupTestEnvironment("../..", false)
+	f, err := testutil.SetupTestEnvironment("../../../", false)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to setup test environment")
 		os.Exit(1)
