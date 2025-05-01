@@ -12,7 +12,7 @@ The Security Testing Framework consists of the following components:
 
 Security scanners identify vulnerabilities in the system by scanning code, configurations, and runtime environments.
 
-```
+```go
 // SecurityScanner defines the interface for security scanning tools.
 type SecurityScanner interface {
     // Setup initializes the security scanner.
@@ -28,7 +28,7 @@ type SecurityScanner interface {
 
 Security attack simulators simulate various types of security attacks to test the system's resilience.
 
-```
+```go
 // SecurityAttackSimulator defines the interface for simulating security attacks.
 type SecurityAttackSimulator interface {
     // Setup initializes the attack simulator.

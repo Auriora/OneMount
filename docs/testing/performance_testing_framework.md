@@ -68,7 +68,7 @@ type PerformanceMetrics struct {
 
 ### 4. Load Tests
 
-Load tests measure performance under various load conditions. See the [Load Testing Framework](LOAD_TESTING.md) for more details.
+Load tests measure performance under various load conditions. See the [Load Testing Framework](load-testing-framework.md) for more details.
 
 ## Predefined Performance Benchmarks
 
@@ -181,7 +181,7 @@ ConcurrentOperationsBenchmark(b, framework, 10, thresholds, "/tmp/benchmark-repo
 
 ### Running Load Tests
 
-Load tests are a type of performance test that measure performance under various load conditions. See the [Load Testing Framework](LOAD_TESTING.md) for more details on load testing.
+Load tests are a type of performance test that measure performance under various load conditions. See the [Load Testing Framework](load-testing-framework.md) for more details on load testing.
 
 ```go
 // Create a test framework
