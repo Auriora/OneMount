@@ -478,7 +478,7 @@ $HOME/
 │   ├── content/         # Cached file content
 │   ├── thumbnails/      # Cached thumbnails
 │   └── onemount.db     # Metadata cache database
-└── OneDrive/            # Mount point (configurable)
+└── OneMount/            # Mount point (configurable)
 ```
 
 ## 4. Crosscutting Concerns

@@ -1,17 +1,39 @@
 // Package testutil provides testing utilities for the OneMount project.
 package testutil
 
+import "testing"
 import (
 	"context"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 )
+
+// SimpleLogger implements the Logger interface for basic logging.
+type SimpleLogger struct {
+	prefix string
+}
+
+func (l *SimpleLogger) Debug(msg string, args ...interface{}) {
+	// Implementation can be added based on needs
+}
+
+func (l *SimpleLogger) Info(msg string, args ...interface{}) {
+	// Implementation can be added based on needs
+}
+
+func (l *SimpleLogger) Warn(msg string, args ...interface{}) {
+	// Implementation can be added based on needs
+}
+
+func (l *SimpleLogger) Error(msg string, args ...interface{}) {
+	// Implementation can be added based on needs
+}
 
 // TestSecurityTestFramework tests the basic functionality of the SecurityTestFramework.
 func TestSecurityTestFramework(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := &SimpleLogger{
+		prefix: "security-test",
+	}
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{

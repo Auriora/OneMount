@@ -101,6 +101,10 @@ func TestUT01_SyncDirectoryTree(t *testing.T) {
 			Account:      "mock@example.com",
 		}
 
+		// Set operational offline mode to prevent real network requests
+		graph.SetOperationalOffline(true)
+		defer graph.SetOperationalOffline(false) // Reset when test is done
+
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
 		if err != nil {
@@ -109,6 +113,13 @@ func TestUT01_SyncDirectoryTree(t *testing.T) {
 
 		// Set the root ID
 		fs.root = rootID
+
+		// Manually set up the root item
+		rootInode := NewInodeDriveItem(rootItem)
+		fs.InsertID(rootID, rootInode)
+
+		// Insert the root item into the database to avoid the "offline and could not fetch the filesystem root item from disk" error
+		fs.InsertNodeID(rootInode)
 
 		// Return the test data
 		return map[string]interface{}{

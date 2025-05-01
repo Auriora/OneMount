@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Test testutils" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Test internal/testutils" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="OneMount" />
     <working_directory value="$PROJECT_DIR$/internal/testutil" />
     <root_directory value="$PROJECT_DIR$" />

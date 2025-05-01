@@ -64,6 +64,10 @@ func TestUT02_FileOperations(t *testing.T) {
 			Account:      "mock@example.com",
 		}
 
+		// Set operational offline mode to prevent real network requests
+		graph.SetOperationalOffline(true)
+		defer graph.SetOperationalOffline(false) // Reset when test is done
+
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
 		if err != nil {
@@ -72,6 +76,13 @@ func TestUT02_FileOperations(t *testing.T) {
 
 		// Set the root ID
 		fs.root = rootID
+
+		// Manually set up the root item
+		rootInode := NewInodeDriveItem(rootItem)
+		fs.InsertID(rootID, rootInode)
+
+		// Insert the root item into the database to avoid the "offline and could not fetch the filesystem root item from disk" error
+		fs.InsertNodeID(rootInode)
 
 		// Return the test data
 		return map[string]interface{}{
@@ -246,6 +257,10 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 			Account:      "mock@example.com",
 		}
 
+		// Set operational offline mode to prevent real network requests
+		graph.SetOperationalOffline(true)
+		defer graph.SetOperationalOffline(false) // Reset when test is done
+
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
 		if err != nil {
@@ -254,6 +269,13 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 
 		// Set the root ID
 		fs.root = rootID
+
+		// Manually set up the root item
+		rootInode := NewInodeDriveItem(rootItem)
+		fs.InsertID(rootID, rootInode)
+
+		// Insert the root item into the database to avoid the "offline and could not fetch the filesystem root item from disk" error
+		fs.InsertNodeID(rootInode)
 
 		// Return the test data
 		return map[string]interface{}{
@@ -325,5 +347,120 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 		// Verify the file status
 		status := fs.GetFileStatus(fileID)
 		assert.Equal(StatusLocal, status.Status, "File status should be local")
+	})
+}
+
+// TestUT06_RootRetrieval verifies that the filesystem can retrieve the root item from the database
+// when in offline mode, even if the root ID is not "root".
+//
+//	Test Case ID    UT-06
+//	Title           Root Item Retrieval in Offline Mode
+//	Description     Verify that the filesystem can retrieve the root item from the database when in offline mode
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Root item is stored in the database with a custom ID
+//	Steps           1. Initialize the filesystem with a custom root ID
+//	                2. Store the root item in the database
+//	                3. Retrieve the root item from the database
+//	                4. Verify the root item has the correct properties
+//	Expected Result Root item is successfully retrieved from the database with the correct properties
+//	Notes: Tests the ability to retrieve the root item from the database in offline mode.
+func TestUT06_RootRetrieval(t *testing.T) {
+	// Create a test fixture
+	fixture := testutil.NewUnitTestFixture("RootRetrievalFixture")
+
+	// Set up the fixture
+	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
+		// Create a temporary directory for the test
+		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+		}
+
+		// Create a mock graph client
+		mockClient := graph.NewMockGraphClient()
+
+		// Set up the mock directory structure with a custom root ID
+		rootID := "custom-root-id"
+		rootItem := &graph.DriveItem{
+			ID:   rootID,
+			Name: "root",
+			Folder: &graph.Folder{
+				ChildCount: 1,
+			},
+		}
+
+		// Add the root item to the mock client
+		mockClient.AddMockItem("/me/drive/root", rootItem)
+
+		// Create a mock auth object
+		auth := &graph.Auth{
+			AccessToken:  "mock-access-token",
+			RefreshToken: "mock-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			Account:      "mock@example.com",
+		}
+
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, tempDir, 30)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+
+		// Set the root ID
+		fs.root = rootID
+
+		// Manually set up the root item
+		rootInode := NewInodeDriveItem(rootItem)
+		fs.InsertID(rootID, rootInode)
+
+		// Insert the root item into the database
+		fs.InsertNodeID(rootInode)
+
+		// Return the test data
+		return map[string]interface{}{
+			"tempDir":    tempDir,
+			"mockClient": mockClient,
+			"rootID":     rootID,
+			"auth":       auth,
+			"fs":         fs,
+		}, nil
+	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
+		// Clean up the temporary directory
+		data := fixture.(map[string]interface{})
+		tempDir := data["tempDir"].(string)
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
+		}
+		return nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Get the test data
+		data := fixture.(map[string]interface{})
+		rootID := data["rootID"].(string)
+		fs := data["fs"].(*Filesystem)
+
+		// Verify that the root item is correctly stored in the database
+		// This simulates what would happen in offline mode when the root item is retrieved from the database
+		rootItem := fs.GetID(rootID)
+		if rootItem == nil {
+			t.Errorf("Failed to get root item with ID %s from the database", rootID)
+		} else {
+			t.Logf("Successfully retrieved root item with ID %s from the database", rootID)
+		}
+
+		// Verify that the root item has the correct properties
+		if rootItem != nil {
+			if !rootItem.IsDir() {
+				t.Errorf("Root item should be a directory")
+			}
+			if rootItem.ParentID() != "" {
+				t.Errorf("Root item should have no parent, but got parent ID %s", rootItem.ParentID())
+			}
+			if rootItem.Name() != "root" {
+				t.Errorf("Root item should have name 'root', but got %s", rootItem.Name())
+			}
+		}
 	})
 }

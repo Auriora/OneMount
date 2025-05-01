@@ -285,7 +285,34 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 			fs.Lock()
 			fs.offline = true
 			fs.Unlock()
-			if root = fs.GetID("root"); root == nil {
+
+			// Try to get the root item from the database using the special ID "root"
+			root = fs.GetID("root")
+
+			// If that fails, try to find any item in the database that looks like a root folder
+			if root == nil {
+				// Look for items in the database that have folder properties and no parent
+				if err := fs.db.View(func(tx *bolt.Tx) error {
+					b := tx.Bucket(bucketMetadata)
+					return b.ForEach(func(k, v []byte) error {
+						if v != nil {
+							inode, err := NewInodeJSON(v)
+							if err == nil && inode.IsDir() && inode.ParentID() == "" {
+								root = inode
+								// Store this item with the special ID "root" for future lookups
+								fs.metadata.Store("root", inode)
+								return errors.New("found root item, stopping iteration")
+							}
+						}
+						return nil
+					})
+				}); err != nil && err.Error() != "found root item, stopping iteration" {
+					log.Error().Err(err).Msg("Error searching for root item in database")
+				}
+			}
+
+			// If we still couldn't find a root item, return an error
+			if root == nil {
 				log.Error().Msg(
 					"We are offline and could not fetch the filesystem root item from disk.",
 				)

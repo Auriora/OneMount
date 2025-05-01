@@ -1,5 +1,6 @@
+```go
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package _3_examples
 
 import (
 	"context"
@@ -339,3 +340,4 @@ func SecurityTestWithTestFrameworkExample() {
 		logger.Info("Security test passed")
 	}
 }
+```
