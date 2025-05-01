@@ -1,4 +1,6 @@
 [![Run tests](https://github.com/bcherrington/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/bcherrington/OneMount/actions?query=workflow%3A%22Run+tests%22)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Status: Alpha](https://img.shields.io/badge/Status-Alpha-yellow.svg)]()
 
 ![OneMount](configs/resources/OneMount-Logo-64.png)
 
