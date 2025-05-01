@@ -443,11 +443,18 @@ func (pb *PerformanceBenchmark) RunLoadTest(ctx context.Context) error {
 			}(i)
 		}
 
-		// Wait for the test duration
-		time.Sleep(pb.loadTest.Duration)
-
-		// Cancel the context to stop goroutines
-		cancel()
+		// Use a timer to cancel the context after the test duration
+		timer := time.NewTimer(pb.loadTest.Duration)
+		select {
+		case <-timer.C:
+			// Test duration has elapsed, cancel the context
+			cancel()
+		case <-ctx.Done():
+			// Parent context was canceled, stop the timer
+			if !timer.Stop() {
+				<-timer.C
+			}
+		}
 
 		// Wait for all goroutines to finish
 		wg.Wait()

@@ -287,20 +287,23 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 	latencyChan := make(chan time.Duration, 10000)
 	errorChan := make(chan error, 10000)
 
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(ctx, pattern.GetDuration())
-	defer cancel()
+	// Create a context with timeout that respects the parent context
+	patternCtx, patternCancel := context.WithTimeout(ctx, pattern.GetDuration())
+	defer patternCancel()
+
+	// Create channels to control the number of active workers
+	workerStartChan := make(chan struct{}, 100) // Buffer to prevent blocking
+	workerDoneChan := make(chan struct{}, 100)  // Buffer to prevent blocking
+	workerPool := make(chan int, 100)           // Worker pool to limit concurrent goroutines
 
 	// Create a wait group for worker goroutines
 	var workerWg sync.WaitGroup
 
-	// Create channels to control the number of active workers
-	workerStartChan := make(chan struct{})
-	workerDoneChan := make(chan struct{})
-
 	// Start the controller goroutine
+	controllerDone := make(chan struct{})
 	go func() {
-		defer close(workerStartChan)
+		defer close(controllerDone)
+		defer close(workerStartChan) // Signal workers to exit when controller is done
 
 		startTime := time.Now()
 		ticker := time.NewTicker(100 * time.Millisecond)
@@ -310,7 +313,8 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-patternCtx.Done():
+				// Context was canceled, exit the controller
 				return
 			case <-ticker.C:
 				elapsed := time.Since(startTime)
@@ -321,8 +325,11 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 					select {
 					case workerStartChan <- struct{}{}:
 						currentWorkers++
-					case <-ctx.Done():
+					case <-patternCtx.Done():
 						return
+					default:
+						// If the channel is full, try again next tick
+						continue
 					}
 				}
 
@@ -331,9 +338,9 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 					select {
 					case <-workerDoneChan:
 						currentWorkers--
-					case <-ctx.Done():
+					case <-patternCtx.Done():
 						return
-					case <-time.After(100 * time.Millisecond):
+					case <-time.After(50 * time.Millisecond):
 						// Timeout - don't wait indefinitely for workers to complete
 						// This prevents the test from hanging if workers are stuck
 						fmt.Printf("Warning: Timeout waiting for worker to complete\n")
@@ -353,46 +360,100 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 		}
 	}()
 
-	// Start worker goroutines
-	maxWorkers := 1000 // Limit the maximum number of goroutines
+	// Initialize the worker pool
+	maxWorkers := 100 // Reduce the maximum number of goroutines to prevent resource contention
 	for i := 0; i < maxWorkers; i++ {
-		workerWg.Add(1)
-		go func(id int) {
-			defer workerWg.Done()
-
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case _, ok := <-workerStartChan:
-					if !ok {
-						return
-					}
-
-					// Run the scenario
-					start := time.Now()
-					err := scenario(ctx)
-					latency := time.Since(start)
-
-					// Record results
-					latencyChan <- latency
-					if err != nil {
-						errorChan <- err
-					}
-
-					// Signal that the worker is done
-					select {
-					case workerDoneChan <- struct{}{}:
-					case <-ctx.Done():
-						return
-					}
-				}
-			}
-		}(i)
+		workerPool <- i
 	}
 
-	// Wait for all workers to finish
+	// Start a goroutine to manage the worker pool
+	workerPoolDone := make(chan struct{})
+	go func() {
+		defer close(workerPoolDone)
+
+		for {
+			select {
+			case <-patternCtx.Done():
+				return
+			case workerId, ok := <-workerPool:
+				if !ok {
+					return
+				}
+
+				// Start a worker goroutine
+				workerWg.Add(1)
+				go func(id int) {
+					defer workerWg.Done()
+					defer func() {
+						// Return the worker ID to the pool when done
+						select {
+						case workerPool <- id:
+						case <-patternCtx.Done():
+							// If context is done, don't try to return to the pool
+						default:
+							// If the channel is closed or full, don't try to send
+						}
+					}()
+
+					// Wait for work
+					select {
+					case <-patternCtx.Done():
+						return
+					case _, ok := <-workerStartChan:
+						if !ok {
+							return
+						}
+
+						// Run the scenario
+						start := time.Now()
+						err := scenario(patternCtx)
+						latency := time.Since(start)
+
+						// Record results
+						select {
+						case latencyChan <- latency:
+						case <-patternCtx.Done():
+							return
+						}
+
+						if err != nil {
+							select {
+							case errorChan <- err:
+							case <-patternCtx.Done():
+								return
+							}
+						}
+
+						// Signal that the worker is done
+						select {
+						case workerDoneChan <- struct{}{}:
+						case <-patternCtx.Done():
+							return
+						default:
+							// If the channel is full, just continue
+							// The controller will adjust the count on the next tick
+						}
+					}
+				}(workerId)
+			}
+		}
+	}()
+
+	// Wait for the pattern context to be done (either timeout or parent context canceled)
+	<-patternCtx.Done()
+
+	// Wait for all workers to finish before closing the worker pool
+	// This prevents the "send on closed channel" panic
 	workerWg.Wait()
+
+	// Close the worker pool to stop creating new workers
+	close(workerPool)
+
+	// Wait for the worker pool manager to finish
+	<-workerPoolDone
+
+	// Wait for the controller to finish
+	<-controllerDone
 
 	// Close result channels
 	close(latencyChan)
