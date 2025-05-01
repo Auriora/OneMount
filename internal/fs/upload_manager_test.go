@@ -1,13 +1,13 @@
 package fs
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/bcherrington/onemount/internal/fs/graph"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/bcherrington/onemount/internal/testutil"
 )
 
 // TestUT03_RepeatedUploads verifies that the same file can be uploaded multiple times
@@ -29,169 +29,209 @@ func TestUT03_RepeatedUploads(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 
-	// Step 1: Create a file with initial content
+	// Create a test fixture
+	fixture := testutil.NewUnitTestFixture("RepeatedUploadsFixture")
 
-	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp("", "onemount-test-*")
-	require.NoError(t, err, "Failed to create temporary directory")
+	// Set up the fixture
+	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
+		// Create a temporary directory for the test
+		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+		}
 
-	// Register cleanup function
-	t.Cleanup(func() {
+		// Create a mock graph client
+		mockClient := graph.NewMockGraphClient()
+
+		// Set up the mock directory structure
+		rootID := "root-id"
+		rootItem := &graph.DriveItem{
+			ID:   rootID,
+			Name: "root",
+			Folder: &graph.Folder{
+				ChildCount: 0,
+			},
+		}
+
+		// Add the root item to the mock client
+		mockClient.AddMockItem("/me/drive/root", rootItem)
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+
+		// Create a mock auth object
+		auth := &graph.Auth{
+			AccessToken:  "mock-access-token",
+			RefreshToken: "mock-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			Account:      "mock@example.com",
+		}
+
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, tempDir, 30)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+
+		// Set the root ID
+		fs.root = rootID
+
+		// Create test file data
+		testFileName := "repeated_upload.txt"
+		initialContent := "initial content"
+		fileID := "file-id"
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			File: &graph.File{},
+			Size: uint64(len(initialContent)),
+		}
+
+		// Return the test data
+		return map[string]interface{}{
+			"tempDir":        tempDir,
+			"mockClient":     mockClient,
+			"rootID":         rootID,
+			"auth":           auth,
+			"fs":             fs,
+			"testFileName":   testFileName,
+			"initialContent": initialContent,
+			"fileID":         fileID,
+			"fileItem":       fileItem,
+		}, nil
+	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
+		// Clean up the temporary directory
+		data := fixture.(map[string]interface{})
+		tempDir := data["tempDir"].(string)
 		if err := os.RemoveAll(tempDir); err != nil {
 			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
 		}
+		return nil
 	})
 
-	// Create a mock graph client
-	mockClient := graph.NewMockGraphClient()
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := testutil.NewAssert(t)
 
-	// Set up the mock directory structure
-	rootID := "root-id"
-	rootItem := &graph.DriveItem{
-		ID:   rootID,
-		Name: "root",
-		Folder: &graph.Folder{
-			ChildCount: 0,
-		},
-	}
+		// Get the test data
+		data := fixture.(map[string]interface{})
+		mockClient := data["mockClient"].(*graph.MockGraphClient)
+		rootID := data["rootID"].(string)
+		fs := data["fs"].(*Filesystem)
+		testFileName := data["testFileName"].(string)
+		initialContent := data["initialContent"].(string)
+		fileID := data["fileID"].(string)
+		fileItem := data["fileItem"].(*graph.DriveItem)
 
-	// Add the root item to the mock client
-	mockClient.AddMockItem("/me/drive/root", rootItem)
-	mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+		// Step 1: Create a file with initial content
 
-	// Create a mock auth object
-	auth := &graph.Auth{
-		AccessToken:  "mock-access-token",
-		RefreshToken: "mock-refresh-token",
-		ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-		Account:      "mock@example.com",
-	}
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
 
-	// Create the filesystem
-	fs, err := NewFilesystem(auth, tempDir, 30)
-	require.NoError(t, err, "Failed to create filesystem")
+		// Open the file for writing
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
 
-	// Set the root ID
-	fs.root = rootID
+		// Write initial content to the file
+		n, err := fd.WriteAt([]byte(initialContent), 0)
+		assert.NoError(err, "Failed to write to file")
+		assert.Equal(len(initialContent), n, "Number of bytes written doesn't match content length")
 
-	// Create a test file path
-	testFileName := "repeated_upload.txt"
-	initialContent := "initial content"
-	fileID := "file-id"
-	fileItem := &graph.DriveItem{
-		ID:   fileID,
-		Name: testFileName,
-		File: &graph.File{},
-		Size: uint64(len(initialContent)),
-	}
+		// Mark the file as having changes
+		fileInode.hasChanges = true
 
-	// Insert the file into the filesystem
-	fileInode := NewInodeDriveItem(fileItem)
-	fs.InsertNodeID(fileInode)
-	fs.InsertChild(rootID, fileInode)
+		// Step 2: Wait for upload to complete
 
-	// Open the file for writing
-	fd, err := fs.content.Open(fileID)
-	require.NoError(t, err, "Failed to open file for writing")
+		// Queue the upload
+		_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
 
-	// Write initial content to the file
-	n, err := fd.WriteAt([]byte(initialContent), 0)
-	require.NoError(t, err, "Failed to write to file")
-	require.Equal(t, len(initialContent), n, "Number of bytes written doesn't match content length")
+		// Mock the upload response
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
 
-	// Mark the file as having changes
-	fileInode.hasChanges = true
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
 
-	// Step 2: Wait for upload to complete
+		// Verify the file has the correct content
+		fileInode = fs.GetID(fileID)
+		assert.NotNil(fileInode, "File not found in cache")
+		assert.Equal(testFileName, fileInode.Name(), "File name mismatch")
+		assert.Equal(uint64(len(initialContent)), fileInode.Size(), "File size mismatch")
 
-	// Queue the upload
-	_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
-	require.NoError(t, err, "Failed to queue upload")
+		// Step 3: Modify the file content
 
-	// Mock the upload response
-	mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+		// Update the file content
+		modifiedContent := "modified content"
+		fileItem.Size = uint64(len(modifiedContent))
 
-	// Wait for the upload to complete
-	err = fs.uploads.WaitForUpload(fileID)
-	require.NoError(t, err, "Failed to wait for upload")
+		// Open the file for writing
+		fd, err = fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
 
-	// Verify the file has the correct content
-	fileInode = fs.GetID(fileID)
-	require.NotNil(t, fileInode, "File not found in cache")
-	assert.Equal(t, testFileName, fileInode.Name(), "File name mismatch")
-	assert.Equal(t, uint64(len(initialContent)), fileInode.Size(), "File size mismatch")
+		// Write modified content to the file
+		n, err = fd.WriteAt([]byte(modifiedContent), 0)
+		assert.NoError(err, "Failed to write to file")
+		assert.Equal(len(modifiedContent), n, "Number of bytes written doesn't match content length")
 
-	// Step 3: Modify the file content
+		// Mark the file as having changes
+		fileInode.hasChanges = true
 
-	// Update the file content
-	modifiedContent := "modified content"
-	fileItem.Size = uint64(len(modifiedContent))
+		// Step 4: Wait for upload to complete
 
-	// Open the file for writing
-	fd, err = fs.content.Open(fileID)
-	require.NoError(t, err, "Failed to open file for writing")
+		// Queue the upload
+		_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
 
-	// Write modified content to the file
-	n, err = fd.WriteAt([]byte(modifiedContent), 0)
-	require.NoError(t, err, "Failed to write to file")
-	require.Equal(t, len(modifiedContent), n, "Number of bytes written doesn't match content length")
+		// Mock the upload response
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
 
-	// Mark the file as having changes
-	fileInode.hasChanges = true
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
 
-	// Step 4: Wait for upload to complete
+		// Verify the file has the correct content
+		fileInode = fs.GetID(fileID)
+		assert.NotNil(fileInode, "File not found in cache")
+		assert.Equal(testFileName, fileInode.Name(), "File name mismatch")
+		assert.Equal(uint64(len(modifiedContent)), fileInode.Size(), "File size mismatch")
 
-	// Queue the upload
-	_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
-	require.NoError(t, err, "Failed to queue upload")
+		// Step 5: Repeat steps 3-4 multiple times
 
-	// Mock the upload response
-	mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+		// Update the file content again
+		finalContent := "final content"
+		fileItem.Size = uint64(len(finalContent))
 
-	// Wait for the upload to complete
-	err = fs.uploads.WaitForUpload(fileID)
-	require.NoError(t, err, "Failed to wait for upload")
+		// Open the file for writing
+		fd, err = fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
 
-	// Verify the file has the correct content
-	fileInode = fs.GetID(fileID)
-	require.NotNil(t, fileInode, "File not found in cache")
-	assert.Equal(t, testFileName, fileInode.Name(), "File name mismatch")
-	assert.Equal(t, uint64(len(modifiedContent)), fileInode.Size(), "File size mismatch")
+		// Write final content to the file
+		n, err = fd.WriteAt([]byte(finalContent), 0)
+		assert.NoError(err, "Failed to write to file")
+		assert.Equal(len(finalContent), n, "Number of bytes written doesn't match content length")
 
-	// Step 5: Repeat steps 3-4 multiple times
+		// Mark the file as having changes
+		fileInode.hasChanges = true
 
-	// Update the file content again
-	finalContent := "final content"
-	fileItem.Size = uint64(len(finalContent))
+		// Queue the upload
+		_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
 
-	// Open the file for writing
-	fd, err = fs.content.Open(fileID)
-	require.NoError(t, err, "Failed to open file for writing")
+		// Mock the upload response
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
 
-	// Write final content to the file
-	n, err = fd.WriteAt([]byte(finalContent), 0)
-	require.NoError(t, err, "Failed to write to file")
-	require.Equal(t, len(finalContent), n, "Number of bytes written doesn't match content length")
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
 
-	// Mark the file as having changes
-	fileInode.hasChanges = true
-
-	// Queue the upload
-	_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
-	require.NoError(t, err, "Failed to queue upload")
-
-	// Mock the upload response
-	mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
-
-	// Wait for the upload to complete
-	err = fs.uploads.WaitForUpload(fileID)
-	require.NoError(t, err, "Failed to wait for upload")
-
-	// Verify the file has the correct content
-	fileInode = fs.GetID(fileID)
-	require.NotNil(t, fileInode, "File not found in cache")
-	assert.Equal(t, testFileName, fileInode.Name(), "File name mismatch")
-	assert.Equal(t, uint64(len(finalContent)), fileInode.Size(), "File size mismatch")
+		// Verify the file has the correct content
+		fileInode = fs.GetID(fileID)
+		assert.NotNil(fileInode, "File not found in cache")
+		assert.Equal(testFileName, fileInode.Name(), "File name mismatch")
+		assert.Equal(uint64(len(finalContent)), fileInode.Size(), "File size mismatch")
+	})
 }
 
 // TestUT04_UploadDiskSerialization verifies that large files can be uploaded correctly
@@ -212,113 +252,155 @@ func TestUT04_UploadDiskSerialization(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 
-	// Step 1: Create a large file (>4MB)
+	// Create a test fixture
+	fixture := testutil.NewUnitTestFixture("UploadDiskSerializationFixture")
 
-	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp("", "onemount-test-*")
-	require.NoError(t, err, "Failed to create temporary directory")
+	// Set up the fixture
+	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
+		// Create a temporary directory for the test
+		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+		}
 
-	// Register cleanup function
-	t.Cleanup(func() {
+		// Create a mock graph client
+		mockClient := graph.NewMockGraphClient()
+
+		// Set up the mock directory structure
+		rootID := "root-id"
+		rootItem := &graph.DriveItem{
+			ID:   rootID,
+			Name: "root",
+			Folder: &graph.Folder{
+				ChildCount: 0,
+			},
+		}
+
+		// Add the root item to the mock client
+		mockClient.AddMockItem("/me/drive/root", rootItem)
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+
+		// Create a mock auth object
+		auth := &graph.Auth{
+			AccessToken:  "mock-access-token",
+			RefreshToken: "mock-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			Account:      "mock@example.com",
+		}
+
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, tempDir, 30)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+
+		// Set the root ID
+		fs.root = rootID
+
+		// Create test file data
+		testFileName := "large_file.bin"
+		fileSize := 5 * 1024 * 1024 // 5MB
+		fileID := "large-file-id"
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			File: &graph.File{},
+			Size: uint64(fileSize),
+		}
+
+		// Generate large file content
+		largeContent := make([]byte, fileSize)
+		for i := 0; i < fileSize; i++ {
+			largeContent[i] = byte(i % 256)
+		}
+
+		// Return the test data
+		return map[string]interface{}{
+			"tempDir":      tempDir,
+			"mockClient":   mockClient,
+			"rootID":       rootID,
+			"auth":         auth,
+			"fs":           fs,
+			"testFileName": testFileName,
+			"fileSize":     fileSize,
+			"fileID":       fileID,
+			"fileItem":     fileItem,
+			"largeContent": largeContent,
+		}, nil
+	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
+		// Clean up the temporary directory
+		data := fixture.(map[string]interface{})
+		tempDir := data["tempDir"].(string)
 		if err := os.RemoveAll(tempDir); err != nil {
 			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
 		}
+		return nil
 	})
 
-	// Create a mock graph client
-	mockClient := graph.NewMockGraphClient()
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := testutil.NewAssert(t)
 
-	// Set up the mock directory structure
-	rootID := "root-id"
-	rootItem := &graph.DriveItem{
-		ID:   rootID,
-		Name: "root",
-		Folder: &graph.Folder{
-			ChildCount: 0,
-		},
-	}
+		// Get the test data
+		data := fixture.(map[string]interface{})
+		mockClient := data["mockClient"].(*graph.MockGraphClient)
+		rootID := data["rootID"].(string)
+		fs := data["fs"].(*Filesystem)
+		testFileName := data["testFileName"].(string)
+		fileSize := data["fileSize"].(int)
+		fileID := data["fileID"].(string)
+		fileItem := data["fileItem"].(*graph.DriveItem)
+		largeContent := data["largeContent"].([]byte)
 
-	// Add the root item to the mock client
-	mockClient.AddMockItem("/me/drive/root", rootItem)
-	mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+		// Step 1: Create a large file (>4MB)
 
-	// Create a mock auth object
-	auth := &graph.Auth{
-		AccessToken:  "mock-access-token",
-		RefreshToken: "mock-refresh-token",
-		ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-		Account:      "mock@example.com",
-	}
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
 
-	// Create the filesystem
-	fs, err := NewFilesystem(auth, tempDir, 30)
-	require.NoError(t, err, "Failed to create filesystem")
+		// Open the file for writing
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
 
-	// Set the root ID
-	fs.root = rootID
+		// Step 2: Write content to the file
 
-	// Create a test file path
-	testFileName := "large_file.bin"
-	fileSize := 5 * 1024 * 1024 // 5MB
-	fileID := "large-file-id"
-	fileItem := &graph.DriveItem{
-		ID:   fileID,
-		Name: testFileName,
-		File: &graph.File{},
-		Size: uint64(fileSize),
-	}
+		// Write content to the file
+		n, err := fd.WriteAt(largeContent, 0)
+		assert.NoError(err, "Failed to write to file")
+		assert.Equal(fileSize, n, "Number of bytes written doesn't match content length")
 
-	// Insert the file into the filesystem
-	fileInode := NewInodeDriveItem(fileItem)
-	fs.InsertNodeID(fileInode)
-	fs.InsertChild(rootID, fileInode)
+		// Mark the file as having changes
+		fileInode.hasChanges = true
 
-	// Open the file for writing
-	fd, err := fs.content.Open(fileID)
-	require.NoError(t, err, "Failed to open file for writing")
+		// Step 3: Wait for the upload to complete
 
-	// Generate large file content
-	largeContent := make([]byte, fileSize)
-	for i := 0; i < fileSize; i++ {
-		largeContent[i] = byte(i % 256)
-	}
+		// Mock the upload session creation
+		uploadURL := "https://example.com/upload-session"
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/createUploadSession", []byte(`{"uploadUrl":"`+uploadURL+`"}`), 200, nil)
 
-	// Step 2: Write content to the file
+		// Mock the upload session completion
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
 
-	// Write content to the file
-	n, err := fd.WriteAt(largeContent, 0)
-	require.NoError(t, err, "Failed to write to file")
-	require.Equal(t, fileSize, n, "Number of bytes written doesn't match content length")
+		// Queue the upload
+		_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
 
-	// Mark the file as having changes
-	fileInode.hasChanges = true
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
 
-	// Step 3: Wait for the upload to complete
+		// Step 4: Verify the file exists on OneDrive with correct content
 
-	// Mock the upload session creation
-	uploadURL := "https://example.com/upload-session"
-	mockClient.AddMockResponse("/me/drive/items/"+fileID+"/createUploadSession", []byte(`{"uploadUrl":"`+uploadURL+`"}`), 200, nil)
+		// Verify the file has the correct size
+		fileInode = fs.GetID(fileID)
+		assert.NotNil(fileInode, "File not found in cache")
+		assert.Equal(testFileName, fileInode.Name(), "File name mismatch")
+		assert.Equal(uint64(fileSize), fileInode.Size(), "File size mismatch")
 
-	// Mock the upload session completion
-	mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
-
-	// Queue the upload
-	_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
-	require.NoError(t, err, "Failed to queue upload")
-
-	// Wait for the upload to complete
-	err = fs.uploads.WaitForUpload(fileID)
-	require.NoError(t, err, "Failed to wait for upload")
-
-	// Step 4: Verify the file exists on OneDrive with correct content
-
-	// Verify the file has the correct size
-	fileInode = fs.GetID(fileID)
-	require.NotNil(t, fileInode, "File not found in cache")
-	assert.Equal(t, testFileName, fileInode.Name(), "File name mismatch")
-	assert.Equal(t, uint64(fileSize), fileInode.Size(), "File size mismatch")
-
-	// Verify the file status
-	status := fs.GetFileStatus(fileID)
-	assert.Equal(t, StatusLocal, status.Status, "File status should be local")
+		// Verify the file status
+		status := fs.GetFileStatus(fileID)
+		assert.Equal(StatusLocal, status.Status, "File status should be local")
+	})
 }

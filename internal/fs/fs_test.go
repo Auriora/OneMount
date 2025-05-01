@@ -1,14 +1,14 @@
 package fs
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/bcherrington/onemount/internal/fs/graph"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/bcherrington/onemount/internal/testutil"
 )
 
 // TestUT02_FileOperations verifies that a file can be successfully uploaded to OneDrive.
@@ -28,121 +28,153 @@ func TestUT02_FileOperations(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 
-	// Step 1: Create a new file in the local filesystem
+	// Create a test fixture
+	fixture := testutil.NewUnitTestFixture("FileOperationsFixture")
 
-	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp("", "onemount-test-*")
-	require.NoError(t, err, "Failed to create temporary directory")
+	// Set up the fixture
+	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
+		// Create a temporary directory for the test
+		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+		}
 
-	// Register cleanup function
-	t.Cleanup(func() {
+		// Create a mock graph client
+		mockClient := graph.NewMockGraphClient()
+
+		// Set up the mock directory structure
+		rootID := "root-id"
+		rootItem := &graph.DriveItem{
+			ID:   rootID,
+			Name: "root",
+			Folder: &graph.Folder{
+				ChildCount: 0,
+			},
+		}
+
+		// Add the root item to the mock client
+		mockClient.AddMockItem("/me/drive/root", rootItem)
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+
+		// Create a mock auth object
+		auth := &graph.Auth{
+			AccessToken:  "mock-access-token",
+			RefreshToken: "mock-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			Account:      "mock@example.com",
+		}
+
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, tempDir, 30)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+
+		// Set the root ID
+		fs.root = rootID
+
+		// Return the test data
+		return map[string]interface{}{
+			"tempDir":    tempDir,
+			"mockClient": mockClient,
+			"rootID":     rootID,
+			"auth":       auth,
+			"fs":         fs,
+		}, nil
+	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
+		// Clean up the temporary directory
+		data := fixture.(map[string]interface{})
+		tempDir := data["tempDir"].(string)
 		if err := os.RemoveAll(tempDir); err != nil {
 			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
 		}
+		return nil
 	})
 
-	// Create a mock graph client
-	mockClient := graph.NewMockGraphClient()
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := testutil.NewAssert(t)
 
-	// Set up the mock directory structure
-	rootID := "root-id"
-	rootItem := &graph.DriveItem{
-		ID:   rootID,
-		Name: "root",
-		Folder: &graph.Folder{
-			ChildCount: 0,
-		},
-	}
+		// Get the test data
+		data := fixture.(map[string]interface{})
+		tempDir := data["tempDir"].(string)
+		mockClient := data["mockClient"].(*graph.MockGraphClient)
+		rootID := data["rootID"].(string)
+		auth := data["auth"].(*graph.Auth)
+		fs := data["fs"].(*Filesystem)
 
-	// Add the root item to the mock client
-	mockClient.AddMockItem("/me/drive/root", rootItem)
-	mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+		// Step 1: Create a new file in the local filesystem
+		testFileName := "test_file.txt"
+		testFileContent := "test content"
+		testFilePath := filepath.Join(tempDir, testFileName)
 
-	// Create a mock auth object
-	auth := &graph.Auth{
-		AccessToken:  "mock-access-token",
-		RefreshToken: "mock-refresh-token",
-		ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-		Account:      "mock@example.com",
-	}
+		// Create a file in the local filesystem
+		err := os.WriteFile(testFilePath, []byte(testFileContent), 0644)
+		assert.NoError(err, "Failed to create test file")
 
-	// Create the filesystem
-	fs, err := NewFilesystem(auth, tempDir, 30)
-	require.NoError(t, err, "Failed to create filesystem")
+		// Step 2: Write content to the file
 
-	// Set the root ID
-	fs.root = rootID
+		// Get the parent directory (root)
+		rootInode := fs.GetID(rootID)
+		assert.NotNil(rootInode, "Root directory not found in cache")
 
-	// Create a test file path
-	testFileName := "test_file.txt"
-	testFileContent := "test content"
-	testFilePath := filepath.Join(tempDir, testFileName)
+		// Create a new file inode
+		fileID := "file-id"
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			File: &graph.File{},
+			Size: uint64(len(testFileContent)),
+		}
 
-	// Create a file in the local filesystem
-	err = os.WriteFile(testFilePath, []byte(testFileContent), 0644)
-	require.NoError(t, err, "Failed to create test file")
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
 
-	// Step 2: Write content to the file
+		// Open the file for writing
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
 
-	// Get the parent directory (root)
-	rootInode := fs.GetID(rootID)
-	require.NotNil(t, rootInode, "Root directory not found in cache")
+		// Write content to the file
+		n, err := fd.WriteAt([]byte(testFileContent), 0)
+		assert.NoError(err, "Failed to write to file")
+		assert.Equal(len(testFileContent), n, "Number of bytes written doesn't match content length")
 
-	// Create a new file inode
-	fileID := "file-id"
-	fileItem := &graph.DriveItem{
-		ID:   fileID,
-		Name: testFileName,
-		File: &graph.File{},
-		Size: uint64(len(testFileContent)),
-	}
+		// Mark the file as having changes
+		fileInode.hasChanges = true
 
-	// Insert the file into the filesystem
-	fileInode := NewInodeDriveItem(fileItem)
-	fs.InsertNodeID(fileInode)
-	fs.InsertChild(rootID, fileInode)
+		// Step 3: Wait for the upload to complete
 
-	// Open the file for writing
-	fd, err := fs.content.Open(fileID)
-	require.NoError(t, err, "Failed to open file for writing")
+		// Queue the upload
+		_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
 
-	// Write content to the file
-	n, err := fd.WriteAt([]byte(testFileContent), 0)
-	require.NoError(t, err, "Failed to write to file")
-	require.Equal(t, len(testFileContent), n, "Number of bytes written doesn't match content length")
+		// Mock the upload response
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
 
-	// Mark the file as having changes
-	fileInode.hasChanges = true
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
 
-	// Step 3: Wait for the upload to complete
+		// Step 4: Verify the file exists on OneDrive with correct content
 
-	// Queue the upload
-	_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
-	require.NoError(t, err, "Failed to queue upload")
+		// Verify the file exists in the filesystem
+		children, err := fs.GetChildrenID(rootID, auth)
+		assert.NoError(err, "Failed to get children of root directory")
+		assert.Equal(1, len(children), "Root directory should have 1 child")
 
-	// Mock the upload response
-	mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+		// Verify the file has the correct content
+		fileInode = fs.GetID(fileID)
+		assert.NotNil(fileInode, "File not found in cache")
+		assert.Equal(testFileName, fileInode.Name(), "File name mismatch")
+		assert.Equal(uint64(len(testFileContent)), fileInode.Size(), "File size mismatch")
 
-	// Wait for the upload to complete
-	err = fs.uploads.WaitForUpload(fileID)
-	require.NoError(t, err, "Failed to wait for upload")
-
-	// Step 4: Verify the file exists on OneDrive with correct content
-
-	// Verify the file exists in the filesystem
-	children, err := fs.GetChildrenID(rootID, auth)
-	require.NoError(t, err, "Failed to get children of root directory")
-	assert.Equal(t, 1, len(children), "Root directory should have 1 child")
-
-	// Verify the file has the correct content
-	fileInode = fs.GetID(fileID)
-	require.NotNil(t, fileInode, "File not found in cache")
-	assert.Equal(t, testFileName, fileInode.Name(), "File name mismatch")
-	assert.Equal(t, uint64(len(testFileContent)), fileInode.Size(), "File size mismatch")
-
-	// Verify the file status
-	status := fs.GetFileStatus(fileID)
-	assert.Equal(t, StatusLocal, status.Status, "File status should be local")
+		// Verify the file status
+		status := fs.GetFileStatus(fileID)
+		assert.Equal(StatusLocal, status.Status, "File status should be local")
+	})
 }
 
 // TestUT05_BasicFileSystemOperations verifies that a file can be successfully downloaded from OneDrive.
@@ -162,100 +194,136 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 
-	// Step 1: Access a file that exists on OneDrive but not in local cache
+	// Create a test fixture
+	fixture := testutil.NewUnitTestFixture("BasicFileSystemOperationsFixture")
 
-	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp("", "onemount-test-*")
-	require.NoError(t, err, "Failed to create temporary directory")
+	// Set up the fixture
+	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
+		// Create a temporary directory for the test
+		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+		}
 
-	// Register cleanup function
-	t.Cleanup(func() {
+		// Create a mock graph client
+		mockClient := graph.NewMockGraphClient()
+
+		// Set up the mock directory structure
+		rootID := "root-id"
+		rootItem := &graph.DriveItem{
+			ID:   rootID,
+			Name: "root",
+			Folder: &graph.Folder{
+				ChildCount: 1,
+			},
+		}
+
+		// Add the root item to the mock client
+		mockClient.AddMockItem("/me/drive/root", rootItem)
+
+		// Create a file item
+		fileID := "file-id"
+		fileContent := "remote file content"
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: "remote_file.txt",
+			File: &graph.File{},
+			Size: uint64(len(fileContent)),
+		}
+
+		// Add the file to the mock client
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
+		// Mock the file content
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", []byte(fileContent), 200, nil)
+
+		// Create a mock auth object
+		auth := &graph.Auth{
+			AccessToken:  "mock-access-token",
+			RefreshToken: "mock-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			Account:      "mock@example.com",
+		}
+
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, tempDir, 30)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+
+		// Set the root ID
+		fs.root = rootID
+
+		// Return the test data
+		return map[string]interface{}{
+			"tempDir":     tempDir,
+			"mockClient":  mockClient,
+			"rootID":      rootID,
+			"fileID":      fileID,
+			"fileContent": fileContent,
+			"auth":        auth,
+			"fs":          fs,
+		}, nil
+	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
+		// Clean up the temporary directory
+		data := fixture.(map[string]interface{})
+		tempDir := data["tempDir"].(string)
 		if err := os.RemoveAll(tempDir); err != nil {
 			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
 		}
+		return nil
 	})
 
-	// Create a mock graph client
-	mockClient := graph.NewMockGraphClient()
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := testutil.NewAssert(t)
 
-	// Set up the mock directory structure
-	rootID := "root-id"
-	rootItem := &graph.DriveItem{
-		ID:   rootID,
-		Name: "root",
-		Folder: &graph.Folder{
-			ChildCount: 1,
-		},
-	}
+		// Get the test data
+		data := fixture.(map[string]interface{})
+		rootID := data["rootID"].(string)
+		fileID := data["fileID"].(string)
+		fileContent := data["fileContent"].(string)
+		auth := data["auth"].(*graph.Auth)
+		fs := data["fs"].(*Filesystem)
 
-	// Add the root item to the mock client
-	mockClient.AddMockItem("/me/drive/root", rootItem)
+		// Step 1: Access a file that exists on OneDrive but not in local cache
 
-	// Create a file item
-	fileID := "file-id"
-	fileContent := "remote file content"
-	fileItem := &graph.DriveItem{
-		ID:   fileID,
-		Name: "remote_file.txt",
-		File: &graph.File{},
-		Size: uint64(len(fileContent)),
-	}
+		// Step 2: Read the file content
 
-	// Add the file to the mock client
-	mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})
-	mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+		// Get the file from the filesystem
+		children, err := fs.GetChildrenID(rootID, auth)
+		assert.NoError(err, "Failed to get children of root directory")
+		assert.Equal(1, len(children), "Root directory should have 1 child")
 
-	// Mock the file content
-	mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", []byte(fileContent), 200, nil)
-
-	// Create a mock auth object
-	auth := &graph.Auth{
-		AccessToken:  "mock-access-token",
-		RefreshToken: "mock-refresh-token",
-		ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-		Account:      "mock@example.com",
-	}
-
-	// Create the filesystem
-	fs, err := NewFilesystem(auth, tempDir, 30)
-	require.NoError(t, err, "Failed to create filesystem")
-
-	// Set the root ID
-	fs.root = rootID
-
-	// Step 2: Read the file content
-
-	// Get the file from the filesystem
-	children, err := fs.GetChildrenID(rootID, auth)
-	require.NoError(t, err, "Failed to get children of root directory")
-	assert.Equal(t, 1, len(children), "Root directory should have 1 child")
-
-	// Get the file inode
-	var fileInode *Inode
-	for _, child := range children {
-		if child.Name() == "remote_file.txt" {
-			fileInode = child
-			break
+		// Get the file inode
+		var fileInode *Inode
+		for _, child := range children {
+			if child.Name() == "remote_file.txt" {
+				fileInode = child
+				break
+			}
 		}
-	}
-	require.NotNil(t, fileInode, "File not found in cache")
+		assert.NotNil(fileInode, "File not found in cache")
 
-	// Open the file for reading
-	fd, err := fs.content.Open(fileID)
-	require.NoError(t, err, "Failed to open file for reading")
+		// Open the file for reading
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for reading")
 
-	// Read the file content
-	content := make([]byte, fileInode.Size())
-	n, err := fd.ReadAt(content, 0)
-	require.NoError(t, err, "Failed to read file content")
-	require.Equal(t, int(fileInode.Size()), n, "Number of bytes read doesn't match file size")
+		// Read the file content
+		content := make([]byte, fileInode.Size())
+		n, err := fd.ReadAt(content, 0)
+		assert.NoError(err, "Failed to read file content")
+		assert.Equal(int(fileInode.Size()), n, "Number of bytes read doesn't match file size")
 
-	// Step 3: Verify the content matches what's on OneDrive
+		// Step 3: Verify the content matches what's on OneDrive
 
-	// Verify the file content
-	assert.Equal(t, fileContent, string(content), "File content mismatch")
+		// Verify the file content
+		assert.Equal(fileContent, string(content), "File content mismatch")
 
-	// Verify the file status
-	status := fs.GetFileStatus(fileID)
-	assert.Equal(t, StatusLocal, status.Status, "File status should be local")
+		// Verify the file status
+		status := fs.GetFileStatus(fileID)
+		assert.Equal(StatusLocal, status.Status, "File status should be local")
+	})
 }
