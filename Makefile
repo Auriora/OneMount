@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
+.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
 
 # autocalculate software/package versions
 VERSION := $(shell grep Version scripts/onemount.spec | sed 's/Version: *//g')
@@ -16,6 +16,7 @@ OUTPUT_DIR := build
 # test-specific variables
 TEST_UID := $(shell whoami)
 GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
+TEST_TIMEOUT := 5m
 
 all: onemount onemount-launcher
 
@@ -125,3 +126,20 @@ clean:
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit
 	rm -f *.log *.fa *.gz *.test vgcore.* onemount onemount-headless onemount-launcher .auth_tokens.json
 	rm -rf util-linux-*/ onemount-*/ vendor/ build/
+
+
+# Run all tests
+test:
+	go test -v ./...
+
+# Run unit tests
+unit-test:
+	go test -v ./... -short
+
+# Run integration tests
+integration-test:
+	go test -v ./internal/testutil/integration_test_env_test.go -timeout $(TEST_TIMEOUT)
+
+# Run system tests
+system-test:
+	go test -v ./internal/testutil/system_test_env_test.go -timeout $(TEST_TIMEOUT)
