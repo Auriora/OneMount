@@ -27,10 +27,12 @@ type SystemConfig struct {
 
 // DefaultSystemConfig returns a default system configuration
 func DefaultSystemConfig() SystemConfig {
+	// Use the global TestSandboxDir as the base directory for system tests
+	systemTestDir := filepath.Join(TestSandboxDir, "system-test")
 	return SystemConfig{
-		BaseDir:               filepath.Join(os.TempDir(), "onemount-system-test"),
-		MountPoint:            filepath.Join(os.TempDir(), "onemount-system-test", "mount"),
-		ConfigPath:            filepath.Join(os.TempDir(), "onemount-system-test", "config.json"),
+		BaseDir:               systemTestDir,
+		MountPoint:            filepath.Join(systemTestDir, "mount"),
+		ConfigPath:            filepath.Join(systemTestDir, "config.json"),
 		ProductionDataVolumes: false,
 		DataSizeMB:            100, // Default to 100MB of test data
 		CustomOptions:         make(map[string]interface{}),
@@ -477,7 +479,7 @@ func NewSystemTestEnvironment(ctx context.Context, logger Logger) *SystemTestEnv
 		Environment:    "system-test",
 		Timeout:        300, // 5 minutes
 		VerboseLogging: true,
-		ArtifactsDir:   filepath.Join(config.BaseDir, "artifacts"),
+		// ArtifactsDir will be set to the default value by NewTestFramework
 	}, logger)
 
 	return &SystemTestEnvironment{

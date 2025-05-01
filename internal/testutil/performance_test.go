@@ -43,8 +43,12 @@ func TestPerformanceBenchmark(t *testing.T) {
 	})
 
 	// Run the benchmark with a testing.B
-	b := &testing.B{}
+	b := &testing.B{N: 10} // Set N to a non-zero value to ensure the benchmark function runs
+	b.StartTimer()         // Initialize the timer
 	benchmark.Run(b)
+
+	// Give the resource monitoring goroutine a chance to collect metrics
+	time.Sleep(200 * time.Millisecond)
 
 	// Check that metrics were collected
 	metrics := benchmark.GetMetrics()
@@ -135,7 +139,7 @@ func TestBenchmarkScenarios(t *testing.T) {
 		Environment:    "test",
 		Timeout:        30,
 		VerboseLogging: true,
-		ArtifactsDir:   os.TempDir(),
+		// ArtifactsDir will be set to the default value by NewTestFramework
 	}, logger)
 
 	// Register a mock graph provider

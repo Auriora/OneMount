@@ -15,7 +15,7 @@ func TestLoadTestScenarios(t *testing.T) {
 
 	// Create a test framework
 	framework := NewTestFramework(TestConfig{
-		ArtifactsDir: "test-artifacts",
+		// ArtifactsDir will be set to the default value by NewTestFramework
 	}, nil) // Using nil logger for simplicity
 
 	// Add a mock graph provider

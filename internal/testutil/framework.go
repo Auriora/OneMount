@@ -142,6 +142,11 @@ type TestFramework struct {
 
 // NewTestFramework creates a new TestFramework with the given configuration.
 func NewTestFramework(config TestConfig, logger Logger) *TestFramework {
+	// Set default ArtifactsDir if not provided
+	if config.ArtifactsDir == "" {
+		config.ArtifactsDir = GetDefaultArtifactsDir()
+	}
+
 	return &TestFramework{
 		Config:           config,
 		resources:        make([]TestResource, 0),

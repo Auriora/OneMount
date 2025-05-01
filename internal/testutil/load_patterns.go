@@ -294,12 +294,13 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 	// Create a wait group for worker goroutines
 	var workerWg sync.WaitGroup
 
-	// Create a channel to control the number of active workers
-	workerCtrlChan := make(chan struct{})
+	// Create channels to control the number of active workers
+	workerStartChan := make(chan struct{})
+	workerDoneChan := make(chan struct{})
 
 	// Start the controller goroutine
 	go func() {
-		defer close(workerCtrlChan)
+		defer close(workerStartChan)
 
 		startTime := time.Now()
 		ticker := time.NewTicker(100 * time.Millisecond)
@@ -317,18 +318,36 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 
 				// Add workers if needed
 				for i := currentWorkers; i < targetWorkers; i++ {
-					workerCtrlChan <- struct{}{}
-					currentWorkers++
+					select {
+					case workerStartChan <- struct{}{}:
+						currentWorkers++
+					case <-ctx.Done():
+						return
+					}
 				}
 
 				// Remove workers if needed
 				for i := currentWorkers; i > targetWorkers; i-- {
-					<-workerCtrlChan
-					currentWorkers--
+					select {
+					case <-workerDoneChan:
+						currentWorkers--
+					case <-ctx.Done():
+						return
+					case <-time.After(100 * time.Millisecond):
+						// Timeout - don't wait indefinitely for workers to complete
+						// This prevents the test from hanging if workers are stuck
+						fmt.Printf("Warning: Timeout waiting for worker to complete\n")
+						currentWorkers--
+					}
 				}
 
 				if elapsed >= pattern.GetDuration() {
 					return
+				}
+			case <-workerDoneChan:
+				// Handle workers that complete on their own
+				if currentWorkers > 0 {
+					currentWorkers--
 				}
 			}
 		}
@@ -345,7 +364,7 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 				select {
 				case <-ctx.Done():
 					return
-				case _, ok := <-workerCtrlChan:
+				case _, ok := <-workerStartChan:
 					if !ok {
 						return
 					}
@@ -362,7 +381,11 @@ func RunLoadPattern(ctx context.Context, pattern LoadPatternGenerator, scenario 
 					}
 
 					// Signal that the worker is done
-					<-workerCtrlChan
+					select {
+					case workerDoneChan <- struct{}{}:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}(i)

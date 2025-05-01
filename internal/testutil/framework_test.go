@@ -92,11 +92,12 @@ func (p *mockMockProvider) Reset() error {
 }
 
 func TestNewTestFramework(t *testing.T) {
+	expectedArtifactsDir := GetDefaultArtifactsDir()
 	config := TestConfig{
 		Environment:    "test",
 		Timeout:        30,
 		VerboseLogging: true,
-		ArtifactsDir:   "/tmp/test-artifacts",
+		ArtifactsDir:   expectedArtifactsDir,
 	}
 	logger := newMockLogger()
 
@@ -118,8 +119,8 @@ func TestNewTestFramework(t *testing.T) {
 		t.Error("Expected VerboseLogging to be true")
 	}
 
-	if framework.Config.ArtifactsDir != "/tmp/test-artifacts" {
-		t.Errorf("Expected ArtifactsDir to be '/tmp/test-artifacts', got '%s'", framework.Config.ArtifactsDir)
+	if framework.Config.ArtifactsDir != expectedArtifactsDir {
+		t.Errorf("Expected ArtifactsDir to be '%s', got '%s'", expectedArtifactsDir, framework.Config.ArtifactsDir)
 	}
 
 	if framework.resources == nil {

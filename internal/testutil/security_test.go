@@ -16,7 +16,7 @@ func TestSecurityTestFramework(t *testing.T) {
 	securityConfig := SecurityTestConfig{
 		Timeout:        30,
 		VerboseLogging: true,
-		ArtifactsDir:   "/tmp/security-test-artifacts",
+		ArtifactsDir:   GetDefaultArtifactsDir(),
 		CustomOptions:  map[string]interface{}{"option1": "value1"},
 	}
 
@@ -44,7 +44,7 @@ func TestSecurityTestScenarios(t *testing.T) {
 	securityConfig := SecurityTestConfig{
 		Timeout:        30,
 		VerboseLogging: true,
-		ArtifactsDir:   "/tmp/security-test-artifacts",
+		ArtifactsDir:   GetDefaultArtifactsDir(),
 		CustomOptions:  map[string]interface{}{"option1": "value1"},
 	}
 

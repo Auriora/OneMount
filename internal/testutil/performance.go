@@ -1413,20 +1413,143 @@ func (pb *PerformanceBenchmark) generateJSONReport(filename string) error {
 	}
 	defer file.Close()
 
+	// Define a custom struct for serializing latency distribution
+	type SerializableLatencyDistribution struct {
+		// Percentiles as string keys with float64 values (in milliseconds)
+		Percentiles map[string]float64 `json:"percentiles"`
+		// Histogram buckets
+		Histogram map[string]int `json:"histogram"`
+		// Time series data
+		TimeSeries struct {
+			Timestamps []string  `json:"timestamps"`
+			P50        []float64 `json:"p50_ms"`
+			P90        []float64 `json:"p90_ms"`
+			P95        []float64 `json:"p95_ms"`
+			P99        []float64 `json:"p99_ms"`
+			Throughput []float64 `json:"throughput_ops_sec"`
+		} `json:"time_series"`
+	}
+
+	// Define a custom struct for serializing performance metrics
+	type SerializableMetrics struct {
+		// Latencies for each operation in milliseconds
+		Latencies []float64 `json:"latencies_ms"`
+		// Operations per second
+		Throughput float64 `json:"throughput_ops_sec"`
+		// Error rate (0-1)
+		ErrorRate float64 `json:"error_rate"`
+		// Resource usage during the test
+		ResourceUsage struct {
+			CPUUsage    float64 `json:"cpu_usage_percent"`
+			MemoryUsage int64   `json:"memory_usage_mb"`
+			DiskIO      int64   `json:"disk_io_bps"`
+			NetworkIO   int64   `json:"network_io_bps"`
+		} `json:"resource_usage"`
+		// Custom metrics
+		Custom map[string]float64 `json:"custom_metrics"`
+		// Detailed latency distribution
+		LatencyDistribution SerializableLatencyDistribution `json:"latency_distribution"`
+		// Test start time
+		StartTime string `json:"start_time"`
+		// Test end time
+		EndTime string `json:"end_time"`
+		// Test duration in seconds
+		Duration float64 `json:"duration_seconds"`
+		// Test configuration
+		Config map[string]interface{} `json:"config"`
+	}
+
 	// Prepare the data
 	type Report struct {
 		Name        string                `json:"name"`
 		Description string                `json:"description"`
 		Timestamp   string                `json:"timestamp"`
-		Metrics     PerformanceMetrics    `json:"metrics"`
+		Metrics     SerializableMetrics   `json:"metrics"`
 		Thresholds  PerformanceThresholds `json:"thresholds"`
+	}
+
+	// Convert latencies to milliseconds
+	latenciesMs := make([]float64, len(pb.metrics.Latencies))
+	for i, l := range pb.metrics.Latencies {
+		latenciesMs[i] = float64(l.Milliseconds())
+	}
+
+	// Convert percentiles to string keys with millisecond values
+	percentiles := make(map[string]float64)
+	for k, v := range pb.metrics.LatencyDistribution.Percentiles {
+		percentiles[fmt.Sprintf("p%.1f", k)] = float64(v.Milliseconds())
+	}
+
+	// Convert time series timestamps to strings and durations to milliseconds
+	timestamps := make([]string, len(pb.metrics.LatencyDistribution.TimeSeries.Timestamps))
+	p50ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P50))
+	p90ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P90))
+	p95ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P95))
+	p99ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P99))
+
+	for i, ts := range pb.metrics.LatencyDistribution.TimeSeries.Timestamps {
+		timestamps[i] = ts.Format(time.RFC3339)
+	}
+	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P50 {
+		p50ms[i] = float64(d.Milliseconds())
+	}
+	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P90 {
+		p90ms[i] = float64(d.Milliseconds())
+	}
+	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P95 {
+		p95ms[i] = float64(d.Milliseconds())
+	}
+	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P99 {
+		p99ms[i] = float64(d.Milliseconds())
+	}
+
+	// Create serializable metrics
+	metrics := SerializableMetrics{
+		Latencies:  latenciesMs,
+		Throughput: pb.metrics.Throughput,
+		ErrorRate:  pb.metrics.ErrorRate,
+		ResourceUsage: struct {
+			CPUUsage    float64 `json:"cpu_usage_percent"`
+			MemoryUsage int64   `json:"memory_usage_mb"`
+			DiskIO      int64   `json:"disk_io_bps"`
+			NetworkIO   int64   `json:"network_io_bps"`
+		}{
+			CPUUsage:    pb.metrics.ResourceUsage.CPUUsage,
+			MemoryUsage: pb.metrics.ResourceUsage.MemoryUsage,
+			DiskIO:      pb.metrics.ResourceUsage.DiskIO,
+			NetworkIO:   pb.metrics.ResourceUsage.NetworkIO,
+		},
+		Custom: pb.metrics.Custom,
+		LatencyDistribution: SerializableLatencyDistribution{
+			Percentiles: percentiles,
+			Histogram:   pb.metrics.LatencyDistribution.Histogram,
+			TimeSeries: struct {
+				Timestamps []string  `json:"timestamps"`
+				P50        []float64 `json:"p50_ms"`
+				P90        []float64 `json:"p90_ms"`
+				P95        []float64 `json:"p95_ms"`
+				P99        []float64 `json:"p99_ms"`
+				Throughput []float64 `json:"throughput_ops_sec"`
+			}{
+				Timestamps: timestamps,
+				P50:        p50ms,
+				P90:        p90ms,
+				P95:        p95ms,
+				P99:        p99ms,
+				Throughput: pb.metrics.LatencyDistribution.TimeSeries.Throughput,
+			},
+		},
+		StartTime: pb.metrics.StartTime.Format(time.RFC3339),
+		EndTime:   pb.metrics.EndTime.Format(time.RFC3339),
+		Duration:  pb.metrics.Duration.Seconds(),
+		Config:    pb.metrics.Config,
 	}
 
 	report := Report{
 		Name:        pb.Name,
 		Description: pb.Description,
 		Timestamp:   time.Now().Format(time.RFC3339),
-		Metrics:     pb.metrics,
+		Metrics:     metrics,
 		Thresholds:  pb.thresholds,
 	}
 
@@ -1585,6 +1708,14 @@ func (pb *PerformanceBenchmark) storeMetricsToFile() {
 		CustomMetrics    map[string]float64     `json:"custom_metrics"`
 		Config           map[string]interface{} `json:"config"`
 		Events           []SystemEvent          `json:"events"`
+		// Add a serializable version of percentiles
+		Percentiles map[string]float64 `json:"percentiles"`
+	}
+
+	// Convert percentiles map to a serializable format
+	percentiles := make(map[string]float64)
+	for k, v := range pb.metrics.LatencyDistribution.Percentiles {
+		percentiles[fmt.Sprintf("p%.1f", k)] = float64(v.Milliseconds())
 	}
 
 	// Create the metrics data
@@ -1612,6 +1743,7 @@ func (pb *PerformanceBenchmark) storeMetricsToFile() {
 		CustomMetrics: pb.metrics.Custom,
 		Config:        pb.metrics.Config,
 		Events:        pb.metrics.Events,
+		Percentiles:   percentiles,
 	}
 
 	// Marshal to JSON
