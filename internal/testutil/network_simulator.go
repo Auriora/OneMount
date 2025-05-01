@@ -282,13 +282,16 @@ func (s *DefaultNetworkSimulator) SimulatePacketLoss() bool {
 // SimulateNetworkError returns an error if network conditions warrant it
 func (s *DefaultNetworkSimulator) SimulateNetworkError() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	connected := s.connected
+	packetLoss := s.currentCondition.PacketLoss
+	s.mu.Unlock()
 
-	if !s.connected {
+	if !connected {
 		return errors.New("network is disconnected")
 	}
 
-	if s.SimulatePacketLoss() {
+	// Simulate packet loss without holding the lock
+	if packetLoss > 0 && float64(time.Now().UnixNano()%100)/100 < packetLoss {
 		return errors.New("packet lost due to network conditions")
 	}
 

@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Test mock graph" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="OneMount" />
+    <working_directory value="$PROJECT_DIR$/internal/fs/graph" />
+    <root_directory value="$PROJECT_DIR$" />
+    <kind value="FILE" />
+    <package value="github.com/bcherrington/onemount/internal/fs/graph" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/internal/fs/graph/mock_graph_test.go" />
+    <framework value="gotest" />
+    <method v="2" />
+  </configuration>
+</component>

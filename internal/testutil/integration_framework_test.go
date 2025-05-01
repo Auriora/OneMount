@@ -59,7 +59,7 @@ func (c *TestTargetComponent) HandleInteraction() error {
 func TestIntegrationFrameworkCreation(t *testing.T) {
 	// Create a new integration framework
 	ctx := context.Background()
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Verify the framework was created successfully
@@ -239,7 +239,7 @@ func TestInteractionCondition(t *testing.T) {
 func TestCreateNetworkCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a network condition
@@ -268,7 +268,7 @@ func TestCreateNetworkCondition(t *testing.T) {
 func TestCreateDisconnectedCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a disconnected condition
@@ -297,7 +297,7 @@ func TestCreateDisconnectedCondition(t *testing.T) {
 func TestCreateErrorCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Define setup and cleanup functions

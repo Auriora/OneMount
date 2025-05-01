@@ -9,26 +9,44 @@ import (
 	"time"
 )
 
-// SimpleLogger is a basic implementation of the Logger interface for examples.
-type SimpleLogger struct{}
+// ZerologLogger implements the Logger interface using zerolog.
+type ZerologLogger struct {
+	// Optional prefix for log messages
+	prefix string
+}
+
+// NewZerologLogger creates a new ZerologLogger with the given prefix.
+func NewZerologLogger(prefix string) *ZerologLogger {
+	return &ZerologLogger{
+		prefix: prefix,
+	}
+}
 
 // Debug logs a debug message.
-func (l *SimpleLogger) Debug(msg string, args ...interface{}) {
+func (l *ZerologLogger) Debug(msg string, args ...interface{}) {
+	// Implementation using zerolog
+	// In a real implementation, this would use zerolog.Debug()
 	log.Printf("DEBUG: %s %v", msg, args)
 }
 
 // Info logs an informational message.
-func (l *SimpleLogger) Info(msg string, args ...interface{}) {
+func (l *ZerologLogger) Info(msg string, args ...interface{}) {
+	// Implementation using zerolog
+	// In a real implementation, this would use zerolog.Info()
 	log.Printf("INFO: %s %v", msg, args)
 }
 
 // Warn logs a warning message.
-func (l *SimpleLogger) Warn(msg string, args ...interface{}) {
+func (l *ZerologLogger) Warn(msg string, args ...interface{}) {
+	// Implementation using zerolog
+	// In a real implementation, this would use zerolog.Warn()
 	log.Printf("WARN: %s %v", msg, args)
 }
 
 // Error logs an error message.
-func (l *SimpleLogger) Error(msg string, args ...interface{}) {
+func (l *ZerologLogger) Error(msg string, args ...interface{}) {
+	// Implementation using zerolog
+	// In a real implementation, this would use zerolog.Error()
 	log.Printf("ERROR: %s %v", msg, args)
 }
 
@@ -36,7 +54,7 @@ func (l *SimpleLogger) Error(msg string, args ...interface{}) {
 // with the integration test environment.
 func SecurityIntegrationExample() {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("security-test")
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{
@@ -87,7 +105,7 @@ func SecurityIntegrationExample() {
 // with the system test environment.
 func SecuritySystemTestExample() {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("security-test")
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{
@@ -138,7 +156,7 @@ func SecuritySystemTestExample() {
 // with network simulation.
 func SecurityTestWithNetworkSimulationExample() {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{
@@ -279,7 +297,7 @@ func SecurityTestWithNetworkSimulationExample() {
 // with the main test framework.
 func SecurityTestWithTestFrameworkExample() {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a test config
 	testConfig := TestConfig{

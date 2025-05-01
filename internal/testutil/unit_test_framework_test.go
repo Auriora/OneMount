@@ -31,11 +31,12 @@ func TestUnitTestFixture(t *testing.T) {
 			t.Error("Setup function was not called")
 		}
 
-		if fixture != "fixture-data" {
-			t.Errorf("Expected fixture to be 'fixture-data', got %v", fixture)
+		fixtureObj := fixture.(*UnitTestFixture)
+		if fixtureObj.SetupData != "fixture-data" {
+			t.Errorf("Expected fixture.SetupData to be 'fixture-data', got %v", fixtureObj.SetupData)
 		}
 
-		if val, ok := fixture.(*UnitTestFixture).Data["key"]; !ok || val != "value" {
+		if val, ok := fixtureObj.Data["key"]; !ok || val != "value" {
 			t.Errorf("Expected fixture.Data['key'] to be 'value', got %v", val)
 		}
 	})

@@ -15,7 +15,7 @@ import (
 
 func TestSystemTestEnvironment_Setup(t *testing.T) {
 	// Create a logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("system-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -49,7 +49,7 @@ func TestSystemTestEnvironment_Setup(t *testing.T) {
 
 func TestSystemTestEnvironment_DataGenerator(t *testing.T) {
 	// Create a logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("system-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -97,7 +97,7 @@ func TestSystemTestEnvironment_DataGenerator(t *testing.T) {
 
 func TestSystemTestEnvironment_ConfigManager(t *testing.T) {
 	// Create a logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("system-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -141,7 +141,7 @@ func TestSystemTestEnvironment_ConfigManager(t *testing.T) {
 
 func TestSystemTestEnvironment_Verifier(t *testing.T) {
 	// Create a logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("system-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -199,7 +199,7 @@ func TestSystemTestEnvironment_Verifier(t *testing.T) {
 
 func TestSystemTestEnvironment_Scenarios(t *testing.T) {
 	// Create a logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("system-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -281,7 +281,7 @@ func TestCommonSystemScenarios(t *testing.T) {
 	}
 
 	// Create a logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("system-test")
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

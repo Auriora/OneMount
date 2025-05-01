@@ -34,6 +34,7 @@ type NetworkConditions struct {
 // MockRecorder records and verifies mock interactions
 type MockRecorder interface {
 	RecordCall(method string, args ...interface{})
+	RecordCallWithResult(method string, result interface{}, args ...interface{})
 	GetCalls() []MockCall
 	VerifyCall(method string, times int) bool
 	Clear()
@@ -52,6 +53,18 @@ func (r *DefaultMockRecorder) RecordCall(method string, args ...interface{}) {
 	r.calls = append(r.calls, MockCall{
 		Method:    method,
 		Args:      args,
+		Timestamp: time.Now(),
+	})
+}
+
+// RecordCallWithResult records a method call with a specific result
+func (r *DefaultMockRecorder) RecordCallWithResult(method string, result interface{}, args ...interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, MockCall{
+		Method:    method,
+		Args:      args,
+		Result:    result,
 		Timestamp: time.Now(),
 	})
 }
@@ -252,41 +265,19 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 		content = strings.NewReader(string(contentBytes))
 	}
 
-	args := []interface{}{resource, method}
-	if content != nil {
-		args = append(args, contentBytes)
-	}
-	for _, h := range headers {
-		args = append(args, h)
-	}
-
-	call := MockCall{
-		Method:    "RequestWithContext",
-		Resource:  resource,
-		Args:      args,
-		Timestamp: time.Now(),
-	}
-
 	// Check for context cancellation
 	if ctx.Err() != nil {
-		call.Result = ctx.Err()
-		m.Recorder.RecordCall(call.Method, call.Args...)
 		return nil, ctx.Err()
 	}
 
 	// Simulate network conditions
 	if err := m.simulateNetworkConditions(); err != nil {
-		call.Result = err
-		m.Recorder.RecordCall(call.Method, call.Args...)
 		return nil, err
 	}
 
 	// Check if we should fail the request
 	if m.ShouldFailRequest {
-		err := errors.New("mock request failure")
-		call.Result = err
-		m.Recorder.RecordCall(call.Method, call.Args...)
-		return nil, err
+		return nil, errors.New("mock request failure")
 	}
 
 	// Check if we have a predefined response for this resource
@@ -295,8 +286,6 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 	m.mu.Unlock()
 
 	if exists {
-		call.Result = response
-		m.Recorder.RecordCall(call.Method, call.Args...)
 		if response.Error != nil {
 			return nil, response.Error
 		}
@@ -325,46 +314,38 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 		result, _ = json.Marshal(item)
 	}
 
-	call.Result = result
-	m.Recorder.RecordCall(call.Method, call.Args...)
 	return result, err
 }
 
 // Get is a mock implementation of the real Get function
 func (m *MockGraphClient) Get(resource string, headers ...Header) ([]byte, error) {
-	call := MockCall{
-		Method:    "Get",
-		Resource:  resource,
-		Args:      []interface{}{resource},
-		Timestamp: time.Now(),
-	}
-
+	args := []interface{}{resource}
 	for _, h := range headers {
-		call.Args = append(call.Args, h)
+		args = append(args, h)
 	}
 
 	result, err := m.RequestWithContext(context.Background(), resource, "GET", nil, headers...)
-	call.Result = result
-	m.Recorder.RecordCall(call.Method, call.Args...)
+
+	m.Recorder.RecordCall("Get", append(args, result)...)
 	return result, err
 }
 
 // GetWithContext is a mock implementation of the real GetWithContext function
 func (m *MockGraphClient) GetWithContext(ctx context.Context, resource string, headers ...Header) ([]byte, error) {
-	call := MockCall{
-		Method:    "GetWithContext",
-		Resource:  resource,
-		Args:      []interface{}{ctx, resource},
-		Timestamp: time.Now(),
+	args := []interface{}{ctx, resource}
+	for _, h := range headers {
+		args = append(args, h)
 	}
 
-	for _, h := range headers {
-		call.Args = append(call.Args, h)
+	// Check for context cancellation
+	if ctx.Err() != nil {
+		m.Recorder.RecordCallWithResult("GetWithContext", ctx.Err(), args...)
+		return nil, ctx.Err()
 	}
 
 	result, err := m.RequestWithContext(ctx, resource, "GET", nil, headers...)
-	call.Result = result
-	m.Recorder.RecordCall(call.Method, call.Args...)
+
+	m.Recorder.RecordCallWithResult("GetWithContext", result, args...)
 	return result, err
 }
 
@@ -411,20 +392,14 @@ func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...He
 		content = strings.NewReader(string(contentBytes))
 	}
 
-	call := MockCall{
-		Method:    "Post",
-		Resource:  resource,
-		Args:      []interface{}{resource, contentBytes},
-		Timestamp: time.Now(),
-	}
-
+	args := []interface{}{resource, contentBytes}
 	for _, h := range headers {
-		call.Args = append(call.Args, h)
+		args = append(args, h)
 	}
 
 	result, err := m.RequestWithContext(context.Background(), resource, "POST", content, headers...)
-	call.Result = result
-	m.Recorder.RecordCall(call.Method, call.Args...)
+
+	m.Recorder.RecordCall("Post", append(args, result)...)
 	return result, err
 }
 
@@ -460,20 +435,14 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 
 // Delete is a mock implementation of the real Delete function
 func (m *MockGraphClient) Delete(resource string, headers ...Header) error {
-	call := MockCall{
-		Method:    "Delete",
-		Resource:  resource,
-		Args:      []interface{}{resource},
-		Timestamp: time.Now(),
-	}
-
+	args := []interface{}{resource}
 	for _, h := range headers {
-		call.Args = append(call.Args, h)
+		args = append(args, h)
 	}
 
 	_, err := m.RequestWithContext(context.Background(), resource, "DELETE", nil, headers...)
-	call.Result = err
-	m.Recorder.RecordCall(call.Method, call.Args...)
+
+	m.Recorder.RecordCall("Delete", append(args, err)...)
 	return err
 }
 

@@ -20,6 +20,8 @@ type UnitTestFixture struct {
 	Teardown func(t *testing.T, fixture interface{}) error
 	// Data associated with the fixture
 	Data map[string]interface{}
+	// SetupData holds the data returned by the Setup function
+	SetupData interface{}
 }
 
 // NewUnitTestFixture creates a new UnitTestFixture with the given name.
@@ -50,12 +52,11 @@ func (f *UnitTestFixture) WithData(key string, value interface{}) *UnitTestFixtu
 
 // Use sets up the fixture, runs the test function, and tears down the fixture.
 func (f *UnitTestFixture) Use(t *testing.T, testFunc func(t *testing.T, fixture interface{})) {
-	var fixture interface{}
 	var err error
 
 	// Setup the fixture
 	if f.Setup != nil {
-		fixture, err = f.Setup(t)
+		f.SetupData, err = f.Setup(t)
 		if err != nil {
 			t.Fatalf("Failed to set up fixture %s: %v", f.Name, err)
 		}
@@ -64,14 +65,21 @@ func (f *UnitTestFixture) Use(t *testing.T, testFunc func(t *testing.T, fixture 
 	// Register cleanup to ensure teardown is called even if the test fails
 	t.Cleanup(func() {
 		if f.Teardown != nil {
-			if err := f.Teardown(t, fixture); err != nil {
+			if err := f.Teardown(t, f.SetupData); err != nil {
 				t.Logf("Warning: Failed to tear down fixture %s: %v", f.Name, err)
 			}
 		}
 	})
 
 	// Run the test function
-	testFunc(t, fixture)
+	testFunc(t, f)
+
+	// Call teardown directly to ensure it's called before the test function returns
+	if f.Teardown != nil {
+		if err := f.Teardown(t, f.SetupData); err != nil {
+			t.Errorf("Failed to tear down fixture %s: %v", f.Name, err)
+		}
+	}
 }
 
 // MockExpectation represents an expectation for a mock function call.
@@ -304,19 +312,45 @@ func (a *Assert) NotEqual(expected, actual interface{}, msgAndArgs ...interface{
 
 // Nil asserts that a value is nil.
 func (a *Assert) Nil(value interface{}, msgAndArgs ...interface{}) bool {
-	if value != nil && !reflect.ValueOf(value).IsNil() {
-		a.fail("Nil", fmt.Sprintf("Expected nil, but got %v", value), msgAndArgs...)
-		return false
+	if value == nil {
+		return true
 	}
-	return true
+
+	v := reflect.ValueOf(value)
+	kind := v.Kind()
+	// IsNil() can only be called on chan, func, interface, map, pointer, or slice types
+	if kind == reflect.Chan || kind == reflect.Func || kind == reflect.Interface ||
+		kind == reflect.Map || kind == reflect.Ptr || kind == reflect.Slice {
+		if !v.IsNil() {
+			a.fail("Nil", fmt.Sprintf("Expected nil, but got %v", value), msgAndArgs...)
+			return false
+		}
+		return true
+	}
+
+	// For non-nilable types, we can't call IsNil() so we just fail the assertion
+	a.fail("Nil", fmt.Sprintf("Expected nil, but got non-nilable type %v with value %v", kind, value), msgAndArgs...)
+	return false
 }
 
 // NotNil asserts that a value is not nil.
 func (a *Assert) NotNil(value interface{}, msgAndArgs ...interface{}) bool {
-	if value == nil || (reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil()) {
+	if value == nil {
 		a.fail("NotNil", "Expected value to not be nil", msgAndArgs...)
 		return false
 	}
+
+	v := reflect.ValueOf(value)
+	kind := v.Kind()
+	// IsNil() can only be called on chan, func, interface, map, pointer, or slice types
+	if kind == reflect.Chan || kind == reflect.Func || kind == reflect.Interface ||
+		kind == reflect.Map || kind == reflect.Ptr || kind == reflect.Slice {
+		if v.IsNil() {
+			a.fail("NotNil", "Expected value to not be nil", msgAndArgs...)
+			return false
+		}
+	}
+
 	return true
 }
 

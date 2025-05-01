@@ -7,33 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// SimpleLogger implements the Logger interface for basic logging.
-type SimpleLogger struct {
-	prefix string
-}
-
-func (l *SimpleLogger) Debug(msg string, args ...interface{}) {
-	// Implementation can be added based on needs
-}
-
-func (l *SimpleLogger) Info(msg string, args ...interface{}) {
-	// Implementation can be added based on needs
-}
-
-func (l *SimpleLogger) Warn(msg string, args ...interface{}) {
-	// Implementation can be added based on needs
-}
-
-func (l *SimpleLogger) Error(msg string, args ...interface{}) {
-	// Implementation can be added based on needs
-}
-
 // TestSecurityTestFramework tests the basic functionality of the SecurityTestFramework.
 func TestSecurityTestFramework(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{
-		prefix: "security-test",
-	}
+	logger := NewZerologLogger("security-test")
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{
@@ -61,7 +38,7 @@ func TestSecurityTestFramework(t *testing.T) {
 // TestSecurityTestScenarios tests the creation of security test scenarios.
 func TestSecurityTestScenarios(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{
@@ -139,7 +116,7 @@ func TestSecurityTestScenarios(t *testing.T) {
 // TestSecurityScannerRegistration tests the registration and retrieval of security scanners.
 func TestSecurityScannerRegistration(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)
@@ -163,7 +140,7 @@ func TestSecurityScannerRegistration(t *testing.T) {
 // TestSecurityAttackSimulatorRegistration tests the registration and retrieval of security attack simulators.
 func TestSecurityAttackSimulatorRegistration(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)
@@ -187,7 +164,7 @@ func TestSecurityAttackSimulatorRegistration(t *testing.T) {
 // TestSecurityControlVerifierRegistration tests the registration and retrieval of security control verifiers.
 func TestSecurityControlVerifierRegistration(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)
@@ -211,7 +188,7 @@ func TestSecurityControlVerifierRegistration(t *testing.T) {
 // TestAuthenticationTesterRegistration tests the registration and retrieval of authentication testers.
 func TestAuthenticationTesterRegistration(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)
@@ -235,7 +212,7 @@ func TestAuthenticationTesterRegistration(t *testing.T) {
 // TestAuthorizationTesterRegistration tests the registration and retrieval of authorization testers.
 func TestAuthorizationTesterRegistration(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)
@@ -259,7 +236,7 @@ func TestAuthorizationTesterRegistration(t *testing.T) {
 // TestDataProtectionTesterRegistration tests the registration and retrieval of data protection testers.
 func TestDataProtectionTesterRegistration(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)
@@ -283,7 +260,7 @@ func TestDataProtectionTesterRegistration(t *testing.T) {
 // TestRunSecurityScan tests the RunSecurityScan method.
 func TestRunSecurityScan(t *testing.T) {
 	// Create a logger
-	logger := &SimpleLogger{}
+	logger := NewZerologLogger("")
 
 	// Create a security test framework
 	securityFramework := NewSecurityTestFramework(SecurityTestConfig{}, logger)

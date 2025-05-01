@@ -12,17 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLogger is a simple logger for testing
-type TestLogger struct{}
-
-func (l *TestLogger) Debug(msg string, args ...interface{}) {}
-func (l *TestLogger) Info(msg string, args ...interface{})  {}
-func (l *TestLogger) Warn(msg string, args ...interface{})  {}
-func (l *TestLogger) Error(msg string, args ...interface{}) {}
-
 func TestIntegrationTestEnvironment_Setup(t *testing.T) {
 	// Create a test logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -108,7 +100,7 @@ func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
 
 func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 	// Create a test logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -180,7 +172,7 @@ func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 
 func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 	// Create a test logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -235,7 +227,7 @@ func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 
 func TestIntegrationTestEnvironment_ComponentIsolation(t *testing.T) {
 	// Create a test logger
-	logger := &TestLogger{}
+	logger := NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
