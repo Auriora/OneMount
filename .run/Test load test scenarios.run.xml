@@ -8,6 +8,7 @@
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$/internal/testutil/load_test_scenarios_test.go" />
     <framework value="gotest" />
+    <go_parameters value="-tags=load_test_scenarios" />
     <method v="2" />
   </configuration>
 </component>

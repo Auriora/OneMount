@@ -1,3 +1,6 @@
+//go:build performance_test
+// +build performance_test
+
 // Package testutil provides testing utilities for the OneMount project.
 package testutil
 

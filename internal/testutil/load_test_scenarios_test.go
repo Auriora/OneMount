@@ -1,3 +1,7 @@
+//go:build !performance_test && (load_test_scenarios || !load_test_scenarios)
+// +build !performance_test
+// +build load_test_scenarios !load_test_scenarios
+
 // Package testutil provides testing utilities for the OneMount project.
 package testutil
 
