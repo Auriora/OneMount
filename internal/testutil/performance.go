@@ -407,7 +407,6 @@ func (pb *PerformanceBenchmark) RunLoadTest(ctx context.Context) error {
 
 		// Create a wait group for goroutines
 		var wg sync.WaitGroup
-		wg.Add(pb.loadTest.Concurrency)
 
 		// Create channels for results
 		latencyChan := make(chan time.Duration, pb.loadTest.Concurrency*100)
@@ -419,58 +418,100 @@ func (pb *PerformanceBenchmark) RunLoadTest(ctx context.Context) error {
 		fmt.Printf("Ramp-up complete. Starting load test (%s)...\n", pb.loadTest.Duration)
 
 		// Start goroutines for concurrent operations
+		fmt.Printf("Starting %d goroutines for concurrent operations...\n", pb.loadTest.Concurrency)
 		for i := 0; i < pb.loadTest.Concurrency; i++ {
-			go func(id int) {
+			wg.Add(1)
+			go func(ctx context.Context, id int) {
 				defer wg.Done()
+				fmt.Printf("Goroutine %d started\n", id)
+				operationCount := 0
 
 				for {
 					select {
 					case <-ctx.Done():
-						return
+						fmt.Printf("Goroutine %d received context cancellation after %d operations\n", id, operationCount)
 					default:
 						// Run the scenario
+						fmt.Printf("Goroutine %d executing operation %d\n", id, operationCount)
 						start := time.Now()
 						err := pb.loadTest.Scenario(ctx)
 						latency := time.Since(start)
+						operationCount++
+						fmt.Printf("Goroutine %d completed operation %d in %v\n", id, operationCount, latency)
 
 						// Record results
 						latencyChan <- latency
+						fmt.Printf("Goroutine %d sent latency results %d in %v\n", id, operationCount, latency)
 						if err != nil {
+							fmt.Printf("Goroutine %d encountered error: %v\n", id, err)
 							errorChan <- err
 						}
+						return
 					}
 				}
-			}(i)
+			}(ctx, i)
 		}
 
 		// Use a timer to cancel the context after the test duration
+		fmt.Printf("Setting up timer for test duration: %s\n", pb.loadTest.Duration)
 		timer := time.NewTimer(pb.loadTest.Duration)
+		done := make(chan struct{})
+
+		go func() {
+			// Wait for all goroutines to finish
+			fmt.Printf("Waiting for all goroutines to finish...\n")
+			wg.Wait()
+			fmt.Printf("All goroutines have finished\n")
+			close(done)
+		}()
+
+		fmt.Printf("Waiting for timer, context cancellation, or goroutine completion...\n")
 		select {
 		case <-timer.C:
+			fmt.Printf("Timer expired after %s, canceling context\n", pb.loadTest.Duration)
 			// Test duration has elapsed, cancel the context
 			cancel()
 		case <-ctx.Done():
+			fmt.Printf("Parent context was canceled: %v\n", ctx.Err())
 			// Parent context was canceled, stop the timer
 			if !timer.Stop() {
 				<-timer.C
 			}
+		case <-done:
+			fmt.Printf("All goroutines finished before the timer expired\n")
+			// All goroutines finished before the timer expired
+			if !timer.Stop() {
+				<-timer.C
+			}
+			cancel()
 		}
 
-		// Wait for all goroutines to finish
+		// Wait for all goroutines to finish after context cancellation
+		fmt.Printf("Waiting for all goroutines to finish after context cancellation...\n")
 		wg.Wait()
+		fmt.Printf("All goroutines have finished after context cancellation\n")
 
 		// Close channels
+		fmt.Printf("Closing result channels\n")
 		close(latencyChan)
 		close(errorChan)
 
 		// Collect results
+		fmt.Printf("Collecting latency results from channel\n")
+		latencyCount := 0
 		for latency := range latencyChan {
 			latencies = append(latencies, latency)
+			latencyCount++
 		}
+		fmt.Printf("Collected %d latency results\n", latencyCount)
 
+		fmt.Printf("Collecting error results from channel\n")
+		errorCount := 0
 		for err := range errorChan {
 			errors = append(errors, err)
+			errorCount++
 		}
+		fmt.Printf("Collected %d error results\n", errorCount)
 	}
 
 	// Stop collecting additional metrics
@@ -489,7 +530,20 @@ func (pb *PerformanceBenchmark) RunLoadTest(ctx context.Context) error {
 	pb.mu.Unlock()
 
 	// Analyze the results
+	fmt.Printf("Analyzing load test results (%d latencies, %d errors)...\n", len(latencies), len(errors))
 	pb.analyzeLoadTestResults(latencies, errors)
+	fmt.Printf("Load test results analysis complete\n")
+
+	// Print completion message with summary
+	fmt.Printf("\nLoad test '%s' completed:\n", pb.Name)
+	fmt.Printf("- Total operations: %d\n", len(latencies))
+	fmt.Printf("- Errors: %d (%.2f%%)\n", len(errors), pb.metrics.ErrorRate*100)
+	fmt.Printf("- Throughput: %.2f ops/sec\n", pb.metrics.Throughput)
+	if len(latencies) > 0 {
+		fmt.Printf("- Avg latency: %s\n", pb.calculatePercentileFloat(50))
+		fmt.Printf("- P95 latency: %s\n", pb.calculatePercentileFloat(95))
+	}
+	fmt.Printf("- Reports generated in: %s\n", filepath.Join(pb.outputDir, "performance_reports"))
 
 	// Generate report
 	return pb.GenerateReport()
@@ -497,31 +551,40 @@ func (pb *PerformanceBenchmark) RunLoadTest(ctx context.Context) error {
 
 // analyzeLoadTestResults performs analysis on load test results
 func (pb *PerformanceBenchmark) analyzeLoadTestResults(latencies []time.Duration, errors []error) {
+	fmt.Printf("Starting analyzeLoadTestResults with %d latencies and %d errors\n", len(latencies), len(errors))
 	pb.mu.Lock()
+	fmt.Printf("Acquired mutex lock\n")
 	defer pb.mu.Unlock()
 
 	if len(latencies) == 0 {
+		fmt.Printf("No latencies to analyze, returning early\n")
 		return
 	}
 
 	// Sort latencies for analysis
+	fmt.Printf("Sorting latencies for analysis\n")
 	sort.Slice(latencies, func(i, j int) bool {
 		return latencies[i] < latencies[j]
 	})
+	fmt.Printf("Latencies sorted\n")
 
 	// Calculate percentiles for custom metrics (backward compatibility)
+	fmt.Printf("Calculating percentiles\n")
 	p50 := pb.calculatePercentile(50)
 	p90 := pb.calculatePercentile(90)
 	p95 := pb.calculatePercentile(95)
 	p99 := pb.calculatePercentile(99)
+	fmt.Printf("Percentiles calculated: p50=%v, p90=%v, p95=%v, p99=%v\n", p50, p90, p95, p99)
 
 	// Store as custom metrics
+	fmt.Printf("Storing percentiles as custom metrics\n")
 	pb.metrics.Custom["p50_latency_ms"] = float64(p50.Milliseconds())
 	pb.metrics.Custom["p90_latency_ms"] = float64(p90.Milliseconds())
 	pb.metrics.Custom["p95_latency_ms"] = float64(p95.Milliseconds())
 	pb.metrics.Custom["p99_latency_ms"] = float64(p99.Milliseconds())
 
 	// Calculate standard deviation
+	fmt.Printf("Calculating standard deviation\n")
 	var sum, sumSquared float64
 	for _, latency := range latencies {
 		ms := float64(latency.Milliseconds())
@@ -532,19 +595,24 @@ func (pb *PerformanceBenchmark) analyzeLoadTestResults(latencies []time.Duration
 	variance := (sumSquared / float64(len(latencies))) - (mean * mean)
 	stdDev := math.Sqrt(variance)
 	pb.metrics.Custom["latency_stddev_ms"] = stdDev
+	fmt.Printf("Standard deviation calculated: %v ms\n", stdDev)
 
 	// Calculate error distribution
+	fmt.Printf("Calculating error distribution\n")
 	errorTypes := make(map[string]int)
 	for _, err := range errors {
 		errorTypes[err.Error()]++
 	}
+	fmt.Printf("Found %d different error types\n", len(errorTypes))
 
 	// Store error distribution
+	fmt.Printf("Storing error distribution\n")
 	for errType, count := range errorTypes {
 		pb.metrics.Custom["error_"+errType] = float64(count)
 	}
 
 	// Calculate throughput over time (in 1-second intervals)
+	fmt.Printf("Calculating throughput over time\n")
 	if len(latencies) > 0 {
 		// This is a simplified calculation - in a real implementation,
 		// you would track the exact time of each operation and calculate
@@ -555,16 +623,22 @@ func (pb *PerformanceBenchmark) analyzeLoadTestResults(latencies []time.Duration
 		}
 		avgLatency := totalDuration / time.Duration(len(latencies))
 		pb.metrics.Custom["avg_latency_ms"] = float64(avgLatency.Milliseconds())
+		fmt.Printf("Average latency: %v\n", avgLatency)
 	}
 
 	// Calculate detailed latency distribution
+	fmt.Printf("Calculating detailed latency distribution\n")
 	pb.calculateLatencyDistribution()
+	fmt.Printf("Detailed latency distribution calculated\n")
 
 	// Record test end time and duration
+	fmt.Printf("Recording test end time and duration\n")
 	pb.metrics.EndTime = time.Now()
 	pb.metrics.Duration = pb.metrics.EndTime.Sub(pb.metrics.StartTime)
+	fmt.Printf("Test duration: %v\n", pb.metrics.Duration)
 
 	// Store test configuration
+	fmt.Printf("Storing test configuration\n")
 	pb.metrics.Config["test_name"] = pb.Name
 	pb.metrics.Config["test_description"] = pb.Description
 	if pb.loadTest != nil {
@@ -574,7 +648,11 @@ func (pb *PerformanceBenchmark) analyzeLoadTestResults(latencies []time.Duration
 	}
 
 	// Store metrics to disk for long-term analysis
+	fmt.Printf("Storing metrics to disk\n")
 	pb.storeMetricsToFile()
+	fmt.Printf("Metrics stored to disk\n")
+
+	fmt.Printf("analyzeLoadTestResults completed\n")
 }
 
 // startResourceMonitoring starts monitoring resource usage and returns a function to stop monitoring
@@ -770,46 +848,79 @@ func (pb *PerformanceBenchmark) checkThresholds(b *testing.B) {
 
 // GenerateReport generates a performance report
 func (pb *PerformanceBenchmark) GenerateReport() error {
+	fmt.Printf("Starting GenerateReport\n")
+
 	if pb.outputDir == "" {
+		fmt.Printf("No output directory specified, skipping report generation\n")
 		return nil
 	}
 
 	// Create the report directory
+	fmt.Printf("Creating report directory\n")
 	reportDir := filepath.Join(pb.outputDir, "performance_reports")
 	if err := os.MkdirAll(reportDir, 0755); err != nil {
+		fmt.Printf("Failed to create report directory: %v\n", err)
 		return fmt.Errorf("failed to create report directory: %v", err)
 	}
+	fmt.Printf("Report directory created: %s\n", reportDir)
 
 	// Generate HTML report
+	fmt.Printf("Generating HTML report\n")
 	htmlFile := filepath.Join(reportDir, fmt.Sprintf("%s_report.html", pb.Name))
+	fmt.Printf("HTML report file: %s\n", htmlFile)
 	if err := pb.generateHTMLReport(htmlFile); err != nil {
+		fmt.Printf("Failed to generate HTML report: %v\n", err)
 		return err
 	}
+	fmt.Printf("HTML report generated\n")
 
 	// Generate JSON report
+	fmt.Printf("Generating JSON report\n")
 	jsonFile := filepath.Join(reportDir, fmt.Sprintf("%s_report.json", pb.Name))
+	fmt.Printf("JSON report file: %s\n", jsonFile)
 	if err := pb.generateJSONReport(jsonFile); err != nil {
+		fmt.Printf("Failed to generate JSON report: %v\n", err)
 		return err
 	}
+	fmt.Printf("JSON report generated\n")
 
+	fmt.Printf("GenerateReport completed\n")
 	return nil
 }
 
 // generateHTMLReport generates an HTML performance report
 func (pb *PerformanceBenchmark) generateHTMLReport(filename string) error {
+	fmt.Printf("Starting generateHTMLReport for file: %s\n", filename)
+
 	// Create the report file
+	fmt.Printf("Creating HTML report file\n")
 	file, err := os.Create(filename)
 	if err != nil {
+		fmt.Printf("Failed to create HTML report file: %v\n", err)
 		return fmt.Errorf("failed to create report file: %v", err)
 	}
 	defer file.Close()
+	fmt.Printf("HTML report file created\n")
 
 	// Generate the report
-	return pb.writeHTMLReport(file)
+	fmt.Printf("Writing HTML report content\n")
+	err = pb.writeHTMLReport(file)
+	if err != nil {
+		fmt.Printf("Failed to write HTML report: %v\n", err)
+		return err
+	}
+	fmt.Printf("HTML report content written\n")
+
+	fmt.Printf("generateHTMLReport completed\n")
+	return nil
 }
 
 // writeHTMLReport writes the HTML report to the given writer
 func (pb *PerformanceBenchmark) writeHTMLReport(w io.Writer) error {
+	// Lock the mutex to prevent data races
+	pb.mu.Lock()
+	defer pb.mu.Unlock()
+
 	// Define the HTML template
 	tmpl := `
 <!DOCTYPE html>
@@ -1413,14 +1524,20 @@ func (pb *PerformanceBenchmark) writeHTMLReport(w io.Writer) error {
 
 // generateJSONReport generates a JSON performance report
 func (pb *PerformanceBenchmark) generateJSONReport(filename string) error {
+	fmt.Printf("Starting generateJSONReport for file: %s\n", filename)
+
 	// Create the report file
+	fmt.Printf("Creating JSON report file\n")
 	file, err := os.Create(filename)
 	if err != nil {
+		fmt.Printf("Failed to create JSON report file: %v\n", err)
 		return fmt.Errorf("failed to create report file: %v", err)
 	}
 	defer file.Close()
+	fmt.Printf("JSON report file created\n")
 
 	// Define a custom struct for serializing latency distribution
+	fmt.Printf("Defining data structures for JSON report\n")
 	type SerializableLatencyDistribution struct {
 		// Percentiles as string keys with float64 values (in milliseconds)
 		Percentiles map[string]float64 `json:"percentiles"`
@@ -1476,41 +1593,58 @@ func (pb *PerformanceBenchmark) generateJSONReport(filename string) error {
 	}
 
 	// Convert latencies to milliseconds
+	fmt.Printf("Converting %d latencies to milliseconds\n", len(pb.metrics.Latencies))
 	latenciesMs := make([]float64, len(pb.metrics.Latencies))
 	for i, l := range pb.metrics.Latencies {
 		latenciesMs[i] = float64(l.Milliseconds())
 	}
+	fmt.Printf("Latencies converted\n")
 
 	// Convert percentiles to string keys with millisecond values
+	fmt.Printf("Converting percentiles to string keys with millisecond values\n")
 	percentiles := make(map[string]float64)
 	for k, v := range pb.metrics.LatencyDistribution.Percentiles {
 		percentiles[fmt.Sprintf("p%.1f", k)] = float64(v.Milliseconds())
 	}
+	fmt.Printf("Percentiles converted\n")
 
 	// Convert time series timestamps to strings and durations to milliseconds
+	fmt.Printf("Converting time series data\n")
 	timestamps := make([]string, len(pb.metrics.LatencyDistribution.TimeSeries.Timestamps))
 	p50ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P50))
 	p90ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P90))
 	p95ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P95))
 	p99ms := make([]float64, len(pb.metrics.LatencyDistribution.TimeSeries.P99))
 
+	fmt.Printf("Converting %d timestamps\n", len(pb.metrics.LatencyDistribution.TimeSeries.Timestamps))
 	for i, ts := range pb.metrics.LatencyDistribution.TimeSeries.Timestamps {
 		timestamps[i] = ts.Format(time.RFC3339)
 	}
+
+	fmt.Printf("Converting P50 values\n")
 	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P50 {
 		p50ms[i] = float64(d.Milliseconds())
 	}
+
+	fmt.Printf("Converting P90 values\n")
 	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P90 {
 		p90ms[i] = float64(d.Milliseconds())
 	}
+
+	fmt.Printf("Converting P95 values\n")
 	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P95 {
 		p95ms[i] = float64(d.Milliseconds())
 	}
+
+	fmt.Printf("Converting P99 values\n")
 	for i, d := range pb.metrics.LatencyDistribution.TimeSeries.P99 {
 		p99ms[i] = float64(d.Milliseconds())
 	}
 
+	fmt.Printf("Time series data converted\n")
+
 	// Create serializable metrics
+	fmt.Printf("Creating serializable metrics\n")
 	metrics := SerializableMetrics{
 		Latencies:  latenciesMs,
 		Throughput: pb.metrics.Throughput,
@@ -1551,7 +1685,9 @@ func (pb *PerformanceBenchmark) generateJSONReport(filename string) error {
 		Duration:  pb.metrics.Duration.Seconds(),
 		Config:    pb.metrics.Config,
 	}
+	fmt.Printf("Serializable metrics created\n")
 
+	fmt.Printf("Creating report structure\n")
 	report := Report{
 		Name:        pb.Name,
 		Description: pb.Description,
@@ -1559,15 +1695,27 @@ func (pb *PerformanceBenchmark) generateJSONReport(filename string) error {
 		Metrics:     metrics,
 		Thresholds:  pb.thresholds,
 	}
+	fmt.Printf("Report structure created\n")
 
 	// Marshal to JSON
+	fmt.Printf("Marshaling report to JSON\n")
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
+		fmt.Printf("Failed to marshal report to JSON: %v\n", err)
 		return fmt.Errorf("failed to marshal report to JSON: %v", err)
 	}
+	fmt.Printf("Report marshaled to JSON (%d bytes)\n", len(data))
 
 	// Write to file
+	fmt.Printf("Writing JSON data to file\n")
 	_, err = file.Write(data)
+	if err != nil {
+		fmt.Printf("Failed to write JSON data to file: %v\n", err)
+		return err
+	}
+	fmt.Printf("JSON data written to file\n")
+
+	fmt.Printf("generateJSONReport completed\n")
 	return err
 }
 
@@ -1587,18 +1735,25 @@ func (pb *PerformanceBenchmark) RecordCustomMetric(name string, value float64) {
 
 // calculateLatencyDistribution calculates detailed latency distribution metrics
 func (pb *PerformanceBenchmark) calculateLatencyDistribution() {
+	fmt.Printf("Starting calculateLatencyDistribution\n")
+
 	// Skip if no latencies
 	if len(pb.metrics.Latencies) == 0 {
+		fmt.Printf("No latencies to analyze in calculateLatencyDistribution, returning early\n")
 		return
 	}
 
 	// Calculate percentiles
+	fmt.Printf("Calculating percentiles for latency distribution\n")
 	percentiles := []float64{1, 5, 10, 25, 50, 75, 90, 95, 99, 99.9}
 	for _, p := range percentiles {
+		fmt.Printf("Calculating %.1f percentile\n", p)
 		pb.metrics.LatencyDistribution.Percentiles[p] = pb.calculatePercentileFloat(p)
 	}
+	fmt.Printf("All percentiles calculated\n")
 
 	// Calculate histogram
+	fmt.Printf("Calculating histogram\n")
 	// Define histogram buckets (in milliseconds)
 	buckets := []struct {
 		name  string
@@ -1617,7 +1772,11 @@ func (pb *PerformanceBenchmark) calculateLatencyDistribution() {
 	}
 
 	// Count latencies in each bucket
-	for _, latency := range pb.metrics.Latencies {
+	fmt.Printf("Counting latencies in each bucket (total latencies: %d)\n", len(pb.metrics.Latencies))
+	for i, latency := range pb.metrics.Latencies {
+		if i > 0 && i%1000 == 0 {
+			fmt.Printf("Processed %d/%d latencies\n", i, len(pb.metrics.Latencies))
+		}
 		ms := latency.Milliseconds()
 		for _, bucket := range buckets {
 			if ms <= bucket.upper {
@@ -1626,76 +1785,118 @@ func (pb *PerformanceBenchmark) calculateLatencyDistribution() {
 			}
 		}
 	}
+	fmt.Printf("Histogram calculation complete\n")
 
 	// Update latency time series
+	fmt.Printf("Updating latency time series\n")
 	now := time.Now()
 	pb.metrics.LatencyDistribution.TimeSeries.Timestamps = append(
 		pb.metrics.LatencyDistribution.TimeSeries.Timestamps, now)
+
+	fmt.Printf("Calculating P50 for time series\n")
+	p50 := pb.calculatePercentile(50)
 	pb.metrics.LatencyDistribution.TimeSeries.P50 = append(
-		pb.metrics.LatencyDistribution.TimeSeries.P50, pb.calculatePercentile(50))
+		pb.metrics.LatencyDistribution.TimeSeries.P50, p50)
+
+	fmt.Printf("Calculating P90 for time series\n")
+	p90 := pb.calculatePercentile(90)
 	pb.metrics.LatencyDistribution.TimeSeries.P90 = append(
-		pb.metrics.LatencyDistribution.TimeSeries.P90, pb.calculatePercentile(90))
+		pb.metrics.LatencyDistribution.TimeSeries.P90, p90)
+
+	fmt.Printf("Calculating P95 for time series\n")
+	p95 := pb.calculatePercentile(95)
 	pb.metrics.LatencyDistribution.TimeSeries.P95 = append(
-		pb.metrics.LatencyDistribution.TimeSeries.P95, pb.calculatePercentile(95))
+		pb.metrics.LatencyDistribution.TimeSeries.P95, p95)
+
+	fmt.Printf("Calculating P99 for time series\n")
+	p99 := pb.calculatePercentile(99)
 	pb.metrics.LatencyDistribution.TimeSeries.P99 = append(
-		pb.metrics.LatencyDistribution.TimeSeries.P99, pb.calculatePercentile(99))
+		pb.metrics.LatencyDistribution.TimeSeries.P99, p99)
+
+	fmt.Printf("Updating throughput in time series\n")
 	pb.metrics.LatencyDistribution.TimeSeries.Throughput = append(
 		pb.metrics.LatencyDistribution.TimeSeries.Throughput, pb.metrics.Throughput)
+
+	fmt.Printf("calculateLatencyDistribution completed\n")
 }
 
 // calculatePercentileFloat calculates the nth percentile of latencies with float precision
 func (pb *PerformanceBenchmark) calculatePercentileFloat(n float64) time.Duration {
+	fmt.Printf("Starting calculatePercentileFloat for %.1f percentile\n", n)
+
 	if len(pb.metrics.Latencies) == 0 {
+		fmt.Printf("No latencies to analyze in calculatePercentileFloat, returning 0\n")
 		return 0
 	}
 
 	// Calculate the index with float precision
+	fmt.Printf("Calculating index with float precision for %d latencies\n", len(pb.metrics.Latencies))
 	idx := (n * float64(len(pb.metrics.Latencies))) / 100.0
+	fmt.Printf("Calculated index: %.2f\n", idx)
 
 	// Get the integer part
 	intIdx := int(idx)
 	if intIdx >= len(pb.metrics.Latencies) {
+		fmt.Printf("Index %d out of bounds, capping at %d\n", intIdx, len(pb.metrics.Latencies)-1)
 		intIdx = len(pb.metrics.Latencies) - 1
 	}
+	fmt.Printf("Integer index: %d\n", intIdx)
 
 	// If we're at the last element or the index is an integer, return the value at that index
 	if intIdx == len(pb.metrics.Latencies)-1 || float64(intIdx) == idx {
-		return pb.metrics.Latencies[intIdx]
+		result := pb.metrics.Latencies[intIdx]
+		fmt.Printf("At last element or exact index, returning: %v\n", result)
+		return result
 	}
 
 	// Otherwise, interpolate between the two surrounding values
 	fracIdx := idx - float64(intIdx)
-	return time.Duration(float64(pb.metrics.Latencies[intIdx]) +
+	fmt.Printf("Fractional part of index: %.2f\n", fracIdx)
+	result := time.Duration(float64(pb.metrics.Latencies[intIdx]) +
 		fracIdx*float64(pb.metrics.Latencies[intIdx+1]-pb.metrics.Latencies[intIdx]))
+	fmt.Printf("Interpolated result: %v\n", result)
+
+	fmt.Printf("calculatePercentileFloat for %.1f percentile completed\n", n)
+	return result
 }
 
 // storeMetricsToFile stores metrics to disk for long-term analysis
 func (pb *PerformanceBenchmark) storeMetricsToFile() {
+	fmt.Printf("Starting storeMetricsToFile\n")
+
 	// Skip if no output directory
 	if pb.outputDir == "" {
+		fmt.Printf("No output directory specified, skipping metrics storage\n")
 		return
 	}
 
 	// Create metrics history directory
+	fmt.Printf("Creating metrics history directory\n")
 	metricsDir := filepath.Join(pb.outputDir, "metrics_history")
 	if err := os.MkdirAll(metricsDir, 0755); err != nil {
 		fmt.Printf("Warning: Failed to create metrics directory: %v\n", err)
 		return
 	}
+	fmt.Printf("Metrics directory created: %s\n", metricsDir)
 
 	// Create a filename with timestamp
+	fmt.Printf("Creating filename with timestamp\n")
 	timestamp := time.Now().Format("20060102-150405")
 	filename := filepath.Join(metricsDir, fmt.Sprintf("%s_%s.json", pb.Name, timestamp))
+	fmt.Printf("Filename created: %s\n", filename)
 
 	// Create the file
+	fmt.Printf("Creating metrics file\n")
 	file, err := os.Create(filename)
 	if err != nil {
 		fmt.Printf("Warning: Failed to create metrics file: %v\n", err)
 		return
 	}
 	defer file.Close()
+	fmt.Printf("Metrics file created\n")
 
 	// Prepare the data
+	fmt.Printf("Preparing metrics data structure\n")
 	type MetricsData struct {
 		Name             string                 `json:"name"`
 		Description      string                 `json:"description"`
@@ -1720,12 +1921,15 @@ func (pb *PerformanceBenchmark) storeMetricsToFile() {
 	}
 
 	// Convert percentiles map to a serializable format
+	fmt.Printf("Converting percentiles map to serializable format\n")
 	percentiles := make(map[string]float64)
 	for k, v := range pb.metrics.LatencyDistribution.Percentiles {
 		percentiles[fmt.Sprintf("p%.1f", k)] = float64(v.Milliseconds())
 	}
+	fmt.Printf("Converted %d percentiles\n", len(percentiles))
 
 	// Create the metrics data
+	fmt.Printf("Creating metrics data\n")
 	data := MetricsData{
 		Name:             pb.Name,
 		Description:      pb.Description,
@@ -1752,21 +1956,27 @@ func (pb *PerformanceBenchmark) storeMetricsToFile() {
 		Events:        pb.metrics.Events,
 		Percentiles:   percentiles,
 	}
+	fmt.Printf("Metrics data created\n")
 
 	// Marshal to JSON
+	fmt.Printf("Marshaling metrics data to JSON\n")
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		fmt.Printf("Warning: Failed to marshal metrics to JSON: %v\n", err)
 		return
 	}
+	fmt.Printf("Metrics data marshaled to JSON (%d bytes)\n", len(jsonData))
 
 	// Write to file
+	fmt.Printf("Writing metrics data to file\n")
 	if _, err := file.Write(jsonData); err != nil {
 		fmt.Printf("Warning: Failed to write metrics to file: %v\n", err)
 		return
 	}
+	fmt.Printf("Metrics data written to file\n")
 
 	fmt.Printf("Metrics stored to %s\n", filename)
+	fmt.Printf("storeMetricsToFile completed\n")
 }
 
 // RecordEvent records a system event that can be correlated with metrics

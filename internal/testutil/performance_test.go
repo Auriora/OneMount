@@ -1,6 +1,3 @@
-//go:build performance_test
-// +build performance_test
-
 // Package testutil provides testing utilities for the OneMount project.
 package testutil
 
@@ -16,9 +13,9 @@ import (
 
 func TestPerformanceBenchmark(t *testing.T) {
 	// Create a temporary directory for test artifacts
-	tempDir, err := os.MkdirTemp("", "performance-test-")
+	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "performance-test-")
 	if err != nil {
-		t.Fatalf("Failed to create temporary directory: %v", err)
+		t.Fatalf("Failed to create the temporary directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
@@ -37,11 +34,23 @@ func TestPerformanceBenchmark(t *testing.T) {
 		tempDir,
 	)
 
-	// Set a simple benchmark function
+	// Create a slice to hold all allocated memory to prevent garbage collection
+	var allData [][]byte
+
+	// Set a benchmark function that allocates memory
 	benchmark.SetBenchmarkFunc(func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			// Simulate some work
 			time.Sleep(10 * time.Millisecond)
+
+			// Allocate memory to ensure memory usage is detected
+			data := make([]byte, 10*1024*1024)     // Allocate 10MB
+			for j := 0; j < len(data); j += 1024 { // Fill every 1024th byte to save time
+				data[j] = byte(j % 256)
+			}
+
+			// Store the allocated memory to prevent garbage collection
+			allData = append(allData, data)
 		}
 	})
 
@@ -71,7 +80,7 @@ func TestPerformanceBenchmark(t *testing.T) {
 
 func TestLoadTest(t *testing.T) {
 	// Create a temporary directory for test artifacts
-	tempDir, err := os.MkdirTemp("", "load-test-")
+	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "load-test-")
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory: %v", err)
 	}

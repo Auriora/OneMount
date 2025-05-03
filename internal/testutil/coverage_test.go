@@ -9,7 +9,8 @@ import (
 
 func TestCoverageReporter(t *testing.T) {
 	// Create a temporary directory for test output
-	tempDir, err := os.MkdirTemp("", "coverage-test")
+
+	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "coverage-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

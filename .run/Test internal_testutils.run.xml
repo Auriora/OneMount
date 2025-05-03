@@ -2,6 +2,7 @@
   <configuration default="false" name="Test internal/testutils" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="OneMount" />
     <working_directory value="$PROJECT_DIR$/internal/testutil" />
+    <go_parameters value="-race" />
     <root_directory value="$PROJECT_DIR$" />
     <kind value="PACKAGE" />
     <package value="github.com/bcherrington/onemount/internal/testutil" />
