@@ -34,7 +34,7 @@ func TestUT02_FileOperations(t *testing.T) {
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 		}
@@ -108,7 +108,11 @@ func TestUT02_FileOperations(t *testing.T) {
 		assert := testutil.NewAssert(t)
 
 		// Get the test data
-		data := fixture.(map[string]interface{})
+		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
+		}
+		data := unitTestFixture.Data
 		tempDir := data["tempDir"].(string)
 		mockClient := data["mockClient"].(*graph.MockGraphClient)
 		rootID := data["rootID"].(string)
@@ -211,7 +215,7 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 		}
@@ -303,7 +307,11 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 		assert := testutil.NewAssert(t)
 
 		// Get the test data
-		data := fixture.(map[string]interface{})
+		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
+		}
+		data := unitTestFixture.SetupData.(map[string]interface{})
 		rootID := data["rootID"].(string)
 		fileID := data["fileID"].(string)
 		fileContent := data["fileContent"].(string)
@@ -371,7 +379,7 @@ func TestUT06_RootRetrieval(t *testing.T) {
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 		}
@@ -437,7 +445,12 @@ func TestUT06_RootRetrieval(t *testing.T) {
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Get the test data
-		data := fixture.(map[string]interface{})
+		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
+		}
+		data := unitTestFixture.SetupData.(map[string]interface{})
+
 		rootID := data["rootID"].(string)
 		fs := data["fs"].(*Filesystem)
 

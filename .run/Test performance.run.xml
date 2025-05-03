@@ -8,7 +8,7 @@
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$/internal/testutil/performance_test.go" />
     <framework value="gotest" />
-    <go_parameters value="-tags=performance_test" />
+    <go_parameters value="-race" />
     <method v="2" />
   </configuration>
 </component>

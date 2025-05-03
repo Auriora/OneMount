@@ -157,7 +157,7 @@ func NewIntegrationTestEnvironment(ctx context.Context, logger Logger) *Integrat
 	return &IntegrationTestEnvironment{
 		components:       make(map[string]interface{}),
 		networkSimulator: NewNetworkSimulator(),
-		testData:         NewTestDataManager(filepath.Join(os.TempDir(), "onemount-test-data")),
+		testData:         NewTestDataManager(filepath.Join(TestSandboxTmpDir, "onemount-test-data")),
 		scenarios:        make([]TestScenario, 0),
 		isolation: IsolationConfig{
 			MockedServices: make([]string, 0),

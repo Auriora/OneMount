@@ -33,7 +33,7 @@ func TestUT01_SyncDirectoryTree(t *testing.T) {
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 		}

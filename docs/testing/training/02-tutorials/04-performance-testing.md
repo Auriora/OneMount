@@ -160,10 +160,10 @@ operations := map[string]func(ctx context.Context) error{
     "WriteFile": func(ctx context.Context) error {
         data := make([]byte, 1024) // 1KB of data
         rand.Read(data)
-        return ioutil.WriteFile("/tmp/benchmark-test.txt", data, 0644)
+        return os.WriteFile("/tmp/benchmark-test.txt", data, 0644)
     },
     "ReadFile": func(ctx context.Context) error {
-        _, err := ioutil.ReadFile("/tmp/benchmark-test.txt")
+        _, err := os.ReadFile("/tmp/benchmark-test.txt")
         return err
     },
     "AppendFile": func(ctx context.Context) error {
@@ -183,14 +183,14 @@ operations := map[string]func(ctx context.Context) error{
 for name, operation := range operations {
     // Update the benchmark name
     benchmark.SetName(name)
-    
+
     // Run the benchmark
     results, err := benchmark.Run(operation)
     if err != nil {
         // Handle error
         continue
     }
-    
+
     // Print results
     fmt.Printf("=== %s ===\n", name)
     fmt.Printf("Latency (P50): %v\n", results.LatencyP50)
@@ -279,7 +279,6 @@ import (
     "context"
     "crypto/rand"
     "fmt"
-    "io/ioutil"
     "os"
     "testing"
     "time"
@@ -311,7 +310,7 @@ func TestFileOperationsPerformance(t *testing.T) {
     benchmark := testutil.NewPerformanceBenchmark(config, &logger)
 
     // Create a temporary directory for the test
-    tempDir, err := ioutil.TempDir("", "performance-test")
+    tempDir, err := os.MkdirTemp("", "performance-test")
     require.NoError(t, err)
     defer os.RemoveAll(tempDir)
 
@@ -323,10 +322,10 @@ func TestFileOperationsPerformance(t *testing.T) {
             if err != nil {
                 return err
             }
-            return ioutil.WriteFile(tempDir+"/test.txt", data, 0644)
+            return os.WriteFile(tempDir+"/test.txt", data, 0644)
         },
         "ReadFile": func(ctx context.Context) error {
-            _, err := ioutil.ReadFile(tempDir + "/test.txt")
+            _, err := os.ReadFile(tempDir + "/test.txt")
             return err
         },
         "AppendFile": func(ctx context.Context) error {
@@ -349,7 +348,7 @@ func TestFileOperationsPerformance(t *testing.T) {
     initialData := make([]byte, 1024)
     _, err = rand.Read(initialData)
     require.NoError(t, err)
-    err = ioutil.WriteFile(tempDir+"/test.txt", initialData, 0644)
+    err = os.WriteFile(tempDir+"/test.txt", initialData, 0644)
     require.NoError(t, err)
 
     // Run benchmarks for each operation
@@ -357,18 +356,18 @@ func TestFileOperationsPerformance(t *testing.T) {
         t.Run(name, func(t *testing.T) {
             // Update the benchmark name
             benchmark.SetName(name)
-            
+
             // Run the benchmark
             results, err := benchmark.Run(operation)
             require.NoError(t, err)
-            
+
             // Print results
             t.Logf("=== %s ===", name)
             t.Logf("Latency (P50): %v", results.LatencyP50)
             t.Logf("Latency (P95): %v", results.LatencyP95)
             t.Logf("Latency (P99): %v", results.LatencyP99)
             t.Logf("Throughput: %v ops/sec", results.Throughput)
-            
+
             // Verify that the results meet the thresholds
             require.LessOrEqual(t, results.LatencyP50, config.Thresholds.LatencyP50, "P50 latency exceeds threshold")
             require.LessOrEqual(t, results.LatencyP95, config.Thresholds.LatencyP95, "P95 latency exceeds threshold")
@@ -393,7 +392,7 @@ func TestFileOperationsPerformance(t *testing.T) {
                     return err
                 }
                 fileName := fmt.Sprintf("%s/load-test-%d.txt", tempDir, time.Now().UnixNano())
-                return ioutil.WriteFile(fileName, data, 0644)
+                return os.WriteFile(fileName, data, 0644)
             },
         }
 

@@ -13,6 +13,8 @@ import (
 type SystemConfig struct {
 	// Base directory for system test data
 	BaseDir string
+	// Temp directory for system test
+	TempDir string
 	// Mount point for the filesystem
 	MountPoint string
 	// Configuration file path
@@ -31,6 +33,7 @@ func DefaultSystemConfig() SystemConfig {
 	systemTestDir := filepath.Join(TestSandboxDir, "system-test")
 	return SystemConfig{
 		BaseDir:               systemTestDir,
+		TempDir:               TestSandboxTmpDir,
 		MountPoint:            filepath.Join(systemTestDir, "mount"),
 		ConfigPath:            filepath.Join(systemTestDir, "config.json"),
 		ProductionDataVolumes: false,

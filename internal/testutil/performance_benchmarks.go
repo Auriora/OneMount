@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -166,7 +165,7 @@ func MetadataOperationsBenchmark(b *testing.B, framework *TestFramework, numItem
 			// Simulate metadata operations
 			// In a real implementation, you would use the actual API client
 			// to perform metadata operations (list files, get file info, etc.)
-			err := simulateMetadataOperations(numItems)
+			err := simulateMetadataOperations(context.Background(), numItems)
 
 			// Record the latency
 			latency := time.Since(start)
@@ -266,10 +265,20 @@ func LoadTestFileDownload(ctx context.Context, framework *TestFramework, fileSiz
 	})
 
 	// Set up the load test
+	// Calculate appropriate ramp-up time based on test duration
+	// For short tests, use a shorter ramp-up time to avoid appearing to hang
+	rampUpTime := time.Second
+	if duration > 5*time.Second {
+		rampUpTime = 5 * time.Second
+	}
+
+	fmt.Printf("Starting LoadTestFileDownload with file size: %d bytes, concurrency: %d, duration: %s, ramp-up: %s\n",
+		fileSize, concurrency, duration, rampUpTime)
+
 	loadTest := &LoadTest{
 		Concurrency: concurrency,
 		Duration:    duration,
-		RampUp:      10 * time.Second,
+		RampUp:      rampUpTime,
 		Scenario: func(ctx context.Context) error {
 			// Simulate downloading a file
 			// In a real implementation, you would use the actual API client
@@ -312,10 +321,20 @@ func LoadTestFileUpload(ctx context.Context, framework *TestFramework, fileSize 
 	})
 
 	// Set up the load test
+	// Calculate appropriate ramp-up time based on test duration
+	// For short tests, use a shorter ramp-up time to avoid appearing to hang
+	rampUpTime := time.Second
+	if duration > 5*time.Second {
+		rampUpTime = 5 * time.Second
+	}
+
+	fmt.Printf("Starting LoadTestFileUpload with file size: %d bytes, concurrency: %d, duration: %s, ramp-up: %s\n",
+		fileSize, concurrency, duration, rampUpTime)
+
 	loadTest := &LoadTest{
 		Concurrency: concurrency,
 		Duration:    duration,
-		RampUp:      10 * time.Second,
+		RampUp:      rampUpTime,
 		Scenario: func(ctx context.Context) error {
 			// Simulate uploading a file
 			// In a real implementation, you would use the actual API client
@@ -358,15 +377,25 @@ func LoadTestMetadataOperations(ctx context.Context, framework *TestFramework, n
 	})
 
 	// Set up the load test
+	// Calculate appropriate ramp-up time based on test duration
+	// For short tests, use a shorter ramp-up time to avoid appearing to hang
+	rampUpTime := time.Second
+	if duration > 5*time.Second {
+		rampUpTime = 5 * time.Second
+	}
+
+	fmt.Printf("Starting LoadTestMetadataOperations with items: %d, concurrency: %d, duration: %s, ramp-up: %s\n",
+		numItems, concurrency, duration, rampUpTime)
+
 	loadTest := &LoadTest{
 		Concurrency: concurrency,
 		Duration:    duration,
-		RampUp:      10 * time.Second,
+		RampUp:      rampUpTime,
 		Scenario: func(ctx context.Context) error {
 			// Simulate metadata operations
 			// In a real implementation, you would use the actual API client
 			// to perform metadata operations (list files, get file info, etc.)
-			return simulateMetadataOperations(numItems)
+			return simulateMetadataOperations(ctx, numItems)
 		},
 	}
 
@@ -382,7 +411,7 @@ func LoadTestMetadataOperations(ctx context.Context, framework *TestFramework, n
 // simulateFileDownload simulates downloading a file of the specified size
 func simulateFileDownload(fileSize int64) error {
 	// Create a temporary file
-	tmpFile, err := ioutil.TempFile("", "download-*.tmp")
+	tmpFile, err := os.CreateTemp("", "download-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
@@ -404,7 +433,7 @@ func simulateFileDownload(fileSize int64) error {
 // simulateFileUpload simulates uploading a file of the specified size
 func simulateFileUpload(fileSize int64) error {
 	// Create a temporary file
-	tmpFile, err := ioutil.TempFile("", "upload-*.tmp")
+	tmpFile, err := os.CreateTemp("", "upload-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
@@ -425,37 +454,89 @@ func simulateFileUpload(fileSize int64) error {
 }
 
 // simulateMetadataOperations simulates performing metadata operations for the specified number of items
-func simulateMetadataOperations(numItems int) error {
+func simulateMetadataOperations(ctx context.Context, numItems int) error {
+	fmt.Printf("Starting simulateMetadataOperations with %d items\n", numItems)
+
+	// Check if context is already canceled
+	select {
+	case <-ctx.Done():
+		fmt.Printf("Context already canceled at start of simulateMetadataOperations: %v\n", ctx.Err())
+		return ctx.Err()
+	default:
+		// Continue with the operation
+		fmt.Printf("Context is valid, proceeding with operation\n")
+	}
+
 	// Create a temporary directory
-	tmpDir, err := ioutil.TempDir("", "metadata-")
+	fmt.Printf("Creating temporary directory\n")
+	tmpDir, err := os.MkdirTemp(TestSandboxTmpDir, "metadata-")
 	if err != nil {
+		fmt.Printf("Failed to create temporary directory: %v\n", err)
 		return fmt.Errorf("failed to create temporary directory: %v", err)
 	}
+	fmt.Printf("Created temporary directory: %s\n", tmpDir)
 	defer os.RemoveAll(tmpDir)
 
 	// Create files in the directory
+	fmt.Printf("Creating %d files in the directory\n", numItems)
 	for i := 0; i < numItems; i++ {
+		// Check if context is canceled before each iteration
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Context canceled during file creation (file %d): %v\n", i, ctx.Err())
+			return ctx.Err()
+		default:
+			// Continue with the operation
+		}
+
 		fileName := filepath.Join(tmpDir, fmt.Sprintf("file-%d.txt", i))
-		if err := ioutil.WriteFile(fileName, []byte("test"), 0644); err != nil {
+		fmt.Printf("Creating file: %s\n", fileName)
+		if err := os.WriteFile(fileName, []byte("test"), 0644); err != nil {
+			fmt.Printf("Failed to create file %s: %v\n", fileName, err)
 			return fmt.Errorf("failed to create file: %v", err)
 		}
 	}
 
-	// Simulate listing files
-	files, err := ioutil.ReadDir(tmpDir)
-	if err != nil {
-		return fmt.Errorf("failed to list files: %v", err)
+	// Check if context is canceled before listing files
+	select {
+	case <-ctx.Done():
+		fmt.Printf("Context canceled before listing files: %v\n", ctx.Err())
+		return ctx.Err()
+	default:
+		// Continue with the operation
+		fmt.Printf("Listing files in directory: %s\n", tmpDir)
 	}
 
+	// Simulate listing files
+	files, err := os.ReadDir(tmpDir)
+	if err != nil {
+		fmt.Printf("Failed to list files in directory %s: %v\n", tmpDir, err)
+		return fmt.Errorf("failed to list files: %v", err)
+	}
+	fmt.Printf("Found %d files in directory\n", len(files))
+
 	// Simulate getting file info
-	for _, file := range files {
+	fmt.Printf("Getting file info for each file\n")
+	for i, file := range files {
+		// Check if context is canceled before each iteration
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Context canceled during file info retrieval (file %d): %v\n", i, ctx.Err())
+			return ctx.Err()
+		default:
+			// Continue with the operation
+		}
+
 		filePath := filepath.Join(tmpDir, file.Name())
+		fmt.Printf("Getting info for file: %s\n", filePath)
 		_, err := os.Stat(filePath)
 		if err != nil {
+			fmt.Printf("Failed to get file info for %s: %v\n", filePath, err)
 			return fmt.Errorf("failed to get file info: %v", err)
 		}
 	}
 
+	fmt.Printf("Completed simulateMetadataOperations successfully\n")
 	return nil
 }
 
@@ -484,7 +565,7 @@ func simulateConcurrentOperations(concurrency int) error {
 				err = simulateFileUpload(1024 * 1024) // 1MB
 			case 2:
 				// Simulate metadata operations
-				err = simulateMetadataOperations(10)
+				err = simulateMetadataOperations(context.Background(), 10)
 			}
 
 			// Send error to channel if any

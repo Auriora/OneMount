@@ -35,7 +35,7 @@ func TestUT03_RepeatedUploads(t *testing.T) {
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 		}
@@ -65,15 +65,15 @@ func TestUT03_RepeatedUploads(t *testing.T) {
 			Account:      "mock@example.com",
 		}
 
-		// Set operational offline mode to prevent real network requests
-		graph.SetOperationalOffline(true)
-		defer graph.SetOperationalOffline(false) // Reset when test is done
-
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create filesystem: %w", err)
 		}
+
+		// Set operational offline mode to prevent real network requests
+		graph.SetOperationalOffline(true)
+		defer graph.SetOperationalOffline(false) // Reset when test is done
 
 		// Set the root ID
 		fs.root = rootID
@@ -124,11 +124,16 @@ func TestUT03_RepeatedUploads(t *testing.T) {
 		assert := testutil.NewAssert(t)
 
 		// Get the test data
-		data := fixture.(map[string]interface{})
+		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
+		}
+		data := unitTestFixture.SetupData.(map[string]interface{})
 		mockClient := data["mockClient"].(*graph.MockGraphClient)
 		rootID := data["rootID"].(string)
 		fs := data["fs"].(*Filesystem)
 		testFileName := data["testFileName"].(string)
+
 		initialContent := data["initialContent"].(string)
 		fileID := data["fileID"].(string)
 		fileItem := data["fileItem"].(*graph.DriveItem)
@@ -269,7 +274,7 @@ func TestUT04_UploadDiskSerialization(t *testing.T) {
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
+		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 		}
@@ -354,7 +359,11 @@ func TestUT04_UploadDiskSerialization(t *testing.T) {
 		assert := testutil.NewAssert(t)
 
 		// Get the test data
-		data := fixture.(map[string]interface{})
+		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
+		}
+		data := unitTestFixture.SetupData.(map[string]interface{})
 		mockClient := data["mockClient"].(*graph.MockGraphClient)
 		rootID := data["rootID"].(string)
 		fs := data["fs"].(*Filesystem)

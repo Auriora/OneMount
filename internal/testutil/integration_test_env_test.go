@@ -62,7 +62,7 @@ func TestIntegrationTestEnvironment_Setup(t *testing.T) {
 
 func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
 	// Create a temporary directory for test data
-	tempDir, err := os.MkdirTemp("", "test-data-manager")
+	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "test-data-manager")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 

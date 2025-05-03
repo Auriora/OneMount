@@ -255,7 +255,7 @@ func FileUploadLoadTest(ctx context.Context, framework *TestFramework, fileSize 
 func MetadataOperationsLoadTest(ctx context.Context, framework *TestFramework, numItems int) ([]*PerformanceBenchmark, error) {
 	// Create a scenario function for metadata operations
 	metadataScenario := func(ctx context.Context) error {
-		return simulateMetadataOperations(numItems)
+		return simulateMetadataOperations(ctx, numItems)
 	}
 
 	// Run all load test scenarios with the metadata scenario
@@ -273,7 +273,7 @@ func MixedOperationsLoadTest(ctx context.Context, framework *TestFramework) ([]*
 		case 1:
 			return simulateFileUpload(1024 * 1024) // 1MB
 		case 2:
-			return simulateMetadataOperations(10)
+			return simulateMetadataOperations(ctx, 10)
 		default:
 			return nil
 		}
