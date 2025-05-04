@@ -45,26 +45,26 @@ onemount-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onemount-l
 
 
 install: onemount onemount-launcher
-	cp $(OUTPUT_DIR)/onemount /usr/bin/
-	cp $(OUTPUT_DIR)/onemount-launcher /usr/bin/
-	mkdir -p /usr/share/icons/onemount/
-	cp configs/resources/OneMount-Logo.svg /usr/share/icons/onemount/
-	cp configs/resources/onemount.png /usr/share/icons/onemount/
-	cp configs/resources/onemount-128.png /usr/share/icons/onemount/
-	cp configs/resources/onemount-launcher.desktop /usr/share/applications/
+	cp $(OUTPUT_DIR)/onemount $HOME/.local/bin/
+	cp $(OUTPUT_DIR)/onemount-launcher $HOME/.local/bin/
+	mkdir -p $HOME/.local/share/icons/onemount/
+	cp configs/resources/OneMount-Logo.svg $HOME/.local/share/icons/onemount/
+	cp configs/resources/onemount.png $HOME/.local/share/icons/onemount/
+	cp configs/resources/onemount-128.png $HOME/.local/share/icons/onemount/
+	cp configs/resources/onemount-launcher.desktop $HOME/.local/share/applications/
 	cp configs/resources/onemount@.service /etc/systemd/user/
-	gzip -c configs/resources/onemount.1 > /usr/share/man/man1/onemount.1.gz
+	gzip -c configs/resources/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
 	mandb
 
 
 uninstall:
 	rm -f \
-		/usr/bin/onemount \
-		/usr/bin/onemount-launcher \
+		$HOME/.local/bin/onemount \
+		$HOME/.local/bin/onemount-launcher \
 		/etc/systemd/user/onemount@.service \
-		/usr/share/applications/onemount-launcher.desktop \
-		/usr/share/man/man1/onemount.1.gz
-	rm -rf /usr/share/icons/onemount
+		$HOME/.local/share/applications/onemount-launcher.desktop \
+		$HOME/.local/share/man/man1/onemount.1.gz
+	rm -rf $HOME/.local/share/icons/onemount
 	mandb
 
 
