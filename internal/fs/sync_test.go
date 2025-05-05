@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/bcherrington/onemount/internal/testutil"
@@ -93,14 +92,8 @@ func TestUT01_SyncDirectoryTree(t *testing.T) {
 		mockClient.AddMockItems("/me/drive/items/"+child2ID+"/children", []*graph.DriveItem{})
 		mockClient.AddMockItems("/me/drive/items/"+grandchildID+"/children", []*graph.DriveItem{})
 
-		// Create a mock auth object
-		auth := &graph.Auth{
-			AccessToken:  "mock-access-token",
-			RefreshToken: "mock-refresh-token",
-			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-			Account:      "mock@example.com",
-			Path:         testutil.AuthTokensPath,
-		}
+		// Get auth tokens, either from existing file or create mock
+		auth := testutil.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)

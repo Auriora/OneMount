@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/bcherrington/onemount/internal/testutil"
@@ -56,14 +55,8 @@ func TestUT02_FileOperations(t *testing.T) {
 		mockClient.AddMockItem("/me/drive/root", rootItem)
 		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
 
-		// Create a mock auth object
-		auth := &graph.Auth{
-			AccessToken:  "mock-access-token",
-			RefreshToken: "mock-refresh-token",
-			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-			Account:      "mock@example.com",
-			Path:         testutil.AuthTokensPath,
-		}
+		// Get auth tokens, either from existing file or create mock
+		auth := testutil.GetTestAuth()
 
 		// Set operational offline mode to prevent real network requests
 		graph.SetOperationalOffline(true)
@@ -254,14 +247,8 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 		// Mock the file content
 		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", []byte(fileContent), 200, nil)
 
-		// Create a mock auth object
-		auth := &graph.Auth{
-			AccessToken:  "mock-access-token",
-			RefreshToken: "mock-refresh-token",
-			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-			Account:      "mock@example.com",
-			Path:         testutil.AuthTokensPath,
-		}
+		// Get auth tokens, either from existing file or create mock
+		auth := testutil.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
@@ -398,14 +385,8 @@ func TestUT06_RootRetrieval(t *testing.T) {
 		// Add the root item to the mock client
 		mockClient.AddMockItem("/me/drive/root", rootItem)
 
-		// Create a mock auth object
-		auth := &graph.Auth{
-			AccessToken:  "mock-access-token",
-			RefreshToken: "mock-refresh-token",
-			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
-			Account:      "mock@example.com",
-			Path:         testutil.AuthTokensPath,
-		}
+		// Get auth tokens, either from existing file or create mock
+		auth := testutil.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
