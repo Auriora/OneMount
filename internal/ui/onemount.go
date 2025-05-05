@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,21 +50,6 @@ func MountpointIsValid(mountpoint string) bool {
 	return len(dirents) == 0
 }
 
-func GetAccountName(cacheDir, instance string) (string, error) {
-	tokenFile := fmt.Sprintf("%s/%s/auth_tokens.json", cacheDir, instance)
-
-	var auth graph.Auth
-	data, err := os.ReadFile(tokenFile)
-	if err != nil {
-		return "", err
-	}
-	err = json.Unmarshal(data, &auth)
-	if err != nil {
-		return "", err
-	}
-	return auth.Account, nil
-}
-
 // GetKnownMounts returns the currently known mountpoints and returns their escaped name
 func GetKnownMounts(cacheDir string) []string {
 	mounts := make([]string, 0)
@@ -84,7 +67,7 @@ func GetKnownMounts(cacheDir string) []string {
 	}
 
 	for _, dirent := range dirents {
-		_, err := os.Stat(filepath.Join(cacheDir, dirent.Name(), "auth_tokens.json"))
+		_, err := os.Stat(graph.GetAuthTokensPath(cacheDir, dirent.Name()))
 		if err == nil {
 			mounts = append(mounts, dirent.Name())
 		}

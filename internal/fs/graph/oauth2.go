@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -16,6 +17,57 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 )
+
+// AuthTokensFileName is the name of the file where authentication tokens are stored
+const AuthTokensFileName = "auth_tokens.json"
+
+// GetAuthTokensPath returns the full path to the auth tokens file given a cache directory and instance name
+func GetAuthTokensPath(cacheDir, instance string) string {
+	return filepath.Join(cacheDir, instance, AuthTokensFileName)
+}
+
+// GetAuthTokensPathFromCacheDir returns the full path to the auth tokens file given just a cache directory
+// This is for backward compatibility with existing code that doesn't use instance names
+func GetAuthTokensPathFromCacheDir(cacheDir string) string {
+	return filepath.Join(cacheDir, AuthTokensFileName)
+}
+
+// SaveAuthTokens saves authentication tokens to a file
+func SaveAuthTokens(auth *Auth, file string) error {
+	auth.Path = file
+	byteData, _ := json.Marshal(auth)
+	return os.WriteFile(file, byteData, 0600)
+}
+
+// LoadAuthTokens loads authentication tokens from a file
+func LoadAuthTokens(file string) (*Auth, error) {
+	auth := &Auth{}
+	contents, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	auth.Path = file
+	err = json.Unmarshal(contents, auth)
+	if err != nil {
+		return nil, err
+	}
+	err = auth.applyDefaults()
+	if err != nil {
+		return nil, err
+	}
+	return auth, nil
+}
+
+// GetAccountName retrieves the account name from the auth tokens file
+func GetAccountName(cacheDir, instance string) (string, error) {
+	tokenFile := GetAuthTokensPath(cacheDir, instance)
+
+	auth, err := LoadAuthTokens(tokenFile)
+	if err != nil {
+		return "", err
+	}
+	return auth.Account, nil
+}
 
 // these are default values if not specified
 const (
@@ -50,7 +102,7 @@ type Auth struct {
 	ExpiresAt    int64  `json:"expires_at"`
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	path         string // auth tokens remember their path for use by Refresh()
+	Path         string // auth tokens remember their Path for use by Refresh()
 }
 
 // AuthError is an authentication error from the Microsoft API. Generally we don't see
@@ -68,23 +120,17 @@ type AuthError struct {
 
 // ToFile writes auth tokens to a file
 func (a Auth) ToFile(file string) error {
-	a.path = file
-	byteData, _ := json.Marshal(a)
-	return os.WriteFile(file, byteData, 0600)
+	return SaveAuthTokens(&a, file)
 }
 
 // FromFile populates an auth struct from a file
 func (a *Auth) FromFile(file string) error {
-	contents, err := os.ReadFile(file)
+	auth, err := LoadAuthTokens(file)
 	if err != nil {
 		return err
 	}
-	a.path = file
-	err = json.Unmarshal(contents, a)
-	if err != nil {
-		return err
-	}
-	return a.applyDefaults()
+	*a = *auth
+	return nil
 }
 
 // createRefreshTokenRequest creates the HTTP request for refreshing tokens
@@ -135,16 +181,16 @@ func (a *Auth) handleFailedRefresh(ctx context.Context, resp *http.Response, bod
 			Int("http_code", resp.StatusCode).
 			Msg("Failed to renew access tokens. Attempting to reauthenticate.")
 
-		newAuth, err := newAuth(ctx, a.AuthConfig, a.path, false)
+		newAuth, err := newAuth(ctx, a.AuthConfig, a.Path, false)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to reauthenticate. Using existing tokens.")
 			return fmt.Errorf("failed to refresh token: reauthentication failed: %w", err)
 		}
 		*a = *newAuth
 	} else {
-		err := a.ToFile(a.path)
+		err := a.ToFile(a.Path)
 		if err != nil {
-			log.Warn().Err(err).Msg("Failed to save auth tokens to file")
+			log.Warn().Err(err).Msg("handleFailedRefresh() Failed to save auth tokens to file")
 			return fmt.Errorf("failed to refresh token: could not save auth tokens to file: %w", err)
 		}
 	}
@@ -362,7 +408,7 @@ func newAuth(ctx context.Context, config AuthConfig, path string, headless bool)
 	}
 
 	if err := auth.ToFile(path); err != nil {
-		log.Warn().Err(err).Msg("Failed to save auth tokens to file")
+		log.Warn().Err(err).Msg("newAuth() Failed to save auth tokens to file")
 	}
 
 	return auth, nil

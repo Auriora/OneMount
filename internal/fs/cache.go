@@ -746,6 +746,10 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 // InsertChild adds an item as a child of a specified parent ID.
 func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
 	child.Lock()
+	// Initialize Parent if it's nil to avoid nil pointer dereference
+	if child.DriveItem.Parent == nil {
+		child.DriveItem.Parent = &graph.DriveItemParent{}
+	}
 	// should already be set, just double-checking here.
 	child.DriveItem.Parent.ID = parentID
 	id := child.DriveItem.ID

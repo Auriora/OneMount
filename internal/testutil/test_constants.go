@@ -11,6 +11,7 @@ import (
 var TestSandboxDir = filepath.Join(os.Getenv("HOME"), ".onemount-tests")
 
 // AuthTokensPath is the path to the authentication tokens file.
+// Note: This uses a different file name format (with a leading dot) than the main application.
 var AuthTokensPath = filepath.Join(TestSandboxDir, ".auth_tokens.json")
 
 // DmelfaDir is the path to the dmel.fa test file.

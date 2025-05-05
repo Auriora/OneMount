@@ -104,6 +104,15 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 
 	// create a generic session for all files
 	inode.RLock()
+
+	// Initialize ModTime with current time if it's nil
+	var modTime time.Time
+	if inode.DriveItem.ModTime != nil {
+		modTime = *inode.DriveItem.ModTime
+	} else {
+		modTime = time.Now()
+	}
+
 	session := UploadSession{
 		ID:       inode.DriveItem.ID,
 		OldID:    inode.DriveItem.ID,
@@ -111,7 +120,7 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 		NodeID:   inode.nodeID,
 		Name:     inode.DriveItem.Name,
 		Data:     *data,
-		ModTime:  *inode.DriveItem.ModTime,
+		ModTime:  modTime,
 	}
 	inode.RUnlock()
 

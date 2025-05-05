@@ -150,7 +150,7 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	if err := os.MkdirAll(cachePath, 0700); err != nil {
 		return nil, nil, nil, "", "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	authPath := filepath.Join(cachePath, "auth_tokens.json")
+	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
 	if authOnly {
 		if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
 			log.Error().Err(err).Msg("Failed to remove auth tokens file")
@@ -238,7 +238,7 @@ func displayStats(config *common.Config, mountpoint string) {
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
 
 	// Authenticate to get access to the filesystem
-	authPath := filepath.Join(cachePath, "auth_tokens.json")
+	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
 	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, true)
 	if err != nil {
 		log.Error().Err(err).Msg("Authentication failed")

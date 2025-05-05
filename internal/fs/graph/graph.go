@@ -170,7 +170,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 				"forcing reauth before retrying.")
 
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Starting reauth process")
-		reauth, authErr := newAuth(ctx, auth.AuthConfig, auth.path, false)
+		reauth, authErr := newAuth(ctx, auth.AuthConfig, auth.Path, false)
 		if authErr != nil {
 			log.Error().Err(authErr).Str("method", method).Str("resource", resource).Msg("Reauth failed")
 			return nil, fmt.Errorf("reauth failed: %w", authErr)

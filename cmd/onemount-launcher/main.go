@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/bcherrington/onemount/cmd/common"
+	"github.com/bcherrington/onemount/internal/fs/graph"
 	"github.com/bcherrington/onemount/internal/ui"
 	"github.com/bcherrington/onemount/internal/ui/systemd"
 	"github.com/coreos/go-systemd/v22/unit"
@@ -303,7 +304,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	}
 
 	tildePath := ui.EscapeHome(mount)
-	accountName, err := ui.GetAccountName(config.CacheDir, escapedMount)
+	accountName, err := graph.GetAccountName(config.CacheDir, escapedMount)
 	label, _ := gtk.LabelNew("")
 	if driveName != "" {
 		// we have a user-assigned name for the user's drive

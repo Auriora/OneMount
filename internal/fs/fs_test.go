@@ -62,6 +62,7 @@ func TestUT02_FileOperations(t *testing.T) {
 			RefreshToken: "mock-refresh-token",
 			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
 			Account:      "mock@example.com",
+			Path:         testutil.AuthTokensPath,
 		}
 
 		// Set operational offline mode to prevent real network requests
@@ -259,11 +260,8 @@ func TestUT05_BasicFileSystemOperations(t *testing.T) {
 			RefreshToken: "mock-refresh-token",
 			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
 			Account:      "mock@example.com",
+			Path:         testutil.AuthTokensPath,
 		}
-
-		// Set operational offline mode to prevent real network requests
-		graph.SetOperationalOffline(true)
-		defer graph.SetOperationalOffline(false) // Reset when test is done
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
@@ -406,6 +404,7 @@ func TestUT06_RootRetrieval(t *testing.T) {
 			RefreshToken: "mock-refresh-token",
 			ExpiresAt:    time.Now().Add(time.Hour).Unix(),
 			Account:      "mock@example.com",
+			Path:         testutil.AuthTokensPath,
 		}
 
 		// Create the filesystem
