@@ -711,13 +711,37 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 	parent := f.GetID(parentID)
 	if parent == nil {
-		log.Error().
-			Str("parentID", parentID).
-			Str("childID", id).
-			Str("childName", inode.Name()).
-			Msg("Parent item could not be found when setting parent.")
-		defer LogMethodReturn(methodName, startTime, nodeID)
-		return nodeID
+		// Check if the parent ID is the root ID
+		if parentID == f.root {
+			// Create a dummy root item if it doesn't exist
+			log.Warn().
+				Str("parentID", parentID).
+				Str("childID", id).
+				Str("childName", inode.Name()).
+				Msg("Root item not found in cache, creating dummy root item.")
+
+			// Create a dummy root item
+			rootItem := &graph.DriveItem{
+				ID:   parentID,
+				Name: "root",
+				Folder: &graph.Folder{
+					ChildCount: 0,
+				},
+			}
+			rootInode := NewInodeDriveItem(rootItem)
+
+			// Insert the root item into the cache
+			f.metadata.Store(parentID, rootInode)
+			parent = rootInode
+		} else {
+			log.Error().
+				Str("parentID", parentID).
+				Str("childID", id).
+				Str("childName", inode.Name()).
+				Msg("Parent item could not be found when setting parent.")
+			defer LogMethodReturn(methodName, startTime, nodeID)
+			return nodeID
+		}
 	}
 
 	// check if the item has already been added to the parent

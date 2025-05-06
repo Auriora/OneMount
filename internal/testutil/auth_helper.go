@@ -15,6 +15,8 @@ import (
 //
 // This function helps tests reuse existing authentication tokens to avoid
 // re-authentication when re-running tests.
+//
+// Set useMockAuth to true to force the use of mock auth instead of loading from the auth tokens file.
 func GetTestAuth() *graph.Auth {
 	// Ensure test directories exist
 	if err := EnsureTestDirectories(); err != nil {
@@ -33,6 +35,11 @@ func GetTestAuth() *graph.Auth {
 		log.Warn().Err(err).Str("path", AuthTokensPath).Msg("Failed to load existing auth tokens for test, creating mock auth")
 	}
 
+	return createMockAuth()
+}
+
+// createMockAuth creates a mock Auth object for testing
+func createMockAuth() *graph.Auth {
 	// Create a mock auth object
 	auth := &graph.Auth{
 		AccessToken:  "mock-access-token",
