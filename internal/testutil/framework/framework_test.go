@@ -185,7 +185,7 @@ func TestCleanupResources(t *testing.T) {
 	}
 
 	if len(framework.resources) != 0 {
-		t.Errorf("Expected resources to be cleared, got length %d", len(resources))
+		t.Errorf("Expected resources to be cleared, got length %d", len(framework.resources))
 	}
 }
 

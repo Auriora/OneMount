@@ -4,11 +4,13 @@
     <working_directory value="$PROJECT_DIR$/internal/testutil" />
     <go_parameters value="-race" />
     <root_directory value="$PROJECT_DIR$" />
-    <kind value="PACKAGE" />
+    <kind value="DIRECTORY" />
     <package value="github.com/auriora/onemount/internal/testutil" />
-    <directory value="$PROJECT_DIR$" />
+    <directory value="$PROJECT_DIR$/internal/testutil" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
-    <method v="2" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="all" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
+    </method>
   </configuration>
 </component>
