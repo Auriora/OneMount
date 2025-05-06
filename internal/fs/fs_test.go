@@ -27,7 +27,6 @@ import (
 //	Notes: Tests basic file creation and writing, which triggers uploads.
 func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 	// Mark the test for parallel execution
-	t.Parallel()
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -183,7 +182,6 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 //	Notes: Tests reading files, which triggers downloads if not in cache.
 func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *testing.T) {
 	// Mark the test for parallel execution
-	t.Parallel()
 
 	// Create a test fixture using the FSTestFixture helper
 	fixture := helpers.SetupFSTestFixture(t, "BasicFileSystemOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {

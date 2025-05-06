@@ -28,7 +28,6 @@ import (
 //	       This is NOT an offline test - it requires proper mock setup to simulate an online environment.
 func TestUT_FS_01_SyncDirectoryTree_DirectoryTree_SuccessfulSynchronization(t *testing.T) {
 	// Mark the test for parallel execution
-	t.Parallel()
 
 	// Create a test fixture
 	fixture := framework.NewUnitTestFixture("SyncDirectoryTreeFixture")
