@@ -3,6 +3,7 @@ package framework
 
 import (
 	"context"
+	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +15,7 @@ import (
 
 func TestIntegrationTestEnvironment_Setup(t *testing.T) {
 	// Create a test logger
-	logger := NewZerologLogger("integration-test")
+	logger := testutil.NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -62,7 +63,7 @@ func TestIntegrationTestEnvironment_Setup(t *testing.T) {
 
 func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
 	// Create a temporary directory for test data
-	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "test-data-manager")
+	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "test-data-manager")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
@@ -100,7 +101,7 @@ func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
 
 func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 	// Create a test logger
-	logger := NewZerologLogger("integration-test")
+	logger := testutil.NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -172,7 +173,7 @@ func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 
 func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 	// Create a test logger
-	logger := NewZerologLogger("integration-test")
+	logger := testutil.NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -227,7 +228,7 @@ func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 
 func TestIntegrationTestEnvironment_ComponentIsolation(t *testing.T) {
 	// Create a test logger
-	logger := NewZerologLogger("integration-test")
+	logger := testutil.NewZerologLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()

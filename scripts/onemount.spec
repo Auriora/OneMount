@@ -4,8 +4,8 @@ Release:       1%{?dist}
 Summary:       Linux acces to OneDrive made simple.
 
 License:       GPL-3.0-or-later
-URL:           https://github.com/bcherrington/onemount
-Source0:       https://github.com/bcherrington/onemount/archive/refs/tags/v%{version}.tar.gz
+URL:           https://github.com/auriora/onemount
+Source0:       https://github.com/auriora/onemount/archive/refs/tags/v%{version}.tar.gz
 
 %if 0%{?suse_version}
 BuildRequires: go >= 1.24
@@ -34,10 +34,10 @@ if rpm -q pango | grep -q 1.42; then
   BUILD_TAGS=-tags=pango_1_42,gtk_3_22
 fi
 go build -v -mod=vendor $BUILD_TAGS \
-  -ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(cat .commit)" \
+  -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount
 go build -v -mod=vendor $BUILD_TAGS \
-  -ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(cat .commit)" \
+  -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount-launcher
 gzip configs/resources/onemount.1
 

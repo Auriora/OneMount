@@ -4,6 +4,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,11 +30,11 @@ type SystemConfig struct {
 
 // DefaultSystemConfig returns a default system configuration
 func DefaultSystemConfig() SystemConfig {
-	// Use the global TestSandboxDir as the base directory for system tests
-	systemTestDir := filepath.Join(TestSandboxDir, "system-test")
+	// Use the global testutil.TestSandboxDir as the base directory for system tests
+	systemTestDir := filepath.Join(testutil.TestSandboxDir, "system-test")
 	return SystemConfig{
 		BaseDir:               systemTestDir,
-		TempDir:               TestSandboxTmpDir,
+		TempDir:               testutil.TestSandboxTmpDir,
 		MountPoint:            filepath.Join(systemTestDir, "mount"),
 		ConfigPath:            filepath.Join(systemTestDir, "config.json"),
 		ProductionDataVolumes: false,
@@ -552,7 +553,7 @@ func (e *SystemTestEnvironment) TeardownEnvironment() error {
 	}
 
 	// Clean up resources
-	if err := e.CleanupResources(); err != nil {
+	if err := e.configManager.ResetConfig(); err != nil {
 		e.logger.Error("Failed to clean up resources", "error", err)
 		// Continue with cleanup even if this fails
 	}

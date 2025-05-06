@@ -47,11 +47,11 @@ Before installing OneMount, ensure you have:
 
 #### Fedora/CentOS/RHEL
 
-Users on Fedora/CentOS/RHEL systems are recommended to install OneMount from [COPR](https://copr.fedorainfracloud.org/coprs/bcherrington/OneMount/).
+Users on Fedora/CentOS/RHEL systems are recommended to install OneMount from [COPR](https://copr.fedorainfracloud.org/coprs/auriora/OneMount/).
 
 1. Enable the COPR repository:
    ```bash
-   sudo dnf copr enable bcherrington/onemount
+   sudo dnf copr enable auriora/onemount
    ```
 
 2. Install OneMount:
@@ -65,7 +65,7 @@ If you previously installed onemount via PPA, you can purge the old PPA from you
 
 TODO invalid 
 ```bash
-sudo add-apt-repository --remove ppa:bcherrington/onemount
+sudo add-apt-repository --remove ppa:auriora/onemount
 ```
 
 ### Building from Source
@@ -94,7 +94,7 @@ sudo pacman -S go gcc pkg-config webkit2gtk json-glib
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/bcherrington/OneMount
+   git clone https://github.com/auriora/OneMount
    cd onemount
    ```
 
@@ -200,7 +200,7 @@ For more detailed troubleshooting:
    ONEMOUNT_DEBUG=1 onemount /path/to/mount
    ```
 
-3. If you encounter a bug, please report it on the [GitHub Issues page](https://github.com/bcherrington/OneMount/issues) with:
+3. If you encounter a bug, please report it on the [GitHub Issues page](https://github.com/auriora/OneMount/issues) with:
    - Log output
    - Steps to reproduce the issue
    - Your Linux distribution and version
@@ -245,4 +245,4 @@ After successfully installing onemount, you can:
 2. Explore the advanced features of OneMount
 3. Configure automatic mounting on system startup
 
-For more information, refer to the [onemount GitHub repository](https://github.com/bcherrington/OneMount).
+For more information, refer to the [onemount GitHub repository](https://github.com/auriora/OneMount).

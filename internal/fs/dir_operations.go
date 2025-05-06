@@ -6,7 +6,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )

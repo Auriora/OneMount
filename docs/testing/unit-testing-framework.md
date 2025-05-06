@@ -196,7 +196,7 @@ import (
     "errors"
     "testing"
 
-    "github.com/bcherrington/onemount/internal/testutil"
+    "github.com/auriora/onemount/internal/testutil"
 )
 
 func TestMyFunction(t *testing.T) {

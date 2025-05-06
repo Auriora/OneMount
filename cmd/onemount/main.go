@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bcherrington/onemount/cmd/common"
-	"github.com/bcherrington/onemount/internal/fs"
-	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/cmd/common"
+	"github.com/auriora/onemount/internal/fs"
+	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"

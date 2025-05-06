@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/fs/graph"
 )
 
 // MockCall represents a record of a method call on a mock

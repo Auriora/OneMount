@@ -3,6 +3,7 @@ package framework
 
 import (
 	"context"
+	"github.com/auriora/onemount/internal/testutil/mock"
 	"testing"
 	"time"
 )
@@ -19,8 +20,8 @@ func TestLoadTestScenarios(t *testing.T) {
 	}, nil) // Using nil logger for simplicity
 
 	// Add a mock graph provider
-	mockGraph := NewMockGraphProvider()
-	RegisterMockProvider("graph", mockGraph)
+	mockGraph := mock.NewMockGraphProvider()
+	framework.RegisterMockProvider("graph", mockGraph)
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

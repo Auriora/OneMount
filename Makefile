@@ -26,21 +26,21 @@ onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount \
-		-ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
+		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
 
 
 onemount-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onemount/main.go
 	CGO_ENABLED=0 go build -v \
 		-o $(OUTPUT_DIR)/onemount/onemount-headless \
-		-ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
+		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
 
 
 onemount-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onemount-launcher/main.go
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount-launcher \
-		-ldflags="-X github.com/bcherrington/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
+		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount-launcher
 
 

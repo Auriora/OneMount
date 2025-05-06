@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"errors"
+	"github.com/auriora/onemount/internal/testutil"
 	"testing"
 	"time"
 )
@@ -92,7 +93,7 @@ func (p *mockMockProvider) Reset() error {
 }
 
 func TestNewTestFramework(t *testing.T) {
-	expectedArtifactsDir := GetDefaultArtifactsDir()
+	expectedArtifactsDir := testutil.GetDefaultArtifactsDir()
 	config := TestConfig{
 		Environment:    "test",
 		Timeout:        30,

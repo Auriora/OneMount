@@ -67,15 +67,15 @@ If OneMount is running slowly:
 
 Get help from the community and project maintainers:
 
-- **GitHub Issues**: Browse [existing issues](https://github.com/bcherrington/OneMount/issues) to see if your problem has already been reported or discussed.
+- **GitHub Issues**: Browse [existing issues](https://github.com/auriora/OneMount/issues) to see if your problem has already been reported or discussed.
 - **GitHub Discussions**: For general questions and discussions about OneMount.
 
 ## Reporting Bugs
 
 If you've found a bug in OneMount:
 
-1. Check if the bug has already been reported in the [GitHub Issues](https://github.com/bcherrington/OneMount/issues).
-2. If not, [create a new issue](https://github.com/bcherrington/OneMount/issues/new) with:
+1. Check if the bug has already been reported in the [GitHub Issues](https://github.com/auriora/OneMount/issues).
+2. If not, [create a new issue](https://github.com/auriora/OneMount/issues/new) with:
    - A clear and descriptive title
    - Steps to reproduce the issue
    - Expected behavior
@@ -87,8 +87,8 @@ If you've found a bug in OneMount:
 
 We welcome suggestions for new features:
 
-1. Check if the feature has already been requested in the [GitHub Issues](https://github.com/bcherrington/OneMount/issues).
-2. If not, [create a new issue](https://github.com/bcherrington/OneMount/issues/new) with:
+1. Check if the feature has already been requested in the [GitHub Issues](https://github.com/auriora/OneMount/issues).
+2. If not, [create a new issue](https://github.com/auriora/OneMount/issues/new) with:
    - A clear and descriptive title
    - A detailed description of the proposed feature
    - Any relevant use cases

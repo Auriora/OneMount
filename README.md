@@ -1,4 +1,4 @@
-[![Run tests](https://github.com/bcherrington/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/bcherrington/OneMount/actions?query=workflow%3A%22Run+tests%22)
+[![Run tests](https://github.com/auriora/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/auriora/OneMount/actions?query=workflow%3A%22Run+tests%22)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/auriora/OneMount)](https://go.dev/)
 ![Status: Alpha](https://img.shields.io/badge/Status-Alpha-yellow.svg)
@@ -254,8 +254,8 @@ For more information about OneMount:
 * [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
 * [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
-* [GitHub Issues](https://github.com/bcherrington/OneMount/issues) - Report bugs or request features
-* [GitHub Releases](https://github.com/bcherrington/OneMount/releases) - Download the latest releases
+* [GitHub Issues](https://github.com/auriora/OneMount/issues) - Report bugs or request features
+* [GitHub Releases](https://github.com/auriora/OneMount/releases) - Download the latest releases
 
 ### Known limitations
 
@@ -274,7 +274,7 @@ For more information about OneMount:
 If you encounter issues with OneMount:
 
 1. Check the [Troubleshooting section in the installation guide](docs/installation-guide.md#troubleshooting)
-2. Search existing [GitHub Issues](https://github.com/bcherrington/OneMount/issues) to see if your problem has been reported
+2. Search existing [GitHub Issues](https://github.com/auriora/OneMount/issues) to see if your problem has been reported
 3. Open a new issue with:
    - Log output (`journalctl --user -u $SERVICE_NAME --since today`)
    - Steps to reproduce the issue
@@ -282,6 +282,6 @@ If you encounter issues with OneMount:
 
 ## Terms of use
 
-OneMount is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/bcherrington/OneMount/blob/master/LICENSE).
+OneMount is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/auriora/OneMount/blob/master/LICENSE).
 
 This project is provided AS IS with no warranties or guarantees. It is in active development.

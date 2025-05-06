@@ -2,14 +2,14 @@ package fs
 
 import (
 	"fmt"
-	"github.com/bcherrington/onemount/internal/testutil/framework"
-	"github.com/bcherrington/onemount/internal/testutil/helpers"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
-	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/testutil"
 )
 
 // TestUT_FS_01_SyncDirectoryTree_DirectoryTree_SuccessfulSynchronization verifies that the filesystem can successfully synchronize

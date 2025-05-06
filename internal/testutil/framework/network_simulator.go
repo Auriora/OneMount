@@ -3,6 +3,7 @@ package framework
 
 import (
 	"errors"
+	"github.com/auriora/onemount/internal/testutil/mock"
 	"sync"
 	"time"
 )
@@ -173,7 +174,7 @@ func (s *DefaultNetworkSimulator) SetConditions(latency time.Duration, packetLos
 
 	// Update all registered providers
 	for _, provider := range s.providers {
-		if graphProvider, ok := provider.(*MockGraphProvider); ok {
+		if graphProvider, ok := provider.(*mock.MockGraphProvider); ok {
 			graphProvider.SetNetworkConditions(latency, packetLoss, bandwidth)
 		}
 	}
@@ -211,7 +212,7 @@ func (s *DefaultNetworkSimulator) Disconnect() error {
 
 	// Update all registered providers
 	for _, provider := range s.providers {
-		if graphProvider, ok := provider.(*MockGraphProvider); ok {
+		if graphProvider, ok := provider.(*mock.MockGraphProvider); ok {
 			graphProvider.SetNetworkConditions(0, 1.0, 0)
 		}
 	}
@@ -234,7 +235,7 @@ func (s *DefaultNetworkSimulator) Reconnect() error {
 
 	// Update all registered providers
 	for _, provider := range s.providers {
-		if graphProvider, ok := provider.(*MockGraphProvider); ok {
+		if graphProvider, ok := provider.(*mock.MockGraphProvider); ok {
 			graphProvider.SetNetworkConditions(
 				s.currentCondition.Latency,
 				s.currentCondition.PacketLoss,
@@ -313,7 +314,7 @@ func (s *DefaultNetworkSimulator) RegisterProvider(provider MockProvider) {
 	s.providers = append(s.providers, provider)
 
 	// Apply current network conditions to the provider
-	if graphProvider, ok := provider.(*MockGraphProvider); ok {
+	if graphProvider, ok := provider.(*mock.MockGraphProvider); ok {
 		graphProvider.SetNetworkConditions(
 			s.currentCondition.Latency,
 			s.currentCondition.PacketLoss,

@@ -2,6 +2,7 @@
 package framework
 
 import (
+	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +11,7 @@ import (
 func TestCoverageReporter(t *testing.T) {
 	// Create a temporary directory for test output
 
-	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "coverage-test")
+	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "coverage-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

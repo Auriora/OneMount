@@ -28,7 +28,7 @@ This project and everyone participating in it is governed by the [OneMount Code 
 ```bash
 git clone https://github.com/yourusername/OneMount.git
 cd onemount
-git remote add upstream https://github.com/bcherrington/OneMount.git
+git remote add upstream https://github.com/auriora/OneMount.git
 git checkout -b feature/your-feature-name
 ```
 

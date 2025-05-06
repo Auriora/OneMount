@@ -2,13 +2,13 @@ package fs
 
 import (
 	"fmt"
-	"github.com/bcherrington/onemount/internal/testutil/framework"
-	"github.com/bcherrington/onemount/internal/testutil/helpers"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 	"os"
 	"testing"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
-	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/testutil"
 )
 
 // TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times

@@ -3,11 +3,12 @@ package helpers
 
 import (
 	"fmt"
-	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/testutil/framework"
 	"os"
 	"testing"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/fs/graph"
 )
 
 // FSTestFixture represents a filesystem test fixture with common setup for filesystem tests.
@@ -154,8 +155,8 @@ func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileI
 }
 
 // SetupFSTestFixture creates a UnitTestFixture with common filesystem test setup and teardown.
-func SetupFSTestFixture(t *testing.T, fixtureName string, newFilesystem func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error)) *UnitTestFixture {
-	fixture := NewUnitTestFixture(fixtureName)
+func SetupFSTestFixture(t *testing.T, fixtureName string, newFilesystem func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error)) *framework.UnitTestFixture {
+	fixture := framework.NewUnitTestFixture(fixtureName)
 
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {

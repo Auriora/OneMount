@@ -1,12 +1,12 @@
 Source: onemount
 Section: utils
 Priority: optional
-Maintainer: Bruce Cherrington <993834.bcherrington@gmail.com>
+Maintainer: Bruce Cherrington <aurioraproject@gmail.com>
 Build-Depends: golang (>= 1.24), gcc, pkg-config, libwebkit2gtk-4.0-dev, git, debhelper
 Standards-Version: 4.4.1
-Homepage: https://github.com/bcherrington/onemount
-#Vcs-Browser: https://github.com/bcherrington/onemount
-#Vcs-Git: https://github.com/bcherrington/onemount.git
+Homepage: https://github.com/auriora/onemount
+#Vcs-Browser: https://github.com/auriora/onemount
+#Vcs-Git: https://github.com/auriora/onemount.git
 
 Package: onemount
 Architecture: any

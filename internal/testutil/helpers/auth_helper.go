@@ -2,11 +2,11 @@
 package helpers
 
 import (
-	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 	"time"
 )

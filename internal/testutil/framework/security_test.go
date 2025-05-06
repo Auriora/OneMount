@@ -2,7 +2,7 @@
 package framework
 
 import (
-	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/testutil"
 	"testing"
 )
 import (
@@ -13,7 +13,7 @@ import (
 // TestSecurityTestFramework tests the basic functionality of the SecurityTestFramework.
 func TestSecurityTestFramework(t *testing.T) {
 	// Create a logger
-	logger := NewZerologLogger("security-test")
+	logger := testutil.NewZerologLogger("security-test")
 
 	// Create a security test config
 	securityConfig := SecurityTestConfig{

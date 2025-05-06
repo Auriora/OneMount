@@ -31,7 +31,7 @@ This section guides you through installing OneMount on your Linux system.
 
 #### For Fedora/CentOS/RHEL:
 ```bash
-sudo dnf copr enable bcherrington/onemount
+sudo dnf copr enable auriora/onemount
 sudo dnf install onemount
 ```
 
@@ -106,6 +106,6 @@ onemount --stats /path/to/mount/onedrive/at
 Now that you've completed this quickstart, try these to learn more about OneMount:
 
 * Read the [complete installation guide](installation-guide.md) for advanced configuration options
-* Learn about [offline usage](https://github.com/bcherrington/OneMount/wiki/Offline-Usage) for working with files when disconnected
-* Explore [command-line options](https://github.com/bcherrington/OneMount/wiki/Command-Line-Options) for advanced usage
+* Learn about [offline usage](https://github.com/auriora/OneMount/wiki/Offline-Usage) for working with files when disconnected
+* Explore [command-line options](https://github.com/auriora/OneMount/wiki/Command-Line-Options) for advanced usage
 * Set up [automatic mounting](installation-guide.md#configuration) on system startup

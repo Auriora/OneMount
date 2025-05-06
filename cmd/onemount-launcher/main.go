@@ -14,10 +14,10 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/bcherrington/onemount/cmd/common"
-	"github.com/bcherrington/onemount/internal/fs/graph"
-	"github.com/bcherrington/onemount/internal/ui"
-	"github.com/bcherrington/onemount/internal/ui/systemd"
+	"github.com/auriora/onemount/cmd/common"
+	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/ui"
+	"github.com/auriora/onemount/internal/ui/systemd"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -116,7 +116,7 @@ func main() {
 
 	log.Info().Msgf("onemount-launcher %s", common.Version())
 
-	app, err := gtk.ApplicationNew("com.github.bcherrington.onemount", glib.APPLICATION_FLAGS_NONE)
+	app, err := gtk.ApplicationNew("com.github.auriora.onemount", glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Could not create application.")
 	}
@@ -205,9 +205,9 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	about.Connect("clicked", func(button *gtk.ModelButton) {
 		aboutDialog, _ := gtk.AboutDialogNew()
 		aboutDialog.SetProgramName("OneMount Launcher")
-		aboutDialog.SetAuthors([]string{"Bruce Cherrington", "https://github.com/bcherrington"})
-		aboutDialog.SetWebsite("https://github.com/bcherrington/onemount")
-		aboutDialog.SetWebsiteLabel("github.com/bcherrington/onemount")
+		aboutDialog.SetAuthors([]string{"Bruce Cherrington", "https://github.com/auriora"})
+		aboutDialog.SetWebsite("https://github.com/auriora/onemount")
+		aboutDialog.SetWebsiteLabel("github.com/auriora/onemount")
 		aboutDialog.SetVersion(fmt.Sprintf("onemount %s", common.Version()))
 		aboutDialog.SetLicenseType(gtk.LICENSE_GPL_3_0)
 		logo, err := gtk.ImageNewFromFile("/usr/share/icons/onemount/onemount-128.png")

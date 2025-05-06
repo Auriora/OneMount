@@ -143,7 +143,7 @@ type ScenarioRunner struct {
 func NewScenarioRunner(framework *TestFramework) *ScenarioRunner {
 	return &ScenarioRunner{
 		Framework: framework,
-		logger:    logger,
+		logger:    framework.logger,
 	}
 }
 

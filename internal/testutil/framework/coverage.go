@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/auriora/onemount/internal/testutil"
 	"html/template"
 	"io"
 	"os"
@@ -210,7 +211,7 @@ func (cr *CoverageReporterImpl) CollectCoverage() error {
 	// we'll create a simple test file and run coverage on that
 
 	// Create a temporary directory
-	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "coverage-test")
+	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "coverage-test")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %v", err)
 	}

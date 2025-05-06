@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
-	"github.com/bcherrington/onemount/internal/ui"
+	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/ui"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"

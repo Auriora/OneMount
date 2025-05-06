@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bcherrington/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
 

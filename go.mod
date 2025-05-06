@@ -1,4 +1,4 @@
-module github.com/bcherrington/onemount
+module github.com/auriora/onemount
 
 require (
 	github.com/coreos/go-systemd/v22 v22.5.0
