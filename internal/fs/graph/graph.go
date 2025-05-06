@@ -39,23 +39,19 @@ var (
 	operationalOfflineMutex sync.RWMutex
 )
 
-// Graph represents a client for interacting with the Microsoft Graph API.
-type Graph struct {
-	httpClient HTTPClient
+func init() {
+	httpClient = getSharedHTTPClient()
 }
 
-// NewGraph creates a new Graph client using the shared HTTP client.
-func NewGraph() *Graph {
-	return NewGraphWithClient(getSharedHTTPClient())
-}
-
-// NewGraphWithClient creates a new Graph client with a custom HTTP client.
-func NewGraphWithClient(client HTTPClient) *Graph {
-	return &Graph{
-		httpClient: client,
+func SetHTTPClient(client *http.Client) {
+	if client == nil {
+		httpClient = getSharedHTTPClient()
+		return
 	}
+	httpClient = client
 }
 
+// Graph represents a client for interacting with the Microsoft Graph API.
 // getResponseCache returns the shared response cache
 func getResponseCache() *ResponseCache {
 	cacheOnce.Do(func() {
@@ -81,18 +77,12 @@ type Header struct {
 }
 
 // Request performs an authenticated request to Microsoft Graph
-func (g *Graph) Request(resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
-	return g.RequestWithContext(context.Background(), resource, auth, method, content, headers...)
-}
-
-// Request performs an authenticated request to Microsoft Graph
-// This is a backward-compatible function that uses the default Graph client
 func Request(resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().Request(resource, auth, method, content, headers...)
+	return RequestWithContext(context.Background(), resource, auth, method, content, headers...)
 }
 
 // RequestWithContext performs an authenticated request to Microsoft Graph with context
-func (g *Graph) RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
+func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
 	// Check if we're in operational offline mode
 	if GetOperationalOffline() {
 		log.Debug().Str("method", method).Str("resource", resource).Msg("In operational offline mode, returning network error")
@@ -129,7 +119,7 @@ func (g *Graph) RequestWithContext(ctx context.Context, resource string, auth *A
 
 	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting network request with context")
 	log.Debug().Str("method", method).Str("resource", resource).Str("url", GraphURL+resource).Msg("About to execute HTTP request")
-	response, err := g.httpClient.Do(request)
+	response, err := httpClient.Do(request)
 	if err != nil {
 		// Check if the error was due to context cancellation
 		if ctx.Err() != nil {
@@ -187,7 +177,7 @@ func (g *Graph) RequestWithContext(ctx context.Context, resource string, auth *A
 		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Server error or auth issue, retrying request")
 
 		log.Debug().Str("method", method).Str("resource", resource).Msg("Executing retry request")
-		response, err = g.httpClient.Do(request)
+		response, err = httpClient.Do(request)
 		if err != nil {
 			log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Retry request failed")
 			return nil, err
@@ -227,25 +217,13 @@ func (g *Graph) RequestWithContext(ctx context.Context, resource string, auth *A
 	return body, nil
 }
 
-// RequestWithContext performs an authenticated request to Microsoft Graph with context
-// This is a backward-compatible function that uses the default Graph client
-func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().RequestWithContext(ctx, resource, auth, method, content, headers...)
-}
-
 // Get is a convenience wrapper around Request
-func (g *Graph) Get(resource string, auth *Auth, headers ...Header) ([]byte, error) {
-	return g.Request(resource, auth, "GET", nil, headers...)
-}
-
-// Get is a convenience wrapper around Request
-// This is a backward-compatible function that uses the default Graph client
 func Get(resource string, auth *Auth, headers ...Header) ([]byte, error) {
-	return NewGraph().Get(resource, auth, headers...)
+	return Request(resource, auth, "GET", nil, headers...)
 }
 
 // GetWithContext is a convenience wrapper around RequestWithContext with caching
-func (g *Graph) GetWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) ([]byte, error) {
+func GetWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) ([]byte, error) {
 	// Only cache GET requests without custom headers
 	if len(headers) == 0 {
 		cache := getResponseCache()
@@ -257,7 +235,7 @@ func (g *Graph) GetWithContext(ctx context.Context, resource string, auth *Auth,
 		}
 
 		// Not in cache, make the request
-		data, err := g.RequestWithContext(ctx, resource, auth, "GET", nil)
+		data, err := RequestWithContext(ctx, resource, auth, "GET", nil)
 		if err == nil {
 			// Cache the successful response
 			cache.Set(resource, data)
@@ -267,13 +245,7 @@ func (g *Graph) GetWithContext(ctx context.Context, resource string, auth *Auth,
 	}
 
 	// For requests with custom headers, bypass cache
-	return g.RequestWithContext(ctx, resource, auth, "GET", nil, headers...)
-}
-
-// GetWithContext is a convenience wrapper around RequestWithContext with caching
-// This is a backward-compatible function that uses the default Graph client
-func GetWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) ([]byte, error) {
-	return NewGraph().GetWithContext(ctx, resource, auth, headers...)
+	return RequestWithContext(ctx, resource, auth, "GET", nil, headers...)
 }
 
 // invalidateResourceCache invalidates cache entries related to the given resource
@@ -302,26 +274,8 @@ func invalidateResourceCache(resource string) {
 }
 
 // Patch is a convenience wrapper around Request
-func (g *Graph) Patch(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	data, err := g.Request(resource, auth, "PATCH", content, headers...)
-	if err == nil {
-		invalidateResourceCache(resource)
-	}
-	return data, err
-}
-
-// Patch is a convenience wrapper around Request
-// This is a backward-compatible function that uses the default Graph client
 func Patch(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().Patch(resource, auth, content, headers...)
-}
-
-// PatchWithContext is a convenience wrapper around RequestWithContext
-// This function is intentionally kept for API completeness and potential future use.
-// It is currently unused but maintained for API consistency.
-// nolint:unused,deadcode
-func (g *Graph) PatchWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	data, err := g.RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
+	data, err := Request(resource, auth, "PATCH", content, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
@@ -331,15 +285,9 @@ func (g *Graph) PatchWithContext(ctx context.Context, resource string, auth *Aut
 // PatchWithContext is a convenience wrapper around RequestWithContext
 // This function is intentionally kept for API completeness and potential future use.
 // It is currently unused but maintained for API consistency.
-// This is a backward-compatible function that uses the default Graph client
 // nolint:unused,deadcode
 func PatchWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().PatchWithContext(ctx, resource, auth, content, headers...)
-}
-
-// Post is a convenience wrapper around Request
-func (g *Graph) Post(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	data, err := g.Request(resource, auth, "POST", content, headers...)
+	data, err := RequestWithContext(ctx, resource, auth, "PATCH", content, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
@@ -347,17 +295,8 @@ func (g *Graph) Post(resource string, auth *Auth, content io.Reader, headers ...
 }
 
 // Post is a convenience wrapper around Request
-// This is a backward-compatible function that uses the default Graph client
 func Post(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().Post(resource, auth, content, headers...)
-}
-
-// PostWithContext is a convenience wrapper around RequestWithContext
-// This function is intentionally kept for API completeness and potential future use.
-// It is currently unused but maintained for API consistency.
-// nolint:unused,deadcode
-func (g *Graph) PostWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	data, err := g.RequestWithContext(ctx, resource, auth, "POST", content, headers...)
+	data, err := Request(resource, auth, "POST", content, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
@@ -367,15 +306,9 @@ func (g *Graph) PostWithContext(ctx context.Context, resource string, auth *Auth
 // PostWithContext is a convenience wrapper around RequestWithContext
 // This function is intentionally kept for API completeness and potential future use.
 // It is currently unused but maintained for API consistency.
-// This is a backward-compatible function that uses the default Graph client
 // nolint:unused,deadcode
 func PostWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().PostWithContext(ctx, resource, auth, content, headers...)
-}
-
-// Put is a convenience wrapper around Request
-func (g *Graph) Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	data, err := g.Request(resource, auth, "PUT", content, headers...)
+	data, err := RequestWithContext(ctx, resource, auth, "POST", content, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
@@ -383,17 +316,8 @@ func (g *Graph) Put(resource string, auth *Auth, content io.Reader, headers ...H
 }
 
 // Put is a convenience wrapper around Request
-// This is a backward-compatible function that uses the default Graph client
 func Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().Put(resource, auth, content, headers...)
-}
-
-// PutWithContext is a convenience wrapper around RequestWithContext
-// This function is intentionally kept for API completeness and potential future use.
-// It is currently unused but maintained for API consistency.
-// nolint:unused,deadcode
-func (g *Graph) PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	data, err := g.RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
+	data, err := Request(resource, auth, "PUT", content, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
@@ -403,33 +327,18 @@ func (g *Graph) PutWithContext(ctx context.Context, resource string, auth *Auth,
 // PutWithContext is a convenience wrapper around RequestWithContext
 // This function is intentionally kept for API completeness and potential future use.
 // It is currently unused but maintained for API consistency.
-// This is a backward-compatible function that uses the default Graph client
 // nolint:unused,deadcode
 func PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
-	return NewGraph().PutWithContext(ctx, resource, auth, content, headers...)
-}
-
-// Delete performs an HTTP delete
-func (g *Graph) Delete(resource string, auth *Auth, headers ...Header) error {
-	_, err := g.Request(resource, auth, "DELETE", nil, headers...)
+	data, err := RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
-	return err
+	return data, err
 }
 
 // Delete performs an HTTP delete
-// This is a backward-compatible function that uses the default Graph client
 func Delete(resource string, auth *Auth, headers ...Header) error {
-	return NewGraph().Delete(resource, auth, headers...)
-}
-
-// DeleteWithContext performs an HTTP delete with context
-// This function is intentionally kept for API completeness and potential future use.
-// It is currently unused but maintained for API consistency.
-// nolint:unused,deadcode
-func (g *Graph) DeleteWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) error {
-	_, err := g.RequestWithContext(ctx, resource, auth, "DELETE", nil, headers...)
+	_, err := Request(resource, auth, "DELETE", nil, headers...)
 	if err == nil {
 		invalidateResourceCache(resource)
 	}
@@ -439,10 +348,13 @@ func (g *Graph) DeleteWithContext(ctx context.Context, resource string, auth *Au
 // DeleteWithContext performs an HTTP delete with context
 // This function is intentionally kept for API completeness and potential future use.
 // It is currently unused but maintained for API consistency.
-// This is a backward-compatible function that uses the default Graph client
 // nolint:unused,deadcode
 func DeleteWithContext(ctx context.Context, resource string, auth *Auth, headers ...Header) error {
-	return NewGraph().DeleteWithContext(ctx, resource, auth, headers...)
+	_, err := RequestWithContext(ctx, resource, auth, "DELETE", nil, headers...)
+	if err == nil {
+		invalidateResourceCache(resource)
+	}
+	return err
 }
 
 // IDPath computes the resource path for an item by ID
@@ -482,30 +394,18 @@ type User struct {
 }
 
 // GetUser fetches the current user details from the Graph API.
-func (g *Graph) GetUser(auth *Auth) (User, error) {
-	return g.GetUserWithContext(context.Background(), auth)
-}
-
-// GetUser fetches the current user details from the Graph API.
-// This is a backward-compatible function that uses the default Graph client
 func GetUser(auth *Auth) (User, error) {
-	return NewGraph().GetUser(auth)
+	return GetUserWithContext(context.Background(), auth)
 }
 
 // GetUserWithContext fetches the current user details from the Graph API with context.
-func (g *Graph) GetUserWithContext(ctx context.Context, auth *Auth) (User, error) {
-	resp, err := g.GetWithContext(ctx, "/me", auth)
+func GetUserWithContext(ctx context.Context, auth *Auth) (User, error) {
+	resp, err := GetWithContext(ctx, "/me", auth)
 	user := User{}
 	if err == nil {
 		err = json.Unmarshal(resp, &user)
 	}
 	return user, err
-}
-
-// GetUserWithContext fetches the current user details from the Graph API with context.
-// This is a backward-compatible function that uses the default Graph client
-func GetUserWithContext(ctx context.Context, auth *Auth) (User, error) {
-	return NewGraph().GetUserWithContext(ctx, auth)
 }
 
 // DriveQuota is used to parse the User's current storage quotas from the API
@@ -528,19 +428,13 @@ type Drive struct {
 }
 
 // GetDrive is used to fetch the details of the user's OneDrive.
-func (g *Graph) GetDrive(auth *Auth) (Drive, error) {
-	resp, err := g.Get("/me/drive", auth)
+func GetDrive(auth *Auth) (Drive, error) {
+	resp, err := Get("/me/drive", auth)
 	drive := Drive{}
 	if err != nil {
 		return drive, err
 	}
 	return drive, json.Unmarshal(resp, &drive)
-}
-
-// GetDrive is used to fetch the details of the user's OneDrive.
-// This is a backward-compatible function that uses the default Graph client
-func GetDrive(auth *Auth) (Drive, error) {
-	return NewGraph().GetDrive(auth)
 }
 
 // SetOperationalOffline sets the operational offline state

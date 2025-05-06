@@ -253,7 +253,7 @@ func NewMockGraphClient() *MockGraphClient {
 	}
 
 	// Set this mock's HTTP client as the test HTTP client
-	SetTestHTTPClient(mock.httpClient)
+	SetHTTPClient(mock.httpClient)
 
 	return mock
 }
@@ -285,7 +285,7 @@ func (m *MockGraphClient) GetRecorder() MockRecorder {
 // This ensures that tests don't interfere with each other
 func (m *MockGraphClient) Cleanup() {
 	// Reset the test HTTP client
-	SetTestHTTPClient(nil)
+	SetHTTPClient(nil)
 }
 
 // simulateNetworkConditions applies the configured network conditions to a request.
