@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Unit Test File System" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Unit Test - File System" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="OneMount" />
     <working_directory value="$PROJECT_DIR$/internal/fs" />
     <root_directory value="$PROJECT_DIR$" />

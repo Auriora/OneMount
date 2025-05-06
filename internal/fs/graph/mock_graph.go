@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // MockCall represents a record of a method call on a mock
@@ -186,6 +188,14 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		resource += "?" + req.URL.RawQuery
 	}
 
+	// Log the request details for debugging
+	log.Debug().
+		Str("method", req.Method).
+		Str("url", req.URL.String()).
+		Str("resource", resource).
+		Str("client", "MockGraphClient").
+		Msg("Mock client intercepted HTTP request")
+
 	// Simulate network conditions
 	if err := m.simulateNetworkConditions(); err != nil {
 		return nil, err
@@ -253,6 +263,7 @@ func NewMockGraphClient() *MockGraphClient {
 	}
 
 	// Set this mock's HTTP client as the test HTTP client
+	log.Debug().Msg("Setting up MockGraphClient as the test HTTP client")
 	SetHTTPClient(mock.httpClient)
 
 	return mock
@@ -284,6 +295,7 @@ func (m *MockGraphClient) GetRecorder() MockRecorder {
 // Cleanup resets the test HTTP client when the mock is no longer needed
 // This ensures that tests don't interfere with each other
 func (m *MockGraphClient) Cleanup() {
+	log.Debug().Msg("Cleaning up MockGraphClient, resetting HTTP client to default")
 	// Reset the test HTTP client
 	SetHTTPClient(nil)
 }

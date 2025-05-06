@@ -51,6 +51,10 @@ func SetHTTPClient(client *http.Client) {
 	httpClient = client
 }
 
+func getHTTPClient() HTTPClient {
+	return httpClient
+}
+
 // Graph represents a client for interacting with the Microsoft Graph API.
 // getResponseCache returns the shared response cache
 func getResponseCache() *ResponseCache {
