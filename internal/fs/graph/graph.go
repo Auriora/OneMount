@@ -35,7 +35,7 @@ var (
 	cacheOnce        sync.Once
 
 	// operationalOffline is a flag that can be set to force offline mode
-	operationalOffline      bool
+	operationalOffline      = false
 	operationalOfflineMutex sync.RWMutex
 )
 
