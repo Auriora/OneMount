@@ -1,5 +1,5 @@
 // integration_test_env_test.go contains tests for the IntegrationTestEnvironment
-package testutil
+package framework
 
 import (
 	"context"

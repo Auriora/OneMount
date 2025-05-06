@@ -1,10 +1,12 @@
 // integration_test_env.go implements the IntegrationTestEnvironment for testing
-package testutil
+package framework
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bcherrington/onemount/internal/testutil"
+	"github.com/bcherrington/onemount/internal/testutil/mock"
 	"os"
 	"path/filepath"
 	"sync"
@@ -157,7 +159,7 @@ func NewIntegrationTestEnvironment(ctx context.Context, logger Logger) *Integrat
 	return &IntegrationTestEnvironment{
 		components:       make(map[string]interface{}),
 		networkSimulator: NewNetworkSimulator(),
-		testData:         NewTestDataManager(filepath.Join(TestSandboxTmpDir, "onemount-test-data")),
+		testData:         NewTestDataManager(filepath.Join(testutil.TestSandboxTmpDir, "onemount-test-data")),
 		scenarios:        make([]TestScenario, 0),
 		isolation: IsolationConfig{
 			MockedServices: make([]string, 0),
@@ -235,11 +237,11 @@ func (e *IntegrationTestEnvironment) setupComponents() error {
 		var provider MockProvider
 		switch service {
 		case "graph":
-			provider = NewMockGraphProvider()
+			provider = mock.NewMockGraphProvider()
 		case "filesystem":
-			provider = NewMockFileSystemProvider()
+			provider = mock.NewMockFileSystemProvider()
 		case "ui":
-			provider = NewMockUIProvider()
+			provider = mock.NewMockUIProvider()
 		default:
 			return fmt.Errorf("unknown service: %s", service)
 		}

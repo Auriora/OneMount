@@ -1,4 +1,4 @@
-package testutil
+package framework
 
 import (
 	"context"
@@ -107,35 +107,35 @@ func TestNewTestFramework(t *testing.T) {
 		t.Fatal("Expected non-nil TestFramework")
 	}
 
-	if framework.Config.Environment != "test" {
-		t.Errorf("Expected Environment to be 'test', got '%s'", framework.Config.Environment)
+	if Config.Environment != "test" {
+		t.Errorf("Expected Environment to be 'test', got '%s'", Config.Environment)
 	}
 
-	if framework.Config.Timeout != 30 {
-		t.Errorf("Expected Timeout to be 30, got %d", framework.Config.Timeout)
+	if Config.Timeout != 30 {
+		t.Errorf("Expected Timeout to be 30, got %d", Config.Timeout)
 	}
 
-	if !framework.Config.VerboseLogging {
+	if !Config.VerboseLogging {
 		t.Error("Expected VerboseLogging to be true")
 	}
 
-	if framework.Config.ArtifactsDir != expectedArtifactsDir {
-		t.Errorf("Expected ArtifactsDir to be '%s', got '%s'", expectedArtifactsDir, framework.Config.ArtifactsDir)
+	if Config.ArtifactsDir != expectedArtifactsDir {
+		t.Errorf("Expected ArtifactsDir to be '%s', got '%s'", expectedArtifactsDir, Config.ArtifactsDir)
 	}
 
-	if framework.resources == nil {
+	if resources == nil {
 		t.Error("Expected resources to be initialized")
 	}
 
-	if framework.mockProviders == nil {
+	if mockProviders == nil {
 		t.Error("Expected mockProviders to be initialized")
 	}
 
-	if framework.ctx == nil {
+	if ctx == nil {
 		t.Error("Expected ctx to be initialized")
 	}
 
-	if framework.logger != logger {
+	if logger != logger {
 		t.Error("Expected logger to be set correctly")
 	}
 }
@@ -144,13 +144,13 @@ func TestAddResource(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	resource := newMockResource(nil)
 
-	framework.AddResource(resource)
+	AddResource(resource)
 
-	if len(framework.resources) != 1 {
-		t.Errorf("Expected resources length to be 1, got %d", len(framework.resources))
+	if len(resources) != 1 {
+		t.Errorf("Expected resources length to be 1, got %d", len(resources))
 	}
 
-	if framework.resources[0] != resource {
+	if resources[0] != resource {
 		t.Error("Expected resource to be added to resources")
 	}
 }
@@ -161,11 +161,11 @@ func TestCleanupResources(t *testing.T) {
 	resource2 := newMockResource(errors.New("cleanup error"))
 	resource3 := newMockResource(nil)
 
-	framework.AddResource(resource1)
-	framework.AddResource(resource2)
-	framework.AddResource(resource3)
+	AddResource(resource1)
+	AddResource(resource2)
+	AddResource(resource3)
 
-	err := framework.CleanupResources()
+	err := CleanupResources()
 
 	if err == nil {
 		t.Error("Expected error from CleanupResources")
@@ -183,8 +183,8 @@ func TestCleanupResources(t *testing.T) {
 		t.Error("Expected resource3.Cleanup to be called")
 	}
 
-	if len(framework.resources) != 0 {
-		t.Errorf("Expected resources to be cleared, got length %d", len(framework.resources))
+	if len(resources) != 0 {
+		t.Errorf("Expected resources to be cleared, got length %d", len(resources))
 	}
 }
 
@@ -192,9 +192,9 @@ func TestRegisterAndGetMockProvider(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	provider := newMockMockProvider()
 
-	framework.RegisterMockProvider("test-provider", provider)
+	RegisterMockProvider("test-provider", provider)
 
-	retrievedProvider, exists := framework.GetMockProvider("test-provider")
+	retrievedProvider, exists := GetMockProvider("test-provider")
 	if !exists {
 		t.Error("Expected provider to exist")
 	}
@@ -203,7 +203,7 @@ func TestRegisterAndGetMockProvider(t *testing.T) {
 		t.Error("Expected retrieved provider to be the same as registered provider")
 	}
 
-	_, exists = framework.GetMockProvider("non-existent-provider")
+	_, exists = GetMockProvider("non-existent-provider")
 	if exists {
 		t.Error("Expected non-existent provider to not exist")
 	}
@@ -214,7 +214,7 @@ func TestRunTest(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, logger)
 
 	// Test successful test
-	result := framework.RunTest("successful-test", func(ctx context.Context) error {
+	result := RunTest("successful-test", func(ctx context.Context) error {
 		return nil
 	})
 
@@ -231,7 +231,7 @@ func TestRunTest(t *testing.T) {
 	}
 
 	// Test failed test
-	result = framework.RunTest("failed-test", func(ctx context.Context) error {
+	result = RunTest("failed-test", func(ctx context.Context) error {
 		return errors.New("test error")
 	})
 
@@ -249,7 +249,7 @@ func TestRunTest(t *testing.T) {
 
 	// Test timeout
 	framework = NewTestFramework(TestConfig{Timeout: 1}, logger)
-	result = framework.RunTest("timeout-test", func(ctx context.Context) error {
+	result = RunTest("timeout-test", func(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -287,7 +287,7 @@ func TestRunTestSuite(t *testing.T) {
 		},
 	}
 
-	results := framework.RunTestSuite("test-suite", tests)
+	results := RunTestSuite("test-suite", tests)
 
 	if len(results) != 3 {
 		t.Errorf("Expected 3 results, got %d", len(results))
@@ -314,7 +314,7 @@ func TestRunTestSuite(t *testing.T) {
 
 func TestWithTimeout(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
-	ctx := framework.WithTimeout(100 * time.Millisecond)
+	ctx := WithTimeout(100 * time.Millisecond)
 
 	select {
 	case <-ctx.Done():
@@ -326,7 +326,7 @@ func TestWithTimeout(t *testing.T) {
 
 func TestWithCancel(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
-	ctx, cancel := framework.WithCancel()
+	ctx, cancel := WithCancel()
 
 	cancel()
 
@@ -342,14 +342,14 @@ func TestSetContext(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	customCtx := context.WithValue(context.Background(), "key", "value")
 
-	framework.SetContext(customCtx)
+	SetContext(customCtx)
 
-	if framework.ctx != customCtx {
+	if ctx != customCtx {
 		t.Error("Expected context to be set correctly")
 	}
 
 	// Test that the context is used in RunTest
-	result := framework.RunTest("context-test", func(ctx context.Context) error {
+	result := RunTest("context-test", func(ctx context.Context) error {
 		val := ctx.Value("key")
 		if val != "value" {
 			return errors.New("context value not set correctly")

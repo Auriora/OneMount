@@ -2,6 +2,8 @@ package fs
 
 import (
 	"fmt"
+	"github.com/bcherrington/onemount/internal/testutil/framework"
+	"github.com/bcherrington/onemount/internal/testutil/helpers"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +30,7 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 	t.Parallel()
 
 	// Create a test fixture using the common setup
-	fixture := testutil.SetupFSTestFixture(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	fixture := helpers.SetupFSTestFixture(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -40,7 +42,7 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 	// Set up the fixture with additional test-specific setup
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Get the base fixture setup
-		fsFixture, err := testutil.SetupFSTest(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		fsFixture, err := helpers.SetupFSTest(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			// Create the filesystem
 			fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 			if err != nil {
@@ -79,14 +81,14 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
-		assert := testutil.NewAssert(t)
+		assert := framework.NewAssert(t)
 
 		// Get the test data
-		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}
-		fsFixture := unitTestFixture.SetupData.(*testutil.FSTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		tempDir := fsFixture.TempDir
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
@@ -184,7 +186,7 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 	t.Parallel()
 
 	// Create a test fixture
-	fixture := testutil.NewUnitTestFixture("BasicFileSystemOperationsFixture")
+	fixture := framework.NewUnitTestFixture("BasicFileSystemOperationsFixture")
 
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
@@ -228,7 +230,7 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", []byte(fileContent), 200, nil)
 
 		// Get auth tokens, either from existing file or create mock
-		auth := testutil.GetTestAuth()
+		auth := helpers.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
@@ -269,10 +271,10 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
-		assert := testutil.NewAssert(t)
+		assert := framework.NewAssert(t)
 
 		// Get the test data
-		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}
@@ -339,7 +341,7 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 //	Notes: Tests the ability to retrieve the root item from the database in offline mode.
 func TestUT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
 	// Create a test fixture
-	fixture := testutil.NewUnitTestFixture("RootRetrievalFixture")
+	fixture := framework.NewUnitTestFixture("RootRetrievalFixture")
 
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
@@ -366,7 +368,7 @@ func TestUT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
 		mockClient.AddMockItem("/me/drive/root", rootItem)
 
 		// Get auth tokens, either from existing file or create mock
-		auth := testutil.GetTestAuth()
+		auth := helpers.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
@@ -405,7 +407,7 @@ func TestUT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Get the test data
-		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}

@@ -1,5 +1,5 @@
 // network_simulator.go implements the NetworkSimulator interface for simulating network conditions
-package testutil
+package framework
 
 import (
 	"errors"

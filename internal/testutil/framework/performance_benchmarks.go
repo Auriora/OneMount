@@ -1,9 +1,10 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
 	"fmt"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"io"
 	"math/rand"
 	"os"
@@ -20,13 +21,13 @@ func FileDownloadBenchmark(b *testing.B, framework *TestFramework, fileSize int6
 		"FileDownloadBenchmark",
 		fmt.Sprintf("Benchmark for downloading files of size %d bytes", fileSize),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -77,13 +78,13 @@ func FileUploadBenchmark(b *testing.B, framework *TestFramework, fileSize int64,
 		"FileUploadBenchmark",
 		fmt.Sprintf("Benchmark for uploading files of size %d bytes", fileSize),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -133,13 +134,13 @@ func MetadataOperationsBenchmark(b *testing.B, framework *TestFramework, numItem
 		"MetadataOperationsBenchmark",
 		fmt.Sprintf("Benchmark for metadata operations with %d items", numItems),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -189,13 +190,13 @@ func ConcurrentOperationsBenchmark(b *testing.B, framework *TestFramework, concu
 		"ConcurrentOperationsBenchmark",
 		fmt.Sprintf("Benchmark for concurrent operations with %d concurrent operations", concurrency),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -245,13 +246,13 @@ func LoadTestFileDownload(ctx context.Context, framework *TestFramework, fileSiz
 		"LoadTestFileDownload",
 		fmt.Sprintf("Load test for downloading files of size %d bytes with %d concurrent operations", fileSize, concurrency),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -301,13 +302,13 @@ func LoadTestFileUpload(ctx context.Context, framework *TestFramework, fileSize 
 		"LoadTestFileUpload",
 		fmt.Sprintf("Load test for uploading files of size %d bytes with %d concurrent operations", fileSize, concurrency),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -357,13 +358,13 @@ func LoadTestMetadataOperations(ctx context.Context, framework *TestFramework, n
 		"LoadTestMetadataOperations",
 		fmt.Sprintf("Load test for metadata operations with %d items and %d concurrent operations", numItems, concurrency),
 		thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}
@@ -469,7 +470,7 @@ func simulateMetadataOperations(ctx context.Context, numItems int) error {
 
 	// Create a temporary directory
 	fmt.Printf("Creating temporary directory\n")
-	tmpDir, err := os.MkdirTemp(TestSandboxTmpDir, "metadata-")
+	tmpDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "metadata-")
 	if err != nil {
 		fmt.Printf("Failed to create temporary directory: %v\n", err)
 		return fmt.Errorf("failed to create temporary directory: %v", err)

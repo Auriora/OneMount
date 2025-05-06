@@ -1,8 +1,9 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package helpers
 
 import (
 	"fmt"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"os"
 	"testing"
 
@@ -33,7 +34,7 @@ func SetupFSTest(t *testing.T, testName string, newFilesystem func(auth *graph.A
 	graph.SetOperationalOffline(false)
 
 	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp(TestSandboxTmpDir, "onemount-test-*")
+	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a temporary directory: %w", err)
 	}

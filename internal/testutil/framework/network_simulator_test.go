@@ -1,5 +1,5 @@
 // network_simulator_test.go contains tests for the NetworkSimulator implementation
-package testutil
+package framework
 
 import (
 	"testing"
@@ -174,27 +174,27 @@ func ExampleNetworkSimulator() {
 
 	// Register a mock provider
 	mockGraph := NewMockGraphProvider()
-	framework.RegisterMockProvider("graph", mockGraph)
+	RegisterMockProvider("graph", mockGraph)
 
 	// Set network conditions
-	framework.SetNetworkConditions(100*time.Millisecond, 0.1, 1000)
+	SetNetworkConditions(100*time.Millisecond, 0.1, 1000)
 
 	// Apply a preset
-	framework.ApplyNetworkPreset(SlowNetwork)
+	ApplyNetworkPreset(SlowNetwork)
 
 	// Disconnect the network
-	framework.DisconnectNetwork()
+	DisconnectNetwork()
 
 	// Check if the network is connected
-	if !framework.IsNetworkConnected() {
+	if !IsNetworkConnected() {
 		// Handle disconnected state
 	}
 
 	// Reconnect the network
-	framework.ReconnectNetwork()
+	ReconnectNetwork()
 
 	// Access the network simulator directly
-	simulator := framework.GetNetworkSimulator()
+	simulator := GetNetworkSimulator()
 	simulator.SetConditions(200*time.Millisecond, 0.2, 2000)
 }
 
@@ -205,22 +205,22 @@ func TestWithNetworkSimulator(t *testing.T) {
 
 	// Register a mock provider
 	mockGraph := NewMockGraphProvider()
-	framework.RegisterMockProvider("graph", mockGraph)
+	RegisterMockProvider("graph", mockGraph)
 
 	// Test with fast network
-	framework.ApplyNetworkPreset(FastNetwork)
+	ApplyNetworkPreset(FastNetwork)
 	// ... perform test with fast network
 
 	// Test with slow network
-	framework.ApplyNetworkPreset(SlowNetwork)
+	ApplyNetworkPreset(SlowNetwork)
 	// ... perform test with slow network
 
 	// Test with network disconnection
-	framework.DisconnectNetwork()
+	DisconnectNetwork()
 	// ... perform test with disconnected network
 
 	// Test with network reconnection
-	framework.ReconnectNetwork()
+	ReconnectNetwork()
 	// ... perform test with reconnected network
 }
 

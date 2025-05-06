@@ -1,5 +1,5 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
@@ -139,11 +139,11 @@ type ScenarioRunner struct {
 	logger Logger
 }
 
-// NewScenarioRunner creates a new ScenarioRunner with the given test framework.
+// NewScenarioRunner creates a new ScenarioRunner with the given test
 func NewScenarioRunner(framework *TestFramework) *ScenarioRunner {
 	return &ScenarioRunner{
 		Framework: framework,
-		logger:    framework.logger,
+		logger:    logger,
 	}
 }
 

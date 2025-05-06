@@ -1,5 +1,5 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
@@ -67,19 +67,19 @@ func TestIntegrationFrameworkCreation(t *testing.T) {
 		t.Fatal("Failed to create integration framework")
 	}
 
-	if framework.Environment == nil {
+	if Environment == nil {
 		t.Fatal("Integration framework has nil environment")
 	}
 
-	if framework.Framework == nil {
+	if Framework == nil {
 		t.Fatal("Integration framework has nil test framework")
 	}
 
-	if framework.interactionConfigs == nil {
+	if interactionConfigs == nil {
 		t.Fatal("Integration framework has nil interaction configs")
 	}
 
-	if framework.contractValidators == nil {
+	if contractValidators == nil {
 		t.Fatal("Integration framework has nil contract validators")
 	}
 }
@@ -243,7 +243,7 @@ func TestCreateNetworkCondition(t *testing.T) {
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a network condition
-	condition := framework.CreateNetworkCondition("slow-network", 100*time.Millisecond, 0.1, 1000)
+	condition := CreateNetworkCondition("slow-network", 100*time.Millisecond, 0.1, 1000)
 
 	// Verify the condition was created correctly
 	if condition.Name != "slow-network" {
@@ -272,7 +272,7 @@ func TestCreateDisconnectedCondition(t *testing.T) {
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a disconnected condition
-	condition := framework.CreateDisconnectedCondition()
+	condition := CreateDisconnectedCondition()
 
 	// Verify the condition was created correctly
 	if condition.Name != "Disconnected" {
@@ -309,7 +309,7 @@ func TestCreateErrorCondition(t *testing.T) {
 	}
 
 	// Create an error condition
-	condition := framework.CreateErrorCondition("test-error", "test-component", setupFunc, cleanupFunc)
+	condition := CreateErrorCondition("test-error", "test-component", setupFunc, cleanupFunc)
 
 	// Verify the condition was created correctly
 	if condition.Name != "test-error" {

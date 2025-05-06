@@ -1,5 +1,5 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
@@ -30,13 +30,13 @@ func RunLoadTestScenario(ctx context.Context, framework *TestFramework, scenario
 		scenario.Name,
 		scenario.Description,
 		scenario.Thresholds,
-		framework.Config.ArtifactsDir,
+		Config.ArtifactsDir,
 	)
 
 	// Set up the benchmark
 	benchmark.SetSetupFunc(func() error {
 		// Get the mock graph provider if needed
-		mockGraph, exists := framework.GetMockProvider("graph")
+		mockGraph, exists := GetMockProvider("graph")
 		if !exists {
 			return fmt.Errorf("mock graph provider not found")
 		}

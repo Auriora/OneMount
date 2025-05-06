@@ -1,5 +1,5 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
@@ -16,7 +16,7 @@ type SecurityTestScenarios struct {
 	logger Logger
 }
 
-// NewSecurityTestScenarios creates a new SecurityTestScenarios with the given security test framework.
+// NewSecurityTestScenarios creates a new SecurityTestScenarios with the given security test
 func NewSecurityTestScenarios(securityFramework *SecurityTestFramework) *SecurityTestScenarios {
 	return &SecurityTestScenarios{
 		SecurityFramework: securityFramework,

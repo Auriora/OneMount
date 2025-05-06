@@ -1,5 +1,5 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func TestLoadTestScenarios(t *testing.T) {
 
 	// Add a mock graph provider
 	mockGraph := NewMockGraphProvider()
-	framework.RegisterMockProvider("graph", mockGraph)
+	RegisterMockProvider("graph", mockGraph)
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

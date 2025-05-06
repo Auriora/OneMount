@@ -2,6 +2,8 @@ package fs
 
 import (
 	"fmt"
+	"github.com/bcherrington/onemount/internal/testutil/framework"
+	"github.com/bcherrington/onemount/internal/testutil/helpers"
 	"os"
 	"testing"
 
@@ -29,7 +31,7 @@ func TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	t.Parallel()
 
 	// Create a test fixture using the common setup
-	fixture := testutil.SetupFSTestFixture(t, "RepeatedUploadsOnlineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	fixture := helpers.SetupFSTestFixture(t, "RepeatedUploadsOnlineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -41,7 +43,7 @@ func TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	// Set up the fixture with additional test-specific setup
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Get the base fixture setup
-		fsFixture, err := testutil.SetupFSTest(t, "RepeatedUploadsOnlineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		fsFixture, err := helpers.SetupFSTest(t, "RepeatedUploadsOnlineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			// Create the filesystem
 			fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 			if err != nil {
@@ -97,14 +99,14 @@ func TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
-		assert := testutil.NewAssert(t)
+		assert := framework.NewAssert(t)
 
 		// Get the test data
-		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}
-		fsFixture := unitTestFixture.SetupData.(*testutil.FSTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
 		fs := fsFixture.FS.(*Filesystem)
@@ -245,7 +247,7 @@ func TestUT_OFFLINE_01_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T
 	t.Parallel()
 
 	// Create a test fixture using the common setup
-	fixture := testutil.SetupFSTestFixture(t, "RepeatedUploadsOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	fixture := helpers.SetupFSTestFixture(t, "RepeatedUploadsOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -257,7 +259,7 @@ func TestUT_OFFLINE_01_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T
 	// Set up the fixture with additional test-specific setup
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
 		// Get the base fixture setup
-		fsFixture, err := testutil.SetupFSTest(t, "RepeatedUploadsOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		fsFixture, err := helpers.SetupFSTest(t, "RepeatedUploadsOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			// Create the filesystem
 			fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 			if err != nil {
@@ -322,14 +324,14 @@ func TestUT_OFFLINE_01_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
-		assert := testutil.NewAssert(t)
+		assert := framework.NewAssert(t)
 
 		// Get the test data
-		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}
-		fsFixture := unitTestFixture.SetupData.(*testutil.FSTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
 		fs := fsFixture.FS.(*Filesystem)
@@ -469,7 +471,7 @@ func TestUT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload(t *testing.
 	t.Parallel()
 
 	// Create a test fixture
-	fixture := testutil.NewUnitTestFixture("UploadDiskSerializationFixture")
+	fixture := framework.NewUnitTestFixture("UploadDiskSerializationFixture")
 
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
@@ -497,7 +499,7 @@ func TestUT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload(t *testing.
 		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
 
 		// Get auth tokens, either from existing file or create mock
-		auth := testutil.GetTestAuth()
+		auth := helpers.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
@@ -551,10 +553,10 @@ func TestUT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload(t *testing.
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
-		assert := testutil.NewAssert(t)
+		assert := framework.NewAssert(t)
 
 		// Get the test data
-		unitTestFixture, ok := fixture.(*testutil.UnitTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}

@@ -1,7 +1,8 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package helpers
 
 import (
+	"github.com/bcherrington/onemount/internal/testutil"
 	"os"
 	"path/filepath"
 
@@ -24,15 +25,15 @@ func GetTestAuth() *graph.Auth {
 	}
 
 	// Check if the auth tokens file exists
-	if _, err := os.Stat(AuthTokensPath); err == nil {
+	if _, err := os.Stat(testutil.AuthTokensPath); err == nil {
 		// File exists, try to load it
-		auth, err := graph.LoadAuthTokens(AuthTokensPath)
+		auth, err := graph.LoadAuthTokens(testutil.AuthTokensPath)
 		if err == nil {
-			log.Debug().Str("path", AuthTokensPath).Msg("Loaded existing auth tokens for test")
+			log.Debug().Str("path", testutil.AuthTokensPath).Msg("Loaded existing auth tokens for test")
 			return auth
 		}
 		// Log the error but continue to create a mock auth object
-		log.Warn().Err(err).Str("path", AuthTokensPath).Msg("Failed to load existing auth tokens for test, creating mock auth")
+		log.Warn().Err(err).Str("path", testutil.AuthTokensPath).Msg("Failed to load existing auth tokens for test, creating mock auth")
 	}
 
 	return createMockAuth()
@@ -46,7 +47,7 @@ func createMockAuth() *graph.Auth {
 		RefreshToken: "mock-refresh-token",
 		ExpiresAt:    time.Now().Add(time.Hour).Unix(),
 		Account:      "mock@example.com",
-		Path:         AuthTokensPath,
+		Path:         testutil.AuthTokensPath,
 	}
 
 	return auth
@@ -55,17 +56,17 @@ func createMockAuth() *graph.Auth {
 // EnsureTestDirectories ensures that all required test directories exist
 func EnsureTestDirectories() error {
 	// Create the test sandbox directory if it doesn't exist
-	if err := os.MkdirAll(TestSandboxDir, 0755); err != nil {
+	if err := os.MkdirAll(testutil.TestSandboxDir, 0755); err != nil {
 		return err
 	}
 
 	// Create the temporary directory if it doesn't exist
-	if err := os.MkdirAll(TestSandboxTmpDir, 0755); err != nil {
+	if err := os.MkdirAll(testutil.TestSandboxTmpDir, 0755); err != nil {
 		return err
 	}
 
 	// Create the logs directory if it doesn't exist
-	logsDir := filepath.Dir(TestLogPath)
+	logsDir := filepath.Dir(testutil.TestLogPath)
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return err
 	}

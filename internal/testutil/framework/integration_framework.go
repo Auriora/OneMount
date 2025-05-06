@@ -1,5 +1,5 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
@@ -434,7 +434,7 @@ func (f *IntegrationFramework) RunIntegrationTest(scenario *TestScenario) error 
 	return f.Environment.RunScenario(scenario.Name)
 }
 
-// TearDown tears down the integration framework.
+// TearDown tears down the integration
 func (f *IntegrationFramework) TearDown() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

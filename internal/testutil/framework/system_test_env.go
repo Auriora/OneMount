@@ -1,5 +1,5 @@
 // system_test_env.go implements the SystemTestEnvironment for system testing
-package testutil
+package framework
 
 import (
 	"context"
@@ -552,7 +552,7 @@ func (e *SystemTestEnvironment) TeardownEnvironment() error {
 	}
 
 	// Clean up resources
-	if err := e.framework.CleanupResources(); err != nil {
+	if err := e.CleanupResources(); err != nil {
 		e.logger.Error("Failed to clean up resources", "error", err)
 		// Continue with cleanup even if this fails
 	}

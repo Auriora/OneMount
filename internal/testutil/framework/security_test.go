@@ -1,7 +1,10 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
-import "testing"
+import (
+	"github.com/bcherrington/onemount/internal/testutil"
+	"testing"
+)
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +19,7 @@ func TestSecurityTestFramework(t *testing.T) {
 	securityConfig := SecurityTestConfig{
 		Timeout:        30,
 		VerboseLogging: true,
-		ArtifactsDir:   GetDefaultArtifactsDir(),
+		ArtifactsDir:   testutil.GetDefaultArtifactsDir(),
 		CustomOptions:  map[string]interface{}{"option1": "value1"},
 	}
 
@@ -44,7 +47,7 @@ func TestSecurityTestScenarios(t *testing.T) {
 	securityConfig := SecurityTestConfig{
 		Timeout:        30,
 		VerboseLogging: true,
-		ArtifactsDir:   GetDefaultArtifactsDir(),
+		ArtifactsDir:   testutil.GetDefaultArtifactsDir(),
 		CustomOptions:  map[string]interface{}{"option1": "value1"},
 	}
 

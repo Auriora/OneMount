@@ -1,8 +1,9 @@
 // Package testutil provides testing utilities for the OneMount project.
-package testutil
+package framework
 
 import (
 	"context"
+	"github.com/bcherrington/onemount/internal/testutil"
 	"time"
 )
 
@@ -144,7 +145,7 @@ type TestFramework struct {
 func NewTestFramework(config TestConfig, logger Logger) *TestFramework {
 	// Set default ArtifactsDir if not provided
 	if config.ArtifactsDir == "" {
-		config.ArtifactsDir = GetDefaultArtifactsDir()
+		config.ArtifactsDir = testutil.GetDefaultArtifactsDir()
 	}
 
 	return &TestFramework{
@@ -194,7 +195,7 @@ func (tf *TestFramework) GetMockProvider(name string) (MockProvider, bool) {
 	return provider, exists
 }
 
-// SetCoverageReporter sets the coverage reporter for the test framework.
+// SetCoverageReporter sets the coverage reporter for the test
 func (tf *TestFramework) SetCoverageReporter(reporter CoverageReporter) {
 	tf.coverageReporter = reporter
 }
@@ -272,7 +273,7 @@ func (tf *TestFramework) WithCancel() (context.Context, context.CancelFunc) {
 	return context.WithCancel(tf.ctx)
 }
 
-// SetContext sets the base context for the test framework.
+// SetContext sets the base context for the test
 func (tf *TestFramework) SetContext(ctx context.Context) {
 	tf.ctx = ctx
 }

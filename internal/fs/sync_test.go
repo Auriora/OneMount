@@ -2,6 +2,8 @@ package fs
 
 import (
 	"fmt"
+	"github.com/bcherrington/onemount/internal/testutil/framework"
+	"github.com/bcherrington/onemount/internal/testutil/helpers"
 	"os"
 	"testing"
 	"time"
@@ -29,7 +31,7 @@ func TestUT_FS_01_SyncDirectoryTree_DirectoryTree_SuccessfulSynchronization(t *t
 	t.Parallel()
 
 	// Create a test fixture
-	fixture := testutil.NewUnitTestFixture("SyncDirectoryTreeFixture")
+	fixture := framework.NewUnitTestFixture("SyncDirectoryTreeFixture")
 
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
@@ -69,7 +71,7 @@ func TestUT_FS_01_SyncDirectoryTree_DirectoryTree_SuccessfulSynchronization(t *t
 		mockClient.AddMockItems("/me/drive/items/"+childID+"/children", []*graph.DriveItem{})
 
 		// Get auth tokens, either from existing file or create mock
-		auth := testutil.GetTestAuth()
+		auth := helpers.GetTestAuth()
 
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, tempDir, 30)
@@ -108,10 +110,10 @@ func TestUT_FS_01_SyncDirectoryTree_DirectoryTree_SuccessfulSynchronization(t *t
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
-		assert := testutil.NewAssert(t)
+		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fixtureObj := fixture.(*testutil.UnitTestFixture)
+		fixtureObj := fixture.(*framework.UnitTestFixture)
 		data := fixtureObj.SetupData.(map[string]interface{})
 		auth := data["auth"].(*graph.Auth)
 		fs := data["fs"].(*Filesystem)
