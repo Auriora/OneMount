@@ -14,7 +14,7 @@ import (
 
 func TestPerformanceBenchmark(t *testing.T) {
 	// Create a temporary directory for test artifacts
-	tempDir, err := os.MkdirTemp(testutil.testutil.TestSandboxTmpDir, "performance-test-")
+	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "performance-test-")
 	if err != nil {
 		t.Fatalf("Failed to create the temporary directory: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestPerformanceBenchmark(t *testing.T) {
 
 func TestLoadTest(t *testing.T) {
 	// Create a temporary directory for test artifacts
-	tempDir, err := os.MkdirTemp(testutil.testutil.TestSandboxTmpDir, "load-test-")
+	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "load-test-")
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestBenchmarkScenarios(t *testing.T) {
 
 	// Register a mock graph provider
 	mockGraph := &mockGraphProvider{}
-	RegisterMockProvider("graph", mockGraph)
+	framework.RegisterMockProvider("graph", mockGraph)
 
 	// Define thresholds
 	thresholds := PerformanceThresholds{

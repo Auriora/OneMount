@@ -2,6 +2,7 @@
 package framework
 
 import (
+	"github.com/auriora/onemount/internal/testutil/mock"
 	"testing"
 	"time"
 
@@ -149,7 +150,7 @@ func TestNetworkSimulator_SimulateNetworkError(t *testing.T) {
 
 func TestNetworkSimulator_RegisterProvider(t *testing.T) {
 	simulator := NewNetworkSimulator()
-	mockProvider := NewMockGraphProvider()
+	mockProvider := mock.NewMockGraphProvider()
 
 	// Register the provider
 	simulator.RegisterProvider(mockProvider)
@@ -173,28 +174,28 @@ func ExampleNetworkSimulator() {
 	framework := NewTestFramework(TestConfig{}, nil)
 
 	// Register a mock provider
-	mockGraph := NewMockGraphProvider()
-	RegisterMockProvider("graph", mockGraph)
+	mockGraph := mock.NewMockGraphProvider()
+	framework.RegisterMockProvider("graph", mockGraph)
 
 	// Set network conditions
-	SetNetworkConditions(100*time.Millisecond, 0.1, 1000)
+	framework.SetNetworkConditions(100*time.Millisecond, 0.1, 1000)
 
 	// Apply a preset
-	ApplyNetworkPreset(SlowNetwork)
+	framework.ApplyNetworkPreset(SlowNetwork)
 
 	// Disconnect the network
-	DisconnectNetwork()
+	framework.DisconnectNetwork()
 
 	// Check if the network is connected
-	if !IsNetworkConnected() {
+	if !framework.IsNetworkConnected() {
 		// Handle disconnected state
 	}
 
 	// Reconnect the network
-	ReconnectNetwork()
+	framework.ReconnectNetwork()
 
 	// Access the network simulator directly
-	simulator := GetNetworkSimulator()
+	simulator := framework.GetNetworkSimulator()
 	simulator.SetConditions(200*time.Millisecond, 0.2, 2000)
 }
 
@@ -204,23 +205,23 @@ func TestWithNetworkSimulator(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, nil)
 
 	// Register a mock provider
-	mockGraph := NewMockGraphProvider()
-	RegisterMockProvider("graph", mockGraph)
+	mockGraph := mock.NewMockGraphProvider()
+	framework.RegisterMockProvider("graph", mockGraph)
 
 	// Test with fast network
-	ApplyNetworkPreset(FastNetwork)
+	framework.ApplyNetworkPreset(FastNetwork)
 	// ... perform test with fast network
 
 	// Test with slow network
-	ApplyNetworkPreset(SlowNetwork)
+	framework.ApplyNetworkPreset(SlowNetwork)
 	// ... perform test with slow network
 
 	// Test with network disconnection
-	DisconnectNetwork()
+	framework.DisconnectNetwork()
 	// ... perform test with disconnected network
 
 	// Test with network reconnection
-	ReconnectNetwork()
+	framework.ReconnectNetwork()
 	// ... perform test with reconnected network
 }
 

@@ -108,31 +108,31 @@ func TestNewTestFramework(t *testing.T) {
 		t.Fatal("Expected non-nil TestFramework")
 	}
 
-	if Config.Environment != "test" {
-		t.Errorf("Expected Environment to be 'test', got '%s'", Config.Environment)
+	if framework.Config.Environment != "test" {
+		t.Errorf("Expected Environment to be 'test', got '%s'", framework.Config.Environment)
 	}
 
-	if Config.Timeout != 30 {
-		t.Errorf("Expected Timeout to be 30, got %d", Config.Timeout)
+	if framework.Config.Timeout != 30 {
+		t.Errorf("Expected Timeout to be 30, got %d", framework.Config.Timeout)
 	}
 
-	if !Config.VerboseLogging {
+	if !framework.Config.VerboseLogging {
 		t.Error("Expected VerboseLogging to be true")
 	}
 
-	if Config.ArtifactsDir != expectedArtifactsDir {
-		t.Errorf("Expected ArtifactsDir to be '%s', got '%s'", expectedArtifactsDir, Config.ArtifactsDir)
+	if framework.Config.ArtifactsDir != expectedArtifactsDir {
+		t.Errorf("Expected ArtifactsDir to be '%s', got '%s'", expectedArtifactsDir, framework.Config.ArtifactsDir)
 	}
 
-	if resources == nil {
+	if framework.resources == nil {
 		t.Error("Expected resources to be initialized")
 	}
 
-	if mockProviders == nil {
+	if framework.mockProviders == nil {
 		t.Error("Expected mockProviders to be initialized")
 	}
 
-	if ctx == nil {
+	if framework.ctx == nil {
 		t.Error("Expected ctx to be initialized")
 	}
 
@@ -145,13 +145,13 @@ func TestAddResource(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	resource := newMockResource(nil)
 
-	AddResource(resource)
+	framework.AddResource(resource)
 
-	if len(resources) != 1 {
-		t.Errorf("Expected resources length to be 1, got %d", len(resources))
+	if len(framework.resources) != 1 {
+		t.Errorf("Expected resources length to be 1, got %d", len(framework.resources))
 	}
 
-	if resources[0] != resource {
+	if framework.resources[0] != resource {
 		t.Error("Expected resource to be added to resources")
 	}
 }
@@ -162,11 +162,11 @@ func TestCleanupResources(t *testing.T) {
 	resource2 := newMockResource(errors.New("cleanup error"))
 	resource3 := newMockResource(nil)
 
-	AddResource(resource1)
-	AddResource(resource2)
-	AddResource(resource3)
+	framework.AddResource(resource1)
+	framework.AddResource(resource2)
+	framework.AddResource(resource3)
 
-	err := CleanupResources()
+	err := framework.CleanupResources()
 
 	if err == nil {
 		t.Error("Expected error from CleanupResources")
@@ -184,7 +184,7 @@ func TestCleanupResources(t *testing.T) {
 		t.Error("Expected resource3.Cleanup to be called")
 	}
 
-	if len(resources) != 0 {
+	if len(framework.resources) != 0 {
 		t.Errorf("Expected resources to be cleared, got length %d", len(resources))
 	}
 }
@@ -193,9 +193,9 @@ func TestRegisterAndGetMockProvider(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	provider := newMockMockProvider()
 
-	RegisterMockProvider("test-provider", provider)
+	framework.RegisterMockProvider("test-provider", provider)
 
-	retrievedProvider, exists := GetMockProvider("test-provider")
+	retrievedProvider, exists := framework.GetMockProvider("test-provider")
 	if !exists {
 		t.Error("Expected provider to exist")
 	}
@@ -204,7 +204,7 @@ func TestRegisterAndGetMockProvider(t *testing.T) {
 		t.Error("Expected retrieved provider to be the same as registered provider")
 	}
 
-	_, exists = GetMockProvider("non-existent-provider")
+	_, exists = framework.GetMockProvider("non-existent-provider")
 	if exists {
 		t.Error("Expected non-existent provider to not exist")
 	}
@@ -215,7 +215,7 @@ func TestRunTest(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, logger)
 
 	// Test successful test
-	result := RunTest("successful-test", func(ctx context.Context) error {
+	result := framework.RunTest("successful-test", func(ctx context.Context) error {
 		return nil
 	})
 
@@ -232,7 +232,7 @@ func TestRunTest(t *testing.T) {
 	}
 
 	// Test failed test
-	result = RunTest("failed-test", func(ctx context.Context) error {
+	result = framework.RunTest("failed-test", func(ctx context.Context) error {
 		return errors.New("test error")
 	})
 
@@ -250,7 +250,7 @@ func TestRunTest(t *testing.T) {
 
 	// Test timeout
 	framework = NewTestFramework(TestConfig{Timeout: 1}, logger)
-	result = RunTest("timeout-test", func(ctx context.Context) error {
+	result = framework.RunTest("timeout-test", func(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -288,7 +288,7 @@ func TestRunTestSuite(t *testing.T) {
 		},
 	}
 
-	results := RunTestSuite("test-suite", tests)
+	results := framework.RunTestSuite("test-suite", tests)
 
 	if len(results) != 3 {
 		t.Errorf("Expected 3 results, got %d", len(results))
@@ -315,7 +315,7 @@ func TestRunTestSuite(t *testing.T) {
 
 func TestWithTimeout(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
-	ctx := WithTimeout(100 * time.Millisecond)
+	ctx := framework.WithTimeout(100 * time.Millisecond)
 
 	select {
 	case <-ctx.Done():
@@ -327,7 +327,7 @@ func TestWithTimeout(t *testing.T) {
 
 func TestWithCancel(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
-	ctx, cancel := WithCancel()
+	ctx, cancel := framework.WithCancel()
 
 	cancel()
 
@@ -343,14 +343,14 @@ func TestSetContext(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	customCtx := context.WithValue(context.Background(), "key", "value")
 
-	SetContext(customCtx)
+	framework.SetContext(customCtx)
 
-	if ctx != customCtx {
+	if framework.ctx != customCtx {
 		t.Error("Expected context to be set correctly")
 	}
 
 	// Test that the context is used in RunTest
-	result := RunTest("context-test", func(ctx context.Context) error {
+	result := framework.RunTest("context-test", func(ctx context.Context) error {
 		val := ctx.Value("key")
 		if val != "value" {
 			return errors.New("context value not set correctly")

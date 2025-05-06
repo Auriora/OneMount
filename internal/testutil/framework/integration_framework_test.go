@@ -3,6 +3,7 @@ package framework
 
 import (
 	"context"
+	"github.com/auriora/onemount/internal/testutil"
 	"reflect"
 	"testing"
 	"time"
@@ -67,19 +68,19 @@ func TestIntegrationFrameworkCreation(t *testing.T) {
 		t.Fatal("Failed to create integration framework")
 	}
 
-	if Environment == nil {
+	if framework.Environment == nil {
 		t.Fatal("Integration framework has nil environment")
 	}
 
-	if Framework == nil {
+	if framework.Framework == nil {
 		t.Fatal("Integration framework has nil test framework")
 	}
 
-	if interactionConfigs == nil {
+	if framework.interactionConfigs == nil {
 		t.Fatal("Integration framework has nil interaction configs")
 	}
 
-	if contractValidators == nil {
+	if framework.contractValidators == nil {
 		t.Fatal("Integration framework has nil contract validators")
 	}
 }
@@ -243,7 +244,7 @@ func TestCreateNetworkCondition(t *testing.T) {
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a network condition
-	condition := CreateNetworkCondition("slow-network", 100*time.Millisecond, 0.1, 1000)
+	condition := framework.CreateNetworkCondition("slow-network", 100*time.Millisecond, 0.1, 1000)
 
 	// Verify the condition was created correctly
 	if condition.Name != "slow-network" {
@@ -272,7 +273,7 @@ func TestCreateDisconnectedCondition(t *testing.T) {
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a disconnected condition
-	condition := CreateDisconnectedCondition()
+	condition := framework.CreateDisconnectedCondition()
 
 	// Verify the condition was created correctly
 	if condition.Name != "Disconnected" {
@@ -309,7 +310,7 @@ func TestCreateErrorCondition(t *testing.T) {
 	}
 
 	// Create an error condition
-	condition := CreateErrorCondition("test-error", "test-component", setupFunc, cleanupFunc)
+	condition := framework.CreateErrorCondition("test-error", "test-component", setupFunc, cleanupFunc)
 
 	// Verify the condition was created correctly
 	if condition.Name != "test-error" {
