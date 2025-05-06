@@ -265,12 +265,18 @@ func (i *Inode) makeAttr() fuse.Attr {
 
 // IsDir returns if it is a directory (true) or file (false).
 func (i *Inode) IsDir() bool {
+	if i == nil {
+		return false
+	}
 	// 0 if the dir bit is not set
 	return i.Mode()&fuse.S_IFDIR > 0
 }
 
 // Mode returns the permissions/mode of the file.
 func (i *Inode) Mode() uint32 {
+	if i == nil {
+		return 0
+	}
 	i.RLock()
 	defer i.RUnlock()
 	if i.mode == 0 { // only 0 if fetched from Graph API
@@ -306,6 +312,9 @@ func (i *Inode) NLink() uint32 {
 // Size pretends that folders are 4096 bytes, even though they're 0 (since
 // they actually don't exist).
 func (i *Inode) Size() uint64 {
+	if i == nil {
+		return 0
+	}
 	if i.IsDir() {
 		return 4096
 	}
