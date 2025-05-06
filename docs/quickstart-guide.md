@@ -1,111 +1,76 @@
 # OneMount Quickstart Guide
 
-## Overview
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [Installation](#installation)
+3. [Initial Setup](#initial-setup)
+4. [Daily Usage](#daily-usage)
+5. [Command Reference](#command-reference)
+6. [Advanced Topics](#advanced-topics)
 
-This quickstart guides you through:
+## Prerequisites
 
-* [Part 1: Installing OneMount](#part-1-installing-onemount)
-* [Part 2: Setting up your first OneDrive mount](#part-2-setting-up-your-first-onedrive-mount)
-* [Part 3: Using your OneDrive files](#part-3-using-your-onedrive-files)
+| Requirement | Description |
+|------------|-------------|
+| System     | Linux with FUSE support |
+| Account    | Microsoft OneDrive account |
+| Network    | Internet connection for setup and sync |
+| Privileges | Administrative (sudo) access |
 
-It is intended for Linux users who want to access their Microsoft OneDrive files directly from their Linux filesystem. It assumes that you have basic knowledge of:
+## Installation
 
-* Using a terminal or command line interface
-* Basic Linux file operations
-* Microsoft OneDrive account management
+### Package Manager Installation
 
-## Before you start
-
-Before running this quickstart, complete the following prerequisites:
-
-* A Linux system with FUSE support
-* A Microsoft OneDrive account
-* Internet connection (for initial setup and downloading files)
-* Administrative privileges (sudo access) for system-wide installation
-
-## Part 1: Installing OneMount
-
-This section guides you through installing OneMount on your Linux system.
-
-### Step 1: Install OneMount using your distribution's package manager
-
-#### For Fedora/CentOS/RHEL:
+#### Fedora/CentOS/RHEL
 ```bash
-sudo dnf copr enable auriora/onemount
-sudo dnf install onemount
-```
+sudo dnf copr enable auriora/onemount sudo dnf install onemount
+```S
 
-#### For Ubuntu/Debian:
-TODO complete these instructions
+#### Ubuntu/Debian
+**Coming soon**
 
-## Part 2: Setting up your first OneDrive mount
+## Initial Setup
 
-This section guides you through setting up your first OneDrive mount.
+### GUI Setup (Recommended)
+1. Launch OneMount from your application menu
+2. Click "+" to add a new account
+3. Complete Microsoft authentication
+4. Configure mount point (default: ~/OneDrive)
 
-### Step 1: Launch OneMount
-
-You can launch OneMount using either the GUI or command line:
-
-#### Using the GUI (Recommended):
-1. Open your application menu
-2. Find and click on "OneMount"
-3. The OneMount launcher will open
-
-#### Using the command line:
-```bash
+### Command-Line Setup
+```bash 
 onemount-launcher
-```
+``` 
 
-### Step 2: Add your OneDrive account
+## Daily Usage
 
-1. In the OneMount launcher, click the "+" button to add a new account
-2. A browser window will open for Microsoft authentication
-3. Sign in with your Microsoft account credentials
-4. Grant permission for onemount to access your OneDrive files
-5. The browser will redirect back to OneMount
+### File Operations
 
-### Step 3: Configure your mount point
+| Operation | Description | Action |
+|-----------|-------------|---------|
+| View Files | Browse mounted directory | Navigate to ~/OneDrive |
+| Open Files | Access content | Double-click file |
+| Edit Files | Modify content | Edit normally - auto-sync |
+| Create Files | Add new content | Create in mount point |
+| Delete Files | Remove content | Delete normally - auto-sync |
 
-1. After authentication, onemount will ask where to mount your OneDrive
-2. Choose a location (default is ~/OneDrive)
-3. Click "Mount" to create the mount
+### File Status
 
-## Part 3: Using your OneDrive files
+View sync status through:
+- File manager: Right-click > Properties
+- Command line: `onemount --stats /mount/path`
 
-This section guides you through basic usage of onemount.
+## Command Reference
 
-### Step 1: Access your files
+| Command | Purpose |
+|---------|----------|
+| `onemount-launcher` | Start OneMount |
+| `onemount --stats` | Check sync status |
+| `onemount --help`  | View all options |
 
-1. Open your file manager
-2. Navigate to your mount point (e.g., ~/OneDrive)
-3. You should see your OneDrive files and folders
+## Advanced Topics
 
-Files are downloaded on-demand when you access them, so there might be a slight delay when opening a file for the first time.
-
-### Step 2: Work with your files
-
-* **Opening files**: Double-click on any file to open it with your default application
-* **Creating files**: Create new files directly in the mount point
-* **Editing files**: Edit files as you normally would; changes are automatically uploaded
-* **Deleting files**: Delete files as you normally would; deletions are synchronized to OneDrive
-
-### Step 3: Check file status
-
-To see the status of your files (synced, uploading, etc.):
-
-1. Right-click on a file in your file manager
-2. Look for the onemount status information (available in file managers with onemount integration)
-
-Alternatively, check the status using the command line:
-```bash
-onemount --stats /path/to/mount/onedrive/at
-```
-
-## Next steps
-
-Now that you've completed this quickstart, try these to learn more about OneMount:
-
-* Read the [complete installation guide](installation-guide.md) for advanced configuration options
-* Learn about [offline usage](https://github.com/auriora/OneMount/wiki/Offline-Usage) for working with files when disconnected
-* Explore [command-line options](https://github.com/auriora/OneMount/wiki/Command-Line-Options) for advanced usage
-* Set up [automatic mounting](installation-guide.md#configuration) on system startup
+- [Complete Installation Guide](installation-guide.md)
+- [Offline Usage](https://github.com/auriora/OneMount/wiki/Offline-Usage)
+- [Command-Line Options](https://github.com/auriora/OneMount/wiki/Command-Line-Options)
+- [Auto-mount Configuration](https://github.com/auriora/OneMount/wiki/Auto-Mount)

@@ -11,7 +11,7 @@ This document outlines how to get help with OneMount. Please read through the av
 5. [Feature Requests](#feature-requests)
 6. [Security Issues](#security-issues)
 
-## Documentation
+## Documentation {: #documentation }
 
 Before seeking support, please check if your question is answered in our documentation:
 
@@ -20,7 +20,7 @@ Before seeking support, please check if your question is answered in our documen
 - [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
 - [Development Guidelines](docs/DEVELOPMENT.md) - Information for developers
 
-## Troubleshooting
+## Troubleshooting {: #troubleshooting }
 
 If you're experiencing issues with OneMount, try these troubleshooting steps:
 
@@ -47,7 +47,7 @@ If you're experiencing issues with OneMount, try these troubleshooting steps:
 
 5. **Check your OneDrive account**: Verify that your OneDrive account is working correctly by accessing it through the web interface.
 
-## Common Issues
+## Common Issues {: #common-issues }
 
 ### Authentication Problems
 
@@ -63,14 +63,14 @@ If OneMount is running slowly:
 2. Consider using the `--cache-size` option to increase the cache size
 3. Verify that you're not trying to access very large files (multi-GB files may cause performance issues)
 
-## Community Support
+## Community Support {: #community-support }
 
 Get help from the community and project maintainers:
 
 - **GitHub Issues**: Browse [existing issues](https://github.com/auriora/OneMount/issues) to see if your problem has already been reported or discussed.
 - **GitHub Discussions**: For general questions and discussions about OneMount.
 
-## Reporting Bugs
+## Reporting Bugs {: #reporting-bugs }
 
 If you've found a bug in OneMount:
 
@@ -83,7 +83,7 @@ If you've found a bug in OneMount:
    - Log output
    - Your Linux distribution and version
 
-## Feature Requests
+## Feature Requests {: #feature-requests }
 
 We welcome suggestions for new features:
 
@@ -94,11 +94,11 @@ We welcome suggestions for new features:
    - Any relevant use cases
    - If possible, a suggestion for how to implement the feature
 
-## Security Issues
+## Security Issues {: #security-issues }
 
 For security-related issues, please refer to our [Security Policy](SECURITY.md) and follow the vulnerability reporting process outlined there.
 
-## Support Timeline
+## Support Timeline {: #support-timeline }
 
 OneMount is an open-source project maintained by volunteers. While we strive to address all issues in a timely manner, response times may vary based on:
 
