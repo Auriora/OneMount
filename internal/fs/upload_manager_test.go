@@ -14,7 +14,7 @@ import (
 // TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
 // with different content when network connection is available.
 //
-//	Test Case ID    UT-FS-05
+//	Test Case ID    UT-FS-05-02
 //	Title           Repeated File Upload (Online)
 //	Description     Verify that the same file can be uploaded multiple times with different content
 //	Preconditions   1. User is authenticated with valid credentials
@@ -26,7 +26,7 @@ import (
 //	                5. Repeat steps 3-4 multiple times
 //	Expected Result Each version of the file is successfully uploaded with the correct content
 //	Notes: Directly tests uploading the same file multiple times with different content in online mode.
-func TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
+func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 
@@ -227,10 +227,10 @@ func TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	})
 }
 
-// TestUT_OFFLINE_01_RepeatedUploads_OfflineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
+// TestUT_FS_05_01_RepeatedUploads_OfflineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
 // with different content when in offline mode.
 //
-//	Test Case ID    UT-OFFLINE-01
+//	Test Case ID    UT-FS-05-01
 //	Title           Repeated File Upload (Offline)
 //	Description     Verify that the same file can be uploaded multiple times with different content in offline mode
 //	Preconditions   1. User is authenticated with valid credentials
@@ -242,7 +242,7 @@ func TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 //	                5. Repeat steps 3-4 multiple times
 //	Expected Result Each version of the file is successfully uploaded with the correct content
 //	Notes: Directly tests uploading the same file multiple times with different content in offline mode.
-func TestUT_OFFLINE_01_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) {
+func TestUT_FS_05_01_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 

@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -283,6 +284,14 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 	// Check if we have a predefined response for this resource
 	m.mu.Lock()
 	response, exists := m.RequestResponses[resource]
+
+	// If not found, try with unescaped resource path
+	if !exists {
+		unescapedResource, err := url.PathUnescape(resource)
+		if err == nil && unescapedResource != resource {
+			response, exists = m.RequestResponses[unescapedResource]
+		}
+	}
 	m.mu.Unlock()
 
 	if exists {

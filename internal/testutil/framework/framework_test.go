@@ -136,7 +136,7 @@ func TestNewTestFramework(t *testing.T) {
 		t.Error("Expected ctx to be initialized")
 	}
 
-	if logger != logger {
+	if framework.logger != logger {
 		t.Error("Expected logger to be set correctly")
 	}
 }
