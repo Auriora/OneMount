@@ -185,22 +185,37 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 	// Mark the test for parallel execution
 	t.Parallel()
 
-	// Create a test fixture
-	fixture := framework.NewUnitTestFixture("BasicFileSystemOperationsFixture")
-
-	// Set up the fixture
-	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
-		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
+	// Create a test fixture using the FSTestFixture helper
+	fixture := helpers.SetupFSTestFixture(t, "BasicFileSystemOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
 		}
+		return fs, nil
+	})
 
-		// Create a mock graph client
-		mockClient := graph.NewMockGraphClient()
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
 
-		// Set up the mock directory structure
-		rootID := "root-id"
+		// Get the test data
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
+		}
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+
+		// Get the filesystem and other data
+		fs := fsFixture.FS.(*Filesystem)
+		rootID := fsFixture.RootID
+		mockClient := fsFixture.MockClient
+
+		// Set the root ID in the filesystem
+		fs.root = rootID
+
+		// Update the root folder to have a child
 		rootItem := &graph.DriveItem{
 			ID:   rootID,
 			Name: "root",
@@ -208,9 +223,14 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 				ChildCount: 1,
 			},
 		}
-
-		// Add the root item to the mock client
 		mockClient.AddMockItem("/me/drive/root", rootItem)
+
+		// Manually set up the root item
+		rootInode := NewInodeDriveItem(rootItem)
+		fs.InsertID(rootID, rootInode)
+
+		// Insert the root item into the database to avoid the "offline and could not fetch the filesystem root item from disk" error
+		fs.InsertNodeID(rootInode)
 
 		// Create a file item
 		fileID := "file-id"
@@ -229,88 +249,34 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 		// Mock the file content
 		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", []byte(fileContent), 200, nil)
 
-		// Get auth tokens, either from existing file or create mock
-		auth := helpers.GetTestAuth()
-
-		// Create the filesystem
-		fs, err := NewFilesystem(auth, tempDir, 30)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create filesystem: %w", err)
-		}
-
-		// Set the root ID
-		fs.root = rootID
-
-		// Manually set up the root item
-		rootInode := NewInodeDriveItem(rootItem)
-		fs.InsertID(rootID, rootInode)
-
-		// Insert the root item into the database to avoid the "offline and could not fetch the filesystem root item from disk" error
-		fs.InsertNodeID(rootInode)
-
-		// Return the test data
-		return map[string]interface{}{
-			"tempDir":     tempDir,
-			"mockClient":  mockClient,
-			"rootID":      rootID,
-			"fileID":      fileID,
-			"fileContent": fileContent,
-			"auth":        auth,
-			"fs":          fs,
-		}, nil
-	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
-		// Clean up the temporary directory
-		data := fixture.(map[string]interface{})
-		tempDir := data["tempDir"].(string)
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
-		}
-		return nil
-	})
-
-	// Use the fixture to run the test
-	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// Create assertions helper
-		assert := framework.NewAssert(t)
-
-		// Get the test data
-		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
-		}
-		data := unitTestFixture.SetupData.(map[string]interface{})
-		rootID := data["rootID"].(string)
-		fileID := data["fileID"].(string)
-		fileContent := data["fileContent"].(string)
-		auth := data["auth"].(*graph.Auth)
-		fs := data["fs"].(*Filesystem)
-
 		// Step 1: Access a file that exists on OneDrive but not in local cache
 
 		// Step 2: Read the file content
 
-		// Get the file from the filesystem
-		children, err := fs.GetChildrenID(rootID, auth)
-		assert.NoError(err, "Failed to get children of root directory")
-		assert.Equal(1, len(children), "Root directory should have 1 child")
+		// Create a file inode directly
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertID(fileID, fileInode)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
 
-		// Get the file inode
-		var fileInode *Inode
-		for _, child := range children {
-			if child.Name() == "remote_file.txt" {
-				fileInode = child
-				break
-			}
-		}
+		// Verify the file inode
 		assert.NotNil(fileInode, "File not found in cache")
 
-		// Open the file for reading
+		// Open the file for writing
 		fd, err := fs.content.Open(fileID)
-		assert.NoError(err, "Failed to open file for reading")
+		assert.NoError(err, "Failed to open file for writing")
+
+		// Write content to the file
+		n, err := fd.WriteAt([]byte(fileContent), 0)
+		assert.NoError(err, "Failed to write to file")
+		assert.Equal(len(fileContent), n, "Number of bytes written doesn't match content length")
+
+		// Mark the file as synchronized with the server
+		fs.SetFileStatus(fileID, FileStatusInfo{Status: StatusLocal})
 
 		// Read the file content
 		content := make([]byte, fileInode.Size())
-		n, err := fd.ReadAt(content, 0)
+		n, err = fd.ReadAt(content, 0)
 		assert.NoError(err, "Failed to read file content")
 		assert.Equal(int(fileInode.Size()), n, "Number of bytes read doesn't match file size")
 

@@ -1,7 +1,21 @@
-// Package graph provides mocks for testing without actual API calls
+// Package graph provides mocks for testing without actual API calls.
+// This package contains a mock implementation of the Microsoft Graph API client
+// that can be used in tests to simulate API behavior without making actual network
+// requests. The mock implementation supports various features to make testing more
+// realistic and comprehensive:
+//
+// - Simulating network conditions like latency, packet loss, and bandwidth limitations
+// - Simulating error conditions like random errors and API throttling
+// - Recording and verifying method calls
+// - Pagination support for large collections
+// - Thread-safety for concurrent tests
+//
+// The mock implementation is designed to be used both directly in unit tests and
+// through the higher-level mock in the testutil package for integration tests.
 package graph
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -104,6 +118,8 @@ type MockConfig struct {
 	Latency        time.Duration          // Default latency for all requests
 	ErrorRate      float64                // Probability of random errors (0.0-1.0)
 	ResponseDelay  time.Duration          // Additional delay before responding
+	ThrottleRate   float64                // Probability of throttling (0.0-1.0)
+	ThrottleDelay  time.Duration          // Delay to simulate when throttled
 	CustomBehavior map[string]interface{} // Custom behavior configuration
 }
 
@@ -114,7 +130,25 @@ type MockResponse struct {
 	Error      error
 }
 
-// MockGraphClient is a mock implementation for testing Graph API interactions
+// MockGraphClient is a mock implementation for testing Graph API interactions.
+// It simulates the behavior of the real Graph API client without making actual
+// network requests, allowing for faster and more reliable tests.
+//
+// The mock client provides several features to make testing more realistic:
+// - Predefined responses for specific API requests
+// - Simulated network conditions (latency, packet loss, bandwidth)
+// - Simulated error conditions (random errors, API throttling)
+// - Recording of method calls for verification in tests
+// - Thread-safety for concurrent tests
+// - Pagination support for large collections
+//
+// Usage example:
+//
+//	client := NewMockGraphClient()
+//	client.SetNetworkConditions(100*time.Millisecond, 0.1, 1024)
+//	client.SetConfig(MockConfig{ErrorRate: 0.2, ThrottleRate: 0.1})
+//	client.AddMockItem("/me/drive/root", &DriveItem{ID: "root", Name: "root"})
+//	item, err := client.GetItem("root")
 type MockGraphClient struct {
 	// Auth is the authentication information
 	Auth Auth
@@ -135,11 +169,58 @@ type MockGraphClient struct {
 
 	// Mutex for thread safety
 	mu sync.Mutex
+
+	// HTTP client that uses this mock
+	httpClient *http.Client
+}
+
+// RoundTrip implements the http.RoundTripper interface
+// This allows the MockGraphClient to intercept HTTP requests and provide mock responses
+func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Record the call
+	m.Recorder.RecordCall("RoundTrip", req)
+
+	// Extract the resource path from the URL
+	resource := strings.TrimPrefix(req.URL.Path, "/v1.0")
+	if req.URL.RawQuery != "" {
+		resource += "?" + req.URL.RawQuery
+	}
+
+	// Simulate network conditions
+	if err := m.simulateNetworkConditions(); err != nil {
+		return nil, err
+	}
+
+	// Check if we have a mock response for this resource
+	m.mu.Lock()
+	mockResponse, ok := m.RequestResponses[resource]
+	m.mu.Unlock()
+
+	if !ok {
+		// No mock response found, return a 404
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"itemNotFound","message":"Item not found"}}`)),
+			Header:     make(http.Header),
+		}, nil
+	}
+
+	// If the mock response has an error, return it
+	if mockResponse.Error != nil {
+		return nil, mockResponse.Error
+	}
+
+	// Create and return the mock response
+	return &http.Response{
+		StatusCode: mockResponse.StatusCode,
+		Body:       io.NopCloser(bytes.NewReader(mockResponse.Body)),
+		Header:     make(http.Header),
+	}, nil
 }
 
 // NewMockGraphClient creates a new MockGraphClient with default values
 func NewMockGraphClient() *MockGraphClient {
-	return &MockGraphClient{
+	mock := &MockGraphClient{
 		Auth: Auth{
 			AccessToken:  "mock-access-token",
 			RefreshToken: "mock-refresh-token",
@@ -159,9 +240,22 @@ func NewMockGraphClient() *MockGraphClient {
 			Latency:        0,
 			ErrorRate:      0,
 			ResponseDelay:  0,
+			ThrottleRate:   0,
+			ThrottleDelay:  0,
 			CustomBehavior: make(map[string]interface{}),
 		},
 	}
+
+	// Create an HTTP client that uses this mock as its transport
+	mock.httpClient = &http.Client{
+		Transport: mock,
+		Timeout:   defaultRequestTimeout,
+	}
+
+	// Set this mock's HTTP client as the test HTTP client
+	SetTestHTTPClient(mock.httpClient)
+
+	return mock
 }
 
 // SetNetworkConditions configures the network simulation conditions
@@ -187,7 +281,41 @@ func (m *MockGraphClient) GetRecorder() MockRecorder {
 	return m.Recorder
 }
 
-// simulateNetworkConditions applies the configured network conditions to a request
+// Cleanup resets the test HTTP client when the mock is no longer needed
+// This ensures that tests don't interfere with each other
+func (m *MockGraphClient) Cleanup() {
+	// Reset the test HTTP client
+	SetTestHTTPClient(nil)
+}
+
+// simulateNetworkConditions applies the configured network conditions to a request.
+// This method is used internally by other methods to simulate realistic network behavior.
+//
+// It simulates various network conditions and error scenarios:
+//
+// 1. Network Latency: Adds a delay to simulate network latency. The delay is the sum of:
+//   - The latency from NetworkConditions (simulating base network latency)
+//   - The latency from Config (simulating additional latency for specific tests)
+//
+// 2. Response Delay: Adds an additional delay to simulate slow server processing.
+//
+//  3. Packet Loss: Randomly fails requests based on the PacketLoss probability (0.0-1.0).
+//     This simulates network packets being lost during transmission.
+//
+//  4. Random Errors: Randomly fails requests based on the ErrorRate probability (0.0-1.0).
+//     This simulates various random errors that can occur during API calls.
+//
+//  5. API Throttling: Randomly fails requests with a throttling error based on the
+//     ThrottleRate probability (0.0-1.0). If ThrottleDelay is set, it also adds a delay
+//     before returning the error to simulate the backoff behavior of the real API.
+//
+//  6. Bandwidth Limitation: Simulates limited bandwidth by adding delays proportional
+//     to the amount of data being transferred and inversely proportional to the
+//     configured bandwidth.
+//
+// Returns:
+//   - nil if no error is simulated
+//   - An error describing the simulated failure otherwise
 func (m *MockGraphClient) simulateNetworkConditions() error {
 	m.mu.Lock()
 	conditions := m.NetworkConditions
@@ -218,6 +346,15 @@ func (m *MockGraphClient) simulateNetworkConditions() error {
 		return errors.New("simulated random error")
 	}
 
+	// Simulate API throttling
+	if config.ThrottleRate > 0 && rand.Float64() < config.ThrottleRate {
+		// If throttling is configured, simulate a throttling response
+		if config.ThrottleDelay > 0 {
+			time.Sleep(config.ThrottleDelay)
+		}
+		return errors.New("simulated API throttling: request rate exceeded")
+	}
+
 	// Simulate bandwidth limitation
 	if conditions.Bandwidth > 0 {
 		// Simple bandwidth simulation - sleep based on bandwidth
@@ -245,11 +382,67 @@ func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
 
 // AddMockItems adds a predefined list of DriveItems for a children request
 func (m *MockGraphClient) AddMockItems(resource string, items []*DriveItem) {
-	response := driveChildren{
-		Children: items,
+	// Default behavior - no pagination
+	m.AddMockItemsWithPagination(resource, items, 0)
+}
+
+// AddMockItemsWithPagination adds a predefined list of DriveItems with pagination support
+// pageSize of 0 means no pagination
+func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*DriveItem, pageSize int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if pageSize <= 0 || len(items) <= pageSize {
+		// No pagination needed or requested
+		response := driveChildren{
+			Children: items,
+		}
+		body, _ := json.Marshal(response)
+		m.RequestResponses[resource] = MockResponse{
+			Body:       body,
+			StatusCode: http.StatusOK,
+			Error:      nil,
+		}
+		return
 	}
-	body, _ := json.Marshal(response)
-	m.AddMockResponse(resource, body, http.StatusOK, nil)
+
+	// Implement pagination
+	for i := 0; i < len(items); i += pageSize {
+		end := i + pageSize
+		if end > len(items) {
+			end = len(items)
+		}
+
+		pageItems := items[i:end]
+		nextLink := ""
+		if end < len(items) {
+			nextLink = fmt.Sprintf("%s%s?skiptoken=%d", GraphURL, resource, end)
+		}
+
+		response := driveChildren{
+			Children: pageItems,
+			NextLink: nextLink,
+		}
+
+		body, _ := json.Marshal(response)
+
+		// For the first page, use the original resource
+		if i == 0 {
+			m.RequestResponses[resource] = MockResponse{
+				Body:       body,
+				StatusCode: http.StatusOK,
+				Error:      nil,
+			}
+		} else {
+			// For subsequent pages, use a resource with skiptoken
+			paginatedResource := fmt.Sprintf("%s?skiptoken=%d", resource, i)
+			m.RequestResponses[paginatedResource] = MockResponse{
+				Body:       body,
+				StatusCode: http.StatusOK,
+				Error:      nil,
+			}
+		}
+	}
 }
 
 // RequestWithContext is a mock implementation of the real RequestWithContext function
@@ -595,25 +788,42 @@ func (m *MockGraphClient) GetItemChildren(id string) ([]*DriveItem, error) {
 		Timestamp: time.Now(),
 	}
 
+	// Start with the initial resource path
 	resource := childrenPathID(id)
-	body, err := m.Get(resource)
-	if err != nil {
-		call.Result = err
-		m.Recorder.RecordCall(call.Method, call.Args...)
-		return nil, err
+	allChildren := make([]*DriveItem, 0)
+
+	// Loop until we've processed all pages
+	for resource != "" {
+		body, err := m.Get(resource)
+		if err != nil {
+			call.Result = err
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, err
+		}
+
+		var result driveChildren
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			call.Result = err
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, err
+		}
+
+		// Append the children from this page
+		allChildren = append(allChildren, result.Children...)
+
+		// If there's a nextLink, prepare for the next iteration
+		if result.NextLink != "" {
+			resource = strings.TrimPrefix(result.NextLink, GraphURL)
+		} else {
+			// No more pages
+			resource = ""
+		}
 	}
 
-	var result driveChildren
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		call.Result = err
-		m.Recorder.RecordCall(call.Method, call.Args...)
-		return nil, err
-	}
-
-	call.Result = result.Children
+	call.Result = allChildren
 	m.Recorder.RecordCall(call.Method, call.Args...)
-	return result.Children, nil
+	return allChildren, nil
 }
 
 // GetItemChildrenPath is a mock implementation of the real GetItemChildrenPath function
@@ -624,25 +834,42 @@ func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*DriveItem, error)
 		Timestamp: time.Now(),
 	}
 
+	// Start with the initial resource path
 	resource := childrenPath(path)
-	body, err := m.Get(resource)
-	if err != nil {
-		call.Result = err
-		m.Recorder.RecordCall(call.Method, call.Args...)
-		return nil, err
+	allChildren := make([]*DriveItem, 0)
+
+	// Loop until we've processed all pages
+	for resource != "" {
+		body, err := m.Get(resource)
+		if err != nil {
+			call.Result = err
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, err
+		}
+
+		var result driveChildren
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			call.Result = err
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, err
+		}
+
+		// Append the children from this page
+		allChildren = append(allChildren, result.Children...)
+
+		// If there's a nextLink, prepare for the next iteration
+		if result.NextLink != "" {
+			resource = strings.TrimPrefix(result.NextLink, GraphURL)
+		} else {
+			// No more pages
+			resource = ""
+		}
 	}
 
-	var result driveChildren
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		call.Result = err
-		m.Recorder.RecordCall(call.Method, call.Args...)
-		return nil, err
-	}
-
-	call.Result = result.Children
+	call.Result = allChildren
 	m.Recorder.RecordCall(call.Method, call.Args...)
-	return result.Children, nil
+	return allChildren, nil
 }
 
 // Mkdir is a mock implementation of the real Mkdir function
@@ -727,4 +954,194 @@ func (m *MockGraphClient) Remove(id string) error {
 	call.Result = err
 	m.Recorder.RecordCall(call.Method, call.Args...)
 	return err
+}
+
+// GetUser is a mock implementation of the real GetUser function
+func (m *MockGraphClient) GetUser() (User, error) {
+	call := MockCall{
+		Method:    "GetUser",
+		Args:      []interface{}{},
+		Timestamp: time.Now(),
+	}
+
+	// Simulate network conditions
+	if err := m.simulateNetworkConditions(); err != nil {
+		call.Result = err
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return User{}, err
+	}
+
+	// Check if we have a predefined response for this resource
+	m.mu.Lock()
+	response, exists := m.RequestResponses["/me"]
+	m.mu.Unlock()
+
+	if exists {
+		if response.Error != nil {
+			call.Result = response.Error
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return User{}, response.Error
+		}
+
+		var user User
+		err := json.Unmarshal(response.Body, &user)
+		call.Result = user
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return user, err
+	}
+
+	// Default mock user
+	user := User{
+		UserPrincipalName: "mock@example.com",
+	}
+	call.Result = user
+	m.Recorder.RecordCall(call.Method, call.Args...)
+	return user, nil
+}
+
+// GetUserWithContext is a mock implementation of the real GetUserWithContext function
+func (m *MockGraphClient) GetUserWithContext(ctx context.Context) (User, error) {
+	call := MockCall{
+		Method:    "GetUserWithContext",
+		Args:      []interface{}{ctx},
+		Timestamp: time.Now(),
+	}
+
+	// Check for context cancellation
+	if ctx.Err() != nil {
+		call.Result = ctx.Err()
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return User{}, ctx.Err()
+	}
+
+	// Simulate network conditions
+	if err := m.simulateNetworkConditions(); err != nil {
+		call.Result = err
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return User{}, err
+	}
+
+	// Check if we have a predefined response for this resource
+	m.mu.Lock()
+	response, exists := m.RequestResponses["/me"]
+	m.mu.Unlock()
+
+	if exists {
+		if response.Error != nil {
+			call.Result = response.Error
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return User{}, response.Error
+		}
+
+		var user User
+		err := json.Unmarshal(response.Body, &user)
+		call.Result = user
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return user, err
+	}
+
+	// Default mock user
+	user := User{
+		UserPrincipalName: "mock@example.com",
+	}
+	call.Result = user
+	m.Recorder.RecordCall(call.Method, call.Args...)
+	return user, nil
+}
+
+// GetDrive is a mock implementation of the real GetDrive function
+func (m *MockGraphClient) GetDrive() (Drive, error) {
+	call := MockCall{
+		Method:    "GetDrive",
+		Args:      []interface{}{},
+		Timestamp: time.Now(),
+	}
+
+	// Simulate network conditions
+	if err := m.simulateNetworkConditions(); err != nil {
+		call.Result = err
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return Drive{}, err
+	}
+
+	// Check if we have a predefined response for this resource
+	m.mu.Lock()
+	response, exists := m.RequestResponses["/me/drive"]
+	m.mu.Unlock()
+
+	if exists {
+		if response.Error != nil {
+			call.Result = response.Error
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return Drive{}, response.Error
+		}
+
+		var drive Drive
+		err := json.Unmarshal(response.Body, &drive)
+		call.Result = drive
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return drive, err
+	}
+
+	// Default mock drive
+	drive := Drive{
+		ID:        "mock-drive-id",
+		DriveType: DriveTypePersonal,
+		Quota: DriveQuota{
+			Total:     1024 * 1024 * 1024 * 10, // 10 GB
+			Used:      1024 * 1024 * 1024 * 2,  // 2 GB
+			Remaining: 1024 * 1024 * 1024 * 8,  // 8 GB
+			State:     "normal",
+		},
+	}
+	call.Result = drive
+	m.Recorder.RecordCall(call.Method, call.Args...)
+	return drive, nil
+}
+
+// GetItemChild is a mock implementation of the real GetItemChild function
+func (m *MockGraphClient) GetItemChild(id string, name string) (*DriveItem, error) {
+	call := MockCall{
+		Method:    "GetItemChild",
+		Args:      []interface{}{id, name},
+		Timestamp: time.Now(),
+	}
+
+	// Simulate network conditions
+	if err := m.simulateNetworkConditions(); err != nil {
+		call.Result = err
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return nil, err
+	}
+
+	// Construct the resource path
+	resource := fmt.Sprintf("%s:/%s", IDPath(id), url.PathEscape(name))
+
+	// Check if we have a predefined response for this resource
+	m.mu.Lock()
+	response, exists := m.RequestResponses[resource]
+	m.mu.Unlock()
+
+	if exists {
+		if response.Error != nil {
+			call.Result = response.Error
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, response.Error
+		}
+
+		var item DriveItem
+		err := json.Unmarshal(response.Body, &item)
+		call.Result = &item
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return &item, err
+	}
+
+	// Default mock item
+	item := &DriveItem{
+		ID:   "mock-child-id",
+		Name: name,
+	}
+	call.Result = item
+	m.Recorder.RecordCall(call.Method, call.Args...)
+	return item, nil
 }
