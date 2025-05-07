@@ -8,7 +8,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                |
 |-----------------|-----------------------------------------------------------|
-| Test Case ID    | SEC-XX (where XX is a sequential number)                  |
+| Test Case ID    | ST_SC_XX_YY (where XX is a sequential number and YY is a sub-test number) |
 | Title           | Brief descriptive title of the test case                  |
 | Description     | Detailed description of what is being tested              |
 | Preconditions   | Required state before the test can be executed            |
@@ -22,7 +22,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                                    |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-01                                                                                                                                         |
+| Test Case ID    | ST_SC_01_01                                                                                                                                    |
 | Title           | Unauthenticated Request Handling                                                                                                               |
 | Description     | Verify that requests with invalid authentication are properly handled                                                                          |
 | Preconditions   | 1. User has invalid or expired credentials                                                                                                     |
@@ -34,7 +34,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                    |
 |-----------------|--------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-02                                                                                                                         |
+| Test Case ID    | ST_SC_02_01                                                                                                                    |
 | Title           | Authentication Token Refresh                                                                                                   |
 | Description     | Verify that expired authentication tokens are automatically refreshed                                                          |
 | Preconditions   | 1. User has valid but expired access token<br>2. User has valid refresh token                                                  |
@@ -46,7 +46,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                                                   |
 |-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-03                                                                                                                                                        |
+| Test Case ID    | ST_SC_03_01                                                                                                                                                   |
 | Title           | Invalid Authentication Code Format                                                                                                                            |
 | Description     | Verify that invalid authentication code formats are properly handled                                                                                          |
 | Preconditions   | 1. System is attempting to parse an authentication code                                                                                                       |
@@ -58,7 +58,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                  |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-04                                                                                                                       |
+| Test Case ID    | ST_SC_04_01                                                                                                                  |
 | Title           | Authentication Persistence                                                                                                   |
 | Description     | Verify that authentication tokens are properly persisted and loaded                                                          |
 | Preconditions   | 1. User has previously authenticated<br>2. Authentication tokens are saved to file                                           |
@@ -70,7 +70,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                                                             |
 |-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-05                                                                                                                                                                  |
+| Test Case ID    | ST_SC_05_01                                                                                                                                                             |
 | Title           | Authentication Failure with Network Available                                                                                                                           |
 | Description     | Verify behavior when authentication fails but network is available                                                                                                      |
 | Preconditions   | 1. User has invalid credentials<br>2. Network connection is available                                                                                                   |
@@ -82,7 +82,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                                                                        |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-06                                                                                                                                                                             |
+| Test Case ID    | ST_SC_06_01                                                                                                                                                                        |
 | Title           | Authentication Configuration Merging                                                                                                                                               |
 | Description     | Verify that authentication configuration can be merged with defaults                                                                                                               |
 | Preconditions   | 1. Authentication configuration with custom values exists                                                                                                                          |
@@ -94,7 +94,7 @@ Each security test case follows this format:
 
 | Field           | Description                                                                                                                                                                                                |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | SEC-07                                                                                                                                                                                                     |
+| Test Case ID    | ST_SC_07_01                                                                                                                                                                                                |
 | Title           | Resource Path Handling                                                                                                                                                                                     |
 | Description     | Verify that local filesystem paths are correctly converted to OneDrive API resource paths                                                                                                                  |
 | Preconditions   | 1. Various types of local filesystem paths are available                                                                                                                                                   |

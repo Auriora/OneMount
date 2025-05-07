@@ -8,7 +8,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                |
 |-----------------|-----------------------------------------------------------|
-| Test Case ID    | IT-XX (where XX is a sequential number)                   |
+| Test Case ID    | IT_FS_XX_YY (where XX is a sequential number and YY is a sub-test number) |
 | Title           | Brief descriptive title of the test case                  |
 | Description     | Detailed description of what is being tested              |
 | Preconditions   | Required state before the test can be executed            |
@@ -22,7 +22,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                                                                                        |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | IT-01                                                                                                                              |
+| Test Case ID    | IT_FS_01_01                                                                                                                        |
 | Title           | Offline File Access                                                                                                                |
 | Description     | Verify that files can be accessed when offline                                                                                     |
 | Preconditions   | 1. User is authenticated<br>2. Files have been previously synchronized<br>3. Network connection is unavailable                     |
@@ -34,7 +34,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                                                                                                            |
 |-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | IT-02                                                                                                                                                  |
+| Test Case ID    | IT_FS_02_01                                                                                                                                            |
 | Title           | Offline File Creation                                                                                                                                  |
 | Description     | Verify that files can be created when offline                                                                                                          |
 | Preconditions   | 1. User is authenticated<br>2. Network connection is unavailable                                                                                       |
@@ -46,7 +46,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                                                                                                                |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | IT-03                                                                                                                                                      |
+| Test Case ID    | IT_FS_03_01                                                                                                                                                |
 | Title           | Offline File Modification                                                                                                                                  |
 | Description     | Verify that files can be modified when offline                                                                                                             |
 | Preconditions   | 1. User is authenticated<br>2. File has been previously synchronized<br>3. Network connection is unavailable                                               |
@@ -58,7 +58,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                                                                                                            |
 |-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | IT-04                                                                                                                                                  |
+| Test Case ID    | IT_FS_04_01                                                                                                                                            |
 | Title           | Offline File Deletion                                                                                                                                  |
 | Description     | Verify that files can be deleted when offline                                                                                                          |
 | Preconditions   | 1. User is authenticated<br>2. File has been previously synchronized<br>3. Network connection is unavailable                                           |
@@ -70,7 +70,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                                                                                                                     |
 |-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | IT-05                                                                                                                                                           |
+| Test Case ID    | IT_FS_05_01                                                                                                                                                     |
 | Title           | Reconnection Synchronization                                                                                                                                    |
 | Description     | Verify that changes made offline are synchronized when reconnecting                                                                                             |
 | Preconditions   | 1. User is authenticated<br>2. Changes have been made while offline<br>3. Network connection becomes available                                                  |
@@ -82,7 +82,7 @@ Each integration test case follows this format:
 
 | Field           | Description                                                                                                                                                                         |
 |-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Test Case ID    | IT-06                                                                                                                                                                               |
+| Test Case ID    | IT_FS_06_01                                                                                                                                                                         |
 | Title           | Offline Changes Caching                                                                                                                                                             |
 | Description     | Verify that changes made in offline mode are properly cached                                                                                                                        |
 | Preconditions   | 1. User is authenticated<br>2. Network connection is unavailable                                                                                                                    |
