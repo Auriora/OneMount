@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: OneMount Documentation
+    url: https://github.com/username/OneMount/tree/main/docs
+    about: Check our documentation for answers to common questions
+  - name: OneMount Support
+    url: https://github.com/username/OneMount/blob/main/SUPPORT.md
+    about: Please read our support guidelines before opening an issue
