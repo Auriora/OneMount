@@ -34,6 +34,39 @@ Output:
     - A JSON file with the registry data (test_id_registry.json)
     - Console output with the results of the command
 
+Test ID Structure:
+    The test ID structure follows this pattern:
+    <TYPE>_<COMPONENT>_<TESTNUMBER>_<SUBTESTNUMER>
+
+    Where:
+    - <TYPE> is the test type (2 letters):
+      - UT - Unit Test
+      - IT - Integration Test
+      - ST - System Test
+      - PT - Performance Test
+      - LT - Load Test
+      - SC - Scenario Test
+      - UA - User Acceptance Test
+      - etc.
+    - <COMPONENT> is the component being tested (2/3 letters):
+      - FS - File System
+      - GR - Graph
+      - UI - User Interface
+      - CMD - Command
+      - etc.
+    - <TESTNUMBER> is a 2-digit number uniquely identifying the test
+    - <SUBTESTNUMER> is a 2-digit number uniquely identifying the sub-test or test variant
+
+Test Function Naming Convention:
+    Test function names follow this pattern:
+    Test<TYPE>_<COMPONENT>_<TESTNUMBER>_<SUBTESTNUMER>_<UNIT-OF-WORK>_<STATE-UNDER-TEST>_<EXPECTED-BEHAVIOR>
+
+    Where:
+    - <TYPE>, <COMPONENT>, <TESTNUMBER>, and <SUBTESTNUMER> are the same as in the test ID structure
+    - <UNIT-OF-WORK> represents a single method, a class, or multiple classes
+    - <STATE-UNDER-TEST> represents the inputs or conditions being tested
+    - <EXPECTED-BEHAVIOR> represents the output or result
+
 Examples:
     Checking if a Test ID is Already in Use:
         ./test_id_registry.py check UT_FS_01_01
@@ -46,6 +79,41 @@ Examples:
     Registering a New Test ID:
         ./test_id_registry.py register UT FS 01 FileOperations_BasicReadWrite SuccessfullyPreservesContent
         This will register a new test ID for a unit test in the file system module with feature number 01.
+
+Best Practices:
+    1. Always update the registry before using it: Run `./test_id_registry.py update` before checking or 
+       registering test IDs to ensure the registry is up to date.
+
+    2. Register test IDs before implementing tests: Register your test ID before implementing the test 
+       to ensure it's reserved for your use.
+
+    3. Use descriptive unit-of-work, state-under-test, and expected-behavior: These parts of the test 
+       function name should clearly describe what the test is testing and what the expected outcome is.
+
+    4. Follow the naming convention: Always follow the test function naming convention to ensure 
+       consistency across the project.
+
+    5. Check for existing tests with similar functionality: Before creating a new test, check if there 
+       are existing tests with similar functionality that you can reuse or extend.
+
+Troubleshooting:
+    Registry Out of Sync:
+        If the registry seems out of sync with the actual test IDs in the codebase, try updating the registry:
+        ./test_id_registry.py update
+
+    Test ID Already in Use:
+        If you try to register a test ID that's already in use, the registry will tell you which test is using it. 
+        You can either:
+        1. Choose a different test ID
+        2. Update the existing test to cover your use case
+        3. If the existing test is obsolete, remove it and then register your test ID
+
+    Missing Test IDs:
+        If the registry doesn't contain a test ID that you know exists in the codebase, it might be because:
+        1. The test file is not in one of the directories scanned by the registry
+        2. The test function name doesn't follow the naming convention
+        3. The registry hasn't been updated since the test was added
+        Try updating the registry and check if the test file is in one of the scanned directories.
 
 Note:
     All scripts save their output to the `tmp/` directory by default. This directory is created 
