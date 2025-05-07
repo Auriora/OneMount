@@ -8,10 +8,23 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
 
 ## Project Structure
 
+- **build/** - Build artifacts and output
 - **cmd/** - Command-line applications
   - **common/** - Shared code between applications
   - **onemount/** - Main filesystem application
   - **onemount-launcher/** - GUI launcher application
+- **configs/** - Configuration files and resources
+  - **resources/** - Resource files for the application
+- **docs/** - Documentation
+  - **guides/** - Development guides
+  - **design/** - Design documentation
+  - **implementation/** - Implementation details
+  - **requirements/** - Project requirements
+  - **templates/** - Documentation templates
+  - **testing/** - Testing documentation
+- **.github/** - GitHub-specific configuration
+  - **workflows/** - GitHub Actions workflows
+  - **scripts/** - GitHub-specific scripts
 - **internal/** - Internal implementation code
   - **fs/** - Filesystem implementation
     - **graph/** - Microsoft Graph API integration
@@ -20,15 +33,15 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
     - **systemd/** - Systemd integration for the UI
   - **nemo/** - Nemo file manager integration
   - **testutil/** - Testing utilities
+- **.junie/** - Junie AI assistant configuration
 - **pkg/** - Resources and packaging files
-- **docs/** - Documentation
-  - **guides/** - Development guides
-  - **design/** - Design documentation
-  - **implementation/** - Implementation details
-  - **requirements/** - Project requirements
-  - **templates/** - Documentation templates
-  - **testing/** - Testing documentation
 - **.run/** - GoLand run configurations
+- **scripts/** - Utility scripts
+  - **debian/** - Debian packaging scripts
+  - **developer/** - Developer utility scripts
+  - **development/** - Development environment scripts
+- **tmp/** - Temporary files and script output
+- **test/** - Test-related files and scripts
 
 ## Tech Stack
 
@@ -70,24 +83,23 @@ go test ./ui/...
 
 ### JetBrains GoLand Run Configurations
 
-The project includes predefined run configurations for JetBrains GoLand that replicate the functionality of the `make test` command. These configurations are stored in the `.run/` directory.
+The project includes predefined run configurations for JetBrains GoLand. These configurations are stored in the `.run/` directory.
 
 Available run configurations:
-- **UI Tests** - Runs tests in the UI package, excluding offline tests
-- **Command Tests** - Runs tests in the cmd package
-- **Graph Tests with Race Detection** - Runs tests in the fs/graph package with race detection
-- **FS Tests with Race Detection** - Runs tests in the fs package with race detection
-- **Offline Tests** - Builds the offline test binary and provides instructions for running it
-- **All Tests Except Offline** - Runs all the above tests except for Offline Tests
+- **all** - Builds all project binaries using the Makefile's "all" target
+- **onemount-launcher** - Builds the onemount-launcher application using the Makefile
+- **onemount** - Builds the onemount application using the Makefile
+- **Test - Test Utils** - Runs tests in the internal/testutil package
+- **Unit Test - File System** - Runs unit tests in the internal/fs package that match the pattern "TestUT*"
 
 To use these configurations:
 1. Open the project in GoLand
 2. Go to the Run/Debug Configurations dropdown in the toolbar
 3. Select the desired configuration and click the Run button
 
-Note: Offline tests require sudo privileges to simulate network disconnection.
-
 ## Executing Scripts
+
+Developer scripts should be placed in the `scripts/developer` directory. Script output should be directed to the `tmp/` directory.
 
 - **cgo-helper.sh** - Helps with CGO compilation
 - **curl-graph.sh** - Utility for interacting with Microsoft Graph API
@@ -130,6 +142,11 @@ Here's a summary of key best practices:
    - Document public APIs with godoc-compatible comments
    - Add comments explaining complex logic
    - Keep the README up to date
+   - Update existing documentation rather than adding new documentation
+   - If new documentation is needed, place it in the 'docs/' folder or relevant sub-folder
+   - Add links to new documentation in relevant existing documentation
+   - Always check existing 'docs/' documentation for relevant information to a task
+   - Include Junie prompts for implementing next steps, recommendations, actions, etc.
 
 6. **Method Logging**
    - Use the method logging framework for all public methods
