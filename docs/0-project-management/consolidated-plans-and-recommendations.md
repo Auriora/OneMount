@@ -496,6 +496,9 @@ This document consolidates all documented plans and recommendations from the Tes
 99. **Sophisticated Network Simulation**
     - Enhance NetworkSimulator to support more realistic network scenarios
     - Implement methods for simulating intermittent connections, gradual degradation, and network partitions
+    - Add support for selective network rules applied to specific API endpoints
+    - Simulate real-world network error patterns like intermittent failures and partial responses
+    - Implement bandwidth throttling for realistic testing of large file transfers
 
 100. **Advanced Test Environment Validation**
      - Add environment validation capabilities to verify prerequisites before running tests
@@ -517,11 +520,28 @@ This document consolidates all documented plans and recommendations from the Tes
      - Add authentication management capabilities to support different authentication strategies
      - Implement AuthenticationProvider interface and MockAuthenticationProvider
 
+105. **Container-Based Test Environments**
+     - Use Docker containers to create isolated test environments with all dependencies
+     - Support environment snapshots for quickly restoring test environments
+     - Enable reproducible test environments across different development machines
+
+106. **Enhanced Test Reporting**
+     - Generate visual reports of test results, including charts and graphs
+     - Implement trend analysis to track test results over time
+     - Provide detailed failure analysis with logs and environment state
+
+107. **Cross-Platform Testing Support**
+     - Configure tests differently based on the platform
+     - Simulate different platforms when testing on a single platform
+     - Add platform-specific assertions
+     - Generate compatibility matrices showing which features work on which platforms
+     - Use containers to test on different platforms
+
 ## 3. Test Quality Improvement Prompts
 
 ### 3.1 Test Analysis and Improvement
 
-105. **Test Overlap and Conflict Analysis**
+108. **Test Overlap and Conflict Analysis**
      - Identify duplicate or conflicting test IDs, overlapping functionality, and redundant test cases
      - Analyze test descriptions and implementations to identify functional overlaps
 
@@ -555,7 +575,7 @@ This document consolidates all documented plans and recommendations from the Tes
      - internal/ui
      ```
 
-106. **Test Case Matrix Update**
+109. **Test Case Matrix Update**
      - Update the test case traceability matrix to reflect all current test cases
      - Verify that requirements coverage information is accurate
 
@@ -584,7 +604,7 @@ This document consolidates all documented plans and recommendations from the Tes
      Please use the test-case-stubs-checklist.md file as a reference for all implemented test cases, and the requirements documents in docs/requirements/srs/ for understanding the requirements.
      ```
 
-107. **Gap Analysis Between Tests and Requirements**
+110. **Gap Analysis Between Tests and Requirements**
      - Identify requirements, architectural elements, and design components that lack sufficient test coverage
      - Recommend new test cases to fill identified gaps
 
@@ -621,7 +641,7 @@ This document consolidates all documented plans and recommendations from the Tes
      This analysis will help ensure that our test suite comprehensively validates that the system meets all its requirements and conforms to its architecture and design.
      ```
 
-108. **Related Testing Tasks**
+111. **Related Testing Tasks**
      - Improve test infrastructure, automation, coverage metrics, and reporting
      - Implement additional types of testing and improve documentation and maintenance
 
@@ -657,7 +677,7 @@ This document consolidates all documented plans and recommendations from the Tes
 
 ### 3.2 Mock Graph Testing Prompts
 
-109. **Enable Operational Offline Mode**
+112. **Enable Operational Offline Mode**
      - Create a test that enables operational offline mode to prevent real network requests during testing
 
      ```
@@ -667,7 +687,7 @@ This document consolidates all documented plans and recommendations from the Tes
      3. Reset operational offline mode at the end
      ```
 
-110. **Verify Mock Client Usage**
+113. **Verify Mock Client Usage**
      - Implement a test that verifies the mock client is recording method calls correctly
 
      ```
@@ -678,7 +698,7 @@ This document consolidates all documented plans and recommendations from the Tes
      4. Check the number of calls for each method matches expectations
      ```
 
-111. **Add Proper Mock Responses**
+114. **Add Proper Mock Responses**
      - Create a test that demonstrates how to add mock responses for different API calls
 
      ```
@@ -689,7 +709,7 @@ This document consolidates all documented plans and recommendations from the Tes
      4. Verify the operations return the expected results
      ```
 
-112. **Use Test Helper Functions**
+115. **Use Test Helper Functions**
      - Refactor an existing test to use the FSTestFixture helper
 
      ```
@@ -700,7 +720,7 @@ This document consolidates all documented plans and recommendations from the Tes
      4. Verify the test runs correctly with the helper
      ```
 
-113. **Implement a Comprehensive Test**
+116. **Implement a Comprehensive Test**
      - Create a comprehensive test that combines all best practices for mock usage
 
      ```
@@ -713,7 +733,7 @@ This document consolidates all documented plans and recommendations from the Tes
      6. Ensure no real network requests are made
      ```
 
-114. **Test Network Error Simulation**
+117. **Test Network Error Simulation**
      - Create a test that simulates network errors using the mock client
 
      ```
@@ -724,7 +744,7 @@ This document consolidates all documented plans and recommendations from the Tes
      4. Test both random errors and API throttling scenarios
      ```
 
-115. **Test Pagination Support**
+118. **Test Pagination Support**
      - Create a test that verifies pagination works correctly with the mock client
 
      ```
@@ -735,7 +755,7 @@ This document consolidates all documented plans and recommendations from the Tes
      4. Check that the nextLink property is handled properly
      ```
 
-116. **Test Offline Mode File Operations**
+119. **Test Offline Mode File Operations**
      - Create a test that verifies file operations work in offline mode
 
      ```
@@ -749,7 +769,7 @@ This document consolidates all documented plans and recommendations from the Tes
 
 ### 3.3 Implementation Prompts
 
-117. **Redesign Upload API for Robust Session Handling**
+120. **Redesign Upload API for Robust Session Handling**
      - Implement a solution to redesign the Upload API, making it more robust by enhancing the `WaitForUpload` method
 
      ```
@@ -1068,3 +1088,85 @@ This document consolidates all documented plans and recommendations from the Tes
 127. **System Tests Implementation**
      - Implement 8 system tests for filesystem functionality
      - Follow the test case descriptions and expected behaviors
+
+## 5. Project Review
+
+### 5.1 Architecture Review
+
+128. **Project Layout**  
+     - The repository's top-level structure (`cmd/`, `fs/`, `pkg/`, `ui/`, `utils/`, `docs/`) generally aligns with modular design but omits an `internal/` directory to enforce package encapsulation
+     - Recommendation: Introduce `internal/` for private packages and `pkg/` for public libraries, aligning with community practices
+
+129. **Modularity & Layering**  
+     - The `fs` package currently blends FUSE operations, caching, and API interactions
+     - Recommendation: Adopt a hexagonal or clean architecture approach to decouple business logic from infrastructure concerns
+
+### 5.2 Design Review
+
+130. **Single Responsibility**  
+     - Functions like `initializeFilesystem` and `displayStats` in `main.go` handle authentication, filesystem setup, logging, and error handling, violating the single-responsibility principle
+     - Recommendation: Refactor into smaller, testable components
+
+131. **Dependency Injection**  
+     - Direct instantiation of Graph API clients within filesystem initialization hinders mocking
+     - Recommendation: Define interfaces for API interactions and inject implementations to improve testability and flexibility
+
+### 5.3 Documentation Review
+
+132. **README Structure**  
+     - The `README.md` provides comprehensive usage instructions but lacks a generated table of contents, contribution guidelines, and a clear project status badge section
+     - Recommendation: Integrate these elements to enhance discoverability and onboarding
+
+133. **Developer Guides**  
+     - The `docs/` folder contains detailed templates for requirements and testing but would benefit from an overarching architecture overview and quick-start guide
+     - Recommendation: Create a `docs/DEVELOPMENT.md` file to orient new contributors
+
+### 5.4 Testing Review
+
+134. **Coverage & Focus**  
+     - The project includes Go tests for filesystem and D-Bus interfaces as well as Python tests for the Nemo extension, but test coverage appears below industry benchmarks of ≥80%
+     - Recommendation: Add additional unit and integration tests around edge cases and failure modes
+
+135. **Test Structure**  
+     - Current tests could be organized using table-driven patterns and subtests to reduce duplication and improve clarity
+     - Recommendation: Follow Go community guidelines on test layout
+
+### 5.5 Implementation Review
+
+136. **Concurrency Management**  
+     - The `DeltaLoop` is launched as an unbounded goroutine without cancellation support
+     - Recommendation: Replace with `context.Context` and `WaitGroup` patterns to enable graceful shutdown and resource cleanup
+
+137. **Error Handling Consistency**  
+     - Error wrapping and logging vary across modules
+     - Recommendation: Adopt a unified approach using the standard `errors` package or a consistent wrapper library to ensure predictable behavior and improved observability
+
+### 5.6 Summary of Recommendations
+
+138. **Adopt a Standard Go Layout**  
+     - Introduce `internal/` for private packages and `pkg/` for public libraries
+     - Align with community practices for Go project structure
+
+139. **Refactor Core Functions**  
+     - Break down large `main.go` routines into discrete services (e.g., AuthService, FilesystemService)
+     - Improve readability and testability of the codebase
+
+140. **Implement Dependency Injection**  
+     - Define interfaces for external dependencies (Graph API, DB)
+     - Inject implementations for easier mocking in tests
+
+141. **Enhance Documentation**  
+     - Add a table of contents, contribution guidelines, and code-of-conduct to `README.md`
+     - Provide an architecture overview in `docs/DEVELOPMENT.md`
+
+142. **Improve Test Coverage**  
+     - Target ≥80% coverage by adding table-driven unit tests
+     - Focus on filesystem operations, error conditions, and concurrency scenarios
+
+143. **Use Context for Concurrency**  
+     - Replace raw goroutines with `context.Context` management and `sync.WaitGroup`
+     - Handle cancellations and orderly shutdowns properly
+
+144. **Standardize Error Handling**  
+     - Adopt a uniform error-wrapping strategy across modules
+     - Leverage Go's `errors` package or a chosen wrapper for clarity and consistency
