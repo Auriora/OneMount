@@ -2,12 +2,15 @@
 """
 GitHub Issue Creator
 
+TODO Need further testing
+
 This script creates GitHub issues using the format from the 'data/github_issues_7MAY25.json' file,
 but excludes the ID field. It uses the GitHub API to create issues and includes proper error
 handling and authentication.
 
 Requirements:
     - Python 3.6+
+    - GitHub CLI (gh) installed and authenticated
     - Required Python packages:
       - requests
 
@@ -17,27 +20,40 @@ Requirements:
     ```
 
 Usage:
-    python create_github_issues.py --repo owner/repo --token YOUR_TOKEN [--file path/to/issues.json] [--dry-run]
+    python create_github_issues.py [--repo owner/repo] [--token YOUR_TOKEN] [--file path/to/issues.json] [--dry-run]
 
 Arguments:
-    --repo: The GitHub repository in the format 'owner/repo'
-    --token: Your GitHub personal access token
+    --repo: (Optional) The GitHub repository in the format 'owner/repo'. If not provided, the script will attempt to get it from the current Git repository.
+    --token: (Optional) Your GitHub personal access token. If not provided, the script will attempt to get it from GitHub CLI.
     --file: (Optional) Path to a JSON file containing issues in the same format as 'data/github_issues_7MAY25.json'
     --dry-run: (Optional) Print the issues that would be created without actually creating them
 
 Examples:
     # Dry run to see what would be created without actually creating issues
-    python create_github_issues.py --repo username/repo --token ghp_abc123 --dry-run
+    python create_github_issues.py --dry-run
 
     # Create issues from a sample file
-    python create_github_issues.py --repo username/repo --token ghp_abc123 --file scripts/developer/sample_issues.json
+    python create_github_issues.py --file scripts/developer/sample_issues.json
 
-    # Create issues from the default file
-    python create_github_issues.py --repo username/repo --token ghp_abc123
+    # Create issues from the default file with a specific repository
+    python create_github_issues.py --repo username/repo
 
-GitHub Personal Access Token:
+    # Create issues using the current Git repository
+    python create_github_issues.py
+
+Authentication:
+    This script uses GitHub CLI (gh) for authentication. Make sure you have GitHub CLI installed and authenticated.
+
+    To authenticate with GitHub CLI:
+    ```bash
+    gh auth login
+    ```
+
+    Follow the prompts to authenticate with your GitHub account.
+
+    Alternatively, you can still provide a personal access token using the --token parameter:
+
     To create a GitHub personal access token:
-
     1. Go to GitHub Settings > Developer settings > Personal access tokens (https://github.com/settings/tokens)
     2. Click "Generate new token"
     3. Give your token a descriptive name
@@ -70,11 +86,11 @@ Input File Format:
 
     The script will extract the necessary fields (title, body, labels, assignees) and exclude the ID field when creating the issues.
 
-    If an issue in the JSON file already has an "id" field, it will be skipped as it's assumed
+    If an issue in the JSON file already has an "id" or "number" field, it will be skipped as it's assumed
     the issue has already been created on GitHub.
 
     After successfully creating an issue on GitHub, the script will update the JSON file with the
-    issue's ID to prevent duplicate creation in future runs.
+    issue's ID and Number (both set to the GitHub issue number) to prevent duplicate creation in future runs.
 
 Sample Data:
     A sample data file is provided at `scripts/developer/sample_issues.json` for testing purposes.
@@ -90,14 +106,16 @@ Notes:
       to avoid hitting GitHub API rate limits.
     - Error handling is included for file loading and API requests.
     - The script will not use the actual 'data/github_issues_7MAY25.json' file for testing since those issues already exist.
-    - Issues with an existing ID field in the JSON file will be skipped.
-    - The JSON file will be updated with the IDs of newly created issues.
+    - Issues with an existing ID or Number field in the JSON file will be skipped.
+    - The JSON file will be updated with both the ID and Number fields (both set to the GitHub issue number) of newly created issues.
 """
 
 import argparse
 import json
 import os
+import re
 import requests
+import subprocess
 import sys
 import time
 from typing import Dict, List, Any, Optional
@@ -326,11 +344,83 @@ def ensure_labels_exist(repo: str, token: str, required_labels: List[Dict[str, A
 
     return all_labels_exist
 
+def get_github_token_from_cli():
+    """
+    Get the GitHub authentication token using the GitHub CLI.
+
+    Returns:
+        str: The GitHub authentication token if successful, None otherwise
+    """
+    try:
+        token_process = subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True)
+        if token_process.returncode != 0:
+            print(f"Error getting GitHub token: {token_process.stderr}")
+            return None
+
+        auth_token = token_process.stdout.strip()
+        if not auth_token:
+            print("GitHub CLI returned an empty token. Make sure you're authenticated with 'gh auth login'")
+            return None
+
+        return auth_token
+    except Exception as e:
+        print(f"Error executing GitHub CLI: {e}")
+        return None
+
+def get_github_repo_from_git():
+    """
+    Get the GitHub repository from the git remote origin URL of the current directory.
+
+    Returns:
+        str: The GitHub repository in the format 'owner/repo' if successful, None otherwise
+    """
+    try:
+        # Check if the current directory is within a git repository
+        git_check = subprocess.run(['git', 'rev-parse', '--is-inside-work-tree'], 
+                                  capture_output=True, text=True)
+        if git_check.returncode != 0 or git_check.stdout.strip() != 'true':
+            print("Current directory is not within a git repository")
+            return None
+
+        # Get the remote origin URL
+        git_remote = subprocess.run(['git', 'config', '--get', 'remote.origin.url'], 
+                                   capture_output=True, text=True)
+        if git_remote.returncode != 0:
+            print("Failed to get remote origin URL")
+            return None
+
+        remote_url = git_remote.stdout.strip()
+        print(f"Remote origin URL: {remote_url}")
+
+        # Parse the URL to get the GitHub repository
+        # Handle different URL formats:
+        # - HTTPS: https://github.com/owner/repo.git
+        # - SSH: git@github.com:owner/repo.git
+
+        # HTTPS format
+        https_match = re.match(r'https://github\.com/([^/]+)/([^/.]+)(?:\.git)?', remote_url)
+        if https_match:
+            owner, repo = https_match.groups()
+            return f"{owner}/{repo}"
+
+        # SSH format
+        ssh_match = re.match(r'git@github\.com:([^/]+)/([^/.]+)(?:\.git)?', remote_url)
+        if ssh_match:
+            owner, repo = ssh_match.groups()
+            return f"{owner}/{repo}"
+
+        print(f"Could not parse GitHub repository from URL: {remote_url}")
+        return None
+
+    except Exception as e:
+        print(f"Error getting GitHub repository from git: {e}")
+        return None
+
 def main():
     """Main function to parse arguments and create GitHub issues."""
     parser = argparse.ArgumentParser(description="Create GitHub issues from a JSON file.")
-    parser.add_argument("--repo", required=True, help="GitHub repository in the format 'owner/repo'")
-    parser.add_argument("--token", required=True, help="GitHub personal access token")
+    parser.add_argument("--repo", required=False, help="GitHub repository in the format 'owner/repo' (optional if in a Git repository with a GitHub remote)")
+    parser.add_argument("--token", required=False, help="GitHub personal access token (optional if using GitHub CLI)")
     parser.add_argument("--file", default="data/github_issues_7MAY25.json", 
                         help="Path to JSON file containing issues (default: data/github_issues_7MAY25.json)")
     parser.add_argument("--dry-run", action="store_true", 
@@ -339,6 +429,24 @@ def main():
                         help="Path to JSON file to store GitHub labels (default: data/github_labels.json)")
 
     args = parser.parse_args()
+
+    # If repo is not provided, try to get it from the Git repository
+    if not args.repo:
+        print("No repository provided. Attempting to get repository from Git...")
+        args.repo = get_github_repo_from_git()
+        if not args.repo:
+            print("Failed to get repository from Git. Please provide a repository with --repo")
+            sys.exit(1)
+        print(f"Successfully retrieved repository from Git: {args.repo}")
+
+    # If token is not provided, try to get it from GitHub CLI
+    if not args.token:
+        print("No token provided. Attempting to get token from GitHub CLI...")
+        args.token = get_github_token_from_cli()
+        if not args.token:
+            print("Failed to get token from GitHub CLI. Please provide a token with --token or authenticate with 'gh auth login'")
+            sys.exit(1)
+        print("Successfully retrieved token from GitHub CLI")
 
     # Download labels from GitHub and save them to a file
     print(f"Downloading labels from GitHub repository {args.repo}...")
@@ -382,9 +490,13 @@ def main():
     file_updated = False
 
     for i, issue in enumerate(issues):
-        # Skip issues that already have an ID
+        # Skip issues that already have an ID or Number field
         if "id" in issue:
             print(f"\nSkipping issue {i+1}: {issue['title']} (already has ID: {issue['id']})")
+            skipped_count += 1
+            continue
+        if "number" in issue:
+            print(f"\nSkipping issue {i+1}: {issue['title']} (already has Number: {issue['number']})")
             skipped_count += 1
             continue
 
@@ -401,8 +513,9 @@ def main():
             if created_issue:
                 print(f"Successfully created issue #{created_issue['number']}: {created_issue['title']}")
 
-                # Update the issue in the original list with the ID from GitHub
+                # Update the issue in the original list with the ID and Number from GitHub
                 issues[i]["id"] = created_issue["number"]
+                issues[i]["number"] = created_issue["number"]
                 file_updated = True
 
                 created_count += 1
