@@ -80,6 +80,11 @@ Sample Data:
     A sample data file is provided at `scripts/developer/sample_issues.json` for testing purposes.
     This file contains sample issues with realistic content that follows the template format.
 
+Label Management:
+    The script downloads the list of labels from the GitHub repository and stores them in a JSON file
+    in the 'data/' folder. It then checks if the labels used in the issues exist in the repository.
+    If a label doesn't exist, it will be created before creating the issues.
+
 Notes:
     - The script includes rate limiting consideration with a 1-second delay between issue creation requests
       to avoid hitting GitHub API rate limits.
@@ -91,6 +96,7 @@ Notes:
 
 import argparse
 import json
+import os
 import requests
 import sys
 import time
@@ -190,6 +196,136 @@ def update_json_file(file_path: str, issues: List[Dict[str, Any]]):
     except Exception as e:
         print(f"Error updating {file_path}: {e}")
 
+def get_github_labels(repo: str, token: str) -> List[Dict[str, Any]]:
+    """
+    Get the list of labels from a GitHub repository.
+
+    Args:
+        repo: The GitHub repository in the format 'owner/repo'
+        token: GitHub personal access token
+
+    Returns:
+        List of label dictionaries
+    """
+    url = f"https://api.github.com/repos/{repo}/labels"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    labels = []
+    page = 1
+    per_page = 100
+
+    try:
+        while True:
+            response = requests.get(f"{url}?page={page}&per_page={per_page}", headers=headers)
+            response.raise_for_status()
+
+            page_labels = response.json()
+            if not page_labels:
+                break
+
+            labels.extend(page_labels)
+            page += 1
+
+            # Sleep to avoid hitting rate limits
+            time.sleep(0.5)
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting labels: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response: {e.response.text}")
+        return []
+
+    return labels
+
+def save_labels_to_file(labels: List[Dict[str, Any]], file_path: str = "data/github_labels.json"):
+    """
+    Save the list of labels to a JSON file.
+
+    Args:
+        labels: List of label dictionaries
+        file_path: Path to the JSON file (default: data/github_labels.json)
+    """
+    # Create the directory if it doesn't exist
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(labels, f, indent=2)
+        print(f"Saved {len(labels)} labels to {file_path}")
+    except Exception as e:
+        print(f"Error saving labels to {file_path}: {e}")
+
+def create_github_label(repo: str, token: str, label_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Create a GitHub label using the GitHub API.
+
+    Args:
+        repo: The GitHub repository in the format 'owner/repo'
+        token: GitHub personal access token
+        label_data: Label data formatted for the GitHub API
+
+    Returns:
+        The created label data if successful, None otherwise
+    """
+    url = f"https://api.github.com/repos/{repo}/labels"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    try:
+        response = requests.post(url, json=label_data, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error creating label '{label_data.get('name')}': {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response: {e.response.text}")
+        return None
+
+def ensure_labels_exist(repo: str, token: str, required_labels: List[Dict[str, Any]], existing_labels: List[Dict[str, Any]]) -> bool:
+    """
+    Ensure that all required labels exist in the repository.
+
+    Args:
+        repo: The GitHub repository in the format 'owner/repo'
+        token: GitHub personal access token
+        required_labels: List of required label dictionaries
+        existing_labels: List of existing label dictionaries
+
+    Returns:
+        True if all required labels exist or were created, False otherwise
+    """
+    existing_label_names = {label["name"] for label in existing_labels}
+    all_labels_exist = True
+
+    for label in required_labels:
+        if label["name"] not in existing_label_names:
+            print(f"Label '{label['name']}' does not exist. Creating...")
+
+            # Prepare label data for creation
+            label_data = {
+                "name": label["name"],
+                "color": label.get("color", "ededed"),  # Default color if not provided
+                "description": label.get("description", "")
+            }
+
+            created_label = create_github_label(repo, token, label_data)
+            if created_label:
+                print(f"Successfully created label '{label['name']}'")
+                existing_labels.append(created_label)
+                existing_label_names.add(label["name"])
+            else:
+                print(f"Failed to create label '{label['name']}'")
+                all_labels_exist = False
+
+            # Sleep to avoid hitting rate limits
+            time.sleep(0.5)
+
+    return all_labels_exist
+
 def main():
     """Main function to parse arguments and create GitHub issues."""
     parser = argparse.ArgumentParser(description="Create GitHub issues from a JSON file.")
@@ -199,8 +335,19 @@ def main():
                         help="Path to JSON file containing issues (default: data/github_issues_7MAY25.json)")
     parser.add_argument("--dry-run", action="store_true", 
                         help="Print issues without creating them")
+    parser.add_argument("--labels-file", default="data/github_labels.json",
+                        help="Path to JSON file to store GitHub labels (default: data/github_labels.json)")
 
     args = parser.parse_args()
+
+    # Download labels from GitHub and save them to a file
+    print(f"Downloading labels from GitHub repository {args.repo}...")
+    labels = get_github_labels(args.repo, args.token)
+    if labels:
+        save_labels_to_file(labels, args.labels_file)
+    else:
+        print("Warning: Failed to download labels from GitHub. Label creation may fail.")
+        labels = []
 
     # Load issues from the JSON file
     issues = load_issues(args.file)
@@ -215,6 +362,19 @@ def main():
             "labels": [{"name": "test"}],
             "assignees": []
         }]
+
+    # Extract all unique labels from the issues
+    required_labels = []
+    for issue in issues:
+        if "labels" in issue and issue["labels"]:
+            for label in issue["labels"]:
+                if label not in required_labels and "name" in label:
+                    required_labels.append(label)
+
+    # Ensure all required labels exist
+    if required_labels and not args.dry_run:
+        print(f"Ensuring {len(required_labels)} labels exist in the repository...")
+        ensure_labels_exist(args.repo, args.token, required_labels, labels)
 
     # Process each issue
     created_count = 0
