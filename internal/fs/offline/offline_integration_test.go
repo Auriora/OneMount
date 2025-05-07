@@ -23,7 +23,7 @@ func TestIT_OF_01_01_OfflineFileAccess_BasicOperations_WorkCorrectly(t *testing.
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "OfflineFileAccessFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
-		fs, err := NewOfflineFilesystem(auth, mountPoint, cacheTTL)
+		fs, err := helpers.NewOfflineFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +60,7 @@ func TestIT_OF_02_01_OfflineFileSystem_BasicOperations_WorkCorrectly(t *testing.
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "OfflineFileSystemOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
-		fs, err := NewOfflineFilesystem(auth, mountPoint, cacheTTL)
+		fs, err := helpers.NewOfflineFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +97,7 @@ func TestIT_OF_03_01_OfflineChanges_Cached_ChangesPreserved(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "OfflineChangesCachedFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
-		fs, err := NewOfflineFilesystem(auth, mountPoint, cacheTTL)
+		fs, err := helpers.NewOfflineFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func TestIT_OF_04_01_OfflineSynchronization_AfterReconnect_ChangesUploaded(t *te
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "OfflineSynchronizationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
-		fs, err := NewOfflineFilesystem(auth, mountPoint, cacheTTL)
+		fs, err := helpers.NewOfflineFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
 			return nil, err
 		}

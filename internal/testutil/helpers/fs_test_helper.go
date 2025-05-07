@@ -154,6 +154,21 @@ func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileI
 	return fileItem
 }
 
+// NewOfflineFilesystem creates a stub filesystem for offline mode testing.
+//
+// Parameters:
+//   - auth: Authentication information for the Graph API
+//   - mountPoint: The directory where the filesystem will be mounted
+//   - cacheTTL: Time-to-live for cached items in seconds
+//
+// Returns:
+//   - A stub filesystem interface for offline testing
+//   - An error if the filesystem could not be created
+func NewOfflineFilesystem(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// This is a stub implementation that will be completed later
+	return nil, fmt.Errorf("NewOfflineFilesystem stub in testutil/helpers not implemented yet")
+}
+
 // SetupFSTestFixture creates a UnitTestFixture with common filesystem test setup and teardown.
 func SetupFSTestFixture(t *testing.T, fixtureName string, newFilesystem func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error)) *framework.UnitTestFixture {
 	fixture := framework.NewUnitTestFixture(fixtureName)

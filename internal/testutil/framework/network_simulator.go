@@ -117,6 +117,9 @@ type NetworkSimulator interface {
 
 	// GetRegisteredProviders returns all registered mock providers
 	GetRegisteredProviders() []MockProvider
+
+	// SimulateIntermittentConnection simulates an unstable connection
+	SimulateIntermittentConnection(disconnectDuration, connectDuration time.Duration) error
 }
 
 // DefaultNetworkSimulator is the default implementation of NetworkSimulator
@@ -332,4 +335,18 @@ func (s *DefaultNetworkSimulator) GetRegisteredProviders() []MockProvider {
 	result := make([]MockProvider, len(s.providers))
 	copy(result, s.providers)
 	return result
+}
+
+// SimulateIntermittentConnection simulates an unstable connection by alternating
+// between connected and disconnected states at the specified intervals.
+// This is useful for testing how the system behaves under unstable network conditions.
+//
+// Parameters:
+//   - disconnectDuration: how long the network should remain disconnected
+//   - connectDuration: how long the network should remain connected
+//
+// Returns an error if the simulation could not be started.
+func (s *DefaultNetworkSimulator) SimulateIntermittentConnection(disconnectDuration, connectDuration time.Duration) error {
+	// This is a stub implementation that will be completed later
+	return errors.New("SimulateIntermittentConnection not implemented yet")
 }
