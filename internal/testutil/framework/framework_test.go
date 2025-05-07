@@ -92,7 +92,18 @@ func (p *mockMockProvider) Reset() error {
 	return p.resetError
 }
 
-func TestNewTestFramework(t *testing.T) {
+// TestUT_FW_01_01_NewTestFramework_ValidConfig_CreatesFramework tests the creation of a new test framework with a valid configuration.
+//
+//	Test Case ID    UT-FW-01-01
+//	Title           Test Framework Creation
+//	Description     Tests the creation of a new test framework with a valid configuration
+//	Preconditions   None
+//	Steps           1. Create a test configuration with valid values
+//	                2. Create a mock logger
+//	                3. Call NewTestFramework with the configuration and logger
+//	                4. Verify the framework is created with the correct properties
+//	Expected Result A new test framework is created with all properties set correctly
+func TestUT_FW_01_01_NewTestFramework_ValidConfig_CreatesFramework(t *testing.T) {
 	expectedArtifactsDir := testutil.GetDefaultArtifactsDir()
 	config := TestConfig{
 		Environment:    "test",
@@ -141,7 +152,17 @@ func TestNewTestFramework(t *testing.T) {
 	}
 }
 
-func TestAddResource(t *testing.T) {
+// TestUT_FW_02_01_AddResource_ValidResource_AddsToResourcesList tests adding a resource to the test framework.
+//
+//	Test Case ID    UT-FW-02-01
+//	Title           Add Resource to Framework
+//	Description     Tests adding a resource to the test framework
+//	Preconditions   A test framework has been created
+//	Steps           1. Create a mock resource
+//	                2. Call AddResource with the mock resource
+//	                3. Verify the resource is added to the resources list
+//	Expected Result The resource is successfully added to the framework's resources list
+func TestUT_FW_02_01_AddResource_ValidResource_AddsToResourcesList(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	resource := newMockResource(nil)
 
@@ -156,7 +177,20 @@ func TestAddResource(t *testing.T) {
 	}
 }
 
-func TestCleanupResources(t *testing.T) {
+// TestUT_FW_03_01_CleanupResources_ResourceWithError_ReturnsError tests cleaning up resources when one resource returns an error.
+//
+//	Test Case ID    UT-FW-03-01
+//	Title           Cleanup Resources with Error
+//	Description     Tests cleaning up resources when one resource returns an error
+//	Preconditions   A test framework has been created with multiple resources
+//	Steps           1. Create a test framework
+//	                2. Add multiple resources, one with a cleanup error
+//	                3. Call CleanupResources
+//	                4. Verify all resources had Cleanup called
+//	                5. Verify the error is returned
+//	                6. Verify the resources list is cleared
+//	Expected Result All resources are cleaned up, the error is returned, and the resources list is cleared
+func TestUT_FW_03_01_CleanupResources_ResourceWithError_ReturnsError(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	resource1 := newMockResource(nil)
 	resource2 := newMockResource(errors.New("cleanup error"))
@@ -189,7 +223,21 @@ func TestCleanupResources(t *testing.T) {
 	}
 }
 
-func TestRegisterAndGetMockProvider(t *testing.T) {
+// TestUT_FW_04_01_RegisterAndGetMockProvider_ValidProvider_RegistersAndRetrieves tests registering and retrieving a mock provider.
+//
+//	Test Case ID    UT-FW-04-01
+//	Title           Register and Get Mock Provider
+//	Description     Tests registering and retrieving a mock provider
+//	Preconditions   A test framework has been created
+//	Steps           1. Create a test framework
+//	                2. Create a mock provider
+//	                3. Register the mock provider with a name
+//	                4. Retrieve the provider using the same name
+//	                5. Verify the retrieved provider is the same as the registered one
+//	                6. Try to retrieve a non-existent provider
+//	                7. Verify the non-existent provider is not found
+//	Expected Result The provider is successfully registered and retrieved, and non-existent providers are not found
+func TestUT_FW_04_01_RegisterAndGetMockProvider_ValidProvider_RegistersAndRetrieves(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	provider := newMockMockProvider()
 
@@ -210,7 +258,18 @@ func TestRegisterAndGetMockProvider(t *testing.T) {
 	}
 }
 
-func TestRunTest(t *testing.T) {
+// TestUT_FW_05_01_RunTest_VariousTestCases_ReturnsCorrectResults tests running tests with different outcomes.
+//
+//	Test Case ID    UT-FW-05-01
+//	Title           Run Test with Various Outcomes
+//	Description     Tests running tests that succeed, fail, and timeout
+//	Preconditions   None
+//	Steps           1. Create a test framework
+//	                2. Run a successful test and verify the result
+//	                3. Run a failing test and verify the result
+//	                4. Run a test that times out and verify the result
+//	Expected Result Each test returns the correct result status and failure information
+func TestUT_FW_05_01_RunTest_VariousTestCases_ReturnsCorrectResults(t *testing.T) {
 	logger := newMockLogger()
 	framework := NewTestFramework(TestConfig{}, logger)
 
@@ -272,7 +331,20 @@ func TestRunTest(t *testing.T) {
 	}
 }
 
-func TestRunTestSuite(t *testing.T) {
+// TestUT_FW_06_01_RunTestSuite_MixedResults_ReturnsCorrectCounts tests running a test suite with mixed results.
+//
+//	Test Case ID    UT-FW-06-01
+//	Title           Run Test Suite with Mixed Results
+//	Description     Tests running a test suite with a mix of passing and failing tests
+//	Preconditions   None
+//	Steps           1. Create a test framework
+//	                2. Define a map of test functions with mixed results
+//	                3. Run the test suite
+//	                4. Verify the correct number of results
+//	                5. Count the number of passed and failed tests
+//	                6. Verify the counts match expectations
+//	Expected Result The test suite returns the correct number of results with the expected pass/fail counts
+func TestUT_FW_06_01_RunTestSuite_MixedResults_ReturnsCorrectCounts(t *testing.T) {
 	logger := newMockLogger()
 	framework := NewTestFramework(TestConfig{}, logger)
 
@@ -313,7 +385,17 @@ func TestRunTestSuite(t *testing.T) {
 	}
 }
 
-func TestWithTimeout(t *testing.T) {
+// TestUT_FW_07_01_WithTimeout_ShortTimeout_ContextExpires tests creating a context with a timeout.
+//
+//	Test Case ID    UT-FW-07-01
+//	Title           Context with Timeout
+//	Description     Tests creating a context with a timeout that expires
+//	Preconditions   None
+//	Steps           1. Create a test framework
+//	                2. Create a context with a short timeout
+//	                3. Wait for the context to expire
+//	Expected Result The context expires within the expected time
+func TestUT_FW_07_01_WithTimeout_ShortTimeout_ContextExpires(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	ctx := framework.WithTimeout(100 * time.Millisecond)
 
@@ -325,7 +407,18 @@ func TestWithTimeout(t *testing.T) {
 	}
 }
 
-func TestWithCancel(t *testing.T) {
+// TestUT_FW_08_01_WithCancel_ImmediateCancel_ContextCancels tests creating a context with a cancel function.
+//
+//	Test Case ID    UT-FW-08-01
+//	Title           Context with Cancel Function
+//	Description     Tests creating a context with a cancel function and canceling it
+//	Preconditions   None
+//	Steps           1. Create a test framework
+//	                2. Create a context with a cancel function
+//	                3. Call the cancel function
+//	                4. Verify the context is canceled
+//	Expected Result The context is canceled immediately after calling the cancel function
+func TestUT_FW_08_01_WithCancel_ImmediateCancel_ContextCancels(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	ctx, cancel := framework.WithCancel()
 
@@ -339,7 +432,20 @@ func TestWithCancel(t *testing.T) {
 	}
 }
 
-func TestSetContext(t *testing.T) {
+// TestUT_FW_09_01_SetContext_CustomContext_UsedInTests tests setting a custom context in the framework.
+//
+//	Test Case ID    UT-FW-09-01
+//	Title           Set Custom Context
+//	Description     Tests setting a custom context in the framework and using it in tests
+//	Preconditions   None
+//	Steps           1. Create a test framework
+//	                2. Create a custom context with a value
+//	                3. Set the custom context in the framework
+//	                4. Verify the context is set correctly
+//	                5. Run a test that uses the context value
+//	                6. Verify the test passes
+//	Expected Result The custom context is set correctly and used in tests
+func TestUT_FW_09_01_SetContext_CustomContext_UsedInTests(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
 	customCtx := context.WithValue(context.Background(), "key", "value")
 

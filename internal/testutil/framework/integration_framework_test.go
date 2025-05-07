@@ -57,7 +57,20 @@ func (c *TestTargetComponent) HandleInteraction() error {
 	return nil
 }
 
-func TestIntegrationFrameworkCreation(t *testing.T) {
+// TestUT_IF_01_01_IntegrationFrameworkCreation_NewFramework_CreatesSuccessfully tests the creation of a new integration framework.
+//
+//	Test Case ID    UT-IF-01-01
+//	Title           Integration Framework Creation
+//	Description     Tests the creation of a new integration framework
+//	Preconditions   None
+//	Steps           1. Create a new integration framework with a context and logger
+//	                2. Verify the framework was created successfully
+//	                3. Verify the framework has a non-nil environment
+//	                4. Verify the framework has a non-nil test framework
+//	                5. Verify the framework has non-nil interaction configs
+//	                6. Verify the framework has non-nil contract validators
+//	Expected Result A new integration framework is created with all required components
+func TestUT_IF_01_01_IntegrationFrameworkCreation_NewFramework_CreatesSuccessfully(t *testing.T) {
 	// Create a new integration framework
 	ctx := context.Background()
 	logger := testutil.NewZerologLogger("integration-test")
@@ -85,7 +98,20 @@ func TestIntegrationFrameworkCreation(t *testing.T) {
 	}
 }
 
-func TestComponentInteractionConfig(t *testing.T) {
+// TestUT_IF_02_01_ComponentInteractionConfig_Creation_SetsCorrectProperties tests the creation and properties of a ComponentInteractionConfig.
+//
+//	Test Case ID    UT-IF-02-01
+//	Title           Component Interaction Config Creation
+//	Description     Tests that a ComponentInteractionConfig can be created with the correct properties
+//	Preconditions   None
+//	Steps           1. Create a ComponentInteractionConfig with specific properties
+//	                2. Verify the name is set correctly
+//	                3. Verify the source component is set correctly
+//	                4. Verify the target component is set correctly
+//	                5. Verify the interaction type is set correctly
+//	                6. Verify the options are set correctly
+//	Expected Result The ComponentInteractionConfig is created with all properties set correctly
+func TestUT_IF_02_01_ComponentInteractionConfig_Creation_SetsCorrectProperties(t *testing.T) {
 	// Create a component interaction config
 	config := &ComponentInteractionConfig{
 		Name:            "test-interaction",
@@ -117,7 +143,20 @@ func TestComponentInteractionConfig(t *testing.T) {
 	}
 }
 
-func TestInterfaceContractValidator(t *testing.T) {
+// TestUT_IF_03_01_InterfaceContractValidator_Creation_ValidatesInterface tests the creation and validation of an InterfaceContractValidator.
+//
+//	Test Case ID    UT-IF-03-01
+//	Title           Interface Contract Validator Creation
+//	Description     Tests that an InterfaceContractValidator can be created and used to validate interface implementations
+//	Preconditions   None
+//	Steps           1. Create an InterfaceContractValidator for TestInterface
+//	                2. Verify the validator properties are set correctly
+//	                3. Test the Method1 validator with a TestComponent
+//	                4. Verify Method1 was called on the component
+//	                5. Test the Method2 validator with a TestComponent
+//	                6. Verify Method2 was called with the correct argument
+//	Expected Result The validator is created correctly and can validate interface implementations
+func TestUT_IF_03_01_InterfaceContractValidator_Creation_ValidatesInterface(t *testing.T) {
 	// Create a validator for TestInterface
 	validator := &InterfaceContractValidator{
 		Name:          "test-validator",
@@ -188,7 +227,18 @@ func TestInterfaceContractValidator(t *testing.T) {
 	}
 }
 
-func TestInteractionCondition(t *testing.T) {
+// TestUT_IF_04_01_InteractionCondition_SetupTeardown_ExecutesCorrectly tests the setup and teardown of an InteractionCondition.
+//
+//	Test Case ID    UT-IF-04-01
+//	Title           Interaction Condition Setup and Teardown
+//	Description     Tests that an InteractionCondition can be created and its setup and teardown functions execute correctly
+//	Preconditions   None
+//	Steps           1. Create an InteractionCondition with setup and teardown functions
+//	                2. Verify the condition properties are set correctly
+//	                3. Call the setup function and verify it executes
+//	                4. Call the teardown function and verify it executes
+//	Expected Result The condition is created correctly and its setup and teardown functions execute as expected
+func TestUT_IF_04_01_InteractionCondition_SetupTeardown_ExecutesCorrectly(t *testing.T) {
 	// Create a network condition
 	setupCalled := false
 	teardownCalled := false
@@ -237,7 +287,19 @@ func TestInteractionCondition(t *testing.T) {
 	}
 }
 
-func TestCreateNetworkCondition(t *testing.T) {
+// TestUT_IF_05_01_CreateNetworkCondition_SlowNetwork_CreatesCondition tests the creation of a network condition.
+//
+//	Test Case ID    UT-IF-05-01
+//	Title           Create Network Condition
+//	Description     Tests that a network condition can be created with specific parameters
+//	Preconditions   None
+//	Steps           1. Create an integration framework
+//	                2. Create a network condition with latency, packet loss, and bandwidth parameters
+//	                3. Verify the condition name is set correctly
+//	                4. Verify the condition description is set
+//	                5. Verify the setup and teardown functions are not nil
+//	Expected Result A network condition is created with the correct properties and functions
+func TestUT_IF_05_01_CreateNetworkCondition_SlowNetwork_CreatesCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
 	logger := testutil.NewZerologLogger("integration-test")
@@ -266,7 +328,19 @@ func TestCreateNetworkCondition(t *testing.T) {
 	}
 }
 
-func TestCreateDisconnectedCondition(t *testing.T) {
+// TestUT_IF_06_01_CreateDisconnectedCondition_NetworkDisconnect_CreatesCondition tests the creation of a disconnected network condition.
+//
+//	Test Case ID    UT-IF-06-01
+//	Title           Create Disconnected Network Condition
+//	Description     Tests that a disconnected network condition can be created
+//	Preconditions   None
+//	Steps           1. Create an integration framework
+//	                2. Create a disconnected network condition
+//	                3. Verify the condition name is set correctly
+//	                4. Verify the condition description is set correctly
+//	                5. Verify the setup and teardown functions are not nil
+//	Expected Result A disconnected network condition is created with the correct properties and functions
+func TestUT_IF_06_01_CreateDisconnectedCondition_NetworkDisconnect_CreatesCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
 	logger := testutil.NewZerologLogger("integration-test")
@@ -295,7 +369,20 @@ func TestCreateDisconnectedCondition(t *testing.T) {
 	}
 }
 
-func TestCreateErrorCondition(t *testing.T) {
+// TestUT_IF_07_01_CreateErrorCondition_ComponentError_CreatesCondition tests the creation of an error condition.
+//
+//	Test Case ID    UT-IF-07-01
+//	Title           Create Error Condition
+//	Description     Tests that an error condition can be created for a specific component
+//	Preconditions   None
+//	Steps           1. Create an integration framework
+//	                2. Define setup and cleanup functions for the error condition
+//	                3. Create an error condition with a component name and the functions
+//	                4. Verify the condition name is set correctly
+//	                5. Verify the condition description is set correctly
+//	                6. Verify the setup and teardown functions are not nil
+//	Expected Result An error condition is created with the correct properties and functions
+func TestUT_IF_07_01_CreateErrorCondition_ComponentError_CreatesCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
 	logger := testutil.NewZerologLogger("integration-test")

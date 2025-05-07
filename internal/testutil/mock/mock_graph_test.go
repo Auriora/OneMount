@@ -11,9 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMockGraphProvider_ApiResponses demonstrates how to use the MockGraphProvider
-// to add mock responses for different API calls and perform operations using these mocks.
-func TestMockGraphProvider_ApiResponses(t *testing.T) {
+// TestUT_MG_01_01_MockGraphProvider_ApiResponses_ConfiguresAndUsesResponses tests that the mock graph provider can be configured with responses and used for operations.
+//
+//	Test Case ID    UT-MG-01-01
+//	Title           Mock Graph Provider API Responses
+//	Description     Tests that the mock graph provider can be configured with responses and used for operations
+//	Preconditions   None
+//	Steps           1. Create a new MockGraphProvider
+//	                2. Setup mock responses for item retrieval
+//	                3. Setup mock responses for content download
+//	                4. Setup mock responses for children listing
+//	                5. Perform operations using the mock responses
+//	                6. Verify that all operations were recorded
+//	Expected Result The mock provider correctly returns configured responses and records operations
+func TestUT_MG_01_01_MockGraphProvider_ApiResponses_ConfiguresAndUsesResponses(t *testing.T) {
 	// Create a new MockGraphProvider
 	provider := NewMockGraphProvider()
 
@@ -137,14 +148,21 @@ func TestMockGraphProvider_ApiResponses(t *testing.T) {
 	assert.GreaterOrEqual(t, getItemChildrenCount, 1, "Expected at least 1 call to GetItemChildren")
 }
 
-// TestMockGraphProvider_NetworkErrors tests the mock client's ability to simulate
-// network errors and verifies that operations handle these errors correctly.
-// This test demonstrates:
-// 1. Configuring the mock client with error conditions (using SetConfig)
-// 2. Setting error rates, throttling, and latency
-// 3. Performing operations and verifying they handle errors correctly
-// 4. Testing both random errors and API throttling scenarios
-func TestMockGraphProvider_NetworkErrors(t *testing.T) {
+// TestUT_MG_02_01_MockGraphProvider_NetworkErrors_SimulatesNetworkConditions tests that the mock graph provider can simulate network errors.
+//
+//	Test Case ID    UT-MG-02-01
+//	Title           Mock Graph Provider Network Errors
+//	Description     Tests that the mock graph provider can simulate network errors and that operations handle these errors correctly
+//	Preconditions   None
+//	Steps           1. Create a new MockGraphProvider
+//	                2. Setup mock responses for various operations
+//	                3. Test network latency by configuring high latency and verifying request timing
+//	                4. Test random errors by configuring a high error rate and verifying failures
+//	                5. Test API throttling by configuring throttling and verifying throttled responses
+//	                6. Test error handling with retries by implementing a retry mechanism
+//	                7. Test combined error conditions with a mix of latency, errors, and throttling
+//	Expected Result The mock provider correctly simulates various network conditions and error scenarios
+func TestUT_MG_02_01_MockGraphProvider_NetworkErrors_SimulatesNetworkConditions(t *testing.T) {
 	// Create a new MockGraphProvider
 	provider := NewMockGraphProvider()
 

@@ -109,7 +109,17 @@ G5asg8xRk9YaDdedXdQSJAOy6bWEWlABj+tVAigBxavaluUH8LOj+yfCFldJjNLdi90fVHkUD/m4
 Mr5OtmupNMXPwuG3EQlqWUVpQoYpUYKLsk7a5Mvg6UFkiH596y5IbJEVCI1Kb3D1`, "e3+wo77iKcILiZegnzyUNcjCdoQ="},
 }
 
-func TestQuickXorHash(t *testing.T) {
+// TestUT_GR_29_01_QuickXORHash_Sum_CalculatesCorrectHashes tests the Sum function with various inputs.
+//
+//	Test Case ID    UT-GR-29-01
+//	Title           QuickXORHash Sum Calculation
+//	Description     Tests the Sum function with various inputs
+//	Preconditions   None
+//	Steps           1. Decode test vectors from base64
+//	                2. Calculate QuickXOR hashes using Sum
+//	                3. Compare the results with expected values
+//	Expected Result Sum correctly calculates QuickXOR hashes
+func TestUT_GR_29_01_QuickXORHash_Sum_CalculatesCorrectHashes(t *testing.T) {
 	for _, test := range testVectors {
 		what := fmt.Sprintf("test size %d", test.size)
 		in, err := base64.StdEncoding.DecodeString(test.in)
@@ -121,7 +131,19 @@ func TestQuickXorHash(t *testing.T) {
 	}
 }
 
-func TestQuickXorHashByBlock(t *testing.T) {
+// TestUT_GR_30_01_QuickXORHash_WriteByBlocks_CalculatesCorrectHashes tests calculating QuickXOR hashes by writing data in blocks.
+//
+//	Test Case ID    UT-GR-30-01
+//	Title           QuickXORHash Block Writing
+//	Description     Tests calculating QuickXOR hashes by writing data in blocks
+//	Preconditions   None
+//	Steps           1. Decode test vectors from base64
+//	                2. Create a new QuickXOR hash
+//	                3. Write data in blocks of different sizes
+//	                4. Calculate the hash
+//	                5. Compare the result with the expected value
+//	Expected Result QuickXOR hashes are correctly calculated when writing data in blocks
+func TestUT_GR_30_01_QuickXORHash_WriteByBlocks_CalculatesCorrectHashes(t *testing.T) {
 	for _, blockSize := range []int{1, 2, 4, 7, 8, 16, 32, 64, 128, 256, 512} {
 		for _, test := range testVectors {
 			what := fmt.Sprintf("test size %d blockSize %d", test.size, blockSize)
@@ -145,17 +167,50 @@ func TestQuickXorHashByBlock(t *testing.T) {
 	}
 }
 
-func TestSize(t *testing.T) {
+// TestUT_GR_31_01_QuickXORHash_Size_Returns20Bytes tests the Size method of the QuickXOR hash.
+//
+//	Test Case ID    UT-GR-31-01
+//	Title           QuickXORHash Size Method
+//	Description     Tests the Size method of the QuickXOR hash
+//	Preconditions   None
+//	Steps           1. Create a new QuickXOR hash
+//	                2. Call the Size method
+//	                3. Check if the result is 20
+//	Expected Result Size returns the correct hash size (20 bytes)
+func TestUT_GR_31_01_QuickXORHash_Size_Returns20Bytes(t *testing.T) {
 	d := New()
 	assert.Equal(t, 20, d.Size())
 }
 
-func TestBlockSize(t *testing.T) {
+// TestUT_GR_32_01_QuickXORHash_BlockSize_Returns64Bytes tests the BlockSize method of the QuickXOR hash.
+//
+//	Test Case ID    UT-GR-32-01
+//	Title           QuickXORHash BlockSize Method
+//	Description     Tests the BlockSize method of the QuickXOR hash
+//	Preconditions   None
+//	Steps           1. Create a new QuickXOR hash
+//	                2. Call the BlockSize method
+//	                3. Check if the result is 64
+//	Expected Result BlockSize returns the correct block size (64 bytes)
+func TestUT_GR_32_01_QuickXORHash_BlockSize_Returns64Bytes(t *testing.T) {
 	d := New()
 	assert.Equal(t, 64, d.BlockSize())
 }
 
-func TestReset(t *testing.T) {
+// TestUT_GR_33_01_QuickXORHash_Reset_RestoresInitialState tests the Reset method of the QuickXOR hash.
+//
+//	Test Case ID    UT-GR-33-01
+//	Title           QuickXORHash Reset Method
+//	Description     Tests the Reset method of the QuickXOR hash
+//	Preconditions   None
+//	Steps           1. Create a new QuickXOR hash
+//	                2. Calculate the hash of an empty input
+//	                3. Write some data and calculate the hash
+//	                4. Reset the hash
+//	                5. Calculate the hash again
+//	                6. Compare with the original empty hash
+//	Expected Result Reset correctly resets the hash state
+func TestUT_GR_33_01_QuickXORHash_Reset_RestoresInitialState(t *testing.T) {
 	d := New()
 	zeroHash := d.Sum(nil)
 	_, _ = d.Write([]byte{1})

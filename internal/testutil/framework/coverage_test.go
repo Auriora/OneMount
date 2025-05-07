@@ -8,7 +8,20 @@ import (
 	"testing"
 )
 
-func TestCoverageReporter(t *testing.T) {
+// TestUT_CV_01_01_CoverageReporter_BasicFunctionality_WorksCorrectly tests the basic functionality of the CoverageReporter.
+//
+//	Test Case ID    UT-CV-01-01
+//	Title           Coverage Reporter Basic Functionality
+//	Description     Tests the basic functionality of the CoverageReporter
+//	Preconditions   None
+//	Steps           1. Create a temporary directory for test output
+//	                2. Create a CoverageReporter with test thresholds
+//	                3. Test CollectCoverage functionality
+//	                4. Test ReportCoverage functionality
+//	                5. Test CheckThresholds functionality
+//	                6. Test GenerateGoLandReport functionality
+//	Expected Result All coverage reporter functions work correctly
+func TestUT_CV_01_01_CoverageReporter_BasicFunctionality_WorksCorrectly(t *testing.T) {
 	// Create a temporary directory for test output
 
 	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "coverage-test")
@@ -119,8 +132,16 @@ func TestCoverageReporter(t *testing.T) {
 	})
 }
 
-// TestHelperFunctions tests the helper functions in the coverage.go file
-func TestHelperFunctions(t *testing.T) {
+// TestUT_CV_02_01_HelperFunctions_UtilityFunctions_WorkCorrectly tests the helper functions in the coverage.go file.
+//
+//	Test Case ID    UT-CV-02-01
+//	Title           Coverage Helper Functions
+//	Description     Tests the utility functions used by the coverage reporter
+//	Preconditions   None
+//	Steps           1. Test parseFloat function with various inputs
+//	                2. Test getCoverageClass function with various coverage and threshold values
+//	Expected Result All helper functions work correctly with various inputs
+func TestUT_CV_02_01_HelperFunctions_UtilityFunctions_WorkCorrectly(t *testing.T) {
 	// Test parseFloat
 	t.Run("parseFloat", func(t *testing.T) {
 		tests := []struct {
