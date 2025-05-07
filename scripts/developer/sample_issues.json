@@ -1,0 +1,37 @@
+[
+  {
+    "title": "Sample Issue 1: Add documentation for new feature",
+    "body": "## Description\nWe need to add comprehensive documentation for the new feature that was implemented in PR #123.\n\n## Rationale\nGood documentation is essential for users to understand how to use the new feature effectively.\n\n## Impact\nThis will improve the user experience and reduce support requests related to the new feature.",
+    "labels": [
+      {
+        "name": "documentation",
+        "description": "Documentation improvements",
+        "color": "0075ca"
+      }
+    ],
+    "assignees": [],
+    "state": "OPEN",
+    "closed": false,
+    "comments": []
+  },
+  {
+    "title": "Sample Issue 2: Fix performance issue in file upload",
+    "body": "## Description\nThere's a performance bottleneck in the file upload process that causes large files to upload slowly.\n\n## Steps to Reproduce\n1. Select a file larger than 100MB\n2. Initiate the upload process\n3. Observe the upload speed\n\n## Expected Behavior\nFiles should upload at the maximum available bandwidth.\n\n## Actual Behavior\nUpload speed is limited to approximately 1MB/s regardless of available bandwidth.",
+    "labels": [
+      {
+        "name": "bug",
+        "description": "Something isn't working",
+        "color": "d73a4a"
+      },
+      {
+        "name": "performance",
+        "description": "Performance improvements",
+        "color": "0e8a16"
+      }
+    ],
+    "assignees": [],
+    "state": "OPEN",
+    "closed": false,
+    "comments": []
+  }
+]
