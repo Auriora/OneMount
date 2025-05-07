@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestUT_GR_17_01_URIGetHost_VariousURIs_ReturnsCorrectHost tests the uriGetHost function with various inputs.
+// TestUT_GR_17_02_URIGetHost_VariousURIs_ReturnsCorrectHost tests the uriGetHost function with various inputs.
 //
 //	Test Case ID    UT-GR-17-01
 //	Title           URI Host Extraction
@@ -17,7 +17,7 @@ import (
 //	                4. Check if the results match expectations
 //	Expected Result uriGetHost returns the correct host for valid URIs and an empty string for invalid URIs
 //	Notes: This test verifies that the uriGetHost function correctly extracts the host from URIs.
-func TestUT_GR_17_01_URIGetHost_VariousURIs_ReturnsCorrectHost(t *testing.T) {
+func TestUT_GR_17_02_URIGetHost_VariousURIs_ReturnsCorrectHost(t *testing.T) {
 	// Create a test fixture
 	fixture := framework.NewUnitTestFixture("URIGetHostFixture")
 

@@ -7,11 +7,12 @@ This document outlines the best practices for writing tests in the OneMount proj
 OneMount follows a comprehensive test architecture designed to ensure code quality and reliability. For detailed information about the test architecture, refer to the [Test Architecture Design](/docs/design/test-architecture-design.md) document.
 
 This guide covers the following key areas:
-1. **Test Organization and Naming Conventions** - How to structure and name your tests
-2. **Best Practices for Using Mocks** - How to effectively use mock components
-3. **Guidelines for Achieving Good Test Coverage** - How to ensure comprehensive test coverage
-4. **Best Practices for Performance Testing** - How to write effective performance tests
-5. **Guidelines for Integration Testing** - How to test component interactions
+1. **Test Types and Classification** - The different types of tests used in the project
+2. **Test ID Structure and Naming Conventions** - How to structure and name your tests
+3. **Best Practices for Using Mocks** - How to effectively use mock components
+4. **Guidelines for Achieving Good Test Coverage** - How to ensure comprehensive test coverage
+5. **Best Practices for Performance Testing** - How to write effective performance tests
+6. **Guidelines for Integration Testing** - How to test component interactions
 
 ### Key Components
 
@@ -31,6 +32,82 @@ internal/testutil/           # Test utilities
 ├── fs/                      # Filesystem test utilities
 └── graph/                   # Graph API test utilities
 ```
+
+## Test Types and Classification
+
+The OneMount project uses several types of tests to ensure comprehensive coverage of the codebase. Each test type has a specific purpose and scope:
+
+### Unit Tests (UT)
+
+Unit tests focus on testing individual functions or small components in isolation. They verify that each unit of code works as expected independently of other parts of the system.
+
+Characteristics:
+- Fast execution
+- No external dependencies
+- Test a single function or small component
+- Use mocks for dependencies
+
+Example: `TestUT_FS_01_01_FileOperations_BasicReadWrite_SuccessfullyPreservesContent`
+
+### Integration Tests (IT)
+
+Integration tests verify the interaction between multiple components. They ensure that different parts of the system work together correctly.
+
+Characteristics:
+- Test multiple components together
+- May involve external dependencies
+- Verify component interactions
+- More complex setup than unit tests
+
+Example: `TestIT_GR_02_03_GraphAPI_NetworkDisconnection_RetriesAndSucceeds`
+
+### System Tests (ST)
+
+System tests evaluate the system as a whole, including the filesystem, API integration, and UI. They verify that the entire system meets the requirements.
+
+Characteristics:
+- Test the complete system
+- Involve all components
+- Verify end-to-end functionality
+- Simulate real user scenarios
+
+Example: `TestST_FS_01_01_FileSystem_MountAndAccess_SuccessfullyAccessesFiles`
+
+### Performance Tests (PT)
+
+Performance tests measure the performance characteristics of the system, such as response time, throughput, and resource usage.
+
+Characteristics:
+- Measure performance metrics
+- Test under various load conditions
+- Identify performance bottlenecks
+- Establish performance baselines
+
+Example: `TestPT_FS_01_01_FileDownload_LargeFiles_CompletesWithinTimeLimit`
+
+### Load Tests (LT)
+
+Load tests evaluate the system's behavior under expected and peak load conditions.
+
+Characteristics:
+- Test with multiple concurrent users/operations
+- Verify system stability under load
+- Identify resource limitations
+- Ensure consistent performance
+
+Example: `TestLT_FS_01_01_ConcurrentAccess_MultipleUsers_MaintainsPerformance`
+
+### Scenario Tests (SC)
+
+Scenario tests verify specific user scenarios or workflows.
+
+Characteristics:
+- Test complete user workflows
+- Verify business requirements
+- Simulate real-world usage patterns
+- Focus on user experience
+
+Example: `TestSC_UI_01_01_UserLogin_ValidCredentials_SuccessfullyAccessesDrive`
 
 ## Table-Driven Tests
 
@@ -87,20 +164,74 @@ func TestFileOperations(t *testing.T) {
 }
 ```
 
-## Test Naming Conventions
+## Test ID Structure and Naming Conventions
 
-Clear and descriptive test names help understand what is being tested and what the expected outcome is.
+Clear and descriptive test names help understand what is being tested and what the expected outcome is. OneMount follows a structured approach to test IDs and function naming. For a complete reference of test case definitions, see [Test Case Definitions](/docs/testing/old%20tests/test_case_definitions.md).
 
-### Naming Pattern
+### Test ID Structure
 
-Use the format `Operation_ShouldExpectedResult` for test names, for example:
+The test ID structure follows this pattern:
+
+```
+<TYPE>_<COMPONENT>_<TESTNUMBER>_<SUBTESTNUMER>
+```
+
+Where:
+- `<TYPE>` is the test type (2 letters):
+  - UT - Unit Test
+  - IT - Integration Test
+  - ST - System Test
+  - PT - Performance Test
+  - LT - Load Test
+  - SC - Scenario Test
+  - UA - User Acceptance Test
+  - etc.
+- `<COMPONENT>` is the component being tested (2/3 letters):
+  - FS - File System
+  - GR - Graph
+  - UI - User Interface
+  - CMD - Command
+  - etc.
+- `<TESTNUMBER>` is a 2-digit number uniquely identifying the test
+- `<SUBTESTNUMER>` is a 2-digit number uniquely identifying the sub-test or test variant
+
+To prevent duplicate test IDs, use the Test ID Registry to check if a test ID is already in use and to register new test IDs. See the [Test ID Registry](#test-id-registry) section for more information.
+
+### Test Function Naming Convention
+
+Test function names follow this pattern:
+
+```
+Test<TYPE>_<COMPONENT>_<TESTNUMBER>_<SUBTESTNUMER>_<UNIT-OF-WORK>_<STATE-UNDER-TEST>_<EXPECTED-BEHAVIOR>
+```
+
+Where:
+- `<TYPE>`, `<COMPONENT>`, `<TESTNUMBER>`, and `<SUBTESTNUMER>` are the same as in the test ID structure
+- `<UNIT-OF-WORK>` represents a single method, a class, or multiple classes
+- `<STATE-UNDER-TEST>` represents the inputs or conditions being tested
+- `<EXPECTED-BEHAVIOR>` represents the output or result
+
+Examples:
+- `TestUT_FS_01_01_FileOperations_BasicReadWrite_SuccessfullyPreservesContent`
+- `TestIT_GR_02_03_GraphAPI_NetworkDisconnection_RetriesAndSucceeds`
+- `TestUT_UI_05_02_AccountSelector_MultipleAccounts_DisplaysAllAccounts`
+
+This naming pattern clearly indicates:
+1. The type of test (unit, integration, etc.)
+2. The component being tested
+3. The specific test and sub-test numbers
+4. What operation is being tested
+5. Under what conditions it's being tested
+6. What the expected outcome is
+
+### Legacy Naming Pattern
+
+For older tests that haven't been migrated to the new naming convention, the format `Operation_ShouldExpectedResult` is used, for example:
 - `WriteAndRead_ShouldPreserveContent`
 - `AppendMultipleTimes_ShouldHaveMultipleLines`
 - `SetXAttr_ShouldStoreAttributeValue`
 
-This naming pattern clearly indicates:
-1. What operation is being tested
-2. What the expected outcome is
+All new tests should follow the structured naming convention described above.
 
 ## Parallel Test Execution
 
@@ -580,6 +711,148 @@ func TestFileDownloadUnderLoad(t *testing.T) {
 }
 ```
 
+## Test ID Registry
+
+The OneMount project uses a centralized registry for test IDs to prevent duplicate test IDs. The registry is implemented as a Python script (`test_id_registry.py`) that provides the following functionality:
+
+1. **Check if a test ID is already in use**: Before creating a new test, check if the test ID is already in use.
+2. **Get the next available test number**: Get the next available test number for a given test type, module, and feature number.
+3. **Register new test IDs**: Register a new test ID before implementing the test to ensure it's reserved for your use.
+4. **List all test IDs**: List all test IDs in the registry, optionally filtered by test type, module, and feature number.
+
+### Using the Test ID Registry
+
+#### Updating the Registry
+
+Before using the registry, you should update it to ensure it contains all the latest test IDs:
+
+```bash
+./test_id_registry.py update
+```
+
+#### Checking if a Test ID is Already in Use
+
+To check if a test ID is already in use:
+
+```bash
+./test_id_registry.py check UT_FS_01_01
+```
+
+#### Getting the Next Available Test Number
+
+To get the next available test number for a given test type, module, and feature number:
+
+```bash
+./test_id_registry.py next UT FS 01
+```
+
+#### Registering a New Test ID
+
+To register a new test ID:
+
+```bash
+./test_id_registry.py register UT FS 01 FileOperations_BasicReadWrite SuccessfullyPreservesContent
+```
+
+#### Listing Test IDs
+
+To list all test IDs in the registry:
+
+```bash
+./test_id_registry.py list
+```
+
+For more information, see the [Test ID Registry README](../../test_id_registry_README.md).
+
+## Development Scripts and Output
+
+### Script Locations
+
+OneMount uses various scripts to automate development and testing tasks. These scripts should be organized as follows:
+
+1. **Developer Scripts**: All developer scripts should be placed in the `scripts/developer` directory. This includes scripts for:
+   - Test automation
+   - Development environment setup
+   - Code generation
+   - Performance analysis
+   - Debugging utilities
+
+2. **Script Output**: All script output should be directed to the `tmp/` directory. This includes:
+   - Log files
+   - Generated reports
+   - Temporary data files
+   - Debug output
+   - Performance metrics
+
+### Best Practices for Scripts
+
+1. **Documentation**: Each script should include a header comment that explains its purpose, usage, and any required parameters.
+2. **Error Handling**: Scripts should include proper error handling and provide meaningful error messages.
+3. **Cleanup**: Scripts should clean up temporary files when they complete, especially if they fail.
+4. **Logging**: Scripts should log their actions to make debugging easier.
+
+## Documentation Guidelines
+
+When working on the OneMount project, follow these documentation guidelines:
+
+1. **Update Existing Documentation**: Whenever possible, update existing documentation rather than creating new documents. This helps maintain a cohesive documentation set and prevents fragmentation.
+
+2. **New Documentation Location**: If new documentation is needed, place it in the appropriate subdirectory of the `docs/` folder:
+   - `docs/guides/` - For developer guides and best practices
+   - `docs/design/` - For design documentation
+   - `docs/implementation/` - For implementation details
+   - `docs/requirements/` - For project requirements
+   - `docs/testing/` - For testing documentation
+
+3. **Link to New Documentation**: When creating new documentation, add links to it from relevant existing documentation to ensure discoverability.
+
+4. **Check Existing Documentation**: Before starting work on a task, always check the existing documentation in the `docs/` directory for relevant information.
+
+## Using Junie AI Prompts
+
+Junie AI prompts are used throughout the OneMount project to provide guidance for implementing features, fixing bugs, and improving code quality. These prompts are structured instructions that can be used with AI assistants to generate code, documentation, or guidance.
+
+### Junie Prompt Structure
+
+A typical Junie prompt follows this structure:
+
+```
+Create/Implement/Enhance [component] based on [reference document]. The implementation should:
+1. [Requirement 1]
+2. [Requirement 2]
+3. [Requirement 3]
+...
+
+[Additional context or examples]
+```
+
+### When to Use Junie Prompts
+
+Include Junie prompts in your documentation when:
+
+1. **Implementing New Features**: Provide prompts that describe how to implement the feature.
+2. **Fixing Bugs**: Provide prompts that describe how to fix the bug.
+3. **Refactoring Code**: Provide prompts that describe how to refactor the code.
+4. **Writing Tests**: Provide prompts that describe how to write tests for a component.
+5. **Documenting Code**: Provide prompts that describe how to document a component.
+
+### Example Junie Prompt for Test Implementation
+
+```
+Implement a unit test for the FileUploadManager.UploadFile method. The test should:
+1. Create a mock GraphClient that simulates successful and failed uploads
+2. Test the retry mechanism by simulating temporary network failures
+3. Verify that the file status is updated correctly during the upload process
+4. Test edge cases such as empty files, large files, and files with special characters
+5. Ensure proper cleanup of resources after the test
+
+Reference the test-guidelines.md document for best practices on writing unit tests.
+```
+
+### Finding Existing Junie Prompts
+
+Existing Junie prompts can be found in the implementation plan documents in the `docs/implementation/` directory. These prompts can be adapted for similar tasks or used as templates for new prompts.
+
 ## Conclusion
 
 Following these best practices will help ensure that tests in the OneMount project are:
@@ -587,3 +860,5 @@ Following these best practices will help ensure that tests in the OneMount proje
 2. Maintainable - Tests are easy to understand and modify
 3. Efficient - Tests run quickly and don't waste resources
 4. Effective - Tests catch bugs and verify functionality
+
+Additionally, following the guidelines for scripts, documentation, and Junie prompts will help maintain a consistent and high-quality codebase and documentation set.

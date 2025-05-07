@@ -240,7 +240,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	})
 }
 
-// TestUT_FS_05_01_RepeatedUploads_OfflineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
+// TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
 // with different content when in offline mode.
 //
 //	Test Case ID    UT-FS-05-01
@@ -255,7 +255,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 //	                5. Repeat steps 3-4 multiple times
 //	Expected Result Each version of the file is successfully uploaded with the correct content
 //	Notes: Directly tests uploading the same file multiple times with different content in offline mode.
-func TestUT_FS_05_01_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) {
+func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) {
 	// Mark the test for parallel execution
 
 	// Create a test fixture using the common setup

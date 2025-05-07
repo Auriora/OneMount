@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUT_GR_01_01_MockGraphClient_ConfigurableResponses_ReturnsExpectedValues tests that the mock graph client returns configured responses.
+// TestUT_GR_01_02_MockGraphClient_ConfigurableResponses_ReturnsExpectedValues tests that the mock graph client returns configured responses.
 //
 //	Test Case ID    UT-GR-01-01
 //	Title           Mock Graph Client Configurable Responses
@@ -29,7 +29,7 @@ import (
 //	                4. Configure an error response for another resource
 //	                5. Verify the configured error is returned
 //	Expected Result The mock client returns the configured responses and errors
-func TestUT_GR_01_01_MockGraphClient_ConfigurableResponses_ReturnsExpectedValues(t *testing.T) {
+func TestUT_GR_01_02_MockGraphClient_ConfigurableResponses_ReturnsExpectedValues(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -53,7 +53,7 @@ func TestUT_GR_01_01_MockGraphClient_ConfigurableResponses_ReturnsExpectedValues
 	assert.Equal(t, expectedError, err)
 }
 
-// TestUT_GR_02_01_MockGraphClient_RecordCalls_TracksMethodCalls tests that the mock graph client records API calls.
+// TestUT_GR_02_02_MockGraphClient_RecordCalls_TracksMethodCalls tests that the mock graph client records API calls.
 //
 //	Test Case ID    UT-GR-02-01
 //	Title           Mock Graph Client Call Recording
@@ -65,7 +65,7 @@ func TestUT_GR_01_01_MockGraphClient_ConfigurableResponses_ReturnsExpectedValues
 //	                4. Verify all calls were recorded in the correct order
 //	                5. Verify specific call counts using VerifyCall
 //	Expected Result All API calls are recorded correctly and can be verified
-func TestUT_GR_02_01_MockGraphClient_RecordCalls_TracksMethodCalls(t *testing.T) {
+func TestUT_GR_02_02_MockGraphClient_RecordCalls_TracksMethodCalls(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -92,7 +92,7 @@ func TestUT_GR_02_01_MockGraphClient_RecordCalls_TracksMethodCalls(t *testing.T)
 	assert.False(t, recorder.VerifyCall("Put", 1))
 }
 
-// TestUT_GR_03_01_MockGraphClient_NetworkConditions_SimulatesNetworkIssues tests that the mock graph client can simulate network conditions.
+// TestUT_GR_03_02_MockGraphClient_NetworkConditions_SimulatesNetworkIssues tests that the mock graph client can simulate network conditions.
 //
 //	Test Case ID    UT-GR-03-01
 //	Title           Mock Graph Client Network Conditions
@@ -106,7 +106,7 @@ func TestUT_GR_02_01_MockGraphClient_RecordCalls_TracksMethodCalls(t *testing.T)
 //	                6. Make another request
 //	                7. Verify the request fails due to packet loss
 //	Expected Result The mock client correctly simulates network conditions
-func TestUT_GR_03_01_MockGraphClient_NetworkConditions_SimulatesNetworkIssues(t *testing.T) {
+func TestUT_GR_03_02_MockGraphClient_NetworkConditions_SimulatesNetworkIssues(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -131,7 +131,7 @@ func TestUT_GR_03_01_MockGraphClient_NetworkConditions_SimulatesNetworkIssues(t 
 	assert.Contains(t, err.Error(), "simulated packet loss")
 }
 
-// TestUT_GR_04_01_MockGraphClient_CustomBehavior_ConfiguresClientBehavior tests that the mock graph client can be configured with custom behavior.
+// TestUT_GR_04_02_MockGraphClient_CustomBehavior_ConfiguresClientBehavior tests that the mock graph client can be configured with custom behavior.
 //
 //	Test Case ID    UT-GR-04-01
 //	Title           Mock Graph Client Custom Behavior
@@ -143,7 +143,7 @@ func TestUT_GR_03_01_MockGraphClient_NetworkConditions_SimulatesNetworkIssues(t 
 //	                4. Verify the request took at least the configured time
 //	                5. Verify the custom behavior parameters were set correctly
 //	Expected Result The mock client correctly applies custom behavior configuration
-func TestUT_GR_04_01_MockGraphClient_CustomBehavior_ConfiguresClientBehavior(t *testing.T) {
+func TestUT_GR_04_02_MockGraphClient_CustomBehavior_ConfiguresClientBehavior(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -170,7 +170,7 @@ func TestUT_GR_04_01_MockGraphClient_CustomBehavior_ConfiguresClientBehavior(t *
 	assert.Equal(t, 3, client.Config.CustomBehavior["retryCount"])
 }
 
-// TestUT_GR_05_01_MockGraphClient_GetItemContentStream_LimitsBandwidth tests that the mock graph client can stream content with bandwidth limitations.
+// TestUT_GR_05_02_MockGraphClient_GetItemContentStream_LimitsBandwidth tests that the mock graph client can stream content with bandwidth limitations.
 //
 //	Test Case ID    UT-GR-05-01
 //	Title           Mock Graph Client Content Streaming with Bandwidth Limitation
@@ -183,7 +183,7 @@ func TestUT_GR_04_01_MockGraphClient_CustomBehavior_ConfiguresClientBehavior(t *
 //	                5. Verify the content is correctly streamed
 //	                6. Verify the operation took time due to bandwidth limitation
 //	Expected Result The mock client correctly streams content with bandwidth limitations
-func TestUT_GR_05_01_MockGraphClient_GetItemContentStream_LimitsBandwidth(t *testing.T) {
+func TestUT_GR_05_02_MockGraphClient_GetItemContentStream_LimitsBandwidth(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -210,7 +210,7 @@ func TestUT_GR_05_01_MockGraphClient_GetItemContentStream_LimitsBandwidth(t *tes
 	assert.GreaterOrEqual(t, duration, 10*time.Millisecond)
 }
 
-// TestUT_GR_06_01_MockGraphClient_DriveItemOperations_PerformsBasicOperations tests that the mock graph client can perform basic drive item operations.
+// TestUT_GR_06_02_MockGraphClient_DriveItemOperations_PerformsBasicOperations tests that the mock graph client can perform basic drive item operations.
 //
 //	Test Case ID    UT-GR-06-01
 //	Title           Mock Graph Client Drive Item Operations
@@ -226,7 +226,7 @@ func TestUT_GR_05_01_MockGraphClient_GetItemContentStream_LimitsBandwidth(t *tes
 //	                8. Test Remove operation
 //	                9. Verify all operations were recorded
 //	Expected Result All drive item operations work correctly and are recorded
-func TestUT_GR_06_01_MockGraphClient_DriveItemOperations_PerformsBasicOperations(t *testing.T) {
+func TestUT_GR_06_02_MockGraphClient_DriveItemOperations_PerformsBasicOperations(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -277,7 +277,7 @@ func TestUT_GR_06_01_MockGraphClient_DriveItemOperations_PerformsBasicOperations
 	assert.True(t, recorder.VerifyCall("Remove", 1))
 }
 
-// TestUT_GR_07_01_MockGraphClient_ContextCancellation_FailsRequestsWithCanceledContext tests that the mock graph client handles context cancellation.
+// TestUT_GR_07_02_MockGraphClient_ContextCancellation_FailsRequestsWithCanceledContext tests that the mock graph client handles context cancellation.
 //
 //	Test Case ID    UT-GR-07-01
 //	Title           Mock Graph Client Context Cancellation
@@ -289,7 +289,7 @@ func TestUT_GR_06_01_MockGraphClient_DriveItemOperations_PerformsBasicOperations
 //	                4. Verify the request fails with context.Canceled error
 //	                5. Verify the call was recorded with the error
 //	Expected Result Requests with cancelled contexts fail appropriately and are recorded
-func TestUT_GR_07_01_MockGraphClient_ContextCancellation_FailsRequestsWithCanceledContext(t *testing.T) {
+func TestUT_GR_07_02_MockGraphClient_ContextCancellation_FailsRequestsWithCanceledContext(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -310,7 +310,7 @@ func TestUT_GR_07_01_MockGraphClient_ContextCancellation_FailsRequestsWithCancel
 	assert.Equal(t, context.Canceled, calls[0].Result)
 }
 
-// TestUT_GR_08_01_MockGraphClient_APIThrottling_SimulatesThrottling tests that the mock graph client can simulate API throttling.
+// TestUT_GR_08_02_MockGraphClient_APIThrottling_SimulatesThrottling tests that the mock graph client can simulate API throttling.
 //
 //	Test Case ID    UT-GR-08-01
 //	Title           Mock Graph Client API Throttling
@@ -322,7 +322,7 @@ func TestUT_GR_07_01_MockGraphClient_ContextCancellation_FailsRequestsWithCancel
 //	                4. Verify the request fails with a throttling error
 //	                5. Verify the request took at least the configured throttle delay
 //	Expected Result The mock client correctly simulates API throttling
-func TestUT_GR_08_01_MockGraphClient_APIThrottling_SimulatesThrottling(t *testing.T) {
+func TestUT_GR_08_02_MockGraphClient_APIThrottling_SimulatesThrottling(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -345,7 +345,7 @@ func TestUT_GR_08_01_MockGraphClient_APIThrottling_SimulatesThrottling(t *testin
 	assert.GreaterOrEqual(t, duration, 50*time.Millisecond)
 }
 
-// TestUT_GR_09_01_MockGraphClient_Pagination_ReturnsPagedResults tests that the mock graph client supports pagination.
+// TestUT_GR_09_02_MockGraphClient_Pagination_ReturnsPagedResults tests that the mock graph client supports pagination.
 //
 //	Test Case ID    UT-GR-09-01
 //	Title           Mock Graph Client Pagination
@@ -360,7 +360,7 @@ func TestUT_GR_08_01_MockGraphClient_APIThrottling_SimulatesThrottling(t *testin
 //	                7. Extract the next page URL and get the third page
 //	                8. Verify the third page contents and that there are no more pages
 //	Expected Result The mock client correctly implements pagination for large result sets
-func TestUT_GR_09_01_MockGraphClient_Pagination_ReturnsPagedResults(t *testing.T) {
+func TestUT_GR_09_02_MockGraphClient_Pagination_ReturnsPagedResults(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -429,7 +429,7 @@ func TestUT_GR_09_01_MockGraphClient_Pagination_ReturnsPagedResults(t *testing.T
 	assert.Empty(t, result.NextLink) // No more pages
 }
 
-// TestUT_GR_10_01_MockGraphClient_PaginationWithGetItemChildrenPath_RetrievesAllItems tests that the mock graph client supports pagination with GetItemChildrenPath.
+// TestUT_GR_10_02_MockGraphClient_PaginationWithGetItemChildrenPath_RetrievesAllItems tests that the mock graph client supports pagination with GetItemChildrenPath.
 //
 //	Test Case ID    UT-GR-10-01
 //	Title           Mock Graph Client Pagination with GetItemChildrenPath
@@ -443,7 +443,7 @@ func TestUT_GR_09_01_MockGraphClient_Pagination_ReturnsPagedResults(t *testing.T
 //	                6. Verify the items are in the correct order
 //	                7. Verify that the recorder has the correct calls
 //	Expected Result GetItemChildrenPath correctly handles pagination and retrieves all items
-func TestUT_GR_10_01_MockGraphClient_PaginationWithGetItemChildrenPath_RetrievesAllItems(t *testing.T) {
+func TestUT_GR_10_02_MockGraphClient_PaginationWithGetItemChildrenPath_RetrievesAllItems(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -494,7 +494,7 @@ func TestUT_GR_10_01_MockGraphClient_PaginationWithGetItemChildrenPath_Retrieves
 	assert.True(t, getItemChildrenPathCallFound, "Should have a call to GetItemChildrenPath")
 }
 
-// TestUT_GR_11_01_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllItems tests that the mock graph client supports pagination with GetItemChildren.
+// TestUT_GR_11_02_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllItems tests that the mock graph client supports pagination with GetItemChildren.
 //
 //	Test Case ID    UT-GR-11-01
 //	Title           Mock Graph Client Pagination with GetItemChildren
@@ -508,7 +508,7 @@ func TestUT_GR_10_01_MockGraphClient_PaginationWithGetItemChildrenPath_Retrieves
 //	                6. Verify the items are in the correct order
 //	                7. Verify that the recorder has the correct calls
 //	Expected Result GetItemChildren correctly handles pagination and retrieves all items
-func TestUT_GR_11_01_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllItems(t *testing.T) {
+func TestUT_GR_11_02_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllItems(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -559,7 +559,7 @@ func TestUT_GR_11_01_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllI
 	assert.True(t, getItemChildrenCallFound, "Should have a call to GetItemChildren")
 }
 
-// TestUT_GR_12_01_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentRequests tests that the mock graph client is thread-safe.
+// TestUT_GR_12_02_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentRequests tests that the mock graph client is thread-safe.
 //
 //	Test Case ID    UT-GR-12-01
 //	Title           Mock Graph Client Thread Safety
@@ -572,7 +572,7 @@ func TestUT_GR_11_01_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllI
 //	                5. Verify that all requests were successful
 //	                6. Verify that the recorder recorded all calls
 //	Expected Result The mock client correctly handles concurrent requests without race conditions
-func TestUT_GR_12_01_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentRequests(t *testing.T) {
+func TestUT_GR_12_02_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentRequests(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -638,7 +638,7 @@ func TestUT_GR_12_01_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentReque
 	assert.Len(t, calls, numGoroutines*numRequests)
 }
 
-// TestUT_GR_13_01_MockGraphClient_GetUser_ReturnsUserInformation tests that the mock graph client can return user information.
+// TestUT_GR_13_02_MockGraphClient_GetUser_ReturnsUserInformation tests that the mock graph client can return user information.
 //
 //	Test Case ID    UT-GR-13-01
 //	Title           Mock Graph Client GetUser Method
@@ -652,7 +652,7 @@ func TestUT_GR_12_01_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentReque
 //	                6. Test GetUser with the error response
 //	                7. Verify that all calls were recorded
 //	Expected Result The mock client correctly returns user information and handles errors
-func TestUT_GR_13_01_MockGraphClient_GetUser_ReturnsUserInformation(t *testing.T) {
+func TestUT_GR_13_02_MockGraphClient_GetUser_ReturnsUserInformation(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -685,7 +685,7 @@ func TestUT_GR_13_01_MockGraphClient_GetUser_ReturnsUserInformation(t *testing.T
 	assert.True(t, recorder.VerifyCall("GetUser", 3))
 }
 
-// TestUT_GR_14_01_MockGraphClient_GetUserWithContext_HandlesContextCancellation tests that the mock graph client handles context cancellation with GetUserWithContext.
+// TestUT_GR_14_02_MockGraphClient_GetUserWithContext_HandlesContextCancellation tests that the mock graph client handles context cancellation with GetUserWithContext.
 //
 //	Test Case ID    UT-GR-14-01
 //	Title           Mock Graph Client GetUserWithContext Method
@@ -696,7 +696,7 @@ func TestUT_GR_13_01_MockGraphClient_GetUser_ReturnsUserInformation(t *testing.T
 //	                3. Test GetUserWithContext with a cancelled context
 //	                4. Verify that all calls were recorded
 //	Expected Result The mock client correctly returns user information with a valid context and handles cancelled contexts
-func TestUT_GR_14_01_MockGraphClient_GetUserWithContext_HandlesContextCancellation(t *testing.T) {
+func TestUT_GR_14_02_MockGraphClient_GetUserWithContext_HandlesContextCancellation(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -719,7 +719,7 @@ func TestUT_GR_14_01_MockGraphClient_GetUserWithContext_HandlesContextCancellati
 	assert.True(t, recorder.VerifyCall("GetUserWithContext", 2))
 }
 
-// TestUT_GR_15_01_MockGraphClient_GetDrive_ReturnsDriveInformation tests that the mock graph client can return drive information.
+// TestUT_GR_15_02_MockGraphClient_GetDrive_ReturnsDriveInformation tests that the mock graph client can return drive information.
 //
 //	Test Case ID    UT-GR-15-01
 //	Title           Mock Graph Client GetDrive Method
@@ -733,7 +733,7 @@ func TestUT_GR_14_01_MockGraphClient_GetUserWithContext_HandlesContextCancellati
 //	                6. Test GetDrive with the error response
 //	                7. Verify that all calls were recorded
 //	Expected Result The mock client correctly returns drive information and handles errors
-func TestUT_GR_15_01_MockGraphClient_GetDrive_ReturnsDriveInformation(t *testing.T) {
+func TestUT_GR_15_02_MockGraphClient_GetDrive_ReturnsDriveInformation(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
@@ -781,7 +781,7 @@ func TestUT_GR_15_01_MockGraphClient_GetDrive_ReturnsDriveInformation(t *testing
 	assert.True(t, recorder.VerifyCall("GetDrive", 3))
 }
 
-// TestUT_GR_16_01_MockGraphClient_GetItemChild_ReturnsChildItem tests that the mock graph client can return child items.
+// TestUT_GR_16_02_MockGraphClient_GetItemChild_ReturnsChildItem tests that the mock graph client can return child items.
 //
 //	Test Case ID    UT-GR-16-01
 //	Title           Mock Graph Client GetItemChild Method
@@ -795,7 +795,7 @@ func TestUT_GR_15_01_MockGraphClient_GetDrive_ReturnsDriveInformation(t *testing
 //	                6. Test GetItemChild with the error response
 //	                7. Verify that all calls were recorded
 //	Expected Result The mock client correctly returns child items and handles errors
-func TestUT_GR_16_01_MockGraphClient_GetItemChild_ReturnsChildItem(t *testing.T) {
+func TestUT_GR_16_02_MockGraphClient_GetItemChild_ReturnsChildItem(t *testing.T) {
 	// Create a new MockGraphClient
 	client := NewMockGraphClient()
 
