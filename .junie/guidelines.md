@@ -100,7 +100,7 @@ The OneMount project follows a set of comprehensive coding standards and best pr
 - [Design Guidelines](../docs/guides/design-guidelines.md) - Guidelines for designing components
 - [Logging Guidelines](../docs/guides/logging-guidelines.md) - Guidelines for structured logging
 - [Logging Examples](../docs/guides/logging-examples.md) - Examples of proper logging
-- [Test Guidelines](../docs/guides/test-guidelines.md) - Best practices for writing tests
+- [Test Guidelines](../docs/guides/testing/test-guidelines.md) - Best practices for writing tests
 - [Threading Guidelines](../docs/guides/threading-guidelines.md) - Guidelines for concurrent programming
 - [D-Bus Integration](../docs/guides/dbus-integration.md) - Guidelines for D-Bus integration
 

@@ -125,7 +125,7 @@ The OneMount project follows a set of comprehensive coding standards and best pr
 - [Coding Standards](guides/coding-standards.md) - Main entry point for all coding standards
 - [Go Coding Standards](guides/coding-standards.md#go-standards) - Comprehensive guide for Go code
 - [Go Logging Best Practices](guides/logging-guidelines.md) - Guidelines for structured logging
-- [Test Best Practices](guides/test-guidelines.md) - Best practices for writing tests
+- [Test Best Practices](guides/testing/test-guidelines.md) - Best practices for writing tests
 
 Here's a summary of key best practices:
 
