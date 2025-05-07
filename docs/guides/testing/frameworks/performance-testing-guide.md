@@ -4,6 +4,15 @@
 
 The Performance Testing Framework provides utilities for comprehensive performance testing of the OneMount system. It includes tools for benchmarking, load testing, measuring performance metrics, defining performance thresholds, and generating performance reports.
 
+## Key Concepts
+
+- **Performance Benchmarking**: Measuring the performance of specific operations under controlled conditions.
+- **Performance Thresholds**: Minimum acceptable performance levels for the system.
+- **Performance Metrics**: Measurements of system performance, including latency, throughput, error rate, and resource usage.
+- **Load Testing**: Testing system performance under various load conditions.
+- **Resource Monitoring**: Tracking CPU, memory, disk, and network usage during performance tests.
+- **Performance Reports**: Detailed reports with visualizations of performance test results.
+
 ## Components
 
 The Performance Testing Framework consists of the following components:
@@ -68,7 +77,7 @@ type PerformanceMetrics struct {
 
 ### 4. Load Tests
 
-Load tests measure performance under various load conditions. See the [Load Testing Framework](load-testing-framework.md) for more details.
+Load tests measure performance under various load conditions. See the [Load Testing Framework](load-testing-guide.md) for more details.
 
 ## Predefined Performance Benchmarks
 
@@ -79,7 +88,7 @@ The framework provides several predefined performance benchmarks:
 3. **MetadataOperationsBenchmark**: Benchmarks metadata operations performance
 4. **ConcurrentOperationsBenchmark**: Benchmarks concurrent operations performance
 
-## Usage
+## Getting Started
 
 ### Creating a Performance Benchmark
 
@@ -181,7 +190,7 @@ ConcurrentOperationsBenchmark(b, framework, 10, thresholds, "/tmp/benchmark-repo
 
 ### Running Load Tests
 
-Load tests are a type of performance test that measure performance under various load conditions. See the [Load Testing Framework](load-testing-framework.md) for more details on load testing.
+Load tests are a type of performance test that measure performance under various load conditions. See the [Load Testing Framework](load-testing-guide.md) for more details on load testing.
 
 ```go
 // Create a test framework
@@ -324,6 +333,36 @@ b := &testing.B{}
 benchmark.Run(b)
 ```
 
-## Conclusion
+## Troubleshooting
 
-The Performance Testing Framework provides a comprehensive set of tools for testing the performance aspects of the OneMount system. By integrating performance testing into the overall testing strategy, we can ensure that the system meets its performance requirements and provides a good user experience.
+When working with the Performance Testing Framework, you might encounter these common issues:
+
+### Benchmark Setup Issues
+
+- **Framework initialization fails**: Ensure the test framework is properly configured with valid parameters.
+- **Mock providers not working**: Verify that mock providers are registered correctly and configured with appropriate responses.
+- **Invalid threshold configuration**: Check that threshold parameters are within valid ranges and compatible with each other.
+
+### Benchmark Execution Issues
+
+- **Benchmarks fail to start**: Ensure the test environment has sufficient resources to run the benchmarks.
+- **Unexpected errors during execution**: Check logs for specific error messages and ensure all dependencies are available.
+- **Premature benchmark termination**: Verify that timeouts are set appropriately for the expected benchmark duration.
+
+### Results Analysis Issues
+
+- **Missing or incomplete metrics**: Ensure that metrics collection is properly configured and that the benchmark ran to completion.
+- **Unexpected performance results**: Verify that the test environment was isolated and that no external factors affected the results.
+- **Report generation fails**: Check that the artifacts directory is writable and has sufficient space.
+
+For more detailed troubleshooting information, see the [Testing Troubleshooting Guide](../testing-troubleshooting.md).
+
+## Related Resources
+
+- [Load Testing Framework](load-testing-guide.md): Framework for load testing
+- [Integration Testing Guide](integration-testing-guide.md): Guide for integration testing
+- [System Testing Framework](system-testing-guide.md): Framework for system testing
+- [Network Simulator](../components/network-simulator-guide.md): Network condition simulation
+- [Mock Providers](../components/mock-providers-guide.md): Mock implementations of system components
+- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
+- [Test Guidelines](../test-guidelines.md): General testing guidelines

@@ -4,6 +4,16 @@
 
 The Security Testing Framework provides utilities for comprehensive security testing of the OneMount system. It includes tools for security scanning, simulating security attacks, verifying security controls, testing authentication and authorization, and testing data protection mechanisms. This document serves as both a technical reference for the framework components and a practical guide for using the framework to test the security aspects of the OneMount system.
 
+## Key Concepts
+
+- **Security Scanning**: Identifying vulnerabilities in the system by scanning code, configurations, and runtime environments.
+- **Security Attack Simulation**: Simulating various types of security attacks to test the system's resilience.
+- **Security Control Verification**: Verifying that security controls are properly implemented and effective.
+- **Authentication Testing**: Testing authentication mechanisms to ensure they are secure and function correctly.
+- **Authorization Testing**: Testing authorization mechanisms to ensure they properly control access to resources.
+- **Data Protection Testing**: Testing encryption and integrity mechanisms to ensure data is properly protected.
+- **Security Test Scenarios**: Predefined or custom test scenarios that verify security aspects of the system.
+
 ## Components
 
 The Security Testing Framework consists of the following components:
@@ -146,7 +156,7 @@ The following security test scenarios are available:
 5. **Authorization Test Scenario**: Tests the security of authorization mechanisms
 6. **Data Protection Test Scenario**: Tests the security of data protection mechanisms
 
-## Usage
+### Using the Security Testing Framework
 
 ### Creating a Security Test Framework
 
@@ -657,6 +667,43 @@ testScenario := func(ctx context.Context) error {
 testFramework.RunTest("security-test-scenario", testScenario)
 ```
 
-## Conclusion
+## Troubleshooting
 
-The Security Testing Framework provides a comprehensive set of tools for testing the security aspects of the OneMount system. By integrating security testing into the overall testing strategy, we can ensure that the system meets its security requirements and is resilient against security threats.
+When working with the Security Testing Framework, you might encounter these common issues:
+
+### Scanner Issues
+
+- **Scanner initialization fails**: Ensure the scanner is properly configured with valid parameters.
+- **Scanner returns no results**: Verify that the target is accessible and that the scanner is configured to detect the types of vulnerabilities you're looking for.
+- **Scanner returns too many false positives**: Adjust the scanner sensitivity or filtering options to reduce false positives.
+
+### Attack Simulation Issues
+
+- **Attack simulations fail to execute**: Ensure the attack simulator is properly configured and that the target is accessible.
+- **Attack simulations don't detect vulnerabilities**: Verify that the attack type is appropriate for the target and that the simulator is configured correctly.
+- **Attack simulations cause unintended side effects**: Use the simulator in a controlled test environment to prevent affecting production systems.
+
+### Authentication and Authorization Issues
+
+- **Authentication tests fail unexpectedly**: Verify that the credentials are correct and that the authentication service is available.
+- **Authorization tests give inconsistent results**: Ensure that the authorization rules are consistent and that the test is using the correct tokens and permissions.
+- **Token handling issues**: Check that tokens are properly formatted and that the test is handling token expiration correctly.
+
+### Integration Issues
+
+- **Framework integration problems**: Ensure that the security framework is properly integrated with the main test framework.
+- **Environment setup issues**: Verify that the test environment is properly configured for security testing.
+- **Resource cleanup failures**: Always use cleanup steps to ensure resources are properly released after tests.
+
+For more detailed troubleshooting information, see the [Testing Troubleshooting Guide](../testing-troubleshooting.md).
+
+## Related Resources
+
+- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
+- [Integration Testing Guide](integration-testing-guide.md): Guide for integration testing
+- [Network Simulator](../components/network-simulator-guide.md): Network condition simulation for security testing
+- [Mock Providers](../components/mock-providers-guide.md): Mock implementations of system components
+- [Performance Testing Framework](performance-testing-guide.md): Performance testing utilities
+- [Load Testing Framework](load-testing-guide.md): Load testing utilities
+- [Test Guidelines](../test-guidelines.md): General testing guidelines
+- [Testing Troubleshooting](../testing-troubleshooting.md): Detailed troubleshooting information

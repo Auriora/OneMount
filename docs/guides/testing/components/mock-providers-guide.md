@@ -10,7 +10,18 @@ The OneMount test framework includes several mock providers for different aspect
 2. **MockFileSystemProvider**: Simulates filesystem operations
 3. **MockUIProvider**: Simulates UI interactions
 
-## Common Interface
+## Key Concepts
+
+### Mock Providers
+
+Mock providers are controlled implementations of system components that allow tests to run without relying on actual external services or components. They are essential for:
+
+1. **Isolation**: Testing components in isolation from external dependencies
+2. **Controlled Testing**: Creating predictable test environments with predefined responses
+3. **Simulation**: Simulating various scenarios, including error conditions
+4. **Verification**: Verifying that components interact correctly with external services
+
+### Common Interface
 
 All mock providers implement the `MockProvider` interface:
 
@@ -27,7 +38,17 @@ type MockProvider interface {
 
 This common interface ensures that all mock providers can be managed consistently by the test framework.
 
-## MockGraphProvider
+### Mock Provider Types
+
+The OneMount test framework includes several specialized mock providers:
+
+1. **MockGraphProvider**: Simulates Microsoft Graph API responses
+2. **MockFileSystemProvider**: Simulates filesystem operations
+3. **MockUIProvider**: Simulates UI interactions
+
+## Components
+
+### MockGraphProvider
 
 The `MockGraphProvider` simulates the Microsoft Graph API, allowing tests to run without making actual network requests to Microsoft's services.
 
@@ -238,7 +259,7 @@ result := framework.RunTest("graph-test", func(ctx context.Context) error {
 })
 ```
 
-## MockFileSystemProvider
+### MockFileSystemProvider
 
 The `MockFileSystemProvider` simulates filesystem operations, allowing tests to run without making actual changes to the filesystem.
 
@@ -432,7 +453,7 @@ result := framework.RunTest("filesystem-test", func(ctx context.Context) error {
 })
 ```
 
-## MockUIProvider
+### MockUIProvider
 
 The `MockUIProvider` simulates UI interactions, allowing tests to run without requiring actual user interface components.
 
@@ -610,7 +631,16 @@ result := framework.RunTest("ui-test", func(ctx context.Context) error {
 })
 ```
 
-## Integration with TestFramework
+## Getting Started
+
+To use mock providers in your tests, follow these steps:
+
+1. **Create and configure mock providers**
+2. **Register them with the test framework**
+3. **Use them in your tests**
+4. **Verify interactions after test execution**
+
+### Integration with TestFramework
 
 Mock providers are integrated with the `TestFramework` to provide simulated components for tests:
 
@@ -636,6 +666,60 @@ if exists {
 }
 ```
 
+### Basic Usage Example
+
+Here's a complete example of using mock providers in a test:
+
+```go
+func TestWithMockProviders(t *testing.T) {
+    // Create a test framework
+    framework := testutil.NewTestFramework(testutil.TestConfig{}, nil)
+
+    // Create and register mock providers
+    mockGraph := testutil.NewMockGraphProvider()
+    framework.RegisterMockProvider("graph", mockGraph)
+
+    mockFS := testutil.NewMockFileSystemProvider()
+    framework.RegisterMockProvider("filesystem", mockFS)
+
+    // Configure mock providers
+    mockGraph.AddMockResponse("/me/drive/root", &graph.DriveItem{
+        ID:   "root",
+        Name: "root",
+    })
+
+    mockFS.AddMockFile("/path/to/file.txt", []byte("test content"), nil)
+
+    // Run a test that uses the mock providers
+    result := framework.RunTest("mock-provider-test", func(ctx context.Context) error {
+        // Get the mock providers from the framework
+        graphProvider, _ := framework.GetMockProvider("graph")
+        fsProvider, _ := framework.GetMockProvider("filesystem")
+
+        mockGraph := graphProvider.(*testutil.MockGraphProvider)
+        mockFS := fsProvider.(*testutil.MockFileSystemProvider)
+
+        // Use the mock providers in your test
+        // ...
+
+        // Verify interactions with mock providers
+        if !mockGraph.VerifyCalled("/me/drive/root") {
+            return errors.New("expected call to /me/drive/root")
+        }
+
+        if !mockFS.VerifyOperation("/path/to/file.txt", testutil.FSOperationRead) {
+            return errors.New("expected read operation on /path/to/file.txt")
+        }
+
+        return nil
+    })
+
+    // Check the test result
+    if !result.Success {
+        t.Errorf("Test failed: %v", result.Error)
+    }
+}
+
 ## Best Practices
 
 1. **Use Descriptive Names**: Register mock providers with descriptive names that clearly indicate their purpose.
@@ -658,8 +742,46 @@ if exists {
 
 10. **Isolate Components**: Use mock providers to isolate the component under test from its dependencies.
 
-## Related Components
+## Troubleshooting
 
-- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
-- [NetworkSimulator](network-simulator.md): Network condition simulation
-- [IntegrationTestEnvironment](integration-test-environment.md): Integration testing environment
+When working with mock providers, you might encounter these common issues:
+
+### Configuration Issues
+
+- **Mock provider not found**: Ensure that you've registered the mock provider with the correct name and that you're using the same name when retrieving it.
+- **Incorrect mock response**: Verify that you've added the mock response for the correct endpoint and with the correct parameters.
+- **Mock provider not initialized**: Make sure you've called `Setup()` on the mock provider before using it.
+
+### Verification Issues
+
+- **Expected call not verified**: If `VerifyCalled()` returns false, check that you're verifying the correct endpoint and that the call was actually made during the test.
+- **Expected operation not verified**: If `VerifyOperation()` returns false, check that you're verifying the correct path and operation type.
+- **Unexpected call parameters**: When using `VerifyCalledWithParams()`, ensure that the parameters exactly match what was used in the call.
+
+### Type Assertion Issues
+
+- **Type assertion panic**: When retrieving a mock provider from the framework, ensure that you're casting it to the correct type.
+
+```go
+// Correct
+provider, exists := framework.GetMockProvider("graph")
+if exists {
+    mockGraph := provider.(*testutil.MockGraphProvider)
+    // Use mockGraph
+}
+
+// Incorrect - will panic if provider is not a MockGraphProvider
+provider, _ := framework.GetMockProvider("graph")
+mockGraph := provider.(*testutil.MockGraphProvider)
+```
+
+For more detailed troubleshooting information, see the [Testing Troubleshooting Guide](../testing-troubleshooting.md).
+
+## Related Resources
+
+- [Testing Framework Guide](../frameworks/testing-framework-guide.md): Core test configuration and execution
+- [Network Simulator](network-simulator-guide.md): Network condition simulation
+- [Integration Testing Guide](../frameworks/integration-testing-guide.md): Integration testing environment
+- [Performance Testing Framework](../frameworks/performance-testing-guide.md): Performance testing utilities
+- [System Testing Framework](../frameworks/system-testing-guide.md): System testing utilities
+- [Test Guidelines](../test-guidelines.md): General testing guidelines

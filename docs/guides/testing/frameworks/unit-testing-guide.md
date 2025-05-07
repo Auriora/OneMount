@@ -783,7 +783,7 @@ func TestWithBothFrameworks(t *testing.T) {
 
 ## Related Documentation
 
-- [Testing Framework Guide](../testing-framework-guide.md)
-- [Mock Providers](../mock-providers.md)
-- [Integration Testing](../integration-testing-guide.md)
+- [Testing Framework Guide](testing-framework-guide.md)
+- [Mock Providers](../components/mock-providers-guide.md)
+- [Integration Testing](integration-testing-guide.md)
 - [Testing Troubleshooting](../testing-troubleshooting.md)

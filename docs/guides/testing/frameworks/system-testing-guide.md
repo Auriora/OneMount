@@ -1,12 +1,21 @@
 # System Testing Framework
 
-This document provides an overview of the system testing framework for the OneMount project, including how to set up a production-like environment, define end-to-end test scenarios, verify system behavior, test with production-like data volumes, and test system configuration options.
-
 ## Overview
+
+This document provides an overview of the system testing framework for the OneMount project, including how to set up a production-like environment, define end-to-end test scenarios, verify system behavior, test with production-like data volumes, and test system configuration options.
 
 The system testing framework is designed to test the complete integrated system with minimal mocking, using production-like data volumes and configuration options. It builds on the existing test utilities in the project, including the TestFramework, scenario-based testing, and network simulation.
 
-## Key Components
+## Key Concepts
+
+- **End-to-End Testing**: Testing the complete integrated system from start to finish to ensure it works as expected.
+- **Production-Like Environment**: A test environment that closely resembles the production environment.
+- **System Verification**: Verifying the behavior of the system as a whole, including file operations, system metrics, and system state.
+- **Data Volume Testing**: Testing with realistic data volumes to identify performance issues.
+- **Configuration Testing**: Testing with different configuration options to ensure system flexibility.
+- **Scenario-Based Testing**: Using predefined or custom test scenarios to test complex system behaviors.
+
+## Components
 
 ### SystemTestEnvironment
 
@@ -55,7 +64,7 @@ The `CommonSystemScenarios` provides predefined test scenarios for common system
 - Large data volume testing
 - System behavior verification
 
-## Usage
+## Getting Started
 
 ### Setting Up a System Test Environment
 
@@ -424,6 +433,30 @@ func TestSystemBehavior(t *testing.T) {
 }
 ```
 
+## Troubleshooting
+
+When working with the System Testing Framework, you might encounter these common issues:
+
+### Environment Setup Issues
+
+- **Environment initialization fails**: Ensure all required dependencies are available and properly configured.
+- **Resource allocation issues**: Verify that the system has sufficient resources (disk space, memory, etc.) for the test environment.
+- **Configuration issues**: Check that the system configuration is valid and compatible with the test environment.
+
+### Test Execution Issues
+
+- **Tests fail intermittently**: This often indicates a race condition or timing issue. Add appropriate synchronization or increase timeouts.
+- **Resource cleanup failures**: Ensure cleanup steps are always executed, even if tests fail, by using `t.Cleanup()` or `defer` statements.
+- **Data volume generation issues**: If generating large data volumes fails, check disk space and file system permissions.
+
+### Verification Issues
+
+- **Verification failures**: If system verification fails, check that the system is in the expected state and that the verification criteria are correct.
+- **Inconsistent test results**: Ensure the test environment is isolated and that tests don't interfere with each other.
+- **Performance issues with large data volumes**: If tests with large data volumes are too slow, consider reducing the data size for development testing.
+
+For more detailed troubleshooting information, see the [Testing Troubleshooting Guide](../testing-troubleshooting.md).
+
 ## Best Practices
 
 1. Always use `t.Cleanup()` to ensure the environment is torn down, even if tests panic
@@ -436,3 +469,15 @@ func TestSystemBehavior(t *testing.T) {
 8. Use descriptive names for scenarios, steps, and assertions
 9. Verify system behavior using the provided verifier utilities
 10. Test with different network conditions to ensure robustness
+
+## Related Resources
+
+- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
+- [Integration Testing Guide](integration-testing-guide.md): Guide for integration testing
+- [Network Simulator](../components/network-simulator-guide.md): Network condition simulation for system testing
+- [Mock Providers](../components/mock-providers-guide.md): Mock implementations of system components
+- [Performance Testing Framework](performance-testing-guide.md): Performance testing utilities
+- [Load Testing Framework](load-testing-guide.md): Load testing utilities
+- [Security Testing Framework](security-testing-guide.md): Security testing utilities
+- [Test Guidelines](../test-guidelines.md): General testing guidelines
+- [Testing Troubleshooting](../testing-troubleshooting.md): Detailed troubleshooting information

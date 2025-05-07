@@ -35,13 +35,13 @@ The OneMount Test Framework is built around a core `TestFramework` class that pr
 
 ## Related Resources
 
-- [Unit Testing Guide](unit-testing-guide.md): Guide for writing unit tests
-- [Integration Testing Guide](integration-testing-guide.md): Guide for writing integration tests
-- [System Testing Guide](system-testing-guide.md): Guide for writing system tests
-- [Performance Testing Guide](performance-testing-guide.md): Guide for performance testing
-- [Load Testing Guide](load-testing-guide.md): Guide for load testing
-- [Security Testing Guide](security-testing-guide.md): Guide for security testing
-- [Mock Providers Guide](../components/mock-providers-guide.md): Guide for using mock providers
-- [Network Simulator Guide](../components/network-simulator-guide.md): Guide for simulating network conditions
-- [Test Sandbox Guide](../components/test-sandbox-guide.md): Guide for using the test sandbox
-- [Troubleshooting Guide](../troubleshooting.md): Guide for troubleshooting common testing issues
+- [Unit Testing Guide](frameworks/unit-testing-guide.md): Guide for writing unit tests
+- [Integration Testing Guide](frameworks/integration-testing-guide.md): Guide for writing integration tests
+- [System Testing Guide](frameworks/system-testing-guide.md): Guide for writing system tests
+- [Performance Testing Guide](frameworks/performance-testing-guide.md): Guide for performance testing
+- [Load Testing Guide](frameworks/load-testing-guide.md): Guide for load testing
+- [Security Testing Guide](frameworks/security-testing-guide.md): Guide for security testing
+- [Mock Providers Guide](components/mock-providers-guide.md): Guide for using mock providers
+- [Network Simulator Guide](components/network-simulator-guide.md): Guide for simulating network conditions
+- [Test Sandbox Guide](components/test-sandbox-guide.md): Guide for using the test sandbox
+- [Troubleshooting Guide](../testing-troubleshooting.md): Guide for troubleshooting common testing issues

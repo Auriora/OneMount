@@ -26,7 +26,7 @@ Integration tests in the OneMount project follow a standard structure:
 4. **Verification**: Verify that components interact correctly and produce the expected results
 5. **Environment Teardown**: Clean up the test environment
 
-## Integration Testing Framework
+## Architecture
 
 The integration testing framework extends the functionality of the test framework with additional utilities specifically designed for testing component interactions. It provides:
 
@@ -355,7 +355,7 @@ The `InteractionCondition` represents a condition under which component interact
 - Teardown function to clean up after testing
 - Description of the condition
 
-## Writing Integration Tests
+## Getting Started
 
 ### Basic Integration Test
 
@@ -711,7 +711,7 @@ func TestComponentInteractionsUnderConditions(t *testing.T) {
 
 10. **Don't Skip Error Handling Tests**: Test how components handle errors from other components.
 
-## Integration with Existing Test Framework
+### Integration with Existing Test Framework
 
 The integration testing framework builds on top of the existing test framework and uses its components:
 
@@ -720,7 +720,7 @@ The integration testing framework builds on top of the existing test framework a
 - NetworkSimulator for simulating network conditions
 - TestScenario for defining test scenarios
 
-## Extending the Framework
+### Extending the Framework
 
 The integration testing framework is designed to be extensible. You can:
 
@@ -729,9 +729,9 @@ The integration testing framework is designed to be extensible. You can:
 3. Define reusable test scenarios for common integration patterns
 4. Add new utilities for specific types of component interactions
 
-## Examples
+### Examples
 
-### Testing File Synchronization
+#### Testing File Synchronization
 
 ```go
 func TestFileSynchronization(t *testing.T) {
@@ -1025,11 +1025,38 @@ func TestOfflineMode(t *testing.T) {
 }
 ```
 
-## Related Documentation
+## Troubleshooting
+
+When working with integration tests, you might encounter the following issues:
+
+### Environment Setup Issues
+
+- **Components fail to initialize**: Ensure all required dependencies are available and properly configured.
+- **Mock providers not working**: Verify that mock providers are registered correctly and configured with appropriate responses.
+- **Network simulation issues**: Check that the network simulator is properly initialized and conditions are set correctly.
+
+### Test Execution Issues
+
+- **Tests fail intermittently**: This often indicates a race condition or timing issue. Add appropriate synchronization or increase timeouts.
+- **Resource cleanup failures**: Ensure cleanup steps are always executed, even if tests fail, by using `t.Cleanup()` or `defer` statements.
+- **Component interaction failures**: Verify that components are properly connected and configured to interact with each other.
+
+### Data Management Issues
+
+- **Test data not available**: Ensure test data is loaded correctly before tests that depend on it.
+- **Data isolation problems**: Verify that the data isolation configuration is correct and that tests don't interfere with each other.
+
+For more detailed troubleshooting information, see [Testing Troubleshooting Guide](../testing-troubleshooting.md).
+
+## Related Resources
 
 - [Testing Framework Guide](testing-framework-guide.md)
-- [Network Simulator](network-simulator.md)
-- [Mock Providers](mock-providers.md)
-- [Unit Testing](../unit-testing.md)
-- [System Testing](system-testing.md)
-- [Troubleshooting](testing-troubleshooting.md)
+- [Network Simulator](../components/network-simulator-guide.md)
+- [Mock Providers](../components/mock-providers-guide.md)
+- [Unit Testing](../frameworks/unit-testing-guide.md)
+- [System Testing Guide](system-testing-guide.md)
+- [Performance Testing Guide](performance-testing-guide.md)
+- [Load Testing Guide](load-testing-guide.md)
+- [Security Testing Guide](security-testing-guide.md)
+- [Test Guidelines](../test-guidelines.md)
+- [Test Sandbox Guidelines](../components/test-sandbox-guide.md)

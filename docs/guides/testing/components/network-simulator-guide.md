@@ -4,17 +4,18 @@
 
 The `NetworkSimulator` is a key component of the OneMount test framework that allows simulating different network conditions for testing. This is particularly important for testing a filesystem that interacts with a cloud service like OneDrive, as network conditions can significantly impact the behavior and performance of the system.
 
-## Features
+## Key Concepts
 
-- Simulate network latency
-- Simulate packet loss
-- Simulate bandwidth limitations
-- Simulate network disconnection and reconnection
-- Apply predefined network condition presets
-- Register mock providers for network condition simulation
-- Simulate network errors
+- **Network Latency**: The delay in data transmission over a network, measured in milliseconds.
+- **Packet Loss**: The failure of data packets to reach their destination, measured as a percentage.
+- **Bandwidth Limitation**: The maximum data transfer rate, measured in Kbps.
+- **Network Disconnection**: Complete loss of network connectivity.
+- **Network Condition Presets**: Predefined combinations of latency, packet loss, and bandwidth that simulate real-world network scenarios.
+- **Mock Provider Integration**: The ability to register mock providers for network condition simulation.
 
-## API Reference
+## Components
+
+### NetworkSimulator API
 
 ### Types
 
@@ -227,104 +228,70 @@ func (s *DefaultNetworkSimulator) SimulateNetworkError() error
 
 Simulates a network error.
 
-## Usage Examples
+## Getting Started
 
-### Setting Network Conditions
+To start using the NetworkSimulator, follow these steps:
 
-```go
-// Create a network simulator
-simulator := testutil.NewNetworkSimulator()
+1. **Create a network simulator**:
+   ```go
+   simulator := testutil.NewNetworkSimulator()
+   ```
 
-// Set network conditions (latency, packet loss, bandwidth)
-err := simulator.SetConditions(100*time.Millisecond, 0.1, 1000) // 100ms latency, 10% packet loss, 1Mbps bandwidth
-if err != nil {
-    // Handle error
-}
+2. **Set network conditions**:
+   ```go
+   // Set specific conditions (latency, packet loss, bandwidth)
+   err := simulator.SetConditions(100*time.Millisecond, 0.1, 1000) // 100ms latency, 10% packet loss, 1Mbps bandwidth
+   if err != nil {
+       // Handle error
+   }
 
-// Get current conditions
-conditions := simulator.GetCurrentConditions()
-fmt.Printf("Latency: %v, Packet Loss: %.2f%%, Bandwidth: %d Kbps\n",
-    conditions.Latency, conditions.PacketLoss*100, conditions.Bandwidth)
-```
+   // Or apply a predefined preset
+   err = simulator.ApplyPreset(testutil.SlowNetwork)
+   if err != nil {
+       // Handle error
+   }
+   ```
 
-### Using Network Presets
+3. **Use the simulator in tests**:
+   ```go
+   // Simulate network delay
+   simulator.SimulateNetworkDelay()
 
-```go
-// Apply a predefined network condition preset
-err := simulator.ApplyPreset(testutil.SlowNetwork)
-if err != nil {
-    // Handle error
-}
+   // Simulate packet loss
+   if simulator.SimulatePacketLoss() {
+       fmt.Println("Packet lost")
+   } else {
+       fmt.Println("Packet delivered")
+   }
 
-// Available presets:
-// - FastNetwork: Fast, reliable network connection (10ms latency, 0% packet loss, 100Mbps)
-// - AverageNetwork: Average home broadband (50ms latency, 1% packet loss, 20Mbps)
-// - SlowNetwork: Slow connection (200ms latency, 5% packet loss, 1Mbps)
-// - MobileNetwork: Mobile data connection (100ms latency, 2% packet loss, 5Mbps)
-// - IntermittentConnection: Unstable connection (300ms latency, 15% packet loss, 2Mbps)
-// - SatelliteConnection: High-latency satellite (700ms latency, 3% packet loss, 10Mbps)
-```
+   // Simulate network disconnection
+   err = simulator.Disconnect()
+   if err != nil {
+       // Handle error
+   }
 
-### Simulating Network Disconnection
+   // Test your code under disconnected conditions
+   // ...
 
-```go
-// Simulate network disconnection
-err := simulator.Disconnect()
-if err != nil {
-    // Handle error
-}
+   // Reconnect
+   err = simulator.Reconnect()
+   if err != nil {
+       // Handle error
+   }
+   ```
 
-// Check if the network is connected
-if !simulator.IsConnected() {
-    fmt.Println("Network is disconnected")
-}
+### Available Network Presets
 
-// Restore network connection
-err = simulator.Reconnect()
-if err != nil {
-    // Handle error
-}
+The NetworkSimulator provides several predefined network condition presets:
 
-// Check if the network is connected
-if simulator.IsConnected() {
-    fmt.Println("Network is connected")
-}
-```
+- **FastNetwork**: Fast, reliable network connection (10ms latency, 0% packet loss, 100Mbps)
+- **AverageNetwork**: Average home broadband (50ms latency, 1% packet loss, 20Mbps)
+- **SlowNetwork**: Slow connection (200ms latency, 5% packet loss, 1Mbps)
+- **MobileNetwork**: Mobile data connection (100ms latency, 2% packet loss, 5Mbps)
+- **IntermittentConnection**: Unstable connection (300ms latency, 15% packet loss, 2Mbps)
+- **SatelliteConnection**: High-latency satellite (700ms latency, 3% packet loss, 10Mbps)
 
-### Simulating Network Delay and Packet Loss
-
-```go
-// Simulate network delay
-simulator.SimulateNetworkDelay()
-
-// Simulate packet loss
-if simulator.SimulatePacketLoss() {
-    fmt.Println("Packet lost")
-} else {
-    fmt.Println("Packet delivered")
-}
-
-// Simulate network error
-err := simulator.SimulateNetworkError()
-if err != nil {
-    fmt.Printf("Network error: %v\n", err)
-}
-```
-
-### Registering Mock Providers
-
-```go
-// Create a mock provider
-mockGraph := NewMockGraphProvider()
-
-// Register the mock provider with the network simulator
-err := simulator.RegisterProvider(mockGraph)
-if err != nil {
-    // Handle error
-}
-```
-
-## Integration with TestFramework
+### Integration with TestFramework
 
 The `NetworkSimulator` is integrated with the `TestFramework` to provide network condition simulation for tests:
 
@@ -375,8 +342,34 @@ simulator := framework.GetNetworkSimulator()
 
 10. **Monitor Performance Metrics**: Monitor performance metrics under different network conditions to identify potential bottlenecks.
 
-## Related Components
+## Troubleshooting
 
-- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
-- [MockProviders](mock-providers.md): Mock implementations of system components
-- [IntegrationTestEnvironment](integration-test-environment.md): Integration testing environment
+When working with the NetworkSimulator, you might encounter these common issues:
+
+### Simulation Issues
+
+- **Network conditions not applied**: Ensure that you're calling `SetConditions` or `ApplyPreset` before running tests that depend on specific network conditions.
+- **Disconnection not working**: Verify that you're checking `IsConnected()` to confirm the disconnection was successful.
+- **Mock providers not affected by network conditions**: Ensure that mock providers are registered with the network simulator using `RegisterProvider`.
+
+### Integration Issues
+
+- **TestFramework not using network conditions**: Verify that you're using the network condition methods on the TestFramework instance, not directly on the NetworkSimulator.
+- **Network conditions affecting other tests**: Always clean up by reconnecting the network and resetting conditions after tests that modify network conditions.
+
+### Performance Issues
+
+- **Tests running too slowly**: If tests are running too slowly due to simulated network conditions, consider using more moderate conditions or only applying them to specific test sections.
+- **Inconsistent test results**: Network simulation can introduce variability in test timing. Use appropriate timeouts and retry mechanisms in your tests.
+
+For more detailed troubleshooting information, see [Testing Troubleshooting Guide](../testing-troubleshooting.md).
+
+## Related Resources
+
+- [Testing Framework Guide](../frameworks/testing-framework-guide.md): Core test configuration and execution
+- [Mock Providers](mock-providers-guide.md): Mock implementations of system components
+- [Integration Testing Guide](../frameworks/integration-testing-guide.md): Integration testing environment
+- [Performance Testing Framework](../frameworks/performance-testing-guide.md): Performance testing utilities
+- [Load Testing Framework](../frameworks/load-testing-guide.md): Load testing utilities
+- [Test Guidelines](../test-guidelines.md): General testing guidelines
+- [Testing Troubleshooting](../testing-troubleshooting.md): Detailed troubleshooting information
