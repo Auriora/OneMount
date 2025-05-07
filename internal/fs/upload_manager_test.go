@@ -594,3 +594,81 @@ func TestUT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload(t *testing.
 		// - Verify removal from disk
 	})
 }
+
+// TestIT_FS_35_01_UploadDisk_Serialization_StatePreserved tests that uploads are serialized to disk for resuming later.
+//
+//	Test Case ID    IT-FS-35-01
+//	Title           Upload Disk Serialization
+//	Description     Tests that uploads are serialized to disk for resuming later
+//	Preconditions   None
+//	Steps           1. Create a test file
+//	                2. Wait for the upload session to be created and serialized to disk
+//	                3. Cancel the upload before it completes
+//	                4. Create a new UploadManager from scratch
+//	                5. Verify the file is uploaded
+//	Expected Result Uploads are properly serialized to disk and can be resumed
+//	Notes: This test verifies that uploads are properly serialized to disk and can be resumed.
+func TestIT_FS_35_01_UploadDisk_Serialization_StatePreserved(t *testing.T) {
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "UploadDiskSerializationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// TODO: Implement the test case
+		// 1. Create a test file
+		// 2. Wait for the upload session to be created and serialized to disk
+		// 3. Cancel the upload before it completes
+		// 4. Create a new UploadManager from scratch
+		// 5. Verify the file is uploaded
+		assert.True(true, "Placeholder assertion")
+		t.Skip("Test not implemented yet")
+	})
+}
+
+// TestIT_FS_36_01_Upload_RepeatedUploads_HandledCorrectly tests uploading the same file multiple times.
+//
+//	Test Case ID    IT-FS-36-01
+//	Title           Repeated Uploads
+//	Description     Tests uploading the same file multiple times
+//	Preconditions   None
+//	Steps           1. Create a test file with initial content
+//	                2. Wait for the file to be uploaded
+//	                3. Modify the file multiple times
+//	                4. Verify each modification is successfully uploaded
+//	Expected Result Multiple uploads of the same file work correctly
+//	Notes: This test verifies that multiple uploads of the same file work correctly.
+func TestIT_FS_36_01_Upload_RepeatedUploads_HandledCorrectly(t *testing.T) {
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "UploadRepeatedUploadsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// TODO: Implement the test case
+		// 1. Create a test file with initial content
+		// 2. Wait for the file to be uploaded
+		// 3. Modify the file multiple times
+		// 4. Verify each modification is successfully uploaded
+		assert.True(true, "Placeholder assertion")
+		t.Skip("Test not implemented yet")
+	})
+}
