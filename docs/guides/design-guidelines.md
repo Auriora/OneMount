@@ -6,22 +6,22 @@ This directory contains design documentation for the OneMount project, including
 
 Class diagrams represent the static structure of the system, showing the classes, their attributes, methods, and relationships.
 
-- [Core Engine Class Diagram](../design/resources/core-engine-class-diagram.puml) - Represents the core filesystem implementation
-- [Graph API Class Diagram](../design/resources/graph-api-class-diagram.puml) - Represents the Microsoft Graph API integration
-- [UI Class Diagram](../design/resources/ui-class-diagram.puml) - Represents the UI components and command-line interface
+- [Core Engine Class Diagram](../2-architecture-and-design/resources/core-engine-class-diagram.puml) - Represents the core filesystem implementation
+- [Graph API Class Diagram](../2-architecture-and-design/resources/graph-api-class-diagram.puml) - Represents the Microsoft Graph API integration
+- [UI Class Diagram](../2-architecture-and-design/resources/ui-class-diagram.puml) - Represents the UI components and command-line interface
 
 ## Sequence Diagrams
 
 Sequence diagrams represent the dynamic behavior of the system, showing the interactions between objects over time.
 
-- [Authentication Workflow](../design/resources/auth-sequence-diagram.puml) - Shows the authentication process with Microsoft Graph API
-- [File Access Workflow](../design/resources/file-access-sequence-diagram.puml) - Shows how files are accessed from OneDrive
-- [File Modification Workflow](../design/resources/file-modification-sequence-diagram.puml) - Shows how files are modified and uploaded to OneDrive
-- [Delta Synchronization Workflow](../design/resources/delta-sync-sequence-diagram.puml) - Shows how changes are synchronized between OneDrive and the local filesystem
+- [Authentication Workflow](../2-architecture-and-design/resources/auth-sequence-diagram.puml) - Shows the authentication process with Microsoft Graph API
+- [File Access Workflow](../2-architecture-and-design/resources/file-access-sequence-diagram.puml) - Shows how files are accessed from OneDrive
+- [File Modification Workflow](../2-architecture-and-design/resources/file-modification-sequence-diagram.puml) - Shows how files are modified and uploaded to OneDrive
+- [Delta Synchronization Workflow](../2-architecture-and-design/resources/delta-sync-sequence-diagram.puml) - Shows how changes are synchronized between OneDrive and the local filesystem
 
 ## Mappings
 
-- [Design to Code Mapping](../implementation/design-to-code-mapping.md) - Provides a mapping between design elements and code artifacts
+- [Design to Code Mapping](../3-implementation/design-to-code-mapping.md) - Provides a mapping between design elements and code artifacts
 
 ## Viewing the Diagrams
 
@@ -45,4 +45,4 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
 4. **Command Line Interface (cmd/onemount package)**: Provides a command-line interface for mounting and configuring OneMount
 5. **Graphical User Interface (ui package and cmd/onemount-launcher package)**: Provides a graphical interface for managing onemount mountpoints
 
-For a more detailed overview of the architecture, see the [Software Architecture Specification](../design/software-architecture-specification.md).
+For a more detailed overview of the architecture, see the [Software Architecture Specification](../2-architecture-and-design/software-architecture-specification.md).
