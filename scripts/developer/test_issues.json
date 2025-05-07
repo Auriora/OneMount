@@ -1,0 +1,34 @@
+[
+  {
+    "id": 123,
+    "title": "Issue with existing ID",
+    "body": "This issue already has an ID and should be skipped.",
+    "labels": [
+      {
+        "name": "test",
+        "description": "Test issue",
+        "color": "0075ca"
+      }
+    ],
+    "assignees": [],
+    "state": "OPEN",
+    "closed": false,
+    "comments": []
+  },
+  {
+    "title": "New issue without ID",
+    "body": "This issue doesn't have an ID and should be created.",
+    "labels": [
+      {
+        "name": "test",
+        "description": "Test issue",
+        "color": "0075ca"
+      }
+    ],
+    "assignees": [],
+    "state": "OPEN",
+    "closed": false,
+    "comments": [],
+    "id": 999
+  }
+]

@@ -70,6 +70,12 @@ Input File Format:
 
     The script will extract the necessary fields (title, body, labels, assignees) and exclude the ID field when creating the issues.
 
+    If an issue in the JSON file already has an "id" field, it will be skipped as it's assumed
+    the issue has already been created on GitHub.
+
+    After successfully creating an issue on GitHub, the script will update the JSON file with the
+    issue's ID to prevent duplicate creation in future runs.
+
 Sample Data:
     A sample data file is provided at `scripts/developer/sample_issues.json` for testing purposes.
     This file contains sample issues with realistic content that follows the template format.
@@ -79,6 +85,8 @@ Notes:
       to avoid hitting GitHub API rate limits.
     - Error handling is included for file loading and API requests.
     - The script will not use the actual 'data/github_issues_7MAY25.json' file for testing since those issues already exist.
+    - Issues with an existing ID field in the JSON file will be skipped.
+    - The JSON file will be updated with the IDs of newly created issues.
 """
 
 import argparse
@@ -167,6 +175,21 @@ def create_github_issue(repo: str, token: str, issue_data: Dict[str, Any]) -> Op
             print(f"Response: {e.response.text}")
         return None
 
+def update_json_file(file_path: str, issues: List[Dict[str, Any]]):
+    """
+    Update the JSON file with the updated issues.
+
+    Args:
+        file_path: Path to the JSON file
+        issues: List of updated issue dictionaries
+    """
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(issues, f, indent=2)
+        print(f"Updated {file_path} with issue IDs")
+    except Exception as e:
+        print(f"Error updating {file_path}: {e}")
+
 def main():
     """Main function to parse arguments and create GitHub issues."""
     parser = argparse.ArgumentParser(description="Create GitHub issues from a JSON file.")
@@ -195,7 +218,16 @@ def main():
 
     # Process each issue
     created_count = 0
+    skipped_count = 0
+    file_updated = False
+
     for i, issue in enumerate(issues):
+        # Skip issues that already have an ID
+        if "id" in issue:
+            print(f"\nSkipping issue {i+1}: {issue['title']} (already has ID: {issue['id']})")
+            skipped_count += 1
+            continue
+
         # Prepare the issue for creation
         prepared_issue = prepare_issue_for_creation(issue)
 
@@ -208,16 +240,25 @@ def main():
 
             if created_issue:
                 print(f"Successfully created issue #{created_issue['number']}: {created_issue['title']}")
+
+                # Update the issue in the original list with the ID from GitHub
+                issues[i]["id"] = created_issue["number"]
+                file_updated = True
+
                 created_count += 1
 
                 # Sleep to avoid hitting rate limits
                 if i < len(issues) - 1:
                     time.sleep(1)
 
+    # Update the JSON file with the new IDs if any issues were created
+    if file_updated and not args.dry_run:
+        update_json_file(args.file, issues)
+
     if args.dry_run:
-        print(f"\nDry run completed. {len(issues)} issues would be created.")
+        print(f"\nDry run completed. {len(issues) - skipped_count} issues would be created, {skipped_count} would be skipped.")
     else:
-        print(f"\nCreated {created_count} out of {len(issues)} issues.")
+        print(f"\nCreated {created_count} issues, skipped {skipped_count} issues with existing IDs.")
 
 if __name__ == "__main__":
     main()
