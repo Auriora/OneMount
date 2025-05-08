@@ -8,6 +8,7 @@ package fs
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -411,12 +412,17 @@ func (u *UploadManager) finishUpload(id string) {
 	delete(u.sessionPriorities, id) // Also remove from sessionPriorities map
 }
 
+// GetSession returns the upload session with the given ID
+func (u *UploadManager) GetSession(id string) (*UploadSession, bool) {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+	session, exists := u.sessions[id]
+	return session, exists
+}
+
 // GetUploadStatus returns the status of an upload
 func (u *UploadManager) GetUploadStatus(id string) (UploadState, error) {
-	u.mutex.RLock()
-	session, exists := u.sessions[id]
-	u.mutex.RUnlock()
-
+	session, exists := u.GetSession(id)
 	if !exists {
 		return 0, errors.New("upload session not found")
 	}
@@ -438,13 +444,21 @@ func (u *UploadManager) GetUploadStatus(id string) (UploadState, error) {
 
 // WaitForUpload waits for an upload to complete
 func (u *UploadManager) WaitForUpload(id string) error {
+	// Maximum time to wait for a session to be created
+	const sessionCreationTimeout = 5 * time.Second
+	sessionCreationDeadline := time.Now().Add(sessionCreationTimeout)
+
 	for {
-		u.mutex.RLock()
-		session, exists := u.sessions[id]
-		u.mutex.RUnlock()
+		session, exists := u.GetSession(id)
 
 		if !exists {
-			return errors.New("upload session not found")
+			// If the session doesn't exist yet, wait for it to be created
+			if time.Now().After(sessionCreationDeadline) {
+				return fmt.Errorf("upload session not found after waiting %v: id=%s", sessionCreationTimeout, id)
+			}
+			// Wait a bit and check again
+			time.Sleep(50 * time.Millisecond)
+			continue
 		}
 
 		state := session.getState()
