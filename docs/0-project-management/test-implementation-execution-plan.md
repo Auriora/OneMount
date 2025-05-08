@@ -14,26 +14,26 @@ The implementation is organized into five phases, each with specific goals and d
 
 #### High-Priority Tasks:
 
-1. **Implement Enhanced Resource Management** (Priority: High)
+1. **Implement Enhanced Resource Management** (Priority: High) [Issue #106]
    - Implement the `FileSystemResource` type and related functionality
    - Enhance the TestFramework to handle complex resources like mounted filesystems
    - Add proper cleanup mechanisms for all resources
    - **Files to modify**: `internal/testutil/framework/framework.go`, `internal/testutil/framework/resources.go`
    - **Impact**: Immediate improvement in test reliability by ensuring proper cleanup
 
-2. **Implement Signal Handling** (Priority: High)
+2. **Implement Signal Handling** (Priority: High) [Issue #107]
    - Add the `SetupSignalHandling` method to TestFramework
    - Ensure proper cleanup when tests are interrupted
    - **Files to modify**: `internal/testutil/framework/framework.go`
    - **Impact**: Prevents resource leaks when tests are interrupted
 
-3. **Fix Upload API Race Condition** (Priority: High)
+3. **Fix Upload API Race Condition** (Priority: High) [Issue #108]
    - Implement the enhanced `WaitForUpload` method
    - Add the new `GetSession` method to provide thread-safe access to session information
    - **Files to modify**: `internal/fs/upload_manager.go`
    - **Impact**: Resolves race conditions in tests without adding unreliable delays
 
-4. **Implement Basic TestFramework Structure** (Priority: High)
+4. **Implement Basic TestFramework Structure** (Priority: High) [Issues #113, #114]
    - Create the core TestFramework class with basic functionality
    - Implement constructor, resource management, test execution, and context management methods
    - **Files to create/modify**: `internal/testutil/framework/framework.go`
@@ -45,19 +45,19 @@ The implementation is organized into five phases, each with specific goals and d
 
 #### Medium-High Priority Tasks:
 
-1. **Implement File Utilities** (Priority: Medium-High)
+1. **Implement File Utilities** (Priority: Medium-High) [Issue #109]
    - Create the file utilities in `internal/testutil/helpers/file.go`
    - Implement functions for file creation, verification, and state capture
    - **Files to create**: `internal/testutil/helpers/file.go`
    - **Impact**: Simplifies file-related test operations and improves test readability
 
-2. **Implement Asynchronous Utilities** (Priority: Medium-High)
+2. **Implement Asynchronous Utilities** (Priority: Medium-High) [Issue #110]
    - Create the asynchronous utilities in `internal/testutil/helpers/async.go`
    - Implement functions for waiting, retrying, and handling timeouts
    - **Files to create**: `internal/testutil/helpers/async.go`
    - **Impact**: Improves handling of asynchronous operations in tests, reducing flakiness
 
-3. **Enhance Graph API Test Fixtures** (Priority: Medium)
+3. **Enhance Graph API Test Fixtures** (Priority: Medium) [Issue #112]
    - Extend the `internal/testutil/mock/mock_graph.go` file with additional fixture creation utilities
    - Implement functions for creating various types of DriveItem fixtures
    - **Files to modify**: `internal/testutil/mock/mock_graph.go`
@@ -82,7 +82,7 @@ The implementation is organized into five phases, each with specific goals and d
    - **Files to create**: `internal/testutil/mock/mock_filesystem.go`
    - **Impact**: Enables testing of filesystem operations without actual file operations
 
-7. **Add Network Condition Simulation** (Priority: Medium)
+7. **Add Network Condition Simulation** (Priority: Medium) [Issue #115]
    - Implement network latency simulation
    - Add bandwidth throttling capabilities
    - Create connection interruption simulation
@@ -95,19 +95,19 @@ The implementation is organized into five phases, each with specific goals and d
 
 #### Medium Priority Tasks:
 
-1. **Implement Specialized Framework Extensions** (Priority: Medium)
+1. **Implement Specialized Framework Extensions** (Priority: Medium) [Issue #113]
    - Create the `GraphTestFramework` and other specialized frameworks
    - Implement the specialized setup logic from the old TestMain functions
    - **Files to create**: `internal/testutil/framework/graph_framework.go`, `internal/testutil/framework/fs_framework.go`
    - **Impact**: Simplifies writing tests for specific components
 
-2. **Implement Environment Validation** (Priority: Medium)
+2. **Implement Environment Validation** (Priority: Medium) [Issue #114]
    - Add environment validation capabilities to the TestFramework
    - Implement the `EnvironmentValidator` interface and `DefaultEnvironmentValidator`
    - **Files to modify**: `internal/testutil/framework/framework.go`, `internal/testutil/framework/validator.go`
    - **Impact**: Ensures tests run in the correct environment, preventing false failures
 
-3. **Implement Enhanced Network Simulation** (Priority: Medium)
+3. **Implement Enhanced Network Simulation** (Priority: Medium) [Issue #115]
    - Enhance the NetworkSimulator to support more realistic network scenarios
    - Implement methods for simulating intermittent connections and network partitions
    - **Files to modify**: `internal/testutil/framework/network.go`
@@ -140,7 +140,7 @@ The implementation is organized into five phases, each with specific goals and d
 
 #### Medium-Low Priority Tasks:
 
-1. **Implement Dmelfa Generator** (Priority: Medium-Low)
+1. **Implement Dmelfa Generator** (Priority: Medium-Low) [Issue #111]
    - Create the Dmelfa generator in `internal/testutil/helpers/dmelfa_generator.go`
    - Implement functions for generating large test files with random DNA sequence data
    - **Files to create**: `internal/testutil/helpers/dmelfa_generator.go`
@@ -193,7 +193,7 @@ The implementation is organized into five phases, each with specific goals and d
 
 #### Low Priority Tasks:
 
-1. **Create Comprehensive Documentation** (Priority: Medium-Low)
+1. **Create Comprehensive Documentation** (Priority: Medium-Low) [Issue #118]
    - Update the test utilities documentation to include the new utilities
    - Provide examples of their usage
    - **Files to modify**: `docs/testing/test-utilities.md`
@@ -217,14 +217,14 @@ The implementation is organized into five phases, each with specific goals and d
    - **Files to create**: `internal/testutil/examples/examples_test.go`
    - **Impact**: Makes it easier for developers to learn how to use the new utilities
 
-5. **Create Test Framework Documentation** (Priority: Medium-Low)
+5. **Create Test Framework Documentation** (Priority: Medium-Low) [Issue #118]
    - Document the test framework architecture
    - Create API documentation for test framework components
    - Add examples of using the test framework
    - **Files to create**: `docs/testing/test-framework.md`
    - **Impact**: Provides comprehensive documentation for the test framework
 
-6. **Create Test Writing Guidelines** (Priority: Low)
+6. **Create Test Writing Guidelines** (Priority: Low) [Issue #118]
    - Document best practices for writing tests
    - Create templates for different types of tests
    - Add examples of good test design
