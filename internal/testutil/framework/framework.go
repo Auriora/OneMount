@@ -4,6 +4,10 @@ package framework
 import (
 	"context"
 	"github.com/auriora/onemount/internal/testutil"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -139,6 +143,11 @@ type TestFramework struct {
 
 	// Structured logging.
 	logger Logger
+
+	// Signal handling
+	signalChan chan os.Signal
+	signalMu   sync.Mutex
+	isHandling bool
 }
 
 // NewTestFramework creates a new TestFramework with the given configuration.
@@ -155,6 +164,8 @@ func NewTestFramework(config TestConfig, logger Logger) *TestFramework {
 		networkSimulator: NewNetworkSimulator(),
 		ctx:              context.Background(),
 		logger:           logger,
+		signalChan:       nil,
+		isHandling:       false,
 	}
 }
 
@@ -311,4 +322,67 @@ func (tf *TestFramework) ReconnectNetwork() error {
 // IsNetworkConnected returns whether the network is currently connected.
 func (tf *TestFramework) IsNetworkConnected() bool {
 	return tf.networkSimulator.IsConnected()
+}
+
+// SetupSignalHandling registers signal handlers for SIGINT and SIGTERM to ensure
+// proper cleanup when tests are interrupted. It returns a function that can be
+// called to stop signal handling.
+func (tf *TestFramework) SetupSignalHandling() func() {
+	tf.signalMu.Lock()
+	defer tf.signalMu.Unlock()
+
+	// If signal handling is already set up, return a no-op cleanup function
+	if tf.isHandling {
+		tf.logger.Info("Signal handling already set up")
+		return func() {
+			tf.logger.Info("Signal handling already stopped by another call")
+		}
+	}
+
+	// Create a channel to receive OS signals
+	tf.signalChan = make(chan os.Signal, 1)
+
+	// Register signal handlers for SIGINT and SIGTERM
+	signal.Notify(tf.signalChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Set the isHandling flag to true
+	tf.isHandling = true
+
+	tf.logger.Info("Signal handling set up for SIGINT and SIGTERM")
+
+	// Start a goroutine to handle signals
+	go func() {
+		sig := <-tf.signalChan
+		tf.logger.Info("Received signal", "signal", sig)
+
+		// Clean up resources
+		tf.logger.Info("Cleaning up resources due to signal")
+		if err := tf.CleanupResources(); err != nil {
+			tf.logger.Error("Error cleaning up resources", "error", err)
+		}
+
+		// Exit with a non-zero status code
+		tf.logger.Info("Exiting due to signal")
+		os.Exit(1)
+	}()
+
+	// Return a function that can be called to stop signal handling
+	return func() {
+		tf.signalMu.Lock()
+		defer tf.signalMu.Unlock()
+
+		if !tf.isHandling {
+			tf.logger.Info("Signal handling already stopped")
+			return
+		}
+
+		// Stop receiving signals
+		signal.Stop(tf.signalChan)
+		close(tf.signalChan)
+
+		// Set the isHandling flag to false
+		tf.isHandling = false
+
+		tf.logger.Info("Signal handling stopped")
+	}
 }
