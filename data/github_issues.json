@@ -276,7 +276,7 @@
   {
     "assignees": [],
     "body": "## Description\nFix the race condition in the `UploadManager` by enhancing the `WaitForUpload` method to handle cases where a session hasn't been added to the sessions map yet.\n\n## Rationale\nThere's a race condition in the `UploadManager` between queuing an upload and waiting for it. The `WaitForUpload` method checks if the upload session exists in the `sessions` map, but this map is only populated when the session is processed by the `uploadLoop`, which runs on a ticker. This causes test failures when `WaitForUpload` is called immediately after `QueueUploadWithPriority`.\n\n## Impact\nThis implementation will affect the Upload API in `internal/fs/upload_manager.go` and will resolve race conditions in tests without adding unreliable delays.\n\n## Relevant Documentation\n- [Test Implementation Execution Plan](../docs/0-project-management/test-implementation-execution-plan.md)\n\n## Implementation Notes\n- Add a new `GetSession` method to provide thread-safe access to session information\n- Enhance the `WaitForUpload` method to wait for session creation with a timeout\n- Improve error messages to help diagnose issues\n- Ensure thread-safety with appropriate mutex usage\n\n## Files to Modify\n- `internal/fs/upload_manager.go`",
-    "closed": false,
+    "closed": true,
     "comments": [],
     "id": "I_kwDOOgHwEc61lVs2",
     "labels": [
@@ -294,7 +294,7 @@
       }
     ],
     "number": 108,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Fix Upload API Race Condition",
     "url": "https://github.com/Auriora/OneMount/issues/108"
   },
