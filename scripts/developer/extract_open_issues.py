@@ -1,5 +1,4 @@
 import json
-import os
 
 # Path to the JSON file
 json_file_path = 'data/github_issues.json'

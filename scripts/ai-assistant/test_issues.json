@@ -1,0 +1,46 @@
+[
+  {
+    "title": "Issue with no ID or Number",
+    "body": "This issue should be created",
+    "labels": [
+      {
+        "name": "test"
+      }
+    ],
+    "assignees": []
+  },
+  {
+    "title": "Issue with ID",
+    "body": "This issue should be skipped",
+    "labels": [
+      {
+        "name": "test"
+      }
+    ],
+    "assignees": [],
+    "id": 123
+  },
+  {
+    "title": "Issue with Number",
+    "body": "This issue should be skipped",
+    "labels": [
+      {
+        "name": "test"
+      }
+    ],
+    "assignees": [],
+    "number": 456
+  },
+  {
+    "title": "Issue with both ID and Number",
+    "body": "This issue should be skipped",
+    "labels": [
+      {
+        "name": "test"
+      }
+    ],
+    "assignees": [],
+    "id": 789,
+    "number": 789
+  }
+]
