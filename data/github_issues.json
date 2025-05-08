@@ -332,8 +332,24 @@
   {
     "assignees": [],
     "body": "## Description\nImplement the `FileSystemResource` type and related functionality to enhance the TestFramework's ability to handle complex resources like mounted filesystems.\n\n## Rationale\nThe current TestFramework lacks robust handling of complex resources such as mounted filesystems, which can lead to resource leaks and test failures. Enhancing resource management will improve test reliability and reduce flakiness.\n\n## Impact\nThis implementation will affect the core test framework in `internal/testutil/framework/` and will improve the reliability of tests that use filesystem resources.\n\n## Relevant Documentation\n- [Test Implementation Execution Plan](../docs/0-project-management/test-implementation-execution-plan.md)\n- [Test Architecture Design](../docs/2-architecture-and-design/test-architecture-design.md)\n\n## Implementation Notes\n- Create a `FileSystemResource` struct that implements the `Resource` interface\n- Add methods for mounting and unmounting filesystems\n- Implement proper cleanup mechanisms for all resources\n- Ensure thread-safety with appropriate mutex usage\n\n## Files to Modify\n- `internal/testutil/framework/framework.go`\n- `internal/testutil/framework/resources.go`",
-    "closed": false,
-    "comments": [],
+    "closed": true,
+    "comments": [
+      {
+        "id": "IC_kwDOOgHwEc6qstR_",
+        "author": {
+          "login": "bcherrington"
+        },
+        "authorAssociation": "MEMBER",
+        "body": "# Implementation of Enhanced Resource Management for TestFramework\n\nI've implemented the `FileSystemResource` type and related functionality to enhance the TestFramework's ability to handle complex resources like mounted filesystems.\n\n## Implementation Summary\n\nThe implementation includes:\n\n1. Created a new `FileSystemResource` struct in `internal/testutil/framework/resources.go` that implements the `TestResource` interface\n2. Added methods for mounting and unmounting filesystems\n3. Implemented proper cleanup mechanisms for all resources\n4. Ensured thread-safety with appropriate mutex usage\n\n## Key Features\n\n- **Mount/Unmount Operations**: Methods for mounting and unmounting filesystems using system commands\n- **Resource Cleanup**: Automatic cleanup of mounted filesystems and removal of mount points\n- **Thread Safety**: All operations are protected by a mutex for safe concurrent access\n- **Custom Cleanup Functions**: Support for custom cleanup functions to be executed during resource cleanup\n- **Remounting Support**: Ability to remount filesystems (unmount and then mount again)\n- **Status Checking**: Methods to check if a filesystem is mounted and get the mount point\n\n## Testing\n\n- Created comprehensive tests in `internal/testutil/framework/resources_test.go`\n- Tests cover basic functionality, integration with TestFramework, and mount/unmount operations\n- Implemented mock testing to avoid executing actual system commands during tests\n- Verified proper cleanup of resources in all scenarios\n\n## Documentation\n\n- Added detailed documentation to the `resources.go` file\n- Included an overview section explaining the purpose and features\n- Provided examples for basic and advanced usage\n- Added sections on thread safety, error handling, and integration with TestFramework\n- Documented all public methods with clear descriptions of parameters and return values\n\n## Integration with TestFramework\n\n- The `FileSystemResource` type implements the `TestResource` interface\n- Resources can be added to the TestFramework using the `AddResource` method\n- The TestFramework will automatically clean up resources when the `CleanupResources` method is called\n\n## Requirements Satisfied\n\n- ✅ Created a `FileSystemResource` struct that implements the `Resource` interface\n- ✅ Added methods for mounting and unmounting filesystems\n- ✅ Implemented proper cleanup mechanisms for all resources\n- ✅ Ensured thread-safety with appropriate mutex usage\n\nAll requirements specified in the issue have been implemented and thoroughly tested.\n\nCloses #106",
+        "createdAt": "2025-05-08T17:59:15Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/Auriora/OneMount/issues/106#issuecomment-2863846527",
+        "viewerDidAuthor": true
+      }
+    ],
     "id": "I_kwDOOgHwEc61lVqt",
     "labels": [
       {
@@ -356,7 +372,7 @@
       }
     ],
     "number": 106,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Implement Enhanced Resource Management for TestFramework",
     "url": "https://github.com/Auriora/OneMount/issues/106"
   },
