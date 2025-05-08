@@ -37,20 +37,30 @@ const (
 )
 
 // UploadManager is used to manage and retry uploads.
+//
+// The UploadManager uses a combination of channels and maps to manage uploads:
+//   - Channels (highPriorityQueue, lowPriorityQueue) are used to queue uploads for processing
+//   - Maps (sessions, sessionPriorities) track active upload sessions and their priorities
+//   - Maps (pendingHighPriorityUploads, pendingLowPriorityUploads) track uploads that have been
+//     queued but not yet processed by the uploadLoop. This helps prevent race conditions
+//     between QueueUploadWithPriority and WaitForUpload when WaitForUpload is called
+//     immediately after QueueUploadWithPriority.
 type UploadManager struct {
-	highPriorityQueue chan *UploadSession
-	lowPriorityQueue  chan *UploadSession
-	queue             chan *UploadSession // Legacy queue for backward compatibility
-	deletionQueue     chan string
-	sessions          map[string]*UploadSession
-	sessionPriorities map[string]UploadPriority // Track priority of each session
-	inFlight          uint8                     // number of sessions in flight
-	auth              *graph.Auth
-	fs                *Filesystem
-	db                *bolt.DB
-	mutex             sync.RWMutex
-	stopChan          chan struct{}
-	workerWg          sync.WaitGroup
+	highPriorityQueue          chan *UploadSession
+	lowPriorityQueue           chan *UploadSession
+	queue                      chan *UploadSession // Legacy queue for backward compatibility
+	deletionQueue              chan string
+	sessions                   map[string]*UploadSession
+	sessionPriorities          map[string]UploadPriority // Track priority of each session
+	pendingHighPriorityUploads map[string]bool           // Track uploads queued but not yet processed by uploadLoop
+	pendingLowPriorityUploads  map[string]bool           // Track uploads queued but not yet processed by uploadLoop
+	inFlight                   uint8                     // number of sessions in flight
+	auth                       *graph.Auth
+	fs                         *Filesystem
+	db                         *bolt.DB
+	mutex                      sync.RWMutex
+	stopChan                   chan struct{}
+	workerWg                   sync.WaitGroup
 }
 
 // UploadPriority defines the priority level for uploads
@@ -66,16 +76,18 @@ const (
 // NewUploadManager creates a new queue/thread for uploads
 func NewUploadManager(duration time.Duration, db *bolt.DB, fs *Filesystem, auth *graph.Auth) *UploadManager {
 	manager := UploadManager{
-		highPriorityQueue: make(chan *UploadSession),
-		lowPriorityQueue:  make(chan *UploadSession),
-		queue:             make(chan *UploadSession), // Legacy queue for backward compatibility
-		deletionQueue:     make(chan string, 1000),   // FIXME - why does this chan need to be buffered now???
-		sessions:          make(map[string]*UploadSession),
-		sessionPriorities: make(map[string]UploadPriority),
-		auth:              auth,
-		db:                db,
-		fs:                fs,
-		stopChan:          make(chan struct{}),
+		highPriorityQueue:          make(chan *UploadSession),
+		lowPriorityQueue:           make(chan *UploadSession),
+		queue:                      make(chan *UploadSession), // Legacy queue for backward compatibility
+		deletionQueue:              make(chan string, 1000),   // FIXME - why does this chan need to be buffered now???
+		sessions:                   make(map[string]*UploadSession),
+		sessionPriorities:          make(map[string]UploadPriority),
+		pendingHighPriorityUploads: make(map[string]bool),
+		pendingLowPriorityUploads:  make(map[string]bool),
+		auth:                       auth,
+		db:                         db,
+		fs:                         fs,
+		stopChan:                   make(chan struct{}),
 	}
 	db.View(func(tx *bolt.Tx) error {
 		// Add any incomplete sessions from disk - any sessions here were never
@@ -109,7 +121,12 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs *Filesystem, auth 
 	return &manager
 }
 
-// uploadLoop manages the deduplication and tracking of uploads
+// uploadLoop manages the deduplication and tracking of uploads.
+//
+// This method runs in a separate goroutine and processes uploads from the queues.
+// When a session is processed, it's added to the sessions map and removed from
+// the pending uploads maps. This is part of the mechanism that prevents race
+// conditions between QueueUploadWithPriority and WaitForUpload.
 func (u *UploadManager) uploadLoop(duration time.Duration) {
 	defer u.workerWg.Done()
 
@@ -133,6 +150,8 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			})
 			u.sessions[session.ID] = session
 			u.sessionPriorities[session.ID] = PriorityHigh
+			// Remove from pending map now that it's in the sessions map
+			delete(u.pendingHighPriorityUploads, session.ID)
 			u.mutex.Unlock()
 
 		case session := <-u.lowPriorityQueue: // low priority sessions
@@ -150,6 +169,8 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			})
 			u.sessions[session.ID] = session
 			u.sessionPriorities[session.ID] = PriorityLow
+			// Remove from pending map now that it's in the sessions map
+			delete(u.pendingLowPriorityUploads, session.ID)
 			u.mutex.Unlock()
 
 		case session := <-u.queue: // legacy queue for backward compatibility
@@ -303,6 +324,15 @@ func (u *UploadManager) QueueUpload(inode *Inode) (*UploadSession, error) {
 }
 
 // QueueUploadWithPriority queues an item for upload with the specified priority.
+//
+// This method creates a new upload session and either:
+// 1. If the system is offline, adds it directly to the sessions map
+// 2. If the system is online, adds it to the appropriate priority queue
+//
+// To prevent race conditions with WaitForUpload, the session is also tracked in
+// pendingHighPriorityUploads or pendingLowPriorityUploads maps until it's processed
+// by the uploadLoop. This allows WaitForUpload to detect sessions that have been
+// queued but not yet processed.
 func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPriority) (*UploadSession, error) {
 	data := u.fs.getInodeContent(inode)
 	session, err := NewUploadSession(inode, data)
@@ -356,11 +386,20 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 
 	// Normal online behavior
 	var targetQueue chan *UploadSession
+	var pendingMap map[string]bool
 	if priority == PriorityHigh {
 		targetQueue = u.highPriorityQueue
+		pendingMap = u.pendingHighPriorityUploads
 	} else {
 		targetQueue = u.lowPriorityQueue
+		pendingMap = u.pendingLowPriorityUploads
 	}
+
+	// Mark the session as pending before sending it to the queue
+	// This helps with the race condition between queueing and waiting
+	u.mutex.Lock()
+	pendingMap[session.ID] = true
+	u.mutex.Unlock()
 
 	select {
 	case targetQueue <- session:
@@ -371,7 +410,10 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 			Msg("File queued for upload")
 		return session, nil
 	default:
-		// Queue is full, return error
+		// Queue is full, remove from pending map and return error
+		u.mutex.Lock()
+		delete(pendingMap, session.ID)
+		u.mutex.Unlock()
 		return nil, errors.New("upload queue is full")
 	}
 }
@@ -392,6 +434,10 @@ func (u *UploadManager) CancelUpload(id string) {
 // finishUpload is an internal method that gets called when a session is
 // completed. It cancels the session if one was in progress, and then deletes
 // it from both memory and disk.
+//
+// This method also removes the session from the pending uploads maps to ensure
+// that WaitForUpload doesn't try to wait for a session that has been finished
+// or canceled.
 func (u *UploadManager) finishUpload(id string) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -410,6 +456,10 @@ func (u *UploadManager) finishUpload(id string) {
 	}
 	delete(u.sessions, id)
 	delete(u.sessionPriorities, id) // Also remove from sessionPriorities map
+
+	// Also remove from pending maps if present
+	delete(u.pendingHighPriorityUploads, id)
+	delete(u.pendingLowPriorityUploads, id)
 }
 
 // GetSession returns the upload session with the given ID
@@ -442,11 +492,42 @@ func (u *UploadManager) GetUploadStatus(id string) (UploadState, error) {
 	}
 }
 
-// WaitForUpload waits for an upload to complete
+// WaitForUpload waits for an upload to complete.
+//
+// This method handles the race condition between QueueUploadWithPriority and WaitForUpload
+// by checking both the sessions map and the pending uploads maps. If a session is found
+// in either map, it waits for it to complete. If no session is found after a timeout,
+// it returns an error with detailed information about the state of the queues.
+//
+// The race condition occurs because QueueUploadWithPriority adds a session to a queue,
+// but the session is only added to the sessions map when it's processed by the uploadLoop.
+// If WaitForUpload is called immediately after QueueUploadWithPriority, it might not find
+// the session in the sessions map yet. By checking the pending uploads maps, we can detect
+// sessions that have been queued but not yet processed.
 func (u *UploadManager) WaitForUpload(id string) error {
 	// Maximum time to wait for a session to be created
 	const sessionCreationTimeout = 5 * time.Second
 	sessionCreationDeadline := time.Now().Add(sessionCreationTimeout)
+
+	// First, check if the session is already in the queue but not yet processed
+	// by the uploadLoop. This is a common case in tests where WaitForUpload is
+	// called immediately after QueueUploadWithPriority.
+	u.mutex.RLock()
+	_, existsInHighPriority := u.pendingHighPriorityUploads[id]
+	_, existsInLowPriority := u.pendingLowPriorityUploads[id]
+	u.mutex.RUnlock()
+
+	// If the session is in one of the pending maps, log this information
+	if existsInHighPriority || existsInLowPriority {
+		priority := "low"
+		if existsInHighPriority {
+			priority = "high"
+		}
+		log.Debug().
+			Str("id", id).
+			Str("priority", priority).
+			Msg("Waiting for upload session that is queued but not yet processed")
+	}
 
 	for {
 		session, exists := u.GetSession(id)
@@ -454,7 +535,24 @@ func (u *UploadManager) WaitForUpload(id string) error {
 		if !exists {
 			// If the session doesn't exist yet, wait for it to be created
 			if time.Now().After(sessionCreationDeadline) {
-				return fmt.Errorf("upload session not found after waiting %v: id=%s", sessionCreationTimeout, id)
+				// Provide more detailed error message
+				u.mutex.RLock()
+				_, inHighPriority := u.pendingHighPriorityUploads[id]
+				_, inLowPriority := u.pendingLowPriorityUploads[id]
+				queueSizes := fmt.Sprintf("high=%d, low=%d", len(u.highPriorityQueue), len(u.lowPriorityQueue))
+				u.mutex.RUnlock()
+
+				if inHighPriority || inLowPriority {
+					priority := "low"
+					if inHighPriority {
+						priority = "high"
+					}
+					return fmt.Errorf("upload session not found after waiting %v: id=%s (queued with %s priority, queue sizes: %s)",
+						sessionCreationTimeout, id, priority, queueSizes)
+				}
+
+				return fmt.Errorf("upload session not found after waiting %v: id=%s (not queued, queue sizes: %s)",
+					sessionCreationTimeout, id, queueSizes)
 			}
 			// Wait a bit and check again
 			time.Sleep(50 * time.Millisecond)
