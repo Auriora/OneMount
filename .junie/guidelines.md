@@ -8,20 +8,22 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
 
 ## Project Structure
 
-- **build/** - Build artifacts and output
 - **cmd/** - Command-line applications
   - **common/** - Shared code between applications
   - **onemount/** - Main filesystem application
   - **onemount-launcher/** - GUI launcher application
 - **configs/** - Configuration files and resources
   - **resources/** - Resource files for the application
+- **data/** - Data files and resources for the project
 - **docs/** - Documentation
+  - **0-project-management/** - Project management documentation
+  - **1-requirements/** - Project requirements
+  - **2-architecture-and-design/** - Design documentation
+  - **3-implementation/** - Implementation details
+  - **4-testing/** - Testing documentation
+  - **A-templates/** - Documentation templates
   - **guides/** - Development guides
-  - **design/** - Design documentation
-  - **implementation/** - Implementation details
-  - **requirements/** - Project requirements
-  - **templates/** - Documentation templates
-  - **testing/** - Testing documentation
+  - **training/** - Training materials
 - **.github/** - GitHub-specific configuration
   - **workflows/** - GitHub Actions workflows
   - **scripts/** - GitHub-specific scripts
@@ -34,14 +36,12 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
   - **nemo/** - Nemo file manager integration
   - **testutil/** - Testing utilities
 - **.junie/** - Junie AI assistant configuration
-- **pkg/** - Resources and packaging files
 - **.run/** - GoLand run configurations
 - **scripts/** - Utility scripts
+  - **ai-assistant/** - AI assistant scripts
   - **debian/** - Debian packaging scripts
   - **developer/** - Developer utility scripts
-  - **development/** - Development environment scripts
 - **tmp/** - Temporary files and script output
-- **test/** - Test-related files and scripts
 
 ## Tech Stack
 
