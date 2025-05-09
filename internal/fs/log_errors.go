@@ -2,6 +2,7 @@ package fs
 
 import (
 	"fmt"
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -105,5 +106,5 @@ func FormatErrorWithContext(err error, msg string, fields ...interface{}) error 
 	}
 
 	// Return a new error with the formatted message and the original error
-	return fmt.Errorf("%s: %w", formattedMsg, err)
+	return errors.Wrap(err, formattedMsg)
 }

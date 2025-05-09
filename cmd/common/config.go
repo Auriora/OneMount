@@ -1,11 +1,11 @@
 package common
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/auriora/onemount/internal/ui"
 	"github.com/imdario/mergo"
@@ -131,7 +131,7 @@ func validateConfig(config *Config) error {
 	// Validate AuthConfig if provided
 	if config.AuthConfig.ClientID != "" {
 		if config.AuthConfig.CodeURL == "" || config.AuthConfig.TokenURL == "" || config.AuthConfig.RedirectURL == "" {
-			return fmt.Errorf("incomplete auth configuration: all auth fields must be provided if any are set")
+			return errors.New("incomplete auth configuration: all auth fields must be provided if any are set")
 		}
 	}
 
