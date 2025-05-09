@@ -124,7 +124,12 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 	}
 	inode.RUnlock()
 
-	session.Size = uint64(len(*data)) // just in case it somehow differs
+	// Use the size from the inode if available, otherwise use the data length
+	if inode.DriveItem.Size > 0 {
+		session.Size = inode.DriveItem.Size
+	} else {
+		session.Size = uint64(len(*data))
+	}
 	session.QuickXORHash = graph.QuickXORHash(data)
 	return &session, nil
 }

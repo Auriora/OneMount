@@ -66,6 +66,13 @@ func TestUT_FW_10_01_SetupSignalHandling_ValidFramework_RegistersSignalHandlers(
 //	                5. Verify signal handling is stopped correctly
 //	Expected Result Signal handling is set up only once and stopped correctly
 func TestUT_FW_10_02_SetupSignalHandlingIdempotent_CalledTwice_OnlyRegistersOnce(t *testing.T) {
+	// Recover from any panics
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Test panicked: %v", r)
+		}
+	}()
+
 	// Create a mock logger
 	logger := newMockLogger()
 
@@ -113,11 +120,19 @@ func TestUT_FW_10_02_SetupSignalHandlingIdempotent_CalledTwice_OnlyRegistersOnce
 //	                5. Verify the resource is cleaned up
 //	Expected Result The resource is cleaned up when a signal is received
 func TestUT_FW_10_03_CleanupResourcesOnSignal_ResourceAdded_ResourceCleaned(t *testing.T) {
+	// Recover from any panics
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Test panicked: %v", r)
+		}
+	}()
+
 	// Skip this test if we're not in a test environment that allows us to fork
 	// This test actually sends a signal to itself, which would terminate the process
 	// So we need to fork a child process to test this
 	if os.Getenv("TEST_SIGNAL_HANDLING") != "1" {
 		t.Skip("Skipping signal handling test in parent process")
+		return
 	}
 
 	// Create a mock logger

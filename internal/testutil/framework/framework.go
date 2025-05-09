@@ -145,9 +145,11 @@ type TestFramework struct {
 	logger Logger
 
 	// Signal handling
-	signalChan chan os.Signal
-	signalMu   sync.Mutex
-	isHandling bool
+	signalChan   chan os.Signal
+	signalMu     sync.Mutex
+	isHandling   bool
+	signalCtx    context.Context
+	signalCancel context.CancelFunc
 }
 
 // NewTestFramework creates a new TestFramework with the given configuration.
@@ -156,6 +158,9 @@ func NewTestFramework(config TestConfig, logger Logger) *TestFramework {
 	if config.ArtifactsDir == "" {
 		config.ArtifactsDir = testutil.GetDefaultArtifactsDir()
 	}
+
+	// Create a context with cancellation for signal handling
+	signalCtx, signalCancel := context.WithCancel(context.Background())
 
 	return &TestFramework{
 		Config:           config,
@@ -166,6 +171,8 @@ func NewTestFramework(config TestConfig, logger Logger) *TestFramework {
 		logger:           logger,
 		signalChan:       nil,
 		isHandling:       false,
+		signalCtx:        signalCtx,
+		signalCancel:     signalCancel,
 	}
 }
 
@@ -339,6 +346,21 @@ func (tf *TestFramework) SetupSignalHandling() func() {
 		}
 	}
 
+	// If there's an existing signal channel, stop and close it first
+	if tf.signalChan != nil {
+		signal.Stop(tf.signalChan)
+		close(tf.signalChan)
+		tf.signalChan = nil
+	}
+
+	// Cancel any existing signal handling goroutine
+	if tf.signalCancel != nil {
+		tf.signalCancel()
+	}
+
+	// Create a new context with cancellation for this signal handling session
+	tf.signalCtx, tf.signalCancel = context.WithCancel(context.Background())
+
 	// Create a channel to receive OS signals
 	tf.signalChan = make(chan os.Signal, 1)
 
@@ -351,20 +373,26 @@ func (tf *TestFramework) SetupSignalHandling() func() {
 	tf.logger.Info("Signal handling set up for SIGINT and SIGTERM")
 
 	// Start a goroutine to handle signals
-	go func() {
-		sig := <-tf.signalChan
-		tf.logger.Info("Received signal", "signal", sig)
+	go func(ctx context.Context) {
+		select {
+		case sig := <-tf.signalChan:
+			tf.logger.Info("Received signal", "signal", sig)
 
-		// Clean up resources
-		tf.logger.Info("Cleaning up resources due to signal")
-		if err := tf.CleanupResources(); err != nil {
-			tf.logger.Error("Error cleaning up resources", "error", err)
+			// Clean up resources
+			tf.logger.Info("Cleaning up resources due to signal")
+			if err := tf.CleanupResources(); err != nil {
+				tf.logger.Error("Error cleaning up resources", "error", err)
+			}
+
+			// Exit with a non-zero status code
+			tf.logger.Info("Exiting due to signal")
+			os.Exit(1)
+		case <-ctx.Done():
+			// Context was cancelled, just exit the goroutine
+			tf.logger.Debug("Signal handling goroutine exiting due to context cancellation")
+			return
 		}
-
-		// Exit with a non-zero status code
-		tf.logger.Info("Exiting due to signal")
-		os.Exit(1)
-	}()
+	}(tf.signalCtx)
 
 	// Return a function that can be called to stop signal handling
 	return func() {
@@ -378,7 +406,17 @@ func (tf *TestFramework) SetupSignalHandling() func() {
 
 		// Stop receiving signals
 		signal.Stop(tf.signalChan)
-		close(tf.signalChan)
+
+		// Only close the channel if it's not nil
+		if tf.signalChan != nil {
+			close(tf.signalChan)
+			tf.signalChan = nil
+		}
+
+		// Cancel the context to stop the goroutine
+		if tf.signalCancel != nil {
+			tf.signalCancel()
+		}
 
 		// Set the isHandling flag to false
 		tf.isHandling = false

@@ -78,10 +78,19 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		testFileName := "repeated_upload.txt"
 		initialContent := "initial content"
 		fileID := "file-id"
+
+		// Calculate hash for initial content
+		initialContentBytes := []byte(initialContent)
+		initialQuickXorHash := graph.QuickXORHash(&initialContentBytes)
+
 		fileItem := &graph.DriveItem{
 			ID:   fileID,
 			Name: testFileName,
-			File: &graph.File{},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: initialQuickXorHash,
+				},
+			},
 			Size: uint64(len(initialContent)),
 		}
 

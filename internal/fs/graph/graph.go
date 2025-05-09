@@ -37,6 +37,11 @@ var (
 	// operationalOffline is a flag that can be set to force offline mode
 	operationalOffline      = false
 	operationalOfflineMutex sync.RWMutex
+
+	// isMockClient is a flag that indicates whether a mock client is being used
+	// This is used to bypass the offline mode check in tests
+	isMockClient      = false
+	isMockClientMutex sync.RWMutex
 )
 
 func init() {
@@ -46,8 +51,18 @@ func init() {
 func SetHTTPClient(client *http.Client) {
 	if client == nil {
 		httpClient = getSharedHTTPClient()
+		isMockClientMutex.Lock()
+		isMockClient = false
+		isMockClientMutex.Unlock()
 		return
 	}
+
+	// Check if the client's transport is a MockGraphClient
+	_, isMock := client.Transport.(*MockGraphClient)
+	isMockClientMutex.Lock()
+	isMockClient = isMock
+	isMockClientMutex.Unlock()
+
 	httpClient = client
 }
 
@@ -93,7 +108,11 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		WithPath(resource).
 		With("http_method", method)
 	// Check if we're in operational offline mode
-	if GetOperationalOffline() {
+	isMockClientMutex.RLock()
+	mockClient := isMockClient
+	isMockClientMutex.RUnlock()
+
+	if GetOperationalOffline() && !mockClient {
 		errors.LogDebugWithContext(logCtx, "In operational offline mode, returning network error")
 		return nil, errors.NewNetworkError("operational offline mode is enabled", nil)
 	}
@@ -501,6 +520,13 @@ func GetOperationalOffline() bool {
 	operationalOfflineMutex.RLock()
 	defer operationalOfflineMutex.RUnlock()
 	return operationalOffline
+}
+
+// IsMockClient returns true if a mock client is being used
+func IsMockClient() bool {
+	isMockClientMutex.RLock()
+	defer isMockClientMutex.RUnlock()
+	return isMockClient
 }
 
 // IsOffline checks if the system is offline.

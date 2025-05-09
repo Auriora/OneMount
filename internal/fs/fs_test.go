@@ -1,12 +1,14 @@
 package fs
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/auriora/onemount/internal/testutil"
@@ -111,10 +113,19 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 
 		// Create a new file inode
 		fileID := "file-id"
+
+		// Calculate hash for the content
+		contentBytes := []byte(testFileContent)
+		contentQuickXorHash := graph.QuickXORHash(&contentBytes)
+
 		fileItem := &graph.DriveItem{
 			ID:   fileID,
 			Name: testFileName,
-			File: &graph.File{},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: contentQuickXorHash,
+				},
+			},
 			Size: uint64(len(testFileContent)),
 		}
 
@@ -141,12 +152,21 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 		_, err = fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
 		assert.NoError(err, "Failed to queue upload")
 
-		// Mock the upload response
+		// Mock the item response - this is needed for the mock client to find the item
 		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
+		// Mock the content upload response
+		fileItemJSON, err := json.Marshal(fileItem)
+		assert.NoError(err, "Failed to marshal file item")
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", fileItemJSON, 200, nil)
 
 		// Wait for the upload to complete
 		err = fs.uploads.WaitForUpload(fileID)
 		assert.NoError(err, "Failed to wait for upload")
+
+		// Add a small delay to allow the uploadLoop to process the completed upload
+		// and update the file status from Syncing to Local
+		time.Sleep(500 * time.Millisecond)
 
 		// Step 4: Verify the file exists on OneDrive with correct content
 

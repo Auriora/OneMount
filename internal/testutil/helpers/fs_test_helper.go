@@ -126,6 +126,10 @@ func CreateMockDirectory(mockClient *graph.MockGraphClient, parentID, dirName, d
 
 // CreateMockFile creates a mock file in the filesystem.
 func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileID string, content string) *graph.DriveItem {
+	// Convert content to bytes and calculate hash
+	contentBytes := []byte(content)
+	quickXorHash := graph.QuickXORHash(&contentBytes)
+
 	// Create a file item
 	fileItem := &graph.DriveItem{
 		ID:   fileID,
@@ -133,7 +137,11 @@ func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileI
 		Parent: &graph.DriveItemParent{
 			ID: parentID,
 		},
-		File: &graph.File{},
+		File: &graph.File{
+			Hashes: graph.Hashes{
+				QuickXorHash: quickXorHash,
+			},
+		},
 		Size: uint64(len(content)),
 	}
 

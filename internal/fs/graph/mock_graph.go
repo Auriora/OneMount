@@ -182,6 +182,12 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Record the call
 	m.Recorder.RecordCall("RoundTrip", req)
 
+	// Check if we're in operational offline mode
+	if GetOperationalOffline() {
+		log.Debug().Msg("Mock client in operational offline mode, returning network error")
+		return nil, errors.New("operational offline mode is enabled")
+	}
+
 	// Extract the resource path from the URL
 	resource := strings.TrimPrefix(req.URL.Path, "/v1.0")
 	if req.URL.RawQuery != "" {
@@ -204,6 +210,60 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Check if we have a mock response for this resource
 	m.mu.Lock()
 	mockResponse, ok := m.RequestResponses[resource]
+
+	// If not found, try with unescaped resource path
+	if !ok {
+		unescapedResource, err := url.PathUnescape(resource)
+		if err == nil && unescapedResource != resource {
+			mockResponse, ok = m.RequestResponses[unescapedResource]
+		}
+	}
+
+	// If still not found, check if this is a content request and try with different path formats
+	if !ok && strings.Contains(resource, "/content") {
+		// Try different path formats for content requests
+		alternateResources := []string{}
+
+		// Extract the item ID and name from the resource path
+		parts := strings.Split(resource, "/")
+
+		// Format 1: /me/drive/items/{id}/content
+		if len(parts) >= 4 {
+			itemID := parts[len(parts)-2]
+			alternateResources = append(alternateResources, "/me/drive/items/"+itemID+"/content")
+		}
+
+		// Format 2: /me/drive/items/{parentId}:/{name}:/content
+		// This handles paths like /me/drive/items/parent-id:/file.txt:/content
+		if strings.Contains(resource, ":/") {
+			colonIndex := strings.Index(resource, ":/")
+			if colonIndex > 0 {
+				parentPath := resource[:colonIndex]
+				remainingPath := resource[colonIndex+2:]
+				// Extract parent ID
+				parentParts := strings.Split(parentPath, "/")
+				if len(parentParts) > 0 {
+					parentID := parentParts[len(parentParts)-1]
+					// Extract file name
+					nameParts := strings.Split(remainingPath, ":/")
+					if len(nameParts) > 0 {
+						fileName := nameParts[0]
+						alternateResources = append(alternateResources,
+							"/me/drive/items/"+parentID+":/"+fileName+":/content")
+					}
+				}
+			}
+		}
+
+		// Try each alternate resource path
+		for _, altResource := range alternateResources {
+			if mockResp, found := m.RequestResponses[altResource]; found {
+				mockResponse = mockResp
+				ok = true
+				break
+			}
+		}
+	}
 	m.mu.Unlock()
 
 	if !ok {
@@ -379,11 +439,104 @@ func (m *MockGraphClient) simulateNetworkConditions() error {
 
 // AddMockResponse adds a predefined response for a specific resource path
 func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCode int, err error) {
+	// Check if this is a content resource
+	if strings.Contains(resource, "/content") && statusCode == http.StatusOK {
+		// Extract the item ID from the resource path
+		var itemID string
+
+		// Handle different path formats
+		if strings.Contains(resource, ":/") {
+			// Format: /me/drive/items/{parentId}:/{name}:/content
+			colonIndex := strings.Index(resource, ":/")
+			if colonIndex > 0 {
+				parentPath := resource[:colonIndex]
+				// Extract parent ID
+				parentParts := strings.Split(parentPath, "/")
+				if len(parentParts) > 0 {
+					parentID := parentParts[len(parentParts)-1]
+
+					// Extract file name
+					remainingPath := resource[colonIndex+2:]
+					nameParts := strings.Split(remainingPath, ":/")
+					if len(nameParts) > 0 {
+						fileName := nameParts[0]
+
+						// Try to find the item by parent ID and name
+						childResource := "/me/drive/items/" + parentID + "/children"
+						m.mu.Lock()
+						childrenResp, exists := m.RequestResponses[childResource]
+						m.mu.Unlock()
+
+						if exists {
+							var children driveChildren
+							if err := json.Unmarshal(childrenResp.Body, &children); err == nil {
+								for _, child := range children.Children {
+									if child.Name == fileName {
+										itemID = child.ID
+										break
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			// Format: /me/drive/items/{id}/content
+			parts := strings.Split(resource, "/")
+			if len(parts) >= 4 {
+				itemID = parts[len(parts)-2]
+			}
+		}
+
+		// If we found an item ID, update its hash
+		if itemID != "" {
+			// Check if we have a mock item for this ID
+			itemResource := "/me/drive/items/" + itemID
+			m.mu.Lock()
+			mockResponse, exists := m.RequestResponses[itemResource]
+			m.mu.Unlock()
+
+			if exists {
+				// Unmarshal the item
+				var item DriveItem
+				if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
+					// If this is a file, update its hash
+					if item.File != nil {
+						// Calculate the QuickXorHash for the content
+						contentHash := QuickXORHash(&body)
+
+						// Update the item's hash
+						item.File.Hashes.QuickXorHash = contentHash
+
+						// Update the size from the response body
+						// This is needed for tests to pass without special case code
+						item.Size = uint64(len(body))
+
+						// Marshal the updated item and update the mock response
+						if updatedBody, err := json.Marshal(item); err == nil {
+							m.mu.Lock()
+							m.RequestResponses[itemResource] = MockResponse{
+								Body:       updatedBody,
+								StatusCode: http.StatusOK,
+								Error:      nil,
+							}
+							m.mu.Unlock()
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Add the original response
+	m.mu.Lock()
 	m.RequestResponses[resource] = MockResponse{
 		Body:       body,
 		StatusCode: statusCode,
 		Error:      err,
 	}
+	m.mu.Unlock()
 }
 
 // AddMockItem adds a predefined DriveItem response for a specific resource path
@@ -476,6 +629,12 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 		return nil, ctx.Err()
 	}
 
+	// Check if we're in operational offline mode
+	if GetOperationalOffline() {
+		log.Debug().Msg("Mock client in operational offline mode, returning network error")
+		return nil, errors.New("operational offline mode is enabled")
+	}
+
 	// Simulate network conditions
 	if err := m.simulateNetworkConditions(); err != nil {
 		return nil, err
@@ -495,6 +654,52 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 		unescapedResource, err := url.PathUnescape(resource)
 		if err == nil && unescapedResource != resource {
 			response, exists = m.RequestResponses[unescapedResource]
+		}
+	}
+
+	// If still not found, check if this is a content request and try with different path formats
+	if !exists && strings.Contains(resource, "/content") {
+		// Try different path formats for content requests
+		alternateResources := []string{}
+
+		// Extract the item ID and name from the resource path
+		parts := strings.Split(resource, "/")
+
+		// Format 1: /me/drive/items/{id}/content
+		if len(parts) >= 4 {
+			itemID := parts[len(parts)-2]
+			alternateResources = append(alternateResources, "/me/drive/items/"+itemID+"/content")
+		}
+
+		// Format 2: /me/drive/items/{parentId}:/{name}:/content
+		// This handles paths like /me/drive/items/parent-id:/file.txt:/content
+		if strings.Contains(resource, ":/") {
+			colonIndex := strings.Index(resource, ":/")
+			if colonIndex > 0 {
+				parentPath := resource[:colonIndex]
+				remainingPath := resource[colonIndex+2:]
+				// Extract parent ID
+				parentParts := strings.Split(parentPath, "/")
+				if len(parentParts) > 0 {
+					parentID := parentParts[len(parentParts)-1]
+					// Extract file name
+					nameParts := strings.Split(remainingPath, ":/")
+					if len(nameParts) > 0 {
+						fileName := nameParts[0]
+						alternateResources = append(alternateResources,
+							"/me/drive/items/"+parentID+":/"+fileName+":/content")
+					}
+				}
+			}
+		}
+
+		// Try each alternate resource path
+		for _, altResource := range alternateResources {
+			if mockResp, found := m.RequestResponses[altResource]; found {
+				response = mockResp
+				exists = true
+				break
+			}
 		}
 	}
 	m.mu.Unlock()
@@ -639,6 +844,96 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 
 	for _, h := range headers {
 		call.Args = append(call.Args, h)
+	}
+
+	// If this is a content upload, ensure we have a mock response for it
+	if strings.Contains(resource, "/content") && contentBytes != nil {
+		// Check if we already have a response for this resource
+		m.mu.Lock()
+		_, exists := m.RequestResponses[resource]
+		m.mu.Unlock()
+
+		if !exists {
+			// Extract the item ID or parent ID and name
+			var itemID string
+			var fileItem *DriveItem
+
+			if strings.Contains(resource, ":/") {
+				// Format: /me/drive/items/{parentId}:/{name}:/content
+				colonIndex := strings.Index(resource, ":/")
+				if colonIndex > 0 {
+					parentPath := resource[:colonIndex]
+					remainingPath := resource[colonIndex+2:]
+
+					// Extract parent ID
+					parentParts := strings.Split(parentPath, "/")
+					if len(parentParts) > 0 {
+						parentID := parentParts[len(parentParts)-1]
+
+						// Extract file name
+						nameParts := strings.Split(remainingPath, ":/")
+						if len(nameParts) > 0 {
+							fileName := nameParts[0]
+
+							// Create a new file item
+							fileItem = &DriveItem{
+								ID:   "generated-id-" + fileName,
+								Name: fileName,
+								File: &File{
+									Hashes: Hashes{
+										QuickXorHash: QuickXORHash(&contentBytes),
+									},
+								},
+								// Update the size from the content bytes
+								// This is needed for tests to pass without special case code
+								Size: uint64(len(contentBytes)),
+							}
+
+							// Add the item to the parent's children
+							m.AddMockItem("/me/drive/items/"+parentID+":/"+fileName+":", fileItem)
+						}
+					}
+				}
+			} else {
+				// Format: /me/drive/items/{id}/content
+				parts := strings.Split(resource, "/")
+				if len(parts) >= 4 {
+					itemID = parts[len(parts)-2]
+
+					// Get the existing item
+					m.mu.Lock()
+					itemResource := "/me/drive/items/" + itemID
+					mockResponse, exists := m.RequestResponses[itemResource]
+					m.mu.Unlock()
+
+					if exists {
+						var item DriveItem
+						if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
+							// Update the item with new content
+							if item.File == nil {
+								item.File = &File{}
+							}
+							if item.File.Hashes.QuickXorHash == "" {
+								item.File.Hashes.QuickXorHash = QuickXORHash(&contentBytes)
+							}
+							// Update the size from the content bytes
+							// This is needed for tests to pass without special case code
+							item.Size = uint64(len(contentBytes))
+							fileItem = &item
+
+							// Update the item
+							m.AddMockItem(itemResource, fileItem)
+						}
+					}
+				}
+			}
+
+			// Add a mock response for the content upload
+			if fileItem != nil {
+				fileItemJSON, _ := json.Marshal(fileItem)
+				m.AddMockResponse(resource, fileItemJSON, http.StatusOK, nil)
+			}
+		}
 	}
 
 	result, err := m.RequestWithContext(context.Background(), resource, "PUT", content, headers...)

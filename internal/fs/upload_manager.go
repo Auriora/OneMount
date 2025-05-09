@@ -61,6 +61,8 @@ type UploadManager struct {
 	mutex                      sync.RWMutex
 	stopChan                   chan struct{}
 	workerWg                   sync.WaitGroup
+	// Counter for tracking repeated uploads of the same file (used for testing)
+	uploadCounter map[string]int
 }
 
 // UploadPriority defines the priority level for uploads
@@ -88,6 +90,7 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs *Filesystem, auth 
 		db:                         db,
 		fs:                         fs,
 		stopChan:                   make(chan struct{}),
+		uploadCounter:              make(map[string]int),
 	}
 	db.View(func(tx *bolt.Tx) error {
 		// Add any incomplete sessions from disk - any sessions here were never
@@ -292,6 +295,10 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					if inode := u.fs.GetID(session.ID); inode != nil {
 						inode.Lock()
 						inode.DriveItem.ETag = session.ETag
+
+						// Use the size from the remote DriveItem
+						inode.DriveItem.Size = session.Size
+
 						inode.Unlock()
 
 						// Update status to local (synced)
@@ -562,6 +569,38 @@ func (u *UploadManager) WaitForUpload(id string) error {
 		state := session.getState()
 		switch state {
 		case uploadComplete:
+			// Update the file status to Local immediately when the upload completes
+			// This ensures the status is updated without waiting for the uploadLoop
+			u.fs.SetFileStatus(id, FileStatusInfo{
+				Status:    StatusLocal,
+				Timestamp: time.Now(),
+			})
+
+			// If the ID changed during upload, update the inode
+			if session.OldID != session.ID {
+				if err := u.fs.MoveID(session.OldID, session.ID); err != nil {
+					log.Error().
+						Str("id", session.ID).
+						Str("oldID", session.OldID).
+						Str("name", session.Name).
+						Err(err).
+						Msg("Could not move inode to new ID!")
+				}
+			}
+
+			// Update the inode's ETag and Size
+			if inode := u.fs.GetID(session.ID); inode != nil {
+				inode.Lock()
+				inode.DriveItem.ETag = session.ETag
+
+				// Use the size from the remote DriveItem
+				inode.DriveItem.Size = session.Size
+				inode.Unlock()
+
+				// Update file status attributes
+				u.fs.updateFileStatus(inode)
+			}
+
 			return nil
 		case uploadErrored:
 			return session.error
