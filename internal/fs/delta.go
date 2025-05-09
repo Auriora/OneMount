@@ -24,11 +24,11 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 
 	// Add to wait groups to track this goroutine
 	f.deltaLoopWg.Add(1)
-	f.wg.Add(1)
+	f.Wg.Add(1)
 	defer func() {
 		log.Debug().Msg("Delta goroutine exiting, calling Done() on wait groups")
 		f.deltaLoopWg.Done()
-		f.wg.Done()
+		f.Wg.Done()
 		log.Debug().Msg("Delta goroutine completed")
 	}()
 
@@ -258,9 +258,9 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			if wasOffline {
 				log.Info().Msg("Transitioning from offline to online, processing offline changes")
 				// Use a goroutine with proper error handling
-				f.wg.Add(1)
+				f.Wg.Add(1)
 				go func(ctx context.Context) {
-					defer f.wg.Done()
+					defer f.Wg.Done()
 					defer func() {
 						if r := recover(); r != nil {
 							log.Error().Interface("recover", r).Msg("Panic in ProcessOfflineChanges")

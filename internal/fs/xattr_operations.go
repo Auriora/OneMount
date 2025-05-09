@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"syscall"
 
-	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )

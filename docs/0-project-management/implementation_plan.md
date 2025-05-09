@@ -29,13 +29,13 @@ This implementation plan addresses the currently open issues in the OneMount pro
 - **Dependencies**: Issue #106
 - **Estimated Effort**: Medium
 
-### 1.4 Standardize Error Handling Across Modules (Issue #59) - IN-PROGRESS
+### 1.4 Standardize Error Handling Across Modules (Issue #59) - COMPLETED
 - **Description**: Implement a consistent error handling strategy across all modules
 - **Rationale**: This is needed for reliable error reporting and recovery
 - **Dependencies**: None
 - **Estimated Effort**: Medium
 
-### 1.5 Implement Context-Based Concurrency Cancellation (Issue #58)
+### 1.5 Implement Context-Based Concurrency Cancellation (Issue #58) - COMPlETED
 - **Description**: Replace raw goroutines with context-based cancellation for better control
 - **Rationale**: This is needed for proper resource management and graceful shutdown
 - **Dependencies**: None

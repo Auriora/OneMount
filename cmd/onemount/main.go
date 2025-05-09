@@ -154,13 +154,13 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
 	if authOnly {
 		if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
-			errors.LogError(err, "Failed to remove auth tokens file", 
+			errors.LogError(err, "Failed to remove auth tokens file",
 				errors.FieldOperation, "initializeFilesystem",
 				errors.FieldPath, authPath)
 		}
 		_, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 		if err != nil {
-			errors.LogError(err, "Authentication failed", 
+			errors.LogError(err, "Authentication failed",
 				errors.FieldOperation, "initializeFilesystem",
 				errors.FieldPath, authPath)
 			return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
@@ -172,7 +172,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	log.Info().Msgf("onemount %s", common.Version())
 	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 	if err != nil {
-		errors.LogError(err, "Authentication failed", 
+		errors.LogError(err, "Authentication failed",
 			errors.FieldOperation, "initializeFilesystem",
 			errors.FieldPath, authPath)
 		return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
@@ -180,7 +180,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 
 	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration)
 	if err != nil {
-		errors.LogError(err, "Failed to initialize filesystem", 
+		errors.LogError(err, "Failed to initialize filesystem",
 			errors.FieldOperation, "initializeFilesystem",
 			errors.FieldPath, cachePath)
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to initialize filesystem")
@@ -200,9 +200,9 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	// Sync the full directory tree if requested
 	if config.SyncTree {
 		log.Info().Msg("Starting full directory tree synchronization in background...")
-		filesystem.wg.Add(1)
+		filesystem.Wg.Add(1)
 		go func(ctx context.Context) {
-			defer filesystem.wg.Done()
+			defer filesystem.Wg.Done()
 
 			// Check if context is already cancelled
 			select {
@@ -219,7 +219,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 					log.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
 					return
 				}
-				errors.LogError(err, "Error syncing directory tree", 
+				errors.LogError(err, "Error syncing directory tree",
 					errors.FieldOperation, "SyncDirectoryTree")
 			} else {
 				log.Info().Msg("Directory tree sync completed successfully")
@@ -247,7 +247,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	// Create the FUSE server
 	server, err := fuse.NewServer(filesystem, mountpoint, mountOptions)
 	if err != nil {
-		errors.LogError(err, fmt.Sprintf("Mount failed. Is the mountpoint already in use? (Try running \"fusermount3 -uz %s\")", mountpoint), 
+		errors.LogError(err, fmt.Sprintf("Mount failed. Is the mountpoint already in use? (Try running \"fusermount3 -uz %s\")", mountpoint),
 			errors.FieldOperation, "NewServer",
 			errors.FieldPath, mountpoint)
 		return nil, nil, nil, "", "", errors.Wrap(err, "mount failed (is the mountpoint already in use?)")
