@@ -280,10 +280,9 @@ func (tf *TestFramework) RunTestSuite(name string, tests map[string]func(ctx con
 	return results
 }
 
-// WithTimeout returns a new context with the specified timeout.
-func (tf *TestFramework) WithTimeout(timeout time.Duration) context.Context {
-	ctx, _ := context.WithTimeout(tf.ctx, timeout)
-	return ctx
+// WithTimeout returns a new context with the specified timeout and a cancel function.
+func (tf *TestFramework) WithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(tf.ctx, timeout)
 }
 
 // WithCancel returns a new context with a cancel function.

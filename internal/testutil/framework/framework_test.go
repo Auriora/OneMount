@@ -397,7 +397,8 @@ func TestUT_FW_06_01_RunTestSuite_MixedResults_ReturnsCorrectCounts(t *testing.T
 //	Expected Result The context expires within the expected time
 func TestUT_FW_07_01_WithTimeout_ShortTimeout_ContextExpires(t *testing.T) {
 	framework := NewTestFramework(TestConfig{}, newMockLogger())
-	ctx := framework.WithTimeout(100 * time.Millisecond)
+	ctx, cancel := framework.WithTimeout(100 * time.Millisecond)
+	defer cancel() // Ensure the cancel function is called to avoid context leaks
 
 	select {
 	case <-ctx.Done():
