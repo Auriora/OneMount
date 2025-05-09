@@ -3,7 +3,6 @@ package fs
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
@@ -99,7 +99,7 @@ func (u *UploadSession) setState(state int, err error) error {
 // responsible for performing uploads for a file.
 func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 	if data == nil {
-		return nil, errors.New("data to upload cannot be nil")
+		return nil, errors.NewValidationError("data to upload cannot be nil", nil)
 	}
 
 	// create a generic session for all files
@@ -155,7 +155,7 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 	uploadURL := u.UploadURL
 	if uploadURL == "" {
 		u.Unlock()
-		return nil, -1, errors.New("UploadSession UploadURL cannot be empty")
+		return nil, -1, errors.NewValidationError("UploadSession UploadURL cannot be empty", nil)
 	}
 	u.Unlock()
 
@@ -167,7 +167,7 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 		reqChunkSize = end - offset + 1
 	}
 	if offset > u.Size {
-		return nil, -1, errors.New("offset cannot be larger than DriveItem size")
+		return nil, -1, errors.NewValidationError("offset cannot be larger than DriveItem size", nil)
 	}
 
 	auth.Refresh(nil) // nil context will use context.Background() internally
@@ -229,7 +229,7 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 			resp, err = graph.Put(uploadPath, auth, bytes.NewReader(u.Data))
 		}
 		if err != nil {
-			return u.setState(uploadErrored, fmt.Errorf("small upload failed: %w", err))
+			return u.setState(uploadErrored, errors.Wrap(err, "small upload failed"))
 		}
 	} else {
 		if isLocalID(u.ID) {
@@ -252,7 +252,7 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 		})
 		resp, err := graph.Post(uploadPath, auth, bytes.NewReader(sessionPostData))
 		if err != nil {
-			return u.setState(uploadErrored, fmt.Errorf("failed to create upload session: %w", err))
+			return u.setState(uploadErrored, errors.Wrap(err, "failed to create upload session"))
 		}
 
 		// populate UploadURL/expiration - we unmarshal into a fresh session here
@@ -261,7 +261,7 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 		tmp := UploadSession{}
 		if err = json.Unmarshal(resp, &tmp); err != nil {
 			return u.setState(uploadErrored,
-				fmt.Errorf("could not unmarshal upload session post response: %w", err))
+				errors.Wrap(err, "could not unmarshal upload session post response"))
 		}
 		u.Lock()
 		u.UploadURL = tmp.UploadURL
@@ -274,7 +274,7 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 		for i := 0; i < nchunks; i++ {
 			resp, status, err = u.uploadChunk(auth, uint64(i)*uploadChunkSize)
 			if err != nil {
-				return u.setState(uploadErrored, fmt.Errorf("failed to perform chunk upload: %w", err))
+				return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
 			}
 
 			// retry server-side failures with an exponential back-off strategy. Will not
@@ -290,13 +290,13 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 				time.Sleep(time.Duration(backoff) * time.Second)
 				resp, status, err = u.uploadChunk(auth, uint64(i)*uploadChunkSize)
 				if err != nil { // a serious, non 4xx/5xx error
-					return u.setState(uploadErrored, fmt.Errorf("failed to perform chunk upload: %w", err))
+					return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
 				}
 			}
 
 			// handle client-side errors
 			if status >= 400 {
-				return u.setState(uploadErrored, fmt.Errorf("error uploading chunk - HTTP %d: %s", status, string(resp)))
+				return u.setState(uploadErrored, errors.NewOperationError(fmt.Sprintf("error uploading chunk - HTTP %d: %s", status, string(resp)), nil))
 			}
 		}
 	}
@@ -318,20 +318,20 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 				remote = *remotePtr
 			} else {
 				return u.setState(uploadErrored,
-					fmt.Errorf("failed to get item post-upload: %w", err))
+					errors.Wrap(err, "failed to get item post-upload"))
 			}
 		} else {
 			return u.setState(uploadErrored,
-				fmt.Errorf("could not unmarshal response: %w: %s", err, string(resp)),
+				errors.Wrap(err, fmt.Sprintf("could not unmarshal response: %s", string(resp))),
 			)
 		}
 	}
 	if remote.File == nil && remote.Size != u.Size {
 		// if we are absolutely pounding the microsoft API, a remote item may sometimes
 		// come back without checksums, so we check the size of the uploaded item instead.
-		return u.setState(uploadErrored, errors.New("size mismatch when remote checksums did not exist"))
+		return u.setState(uploadErrored, errors.NewValidationError("size mismatch when remote checksums did not exist", nil))
 	} else if !remote.VerifyChecksum(u.QuickXORHash) {
-		return u.setState(uploadErrored, errors.New("remote checksum did not match"))
+		return u.setState(uploadErrored, errors.NewValidationError("remote checksum did not match", nil))
 	}
 	// update the UploadSession's ID in the event that we exchange a local for a remote ID
 	u.Lock()

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
@@ -49,7 +50,11 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 		// create the new directory on the server
 		item, err = graph.Mkdir(name, id, f.auth)
 		if err != nil {
-			ctx.Error().Err(err).Msg("Could not create remote directory!")
+			errors.LogError(err, "Could not create remote directory", 
+				errors.FieldOperation, "Mkdir",
+				errors.FieldID, id,
+				errors.FieldPath, path,
+				"name", name)
 			return fuse.EREMOTEIO
 		}
 	}
@@ -107,7 +112,10 @@ func (f *Filesystem) OpenDir(_ <-chan struct{}, in *fuse.OpenIn, _ *fuse.OpenOut
 	if err != nil {
 		// not an item not found error (Lookup/Getattr will always be called
 		// before Readdir()), something has happened to our connection
-		ctx.Error().Err(err).Msg("Could not fetch children")
+		errors.LogError(err, "Could not fetch children", 
+			errors.FieldOperation, "OpenDir",
+			errors.FieldID, id,
+			errors.FieldPath, path)
 		return fuse.EREMOTEIO
 	}
 
@@ -203,13 +211,12 @@ func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *f
 	entryOut := out.AddDirLookupEntry(entry)
 	if entryOut == nil {
 		//FIXME probably need to handle this better using the "overflow stuff"
-		log.Error().
-			Str("op", "ReadDirPlus").
-			Uint64("nodeID", in.NodeId).
-			Uint64("offset", in.Offset).
-			Str("entryName", entry.Name).
-			Uint64("entryNodeID", entry.Ino).
-			Msg("Exceeded DirLookupEntry bounds!")
+		errors.LogError(errors.New("exceeded DirLookupEntry bounds"), "Failed to add directory lookup entry", 
+			errors.FieldOperation, "ReadDirPlus",
+			"nodeID", in.NodeId,
+			"offset", in.Offset,
+			"entryName", entry.Name,
+			"entryNodeID", entry.Ino)
 		return fuse.EIO
 	}
 	entryOut.NodeId = entry.Ino

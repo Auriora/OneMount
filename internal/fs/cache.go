@@ -3,7 +3,6 @@ package fs
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
@@ -106,8 +106,10 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
-			log.Error().Err(err).Msg("Could not create cache directory.")
-			return nil, fmt.Errorf("could not create cache directory: %w", err)
+			errors.LogError(err, "Could not create cache directory", 
+				errors.FieldOperation, "NewFilesystem",
+				errors.FieldPath, cacheDir)
+			return nil, errors.Wrap(err, "could not create cache directory")
 		}
 	}
 	// Try to open the database with retries and exponential backoff
@@ -169,8 +171,11 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 
 		// If this is the last attempt, don't wait
 		if attempt == maxRetries-1 {
-			log.Error().Err(err).Int("attempts", maxRetries).Msg("Could not open DB after multiple attempts. Is it already in use by another mount?")
-			return nil, fmt.Errorf("could not open DB (is it already in use by another mount?): %w", err)
+			errors.LogError(err, "Could not open DB after multiple attempts", 
+				errors.FieldOperation, "NewFilesystem",
+				errors.FieldPath, dbPath,
+				"attempts", maxRetries)
+			return nil, errors.Wrap(err, "could not open DB (is it already in use by another mount?)")
 		}
 
 		// Log the error and wait before retrying
@@ -180,8 +185,10 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 
 	// If we still have an error after all retries, return it
 	if err != nil {
-		log.Error().Err(err).Msg("Could not open DB. Is it already in use by another mount?")
-		return nil, fmt.Errorf("could not open DB (is it already in use by another mount?): %w", err)
+		errors.LogError(err, "Could not open DB", 
+			errors.FieldOperation, "NewFilesystem",
+			errors.FieldPath, dbPath)
+		return nil, errors.Wrap(err, "could not open DB (is it already in use by another mount?)")
 	}
 
 	// Set up database options for better performance and reliability
@@ -199,14 +206,18 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 
 	// Create content directory
 	if err := os.MkdirAll(contentDir, 0700); err != nil {
-		log.Error().Err(err).Msg("Could not create content cache directory.")
-		return nil, fmt.Errorf("could not create content cache directory: %w", err)
+		errors.LogError(err, "Could not create content cache directory", 
+			errors.FieldOperation, "NewFilesystem",
+			errors.FieldPath, contentDir)
+		return nil, errors.Wrap(err, "could not create content cache directory")
 	}
 
 	// Create thumbnail directory
 	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
-		log.Error().Err(err).Msg("Could not create thumbnail cache directory.")
-		return nil, fmt.Errorf("could not create thumbnail cache directory: %w", err)
+		errors.LogError(err, "Could not create thumbnail cache directory", 
+			errors.FieldOperation, "NewFilesystem",
+			errors.FieldPath, thumbnailDir)
+		return nil, errors.Wrap(err, "could not create thumbnail cache directory")
 	}
 
 	content := NewLoopbackCache(contentDir)
@@ -334,15 +345,18 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 				}
 				return nil
 			}); viewErr != nil {
-				log.Error().Err(viewErr).Msg("Failed to read delta link from database")
-				return nil, fmt.Errorf("failed to read delta link from database: %w", viewErr)
+				errors.LogError(viewErr, "Failed to read delta link from database", 
+					errors.FieldOperation, "NewFilesystem",
+					errors.FieldPath, dbPath)
+				return nil, errors.Wrap(viewErr, "failed to read delta link from database")
 			}
 			if deltaLinkErr != nil {
 				return nil, deltaLinkErr
 			}
 		} else {
-			log.Error().Err(err).Msg("Could not fetch root item of filesystem!")
-			return nil, fmt.Errorf("could not fetch root item of filesystem: %w", err)
+			errors.LogError(err, "Could not fetch root item of filesystem", 
+				errors.FieldOperation, "NewFilesystem")
+			return nil, errors.Wrap(err, "could not fetch root item of filesystem")
 		}
 	}
 	// root inode is inode 1
@@ -827,7 +841,7 @@ func (f *Filesystem) GetChild(id string, name string, auth *graph.Auth) (*Inode,
 			return child, nil
 		}
 	}
-	return nil, errors.New("child does not exist")
+ return nil, errors.New("child does not exist")
 }
 
 // GetChildrenID grabs all DriveItems that are the children of the given ID. If
@@ -1045,11 +1059,11 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 		return nil
 	}
 	if err := f.content.Move(oldID, newID); err != nil {
-		log.Error().Err(err).
-			Str("oldID", oldID).
-			Str("newID", newID).
-			Msg("Failed to move file content")
-		return fmt.Errorf("failed to move file content: %w", err)
+		errors.LogError(err, "Failed to move file content", 
+			errors.FieldOperation, "MoveID",
+			errors.FieldID, oldID,
+			"newID", newID)
+		return errors.Wrap(err, "failed to move file content")
 	}
 	return nil
 }
@@ -1239,13 +1253,13 @@ func (f *Filesystem) SerializeAll() {
 		b := tx.Bucket(bucketMetadata)
 		for k, v := range allItems {
 			if err := b.Put([]byte(k), v); err != nil {
-				return fmt.Errorf("failed to put item %s: %w", k, err)
+ 			return errors.Wrap(err, fmt.Sprintf("failed to put item %s", k))
 			}
 			if k == f.root {
 				// root item must be updated manually (since there's actually
 				// two copies)
 				if err := b.Put([]byte("root"), v); err != nil {
-					return fmt.Errorf("failed to put root item: %w", err)
+					return errors.Wrap(err, "failed to put root item")
 				}
 			}
 		}

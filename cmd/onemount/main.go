@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/cmd/common"
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/coreos/go-systemd/v22/unit"
@@ -142,23 +143,27 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	// compute cache name as systemd would
 	absMountPath, err := filepath.Abs(mountpoint)
 	if err != nil {
-		return nil, nil, nil, "", "", fmt.Errorf("failed to get absolute path for mountpoint: %w", err)
+		return nil, nil, nil, "", "", errors.Wrap(err, "failed to get absolute path for mountpoint")
 	}
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
 
 	// authenticate/re-authenticate if necessary
 	if err := os.MkdirAll(cachePath, 0700); err != nil {
-		return nil, nil, nil, "", "", fmt.Errorf("failed to create cache directory: %w", err)
+		return nil, nil, nil, "", "", errors.Wrap(err, "failed to create cache directory")
 	}
 	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
 	if authOnly {
 		if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
-			log.Error().Err(err).Msg("Failed to remove auth tokens file")
+			errors.LogError(err, "Failed to remove auth tokens file", 
+				errors.FieldOperation, "initializeFilesystem",
+				errors.FieldPath, authPath)
 		}
 		_, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 		if err != nil {
-			log.Error().Err(err).Msg("Authentication failed")
-			return nil, nil, nil, "", "", fmt.Errorf("authentication failed: %w", err)
+			errors.LogError(err, "Authentication failed", 
+				errors.FieldOperation, "initializeFilesystem",
+				errors.FieldPath, authPath)
+			return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 		}
 		os.Exit(0)
 	}
@@ -167,14 +172,18 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	log.Info().Msgf("onemount %s", common.Version())
 	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 	if err != nil {
-		log.Error().Err(err).Msg("Authentication failed")
-		return nil, nil, nil, "", "", fmt.Errorf("authentication failed: %w", err)
+		errors.LogError(err, "Authentication failed", 
+			errors.FieldOperation, "initializeFilesystem",
+			errors.FieldPath, authPath)
+		return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 	}
 
 	filesystem, err := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to initialize filesystem")
-		return nil, nil, nil, "", "", fmt.Errorf("failed to initialize filesystem: %w", err)
+		errors.LogError(err, "Failed to initialize filesystem", 
+			errors.FieldOperation, "initializeFilesystem",
+			errors.FieldPath, cachePath)
+		return nil, nil, nil, "", "", errors.Wrap(err, "failed to initialize filesystem")
 	}
 
 	log.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
@@ -193,7 +202,8 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 		log.Info().Msg("Starting full directory tree synchronization in background...")
 		go func() {
 			if err := filesystem.SyncDirectoryTree(auth); err != nil {
-				log.Error().Err(err).Msg("Error syncing directory tree")
+				errors.LogError(err, "Error syncing directory tree", 
+					errors.FieldOperation, "SyncDirectoryTree")
 			} else {
 				log.Info().Msg("Directory tree sync completed successfully")
 			}
@@ -220,9 +230,10 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	// Create the FUSE server
 	server, err := fuse.NewServer(filesystem, mountpoint, mountOptions)
 	if err != nil {
-		log.Error().Err(err).Msgf("Mount failed. Is the mountpoint already in use? "+
-			"(Try running \"fusermount3 -uz %s\")\n", mountpoint)
-		return nil, nil, nil, "", "", fmt.Errorf("mount failed (is the mountpoint already in use?): %w", err)
+		errors.LogError(err, fmt.Sprintf("Mount failed. Is the mountpoint already in use? (Try running \"fusermount3 -uz %s\")", mountpoint), 
+			errors.FieldOperation, "NewServer",
+			errors.FieldPath, mountpoint)
+		return nil, nil, nil, "", "", errors.Wrap(err, "mount failed (is the mountpoint already in use?)")
 	}
 
 	return filesystem, auth, server, cachePath, absMountPath, nil
