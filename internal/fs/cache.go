@@ -37,6 +37,11 @@ type Filesystem struct {
 	uploads              *UploadManager   // Manages file uploads to OneDrive
 	downloads            *DownloadManager // Manages file downloads from OneDrive
 
+	// Root context for all operations
+	ctx    context.Context    // Root context for all operations
+	cancel context.CancelFunc // Function to cancel the root context
+	wg     sync.WaitGroup     // Wait group for all goroutines
+
 	// Cache cleanup configuration
 	cacheExpirationDays  int            // Number of days after which cached files expire
 	cacheCleanupStop     chan struct{}  // Channel to signal cache cleanup to stop
@@ -89,12 +94,13 @@ type OfflineChange struct {
 	NewPath   string    `json:"new_path,omitempty"` // For rename operations
 }
 
-// NewFilesystem creates a new filesystem instance for onemount.
+// NewFilesystemWithContext creates a new filesystem instance for onemount with a context.
 // It initializes the filesystem with the provided authentication, cache directory,
 // and cache expiration settings. The function sets up the database, content cache,
 // and starts background processes for synchronization and cache management.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeout
 //   - auth: Authentication information for Microsoft Graph API
 //   - cacheDir: Directory where filesystem data will be cached
 //   - cacheExpirationDays: Number of days after which cached files expire
@@ -102,7 +108,7 @@ type OfflineChange struct {
 // Returns:
 //   - A new Filesystem instance and nil error on success
 //   - nil and an error if initialization fails
-func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
+func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
@@ -270,7 +276,8 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 	}
 
 	// ok, ready to start fs
-	ctx, cancel := context.WithCancel(context.Background())
+	fsCtx, fsCancel := context.WithCancel(ctx)
+	deltaCtx, deltaCancel := context.WithCancel(fsCtx)
 	fs := &Filesystem{
 		content:             content,
 		thumbnails:          thumbnails,
@@ -278,11 +285,13 @@ func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (
 		auth:                auth,
 		opendirs:            make(map[uint64][]*Inode),
 		statuses:            make(map[string]FileStatusInfo),
+		ctx:                 fsCtx,
+		cancel:              fsCancel,
 		cacheExpirationDays: cacheExpirationDays,
 		cacheCleanupStop:    make(chan struct{}),
 		deltaLoopStop:       make(chan struct{}),
-		deltaLoopCtx:        ctx,
-		deltaLoopCancel:     cancel,
+		deltaLoopCtx:        deltaCtx,
+		deltaLoopCancel:     deltaCancel,
 	}
 
 	// Initialize with our custom RawFileSystem implementation that supports the POLL opcode
@@ -450,14 +459,22 @@ func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
 }
 
 // ProcessOfflineChanges processes all changes made while offline
+// This is a backward-compatible version that uses a background context
 func (f *Filesystem) ProcessOfflineChanges() {
+	// Call the context-aware version with a background context
+	f.ProcessOfflineChangesWithContext(context.Background())
+}
+
+// ProcessOfflineChangesWithContext processes all changes made while offline with context support
+// This allows the operation to be cancelled if the filesystem is being shut down
+func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 	// Create a logging context
 	ctx := LogContext{
 		Operation: "process_offline_changes",
 	}
 
 	// Log method entry with context
-	methodName, startTime, logger, ctx := LogMethodCallWithContext("ProcessOfflineChanges", ctx)
+	methodName, startTime, logger, ctx := LogMethodCallWithContext("ProcessOfflineChangesWithContext", ctx)
 	defer LogMethodReturnWithContext(methodName, startTime, logger, ctx)
 
 	logger.Info().Msg("Processing offline changes...")
@@ -465,12 +482,28 @@ func (f *Filesystem) ProcessOfflineChanges() {
 	// Get all offline changes
 	changes := make([]*OfflineChange, 0)
 	if err := f.db.View(func(tx *bolt.Tx) error {
+		// Check for context cancellation
+		select {
+		case <-goCtx.Done():
+			return goCtx.Err()
+		default:
+			// Continue with normal operation
+		}
+
 		b := tx.Bucket(bucketOfflineChanges)
 		if b == nil {
 			return nil
 		}
 
 		return b.ForEach(func(k, v []byte) error {
+			// Check for context cancellation periodically
+			select {
+			case <-goCtx.Done():
+				return goCtx.Err()
+			default:
+				// Continue with normal operation
+			}
+
 			change := &OfflineChange{}
 			if err := json.Unmarshal(v, change); err != nil {
 				return err
@@ -479,6 +512,10 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			return nil
 		})
 	}); err != nil {
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			logger.Debug().Msg("Processing offline changes cancelled due to context cancellation")
+			return
+		}
 		LogErrorWithContext(err, ctx, "Failed to read offline changes from database")
 		return
 	}
@@ -490,6 +527,15 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 	// Process each change
 	for _, change := range changes {
+		// Check for context cancellation before processing each change
+		select {
+		case <-goCtx.Done():
+			logger.Debug().Msg("Processing offline changes cancelled due to context cancellation")
+			return
+		default:
+			// Continue with normal operation
+		}
+
 		logger.Info().
 			Str("id", change.ID).
 			Str("type", change.Type).
@@ -542,6 +588,14 @@ func (f *Filesystem) ProcessOfflineChanges() {
 
 		// Remove the processed change
 		if err := f.db.Batch(func(tx *bolt.Tx) error {
+			// Check for context cancellation
+			select {
+			case <-goCtx.Done():
+				return goCtx.Err()
+			default:
+				// Continue with normal operation
+			}
+
 			b := tx.Bucket(bucketOfflineChanges)
 			if b == nil {
 				return nil
@@ -549,6 +603,10 @@ func (f *Filesystem) ProcessOfflineChanges() {
 			key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
 			return b.Delete(key)
 		}); err != nil {
+			if err == context.Canceled || err == context.DeadlineExceeded {
+				logger.Debug().Msg("Removing processed offline change cancelled due to context cancellation")
+				return
+			}
 			LogErrorWithContext(err, ctx, "Failed to remove processed offline change from database",
 				FieldID, change.ID,
 				"timestamp", change.Timestamp)
@@ -1100,10 +1158,13 @@ func (f *Filesystem) StartCacheCleanup() {
 
 	// Add to wait group to track this goroutine
 	f.cacheCleanupWg.Add(1)
+	f.wg.Add(1)
 
 	// Run cleanup in a goroutine
 	go func() {
 		defer f.cacheCleanupWg.Done()
+		defer f.wg.Done()
+
 		// Run cleanup immediately on startup
 		count, err := f.content.CleanupCache(f.cacheExpirationDays)
 		if err != nil {
@@ -1128,7 +1189,11 @@ func (f *Filesystem) StartCacheCleanup() {
 				}
 			case <-f.cacheCleanupStop:
 				// Stop the cleanup routine
-				log.Info().Msg("Stopping content cache cleanup routine")
+				log.Info().Msg("Stopping content cache cleanup routine via stop channel")
+				return
+			case <-f.ctx.Done():
+				// Context cancelled, stop the cleanup routine
+				log.Info().Msg("Stopping content cache cleanup routine via context cancellation")
 				return
 			}
 		}
@@ -1267,4 +1332,309 @@ func (f *Filesystem) SerializeAll() {
 	}); err != nil {
 		log.Error().Err(err).Msg("Failed to serialize metadata to database")
 	}
+}
+
+// NewFilesystemWithoutContext is a backward-compatible version of NewFilesystem that creates a context internally.
+// This function is provided for backward compatibility with existing tests and should not be used in new code.
+//
+// Parameters:
+//   - auth: Authentication information for Microsoft Graph API
+//   - cacheDir: Directory where filesystem data will be cached
+//   - cacheExpirationDays: Number of days after which cached files expire
+//
+// Returns:
+//   - A new Filesystem instance and nil error on success
+//   - nil and an error if initialization fails
+func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
+	// Create a background context for backward compatibility
+	ctx := context.Background()
+	return NewFilesystemWithContext(ctx, auth, cacheDir, cacheExpirationDays)
+}
+
+	// Check if the database file exists
+	if _, statErr := os.Stat(dbPath); statErr == nil {
+		// Check for lock files
+		lockPath := dbPath + ".lock"
+		if _, lockErr := os.Stat(lockPath); lockErr == nil {
+			// Check if the lock file is stale by checking its age
+			if lockInfo, infoErr := os.Stat(lockPath); infoErr == nil {
+				lockAge := time.Since(lockInfo.ModTime())
+				if lockAge > 5*time.Minute {
+					log.Warn().Dur("age", lockAge).Msg("Found stale lock file (older than 5 minutes), attempting to remove it")
+					if rmErr := os.Remove(lockPath); rmErr != nil {
+						log.Warn().Err(rmErr).Msg("Failed to remove stale lock file")
+					} else {
+						log.Info().Msg("Successfully removed stale lock file")
+					}
+				} else {
+					log.Warn().Dur("age", lockAge).Msg("Found recent lock file, another instance may be running")
+				}
+			}
+		}
+	}
+
+	// Define retry parameters
+	maxRetries := 10                         // Increased from 5 to 10
+	initialBackoff := 200 * time.Millisecond // Increased from 100ms to 200ms
+	maxBackoff := 5 * time.Second            // Increased from 2s to 5s
+
+	// Attempt to open the database with retries
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Calculate backoff duration with exponential increase
+		backoff := initialBackoff * time.Duration(1<<uint(attempt))
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+
+		// Try to open the database with increased timeout
+		db, err = bolt.Open(
+			dbPath,
+			0600,
+			&bolt.Options{
+				Timeout: time.Second * 10, // Increased from 5s to 10s
+				// Add NoFreelistSync for better performance
+				NoFreelistSync: true,
+			},
+		)
+
+		if err == nil {
+			// Successfully opened the database
+			log.Debug().Int("attempt", attempt+1).Msg("Successfully opened database")
+			break
+		}
+
+		// If this is the last attempt, don't wait
+		if attempt == maxRetries-1 {
+			errors.LogError(err, "Could not open DB after multiple attempts", 
+				errors.FieldOperation, "NewFilesystem",
+				errors.FieldPath, dbPath,
+				"attempts", maxRetries)
+			return nil, errors.Wrap(err, "could not open DB (is it already in use by another mount?)")
+		}
+
+		// Log the error and wait before retrying
+		log.Warn().Err(err).Int("attempt", attempt+1).Dur("backoff", backoff).Msg("Failed to open database, retrying after backoff")
+		time.Sleep(backoff)
+	}
+
+	// If we still have an error after all retries, return it
+	if err != nil {
+		errors.LogError(err, "Could not open DB", 
+			errors.FieldOperation, "NewFilesystem",
+			errors.FieldPath, dbPath)
+		return nil, errors.Wrap(err, "could not open DB (is it already in use by another mount?)")
+	}
+
+	// Set up database options for better performance and reliability
+	if err := db.Update(func(tx *bolt.Tx) error {
+		// Set NoSync option to improve performance (we'll sync manually when needed)
+		tx.DB().NoSync = true
+		return nil
+	}); err != nil {
+		log.Warn().Err(err).Msg("Failed to set database options")
+	}
+
+	// Explicitly create content and thumbnail directories
+	contentDir := filepath.Join(cacheDir, "content")
+	thumbnailDir := filepath.Join(cacheDir, "thumbnails")
+
+	// Create content directory
+	if err := os.MkdirAll(contentDir, 0700); err != nil {
+		errors.LogError(err, "Could not create content cache directory", 
+			errors.FieldOperation, "NewFilesystem",
+			errors.FieldPath, contentDir)
+		return nil, errors.Wrap(err, "could not create content cache directory")
+	}
+
+	// Create thumbnail directory
+	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
+		errors.LogError(err, "Could not create thumbnail cache directory", 
+			errors.FieldOperation, "NewFilesystem",
+			errors.FieldPath, thumbnailDir)
+		return nil, errors.Wrap(err, "could not create thumbnail cache directory")
+	}
+
+	content := NewLoopbackCache(contentDir)
+	thumbnails := NewThumbnailCache(thumbnailDir)
+	err = db.Update(func(tx *bolt.Tx) error {
+		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
+			log.Error().Err(err).Msg("Failed to create metadata bucket")
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(bucketDelta); err != nil {
+			log.Error().Err(err).Msg("Failed to create delta bucket")
+			return err
+		}
+		versionBucket, err := tx.CreateBucketIfNotExists(bucketVersion)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create version bucket")
+			return err
+		}
+
+		// migrate old content bucket to the local filesystem
+		b := tx.Bucket(bucketContent)
+		if b != nil {
+			oldVersion := "0"
+			log.Info().
+				Str("oldVersion", oldVersion).
+				Str("version", fsVersion).
+				Msg("Migrating to new db format.")
+			err := b.ForEach(func(k []byte, v []byte) error {
+				log.Info().Bytes("key", k).Msg("Migrating file content.")
+				if err := content.Insert(string(k), v); err != nil {
+					return err
+				}
+				return b.Delete(k)
+			})
+			if err != nil {
+				log.Error().Err(err).Msg("Migration failed.")
+			}
+			if err := tx.DeleteBucket(bucketContent); err != nil {
+				log.Error().Err(err).Msg("Failed to delete content bucket during migration")
+			}
+			log.Info().
+				Str("oldVersion", oldVersion).
+				Str("version", fsVersion).
+				Msg("Migrations complete.")
+		}
+		return versionBucket.Put([]byte("version"), []byte(fsVersion))
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// ok, ready to start fs
+	fsCtx, fsCancel := context.WithCancel(ctx)
+	deltaCtx, deltaCancel := context.WithCancel(fsCtx)
+	fs := &Filesystem{
+		content:             content,
+		thumbnails:          thumbnails,
+		db:                  db,
+		auth:                auth,
+		opendirs:            make(map[uint64][]*Inode),
+		statuses:            make(map[string]FileStatusInfo),
+		ctx:                 fsCtx,
+		cancel:              fsCancel,
+		cacheExpirationDays: cacheExpirationDays,
+		cacheCleanupStop:    make(chan struct{}),
+		deltaLoopStop:       make(chan struct{}),
+		deltaLoopCtx:        deltaCtx,
+		deltaLoopCancel:     deltaCancel,
+	}
+
+	// Initialize with our custom RawFileSystem implementation that supports the POLL opcode
+	fs.RawFileSystem = NewCustomRawFileSystem(fs)
+
+	rootItem, err := graph.GetItem("root", auth)
+	root := NewInodeDriveItem(rootItem)
+	if err != nil {
+		if graph.IsOffline(err) {
+			// no network, load from db if possible and go to read-only state
+			fs.Lock()
+			fs.offline = true
+			fs.Unlock()
+
+			// Try to get the root item from the database using the special ID "root"
+			root = fs.GetID("root")
+
+			// If that fails, try to find any item in the database that looks like a root folder
+			if root == nil {
+				// Look for items in the database that have folder properties and no parent
+				if err := fs.db.View(func(tx *bolt.Tx) error {
+					b := tx.Bucket(bucketMetadata)
+					return b.ForEach(func(k, v []byte) error {
+						if v != nil {
+							inode, err := NewInodeJSON(v)
+							if err == nil && inode.IsDir() && inode.ParentID() == "" {
+								root = inode
+								// Store this item with the special ID "root" for future lookups
+								fs.metadata.Store("root", inode)
+								return errors.New("found root item, stopping iteration")
+							}
+						}
+						return nil
+					})
+				}); err != nil && err.Error() != "found root item, stopping iteration" {
+					log.Error().Err(err).Msg("Error searching for root item in database")
+				}
+			}
+
+			// If we still couldn't find a root item, return an error
+			if root == nil {
+				log.Error().Msg(
+					"We are offline and could not fetch the filesystem root item from disk.",
+				)
+				return nil, errors.New("offline and could not fetch the filesystem root item from disk")
+			}
+			// when offline, we load the cache deltaLink from disk
+			var deltaLinkErr error
+			if viewErr := fs.db.View(func(tx *bolt.Tx) error {
+				if link := tx.Bucket(bucketDelta).Get([]byte("deltaLink")); link != nil {
+					fs.deltaLink = string(link)
+				} else {
+					// Only reached if a previous online session never survived
+					// long enough to save its delta link. We explicitly disallow these
+					// types of startups as it's possible for things to get out of sync
+					// this way.
+					log.Error().Msg("Cannot perform an offline startup without a valid " +
+						"delta link from a previous session.")
+					deltaLinkErr = errors.New("cannot perform an offline startup without a valid delta link from a previous session")
+				}
+				return nil
+			}); viewErr != nil {
+				errors.LogError(viewErr, "Failed to read delta link from database", 
+					errors.FieldOperation, "NewFilesystem",
+					errors.FieldPath, dbPath)
+				return nil, errors.Wrap(viewErr, "failed to read delta link from database")
+			}
+			if deltaLinkErr != nil {
+				return nil, deltaLinkErr
+			}
+		} else {
+			errors.LogError(err, "Could not fetch root item of filesystem", 
+				errors.FieldOperation, "NewFilesystem")
+			return nil, errors.Wrap(err, "could not fetch root item of filesystem")
+		}
+	}
+	// root inode is inode 1
+	fs.root = root.ID()
+	fs.InsertID(fs.root, root)
+
+	fs.uploads = NewUploadManager(2*time.Second, db, fs, auth)
+
+	// Initialize download manager with 4 worker threads
+	fs.downloads = NewDownloadManager(fs, auth, 4)
+
+	if !fs.IsOffline() {
+		// .Trash-UID is used by "gio trash" for user trash, create it if it
+		// does not exist
+		trash := fmt.Sprintf(".Trash-%d", os.Getuid())
+		if child, _ := fs.GetChild(fs.root, trash, auth); child == nil {
+			item, err := graph.Mkdir(trash, fs.root, auth)
+			if err != nil {
+				log.Error().Err(err).
+					Msg("Could not create trash folder. " +
+						"Trashing items through the file browser may result in errors.")
+			} else {
+				fs.InsertID(item.ID, NewInodeDriveItem(item))
+			}
+		}
+
+		// using token=latest because we don't care about existing items - they'll
+		// be downloaded on-demand by the cache
+		fs.deltaLink = "/me/drive/root/delta?token=latest"
+		fs.subscribeChangesLink = "/me/drive/root/subscriptions/socketIo"
+	}
+
+	// deltaloop is started manually
+
+	// Initialize D-Bus server
+	fs.dbusServer = NewFileStatusDBusServer(fs)
+	// Use StartForTesting in test environment
+	if err := fs.dbusServer.Start(); err != nil {
+		log.Error().Err(err).Msg("Failed to start D-Bus server")
+		// Continue even if D-Bus server fails to start
+	}
+
+	return fs, nil
 }

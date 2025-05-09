@@ -11,25 +11,25 @@ This implementation plan addresses the currently open issues in the OneMount pro
 
 ## Phase 1: Critical Issues and Unit Test Fixes
 
-### 1.1 Fix Upload API Race Condition (Issue #108)
+### 1.1 Fix Upload API Race Condition (Issue #108) - COMPLETED
 - **Description**: Fix the race condition in the Upload API that causes intermittent test failures
 - **Rationale**: This is a critical issue that affects file uploads, a core functionality of the application
 - **Dependencies**: None
 - **Estimated Effort**: Medium
 
-### 1.2 Implement Enhanced Resource Management for TestFramework (Issue #106)
+### 1.2 Implement Enhanced Resource Management for TestFramework (Issue #106) - COMPLETED
 - **Description**: Improve resource management in the test framework to ensure proper cleanup
 - **Rationale**: This is needed to make unit tests reliable and prevent resource leaks
 - **Dependencies**: None
 - **Estimated Effort**: Medium
 
-### 1.3 Add Signal Handling to TestFramework (Issue #107)
+### 1.3 Add Signal Handling to TestFramework (Issue #107) - COMPLETED
 - **Description**: Implement proper signal handling in the test framework to ensure graceful shutdown
 - **Rationale**: This is needed to make unit tests reliable and prevent resource leaks
 - **Dependencies**: Issue #106
 - **Estimated Effort**: Medium
 
-### 1.4 Standardize Error Handling Across Modules (Issue #59)
+### 1.4 Standardize Error Handling Across Modules (Issue #59) - IN-PROGRESS
 - **Description**: Implement a consistent error handling strategy across all modules
 - **Rationale**: This is needed for reliable error reporting and recovery
 - **Dependencies**: None

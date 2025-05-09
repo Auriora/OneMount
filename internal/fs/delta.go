@@ -22,11 +22,13 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 	go subsc.Start()
 	defer subsc.Stop()
 
-	// Add to wait group to track this goroutine
+	// Add to wait groups to track this goroutine
 	f.deltaLoopWg.Add(1)
+	f.wg.Add(1)
 	defer func() {
-		log.Debug().Msg("Delta goroutine exiting, calling Done() on wait group")
+		log.Debug().Msg("Delta goroutine exiting, calling Done() on wait groups")
 		f.deltaLoopWg.Done()
+		f.wg.Done()
 		log.Debug().Msg("Delta goroutine completed")
 	}()
 
@@ -45,8 +47,12 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		// Check if we should stop before starting a new cycle
 		select {
 		case <-f.deltaLoopStop:
-			log.Info().Msg("Stopping delta goroutine.")
+			log.Info().Msg("Stopping delta goroutine via stop channel.")
 			log.Debug().Msg("Delta goroutine received stop signal, exiting loop")
+			return
+		case <-f.ctx.Done():
+			log.Info().Msg("Stopping delta goroutine via context cancellation.")
+			log.Debug().Msg("Delta goroutine context cancelled, exiting loop")
 			return
 		default:
 			// Continue with normal operation
@@ -69,6 +75,10 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 				log.Debug().Msg("Delta loop stop signal received during polling loop")
 				fetchCancel()
 				return
+			case <-f.ctx.Done():
+				log.Debug().Msg("Delta loop context cancelled during polling loop")
+				fetchCancel()
+				return
 			case <-fetchCtx.Done():
 				log.Debug().Msg("Delta fetch cycle timed out")
 				break fetchLoop
@@ -84,6 +94,10 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			select {
 			case <-f.deltaLoopStop:
 				log.Debug().Msg("Delta loop stop signal received after pollDeltas")
+				fetchCancel()
+				return
+			case <-f.ctx.Done():
+				log.Debug().Msg("Delta loop context cancelled after pollDeltas")
 				fetchCancel()
 				return
 			default:
@@ -244,14 +258,31 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			if wasOffline {
 				log.Info().Msg("Transitioning from offline to online, processing offline changes")
 				// Use a goroutine with proper error handling
-				go func() {
+				f.wg.Add(1)
+				go func(ctx context.Context) {
+					defer f.wg.Done()
 					defer func() {
 						if r := recover(); r != nil {
 							log.Error().Interface("recover", r).Msg("Panic in ProcessOfflineChanges")
 						}
 					}()
-					f.ProcessOfflineChanges()
-				}()
+
+					// Create a child context with timeout
+					processCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+					defer cancel()
+
+					// Check if context is already cancelled
+					select {
+					case <-ctx.Done():
+						log.Debug().Msg("Context cancelled, skipping offline changes processing")
+						return
+					default:
+						// Continue with processing
+					}
+
+					// Process offline changes with context
+					f.ProcessOfflineChangesWithContext(processCtx)
+				}(f.ctx)
 			}
 		} else {
 			// Switch to offline ticker for shorter retry intervals
