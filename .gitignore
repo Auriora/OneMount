@@ -58,3 +58,4 @@ __pycache__
 !README.*.md
 test-sandbox/
 test-artifacts/
+/.output.txt

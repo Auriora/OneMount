@@ -108,7 +108,22 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 	}
 
 	// Cache the thumbnail in the background
+	f.wg.Add(1)
 	go func() {
+		defer f.wg.Done()
+
+		// Check if context is already cancelled
+		select {
+		case <-f.ctx.Done():
+			log.Debug().
+				Str("id", inode.ID()).
+				Str("size", size).
+				Msg("Thumbnail caching cancelled due to context cancellation")
+			return
+		default:
+			// Continue with normal operation
+		}
+
 		// Create a temporary file to store the thumbnail
 		tempFile, err := os.CreateTemp("", "onemount-thumbnail-*")
 		if err != nil {
@@ -137,6 +152,18 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 			}
 		}()
 
+		// Check context cancellation before network operation
+		select {
+		case <-f.ctx.Done():
+			log.Debug().
+				Str("id", inode.ID()).
+				Str("size", size).
+				Msg("Thumbnail caching cancelled due to context cancellation")
+			return
+		default:
+			// Continue with normal operation
+		}
+
 		// Get the thumbnail again and write it to the temporary file
 		if err := graph.GetThumbnailContentStream(inode.ID(), size, f.auth, tempFile); err != nil {
 			errors.LogError(err, "Failed to download thumbnail for caching", 
@@ -144,6 +171,18 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 				"size", size,
 				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
+		}
+
+		// Check context cancellation after network operation
+		select {
+		case <-f.ctx.Done():
+			log.Debug().
+				Str("id", inode.ID()).
+				Str("size", size).
+				Msg("Thumbnail caching cancelled due to context cancellation")
+			return
+		default:
+			// Continue with normal operation
 		}
 
 		// Reset the file position to the beginning
@@ -163,6 +202,18 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 				"size", size,
 				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
+		}
+
+		// Check context cancellation before final operation
+		select {
+		case <-f.ctx.Done():
+			log.Debug().
+				Str("id", inode.ID()).
+				Str("size", size).
+				Msg("Thumbnail caching cancelled due to context cancellation")
+			return
+		default:
+			// Continue with normal operation
 		}
 
 		// Cache the thumbnail

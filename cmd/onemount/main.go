@@ -139,7 +139,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 }
 
 // initializeFilesystem sets up the filesystem and returns the filesystem, auth, server, and paths
-func initializeFilesystem(config *common.Config, mountpoint string, authOnly, headless, debugOn bool) (*fs.Filesystem, *graph.Auth, *fuse.Server, string, string, error) {
+func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint string, authOnly, headless, debugOn bool) (*fs.Filesystem, *graph.Auth, *fuse.Server, string, string, error) {
 	// compute cache name as systemd would
 	absMountPath, err := filepath.Abs(mountpoint)
 	if err != nil {
@@ -178,7 +178,7 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 		return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 	}
 
-	filesystem, err := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
+	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration)
 	if err != nil {
 		errors.LogError(err, "Failed to initialize filesystem", 
 			errors.FieldOperation, "initializeFilesystem",
@@ -200,14 +200,31 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 	// Sync the full directory tree if requested
 	if config.SyncTree {
 		log.Info().Msg("Starting full directory tree synchronization in background...")
-		go func() {
+		filesystem.wg.Add(1)
+		go func(ctx context.Context) {
+			defer filesystem.wg.Done()
+
+			// Check if context is already cancelled
+			select {
+			case <-ctx.Done():
+				log.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
+				return
+			default:
+				// Continue with normal operation
+			}
+
 			if err := filesystem.SyncDirectoryTree(auth); err != nil {
+				// Check if the error is due to context cancellation
+				if ctx.Err() != nil {
+					log.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
+					return
+				}
 				errors.LogError(err, "Error syncing directory tree", 
 					errors.FieldOperation, "SyncDirectoryTree")
 			} else {
 				log.Info().Msg("Directory tree sync completed successfully")
 			}
-		}()
+		}(ctx)
 	}
 
 	// Create mount options
@@ -240,7 +257,7 @@ func initializeFilesystem(config *common.Config, mountpoint string, authOnly, he
 }
 
 // displayStats gathers and displays statistics about the filesystem
-func displayStats(config *common.Config, mountpoint string) {
+func displayStats(ctx context.Context, config *common.Config, mountpoint string) {
 	// Determine the cache directory
 	if mountpoint == "" {
 		log.Fatal().Msg("No mountpoint specified. Please provide a mountpoint.")
@@ -250,14 +267,14 @@ func displayStats(config *common.Config, mountpoint string) {
 
 	// Authenticate to get access to the filesystem
 	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
-	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, true)
+	auth, err := graph.Authenticate(ctx, config.AuthConfig, authPath, true)
 	if err != nil {
 		log.Error().Err(err).Msg("Authentication failed")
 		os.Exit(1)
 	}
 
 	// Initialize the filesystem without mounting
-	filesystem, err := fs.NewFilesystem(auth, cachePath, config.CacheExpiration)
+	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize filesystem")
 		os.Exit(1)
@@ -446,6 +463,10 @@ func main() {
 	// This will be replaced after loading the configuration
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
 
+	// Create a root context that can be canceled
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	config, authOnly, headless, debugOn, stats, daemon, mountpoint := setupFlags()
 
 	// Configure logging based on the configuration
@@ -461,7 +482,7 @@ func main() {
 
 	// If stats flag is set, display statistics and exit
 	if stats {
-		displayStats(config, mountpoint)
+		displayStats(ctx, config, mountpoint)
 		os.Exit(0)
 	}
 
@@ -488,13 +509,13 @@ func main() {
 	}
 
 	// Initialize the filesystem
-	filesystem, _, server, cachePath, absMountPath, err := initializeFilesystem(config, mountpoint, authOnly, headless, debugOn)
+	filesystem, _, server, cachePath, absMountPath, err := initializeFilesystem(ctx, config, mountpoint, authOnly, headless, debugOn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize filesystem")
 	}
 
 	// setup signal handler for graceful unmount on signals like sigint
-	setupSignalHandler(filesystem, server, absMountPath)
+	setupSignalHandler(filesystem, server, absMountPath, cancel)
 
 	// serve filesystem
 	log.Info().
@@ -584,7 +605,7 @@ func daemonize() {
 }
 
 // setupSignalHandler sets up a handler for SIGINT and SIGTERM signals to gracefully unmount the filesystem
-func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoint string) {
+func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoint string, cancel context.CancelFunc) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -593,6 +614,10 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 		sig := <-sigChan // block until signal
 		log.Info().Str("signal", strings.ToUpper(sig.String())).
 			Msg("Signal received, cleaning up and unmounting filesystem.")
+
+		// Cancel the context to notify all goroutines to stop
+		log.Info().Msg("Canceling context to notify all goroutines to stop...")
+		cancel()
 
 		// Stop the cache cleanup routine
 		filesystem.StopCacheCleanup()
