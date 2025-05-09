@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs/graph"
-	"github.com/rs/zerolog/log"
 )
 
 // GetThumbnail retrieves a thumbnail for a file.
@@ -16,7 +16,7 @@ import (
 func (f *Filesystem) GetThumbnail(path string, size string) ([]byte, error) {
 	// Validate size
 	if size != "small" && size != "medium" && size != "large" {
-		return nil, fmt.Errorf("invalid thumbnail size: %s", size)
+		return nil, errors.NewValidationError(fmt.Sprintf("invalid thumbnail size: %s", size), nil)
 	}
 
 	// Get the inode for the path
@@ -27,7 +27,7 @@ func (f *Filesystem) GetThumbnail(path string, size string) ([]byte, error) {
 
 	// Only files can have thumbnails
 	if inode.IsDir() {
-		return nil, fmt.Errorf("directories do not have thumbnails")
+		return nil, errors.NewValidationError("directories do not have thumbnails", nil)
 	}
 
 	// Check if we have a cached thumbnail
@@ -37,21 +37,21 @@ func (f *Filesystem) GetThumbnail(path string, size string) ([]byte, error) {
 
 	// If we're offline, we can't fetch thumbnails
 	if f.IsOffline() {
-		return nil, fmt.Errorf("cannot fetch thumbnails in offline mode")
+		return nil, errors.NewNetworkError("cannot fetch thumbnails in offline mode", nil)
 	}
 
 	// Get the thumbnail from the Graph API
 	thumbnailData, err := graph.GetThumbnailContent(inode.ID(), size, f.auth)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get thumbnail: %w", err)
+		return nil, errors.Wrap(err, "failed to get thumbnail")
 	}
 
 	// Cache the thumbnail
 	if err := f.thumbnails.Insert(inode.ID(), size, thumbnailData); err != nil {
-		log.Error().Err(err).
-			Str("id", inode.ID()).
-			Str("size", size).
-			Msg("Failed to cache thumbnail")
+		errors.LogError(err, "Failed to cache thumbnail", 
+			errors.FieldID, inode.ID(),
+			"size", size,
+			errors.FieldOperation, "GetThumbnail")
 	}
 
 	return thumbnailData, nil
@@ -62,7 +62,7 @@ func (f *Filesystem) GetThumbnail(path string, size string) ([]byte, error) {
 func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writer) error {
 	// Validate size
 	if size != "small" && size != "medium" && size != "large" {
-		return fmt.Errorf("invalid thumbnail size: %s", size)
+		return errors.NewValidationError(fmt.Sprintf("invalid thumbnail size: %s", size), nil)
 	}
 
 	// Get the inode for the path
@@ -73,7 +73,7 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 
 	// Only files can have thumbnails
 	if inode.IsDir() {
-		return fmt.Errorf("directories do not have thumbnails")
+		return errors.NewValidationError("directories do not have thumbnails", nil)
 	}
 
 	// Check if we have a cached thumbnail
@@ -85,10 +85,10 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		}
 		defer func() {
 			if closeErr := f.thumbnails.Close(inode.ID(), size); closeErr != nil {
-				log.Error().Err(closeErr).
-					Str("id", inode.ID()).
-					Str("size", size).
-					Msg("Failed to close cached thumbnail file")
+				errors.LogError(closeErr, "Failed to close cached thumbnail file", 
+					errors.FieldID, inode.ID(),
+					"size", size,
+					errors.FieldOperation, "GetThumbnailStream")
 			}
 		}()
 
@@ -99,12 +99,12 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 
 	// If we're offline, we can't fetch thumbnails
 	if f.IsOffline() {
-		return fmt.Errorf("cannot fetch thumbnails in offline mode")
+		return errors.NewNetworkError("cannot fetch thumbnails in offline mode", nil)
 	}
 
 	// Get the thumbnail from the Graph API and stream it directly to the output
 	if err := graph.GetThumbnailContentStream(inode.ID(), size, f.auth, output); err != nil {
-		return fmt.Errorf("failed to get thumbnail stream: %w", err)
+		return errors.Wrap(err, "failed to get thumbnail stream")
 	}
 
 	// Cache the thumbnail in the background
@@ -112,65 +112,65 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		// Create a temporary file to store the thumbnail
 		tempFile, err := os.CreateTemp("", "onemount-thumbnail-*")
 		if err != nil {
-			log.Error().Err(err).
-				Str("id", inode.ID()).
-				Str("size", size).
-				Msg("Failed to create temporary file for thumbnail caching")
+			errors.LogError(err, "Failed to create temporary file for thumbnail caching", 
+				errors.FieldID, inode.ID(),
+				"size", size,
+				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 		defer func() {
 			if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
-				log.Error().Err(removeErr).
-					Str("path", tempFile.Name()).
-					Str("id", inode.ID()).
-					Str("size", size).
-					Msg("Failed to remove temporary thumbnail file")
+				errors.LogError(removeErr, "Failed to remove temporary thumbnail file", 
+					errors.FieldPath, tempFile.Name(),
+					errors.FieldID, inode.ID(),
+					"size", size,
+					errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			}
 		}()
 		defer func() {
 			if closeErr := tempFile.Close(); closeErr != nil {
-				log.Error().Err(closeErr).
-					Str("path", tempFile.Name()).
-					Str("id", inode.ID()).
-					Str("size", size).
-					Msg("Failed to close temporary thumbnail file")
+				errors.LogError(closeErr, "Failed to close temporary thumbnail file", 
+					errors.FieldPath, tempFile.Name(),
+					errors.FieldID, inode.ID(),
+					"size", size,
+					errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			}
 		}()
 
 		// Get the thumbnail again and write it to the temporary file
 		if err := graph.GetThumbnailContentStream(inode.ID(), size, f.auth, tempFile); err != nil {
-			log.Error().Err(err).
-				Str("id", inode.ID()).
-				Str("size", size).
-				Msg("Failed to download thumbnail for caching")
+			errors.LogError(err, "Failed to download thumbnail for caching", 
+				errors.FieldID, inode.ID(),
+				"size", size,
+				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 
 		// Reset the file position to the beginning
 		if _, err := tempFile.Seek(0, 0); err != nil {
-			log.Error().Err(err).
-				Str("id", inode.ID()).
-				Str("size", size).
-				Msg("Failed to reset file position for thumbnail caching")
+			errors.LogError(err, "Failed to reset file position for thumbnail caching", 
+				errors.FieldID, inode.ID(),
+				"size", size,
+				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 
 		// Read the thumbnail data
 		thumbnailData, err := io.ReadAll(tempFile)
 		if err != nil {
-			log.Error().Err(err).
-				Str("id", inode.ID()).
-				Str("size", size).
-				Msg("Failed to read thumbnail data for caching")
+			errors.LogError(err, "Failed to read thumbnail data for caching", 
+				errors.FieldID, inode.ID(),
+				"size", size,
+				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 
 		// Cache the thumbnail
 		if err := f.thumbnails.Insert(inode.ID(), size, thumbnailData); err != nil {
-			log.Error().Err(err).
-				Str("id", inode.ID()).
-				Str("size", size).
-				Msg("Failed to cache thumbnail")
+			errors.LogError(err, "Failed to cache thumbnail", 
+				errors.FieldID, inode.ID(),
+				"size", size,
+				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
 		}
 	}()
 
@@ -194,7 +194,7 @@ func (f *Filesystem) DeleteThumbnail(path string, size string) error {
 
 	// Validate size
 	if size != "small" && size != "medium" && size != "large" {
-		return fmt.Errorf("invalid thumbnail size: %s", size)
+		return errors.NewValidationError(fmt.Sprintf("invalid thumbnail size: %s", size), nil)
 	}
 
 	return f.thumbnails.Delete(inode.ID(), size)
@@ -219,7 +219,7 @@ func (f *Filesystem) getInodeFromPath(path string) (*Inode, error) {
 	// Start at the root
 	current := f.GetID(f.root)
 	if current == nil {
-		return nil, fmt.Errorf("root inode not found")
+		return nil, errors.NewNotFoundError("root inode not found", nil)
 	}
 
 	// Empty path means root
@@ -236,10 +236,10 @@ func (f *Filesystem) getInodeFromPath(path string) (*Inode, error) {
 		// Get the child with the given name
 		child, err := f.GetChild(current.ID(), component, f.auth)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get child %s: %w", component, err)
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to get child %s", component))
 		}
 		if child == nil {
-			return nil, fmt.Errorf("path component not found: %s", component)
+			return nil, errors.NewNotFoundError(fmt.Sprintf("path component not found: %s", component), nil)
 		}
 
 		current = child

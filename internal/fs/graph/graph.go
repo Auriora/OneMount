@@ -7,7 +7,6 @@ package graph
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 )
@@ -87,25 +87,31 @@ func Request(resource string, auth *Auth, method string, content io.Reader, head
 
 // RequestWithContext performs an authenticated request to Microsoft Graph with context
 func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
+	// Create a log context for this request
+	logCtx := errors.NewLogContext("graph_request").
+		WithMethod("RequestWithContext").
+		WithPath(resource).
+		With("http_method", method)
 	// Check if we're in operational offline mode
 	if GetOperationalOffline() {
-		log.Debug().Str("method", method).Str("resource", resource).Msg("In operational offline mode, returning network error")
-		return nil, errors.New("network unavailable: operational offline mode is enabled")
+		errors.LogDebugWithContext(logCtx, "In operational offline mode, returning network error")
+		return nil, errors.NewNetworkError("operational offline mode is enabled", nil)
 	}
 
 	if auth == nil || auth.AccessToken == "" {
 		// a catch all condition to avoid wiping our auth by accident
-		log.Error().Msg("Auth was empty and we attempted to make a request with it!")
-		return nil, errors.New("cannot make a request with empty auth")
+		authErr := errors.NewAuthError("cannot make a request with empty auth", nil)
+		errors.LogErrorWithContext(authErr, logCtx, "Auth was empty and we attempted to make a request with it!")
+		return nil, authErr
 	}
 
-	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting auth refresh")
+	errors.LogDebugWithContext(logCtx, "Starting auth refresh")
 	if err := auth.Refresh(ctx); err != nil {
-		log.Warn().Err(err).Str("method", method).Str("resource", resource).Msg("Auth refresh failed, continuing with current token")
+		errors.LogWarnWithContext(err, logCtx, "Auth refresh failed, continuing with current token")
 	}
-	log.Debug().Str("method", method).Str("resource", resource).Msg("Auth refresh completed")
+	errors.LogDebugWithContext(logCtx, "Auth refresh completed")
 
-	log.Debug().Str("method", method).Str("resource", resource).Msg("Using HTTP client")
+	errors.LogDebugWithContext(logCtx, "Using HTTP client")
 	request, _ := http.NewRequestWithContext(ctx, method, GraphURL+resource, content)
 	request.Header.Add("Authorization", "bearer "+auth.AccessToken)
 	switch method { // request type-specific code here
@@ -121,103 +127,144 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		request.Header.Add(header.key, header.value)
 	}
 
-	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting network request with context")
-	log.Debug().Str("method", method).Str("resource", resource).Str("url", GraphURL+resource).Msg("About to execute HTTP request")
+	// Update log context with URL
+	logCtx = logCtx.With("url", GraphURL+resource)
+
+	errors.LogDebugWithContext(logCtx, "Starting network request with context")
+	errors.LogDebugWithContext(logCtx, "About to execute HTTP request")
 	response, err := httpClient.Do(request)
 	if err != nil {
 		// Check if the error was due to context cancellation
 		if ctx.Err() != nil {
-			log.Debug().Err(ctx.Err()).Str("method", method).Str("resource", resource).Msg("Network request cancelled by context")
+			errors.LogDebugWithContext(logCtx, "Network request cancelled by context")
 			return nil, ctx.Err()
 		}
 		// the actual request failed for other reasons
-		log.Debug().Err(err).Str("method", method).Str("resource", resource).Msg("Network request failed")
-		return nil, err
+		networkErr := errors.NewNetworkError("network request failed", err)
+		errors.LogErrorWithContext(networkErr, logCtx, "Network request failed")
+		return nil, networkErr
 	}
-	log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Network request completed")
 
-	log.Debug().Str("method", method).Str("resource", resource).Msg("Starting to read response body")
+	// Update log context with status code
+	logCtx = logCtx.With("status_code", response.StatusCode)
+	errors.LogDebugWithContext(logCtx, "Network request completed")
+
+	errors.LogDebugWithContext(logCtx, "Starting to read response body")
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Error reading response body")
-		return nil, fmt.Errorf("error reading response body: %v", err)
+		readErr := errors.Wrap(err, "error reading response body")
+		errors.LogErrorWithContext(readErr, logCtx, "Error reading response body")
+		return nil, readErr
 	}
-	log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Successfully read response body")
+
+	// Update log context with body size
+	logCtx = logCtx.With("body_size", len(body))
+	errors.LogDebugWithContext(logCtx, "Successfully read response body")
 
 	if err := response.Body.Close(); err != nil {
-		log.Warn().Err(err).Str("method", method).Str("resource", resource).Msg("Error closing response body")
+		errors.LogWarnWithContext(err, logCtx, "Error closing response body")
 	}
 
 	if response.StatusCode == 401 {
 		var err graphError
 		if unmarshalErr := json.Unmarshal(body, &err); unmarshalErr != nil {
-			log.Warn().Err(unmarshalErr).Str("method", method).Str("resource", resource).Msg("Failed to unmarshal error response, using default error message")
+			errors.LogWarnWithContext(unmarshalErr, logCtx, "Failed to unmarshal error response, using default error message")
 			err.Error.Code = "UnknownError"
 			err.Error.Message = "Failed to parse error response"
 		}
-		log.Warn().
-			Str("method", method).
-			Str("resource", resource).
-			Str("code", err.Error.Code).
-			Str("message", err.Error.Message).
-			Msg("Authentication token invalid or new app permissions required, " +
-				"forcing reauth before retrying.")
 
-		log.Debug().Str("method", method).Str("resource", resource).Msg("Starting reauth process")
+		// Update log context with error details
+		logCtx = logCtx.With("error_code", err.Error.Code).With("error_message", err.Error.Message)
+
+		errors.LogWarnWithContext(nil, logCtx, "Authentication token invalid or new app permissions required, forcing reauth before retrying")
+
+		errors.LogDebugWithContext(logCtx, "Starting reauth process")
 		reauth, authErr := newAuth(ctx, auth.AuthConfig, auth.Path, false)
 		if authErr != nil {
-			log.Error().Err(authErr).Str("method", method).Str("resource", resource).Msg("Reauth failed")
-			return nil, fmt.Errorf("reauth failed: %w", authErr)
+			reauthErr := errors.NewAuthError("reauth failed", authErr)
+			errors.LogErrorWithContext(reauthErr, logCtx, "Reauth failed")
+			return nil, reauthErr
 		}
 		if mergeErr := mergo.Merge(auth, reauth, mergo.WithOverride); mergeErr != nil {
-			log.Error().Err(mergeErr).Str("method", method).Str("resource", resource).Msg("Failed to merge auth data")
-			return nil, fmt.Errorf("failed to merge auth data: %w", mergeErr)
+			mergeAuthErr := errors.Wrap(mergeErr, "failed to merge auth data")
+			errors.LogErrorWithContext(mergeAuthErr, logCtx, "Failed to merge auth data")
+			return nil, mergeAuthErr
 		}
 		request.Header.Set("Authorization", "bearer "+auth.AccessToken)
-		log.Debug().Str("method", method).Str("resource", resource).Msg("Reauth process completed")
+		errors.LogDebugWithContext(logCtx, "Reauth process completed")
 	}
 	if response.StatusCode >= 500 || response.StatusCode == 401 {
 		// the onedrive API is having issues, retry once
-		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Server error or auth issue, retrying request")
+		logCtx = logCtx.With("retry", true)
+		errors.LogDebugWithContext(logCtx, "Server error or auth issue, retrying request")
 
-		log.Debug().Str("method", method).Str("resource", resource).Msg("Executing retry request")
+		errors.LogDebugWithContext(logCtx, "Executing retry request")
 		response, err = httpClient.Do(request)
 		if err != nil {
-			log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Retry request failed")
-			return nil, err
+			retryErr := errors.NewNetworkError("retry request failed", err)
+			errors.LogErrorWithContext(retryErr, logCtx, "Retry request failed")
+			return nil, retryErr
 		}
-		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Retry request completed")
 
-		log.Debug().Str("method", method).Str("resource", resource).Msg("Reading retry response body")
+		// Update log context with new status code
+		logCtx = logCtx.With("status_code", response.StatusCode)
+		errors.LogDebugWithContext(logCtx, "Retry request completed")
+
+		errors.LogDebugWithContext(logCtx, "Reading retry response body")
 		body, err = io.ReadAll(response.Body)
 		if err != nil {
-			log.Error().Str("method", method).Str("resource", resource).Err(err).Msg("Error reading retry response body")
-			return nil, fmt.Errorf("error reading retry response body: %v", err)
+			readErr := errors.Wrap(err, "error reading retry response body")
+			errors.LogErrorWithContext(readErr, logCtx, "Error reading retry response body")
+			return nil, readErr
 		}
-		log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Successfully read retry response body")
+
+		// Update log context with body size
+		logCtx = logCtx.With("body_size", len(body))
+		errors.LogDebugWithContext(logCtx, "Successfully read retry response body")
 
 		if err := response.Body.Close(); err != nil {
-			log.Warn().Err(err).Str("method", method).Str("resource", resource).Msg("Error closing retry response body")
+			errors.LogWarnWithContext(err, logCtx, "Error closing retry response body")
 		}
 	}
 
 	if response.StatusCode >= 400 {
 		// something was wrong with the request
-		log.Debug().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).Msg("Request failed with error status code")
+		errors.LogDebugWithContext(logCtx, "Request failed with error status code")
 		var err graphError
 		unmarshalErr := json.Unmarshal(body, &err)
 		if unmarshalErr != nil {
-			log.Error().Str("method", method).Str("resource", resource).Err(unmarshalErr).Msg("Failed to unmarshal error response")
-			return nil, fmt.Errorf("HTTP %d - failed to parse error response: %v",
-				response.StatusCode, unmarshalErr)
+			parseErr := errors.Wrap(unmarshalErr, fmt.Sprintf("HTTP %d - failed to parse error response", response.StatusCode))
+			errors.LogErrorWithContext(parseErr, logCtx, "Failed to unmarshal error response")
+			return nil, parseErr
 		}
-		log.Error().Str("method", method).Str("resource", resource).Int("statusCode", response.StatusCode).
-			Str("errorCode", err.Error.Code).Str("errorMessage", err.Error.Message).
-			Msg("Request failed with API error")
-		return nil, fmt.Errorf("HTTP %d - %s: %s",
-			response.StatusCode, err.Error.Code, err.Error.Message)
+
+		// Update log context with error details
+		logCtx = logCtx.With("error_code", err.Error.Code).With("error_message", err.Error.Message)
+		errors.LogErrorWithContext(nil, logCtx, "Request failed with API error")
+
+		// Create appropriate error type based on status code
+		errorMsg := fmt.Sprintf("%s: %s", err.Error.Code, err.Error.Message)
+		var apiErr error
+
+		switch {
+		case response.StatusCode == 404:
+			apiErr = errors.NewNotFoundError(errorMsg, nil)
+		case response.StatusCode == 401 || response.StatusCode == 403:
+			apiErr = errors.NewAuthError(errorMsg, nil)
+		case response.StatusCode == 400:
+			apiErr = errors.NewValidationError(errorMsg, nil)
+		case response.StatusCode == 429:
+			apiErr = errors.NewResourceBusyError(errorMsg, nil)
+		case response.StatusCode >= 500:
+			apiErr = errors.NewOperationError(errorMsg, nil)
+		default:
+			apiErr = errors.New(fmt.Sprintf("HTTP %d - %s", response.StatusCode, errorMsg))
+		}
+
+		errors.LogErrorWithContext(apiErr, logCtx, "Returning API error")
+		return nil, apiErr
 	}
-	log.Debug().Str("method", method).Str("resource", resource).Int("bodySize", len(body)).Msg("Request completed successfully")
+	errors.LogDebugWithContext(logCtx, "Request completed successfully")
 	return body, nil
 }
 

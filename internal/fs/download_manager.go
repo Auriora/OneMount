@@ -7,12 +7,12 @@ package fs
 // OneDrive cloud file sync in the background, except when waiting for a file or folder to download.
 
 import (
-	"errors"
 	"io"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/rs/zerolog/log"
 )
@@ -101,7 +101,9 @@ func (dm *DownloadManager) processDownload(id string) {
 	dm.mutex.RUnlock()
 
 	if !exists {
-		log.Error().Str("id", id).Msg("Download session not found")
+		errors.LogError(errors.New("download session not found"), "Failed to process download", 
+			errors.FieldOperation, "processDownload",
+			errors.FieldID, id)
 		return
 	}
 
@@ -114,7 +116,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	// Get the inode
 	inode := dm.fs.GetID(id)
 	if inode == nil {
-		err := errors.New("inode not found")
+		err := errors.NewNotFoundError("inode not found", nil)
 		dm.setSessionError(session, err)
 		return
 	}
@@ -141,7 +143,9 @@ func (dm *DownloadManager) processDownload(id string) {
 	}
 	defer func() {
 		if err := dm.fs.content.Delete(tempID); err != nil {
-			log.Error().Err(err).Str("tempID", tempID).Msg("Failed to delete temporary file")
+			errors.LogError(err, "Failed to delete temporary file", 
+				errors.FieldOperation, "processDownload.cleanup",
+				"tempID", tempID)
 		}
 	}()
 
@@ -154,7 +158,7 @@ func (dm *DownloadManager) processDownload(id string) {
 
 	// Verify checksum
 	if !inode.VerifyChecksum(graph.QuickXORHashStream(temp)) {
-		err := errors.New("checksum verification failed")
+		err := errors.NewValidationError("checksum verification failed", nil)
 		dm.setSessionError(session, err)
 		return
 	}
@@ -221,11 +225,10 @@ func (dm *DownloadManager) setSessionError(session *DownloadSession, err error) 
 	// Update file status
 	dm.fs.MarkFileError(session.ID, err)
 
-	log.Error().
-		Str("id", session.ID).
-		Str("path", session.Path).
-		Err(err).
-		Msg("File download failed")
+	errors.LogError(err, "File download failed", 
+		errors.FieldOperation, "setSessionError",
+		errors.FieldID, session.ID,
+		errors.FieldPath, session.Path)
 }
 
 // QueueDownload adds a file to the download queue
@@ -243,7 +246,7 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 	// Get the inode to get the path
 	inode := dm.fs.GetID(id)
 	if inode == nil {
-		return nil, errors.New("inode not found")
+		return nil, errors.NewNotFoundError("inode not found", nil)
 	}
 
 	path := inode.Path()
@@ -272,7 +275,7 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 		dm.mutex.Lock()
 		delete(dm.sessions, id)
 		dm.mutex.Unlock()
-		return nil, errors.New("download queue is full")
+		return nil, errors.NewResourceBusyError("download queue is full", nil)
 	}
 
 	return session, nil
@@ -285,7 +288,7 @@ func (dm *DownloadManager) GetDownloadStatus(id string) (DownloadState, error) {
 	dm.mutex.RUnlock()
 
 	if !exists {
-		return 0, errors.New("download session not found")
+		return 0, errors.NewNotFoundError("download session not found", nil)
 	}
 
 	session.mutex.RLock()
@@ -303,7 +306,7 @@ func (dm *DownloadManager) WaitForDownload(id string) error {
 		dm.mutex.RUnlock()
 
 		if !exists {
-			return errors.New("download session not found")
+			return errors.NewNotFoundError("download session not found", nil)
 		}
 
 		session.mutex.RLock()
@@ -356,7 +359,7 @@ func copyBuffer(dst, src *os.File) (int64, error) {
 			if nw < 0 || nr < nw {
 				nw = 0
 				if err == nil {
-					err = errors.New("invalid write result")
+					err = errors.NewOperationError("invalid write result", nil)
 				}
 			}
 			written += int64(nw)
@@ -364,7 +367,7 @@ func copyBuffer(dst, src *os.File) (int64, error) {
 				return written, err
 			}
 			if nr != nw {
-				return written, errors.New("short write")
+				return written, errors.NewOperationError("short write", nil)
 			}
 		}
 		if err != nil {
