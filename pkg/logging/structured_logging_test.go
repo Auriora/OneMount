@@ -3,6 +3,7 @@ package logging
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -124,14 +125,14 @@ func TestUT_SL_03_01_LogErrorWithContext_IncludesErrorAndContext(t *testing.T) {
 	assert.Equal(t, "test_method", entry["method"])
 }
 
-// TestUT_SL_03_02_LogErrorWithContext_WithTypedError_IncludesErrorType tests LogErrorWithContext with a typed error
-func TestUT_SL_03_02_LogErrorWithContext_WithTypedError_IncludesErrorType(t *testing.T) {
+// TestUT_SL_03_02_LogErrorWithContext_WithCustomError_IncludesErrorMessage tests LogErrorWithContext with a custom error
+func TestUT_SL_03_02_LogErrorWithContext_WithCustomError_IncludesErrorMessage(t *testing.T) {
 	// Set up a test logger
 	buf, cleanup := setupTestLogger()
 	defer cleanup()
 
-	// Create a typed error
-	err := NewNotFoundError("resource not found", nil)
+	// Create a custom error
+	err := fmt.Errorf("resource not found: %w", errors.New("not found error"))
 
 	// Create a log context
 	ctx := NewLogContext("test_operation")
@@ -143,13 +144,11 @@ func TestUT_SL_03_02_LogErrorWithContext_WithTypedError_IncludesErrorType(t *tes
 	entry, err := parseLogEntry(buf)
 	assert.NoError(t, err)
 
-	// Verify that the error type is included in the log entry
+	// Verify that the error message is included in the log entry
 	assert.Equal(t, "error", entry["level"])
 	assert.Equal(t, "error occurred", entry["message"])
-	assert.Contains(t, entry["error"].(string), "NotFoundError")
 	assert.Contains(t, entry["error"].(string), "resource not found")
-	assert.Equal(t, "NotFoundError", entry["error_type"])
-	assert.Equal(t, float64(404), entry["status_code"])
+	assert.Contains(t, entry["error"].(string), "not found error")
 }
 
 // TestUT_SL_04_01_LogWarnWithContext_IncludesErrorAndContext tests the LogWarnWithContext function
@@ -233,7 +232,7 @@ func TestUT_SL_06_01_WrapAndLogWithContext_WrapsAndLogsError(t *testing.T) {
 	// Verify that the error was wrapped
 	assert.Contains(t, wrappedErr.Error(), "wrapped error")
 	assert.Contains(t, wrappedErr.Error(), "original error")
-	assert.True(t, Is(wrappedErr, originalErr))
+	assert.True(t, errors.Is(wrappedErr, originalErr))
 }
 
 // TestUT_SL_07_01_LogAndReturnWithContext_LogsAndReturnsError tests the LogAndReturnWithContext function
@@ -286,5 +285,5 @@ func TestUT_SL_08_01_EnrichErrorWithContext_AddsContextToError(t *testing.T) {
 	assert.Contains(t, enrichedErr.Error(), "original error")
 
 	// Verify that the original error is preserved in the error chain
-	assert.True(t, Is(enrichedErr, originalErr))
+	assert.True(t, errors.Is(enrichedErr, originalErr))
 }

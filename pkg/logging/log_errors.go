@@ -2,7 +2,6 @@ package logging
 
 import (
 	"fmt"
-	"github.com/auriora/onemount/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -64,7 +63,7 @@ func LogErrorAndReturn(err error, msg string, fields ...interface{}) error {
 		return nil
 	}
 
-	errors.LogError(err, msg, fields...)
+	LogError(err, msg, fields...)
 	return err
 }
 
@@ -106,5 +105,5 @@ func FormatErrorWithContext(err error, msg string, fields ...interface{}) error 
 	}
 
 	// Return a new error with the formatted message and the original error
-	return errors.Wrap(err, formattedMsg)
+	return fmt.Errorf("%s: %w", formattedMsg, err)
 }

@@ -3,7 +3,7 @@
 package logging
 
 import (
-	"github.com/auriora/onemount/pkg/errors"
+	"fmt"
 )
 
 // Note: Field constants are now defined in constants.go
@@ -21,14 +21,6 @@ func LogWarnWithContext(err error, ctx LogContext, msg string) {
 
 	// Create the warning event
 	event := logger.Warn().Err(err)
-
-	// Add error type information if it's a TypedError
-	var typedErr *errors.TypedError
-	if errors.As(err, &typedErr) {
-		event = event.
-			Str("error_type", typedErr.Type.String()).
-			Int("status_code", typedErr.StatusCode)
-	}
 
 	// Log the message
 	event.Msg(msg)
@@ -67,7 +59,7 @@ func WrapAndLogWithContext(err error, ctx LogContext, msg string) error {
 		return nil
 	}
 
-	wrapped := errors.Wrap(err, msg)
+	wrapped := fmt.Errorf("%s: %w", msg, err)
 	LogErrorWithContext(wrapped, ctx, msg)
 	return wrapped
 }
@@ -107,5 +99,5 @@ func EnrichErrorWithContext(err error, ctx LogContext, msg string) error {
 		contextMsg += " (path: " + ctx.Path + ")"
 	}
 
-	return errors.Wrap(err, contextMsg)
+	return fmt.Errorf("%s: %w", contextMsg, err)
 }

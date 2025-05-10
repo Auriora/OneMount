@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/auriora/onemount/pkg/logging"
 	"os"

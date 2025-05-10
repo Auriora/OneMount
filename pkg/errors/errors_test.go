@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,7 +70,7 @@ func TestUT_ER_03_01_WrapAndLog_WithMessage_WrapsAndLogsError(t *testing.T) {
 	originalErr := New("original error")
 
 	// Wrap and log the error
-	wrappedErr := WrapAndLog(originalErr, "context message", "field1", "value1")
+	wrappedErr := logging.WrapAndLog(originalErr, "context message", "field1", "value1")
 
 	// Verify that the wrapped error contains both the context and the original error
 	assert.Contains(t, wrappedErr.Error(), "context message")
