@@ -232,9 +232,9 @@ RunTableTests(t, tests, func(t *testing.T, test TableTest) (interface{}, error) 
     if len(input) != 2 {
         return nil, errors.New("input must be a slice of 2 integers")
     }
-    
+
     a, b := input[0], input[1]
-    
+
     switch test.Name {
     case "Addition":
         return a + b, nil
@@ -666,7 +666,7 @@ func TestMyFunction(t *testing.T) {
             WithFunc(func() error {
                 mock := testutil.NewMock(t, "my-mock")
                 mock.On("method1").WithArgs("arg1").ReturnError(errors.New("network error"))
-                
+
                 result := MyFunction("arg1", mock)
                 if result != "error-result" {
                     return errors.New("expected error-result, got " + result)
@@ -692,7 +692,7 @@ func TestMyFunction(t *testing.T) {
     testutil.RunTableTests(t, tests, func(t *testing.T, test testutil.TableTest) (interface{}, error) {
         mock := testutil.NewMock(t, "my-mock")
         mock.On("method1").WithArgs(test.Input.(string)).Return(test.Input.(string) + "-result")
-        
+
         return MyFunction(test.Input.(string), mock), nil
     })
 }
@@ -783,7 +783,7 @@ func TestWithBothFrameworks(t *testing.T) {
 
 ## Related Documentation
 
-- [Testing Framework Guide](testing-framework-guide.md)
-- [Mock Providers](../components/mock-providers-guide.md)
+- Testing Framework (see code comments in `pkg/testutil/framework/framework.go`)
+- Mock Providers (see code comments in `pkg/testutil/mock/` directory)
 - [Integration Testing](integration-testing-guide.md)
 - [Testing Troubleshooting](../testing-troubleshooting.md)

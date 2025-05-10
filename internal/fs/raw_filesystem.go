@@ -9,12 +9,12 @@ import (
 // that adds support for the POLL opcode.
 type CustomRawFileSystem struct {
 	fuse.RawFileSystem
-	fs *Filesystem
+	fs FilesystemInterface
 }
 
 // NewCustomRawFileSystem creates a new CustomRawFileSystem that wraps the default
 // RawFileSystem implementation and adds support for the POLL opcode.
-func NewCustomRawFileSystem(fs *Filesystem) *CustomRawFileSystem {
+func NewCustomRawFileSystem(fs FilesystemInterface) *CustomRawFileSystem {
 	return &CustomRawFileSystem{
 		RawFileSystem: fuse.NewDefaultRawFileSystem(),
 		fs:            fs,

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/auriora/onemount/internal/fs"
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

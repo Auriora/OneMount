@@ -12,13 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/internal/common/errors"
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/errors"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 )
-
-// DownloadState represents the state of a download
-type DownloadState int
 
 const (
 	// downloadQueued indicates the download is queued but not started
@@ -101,7 +98,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	dm.mutex.RUnlock()
 
 	if !exists {
-		errors.LogError(errors.New("download session not found"), "Failed to process download", 
+		errors.LogError(errors.New("download session not found"), "Failed to process download",
 			errors.FieldOperation, "processDownload",
 			errors.FieldID, id)
 		return
@@ -128,6 +125,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	})
 
 	// Get file content
+	// Access content field directly
 	fd, err := dm.fs.content.Open(id)
 	if err != nil {
 		dm.setSessionError(session, err)
@@ -143,7 +141,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	}
 	defer func() {
 		if err := dm.fs.content.Delete(tempID); err != nil {
-			errors.LogError(err, "Failed to delete temporary file", 
+			errors.LogError(err, "Failed to delete temporary file",
 				errors.FieldOperation, "processDownload.cleanup",
 				"tempID", tempID)
 		}
@@ -225,7 +223,7 @@ func (dm *DownloadManager) setSessionError(session *DownloadSession, err error) 
 	// Update file status
 	dm.fs.MarkFileError(session.ID, err)
 
-	errors.LogError(err, "File download failed", 
+	errors.LogError(err, "File download failed",
 		errors.FieldOperation, "setSessionError",
 		errors.FieldID, session.ID,
 		errors.FieldPath, session.Path)

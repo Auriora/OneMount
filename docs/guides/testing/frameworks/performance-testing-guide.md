@@ -362,7 +362,7 @@ For more detailed troubleshooting information, see the [Testing Troubleshooting 
 - [Load Testing Framework](load-testing-guide.md): Framework for load testing
 - [Integration Testing Guide](integration-testing-guide.md): Guide for integration testing
 - [System Testing Framework](system-testing-guide.md): Framework for system testing
-- [Network Simulator](../components/network-simulator-guide.md): Network condition simulation
-- [Mock Providers](../components/mock-providers-guide.md): Mock implementations of system components
-- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
+- Network Simulator (see code comments in `pkg/testutil/framework/network_simulator.go`): Network condition simulation
+- Mock Providers (see code comments in `pkg/testutil/mock/` directory): Mock implementations of system components
+- Testing Framework (see code comments in `pkg/testutil/framework/framework.go`): Core test configuration and execution
 - [Test Guidelines](../test-guidelines.md): General testing guidelines

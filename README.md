@@ -3,7 +3,7 @@
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/auriora/OneMount)](https://go.dev/)
 ![Status: Alpha](https://img.shields.io/badge/Status-Alpha-yellow.svg)
 
-![OneMount](configs/resources/OneMount-Logo-64.png)
+![OneMount](assets/icons/OneMount-Logo-64.png)
 
 # OneMount
 

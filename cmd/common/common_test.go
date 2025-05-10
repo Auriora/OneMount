@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/pkg/testutil/framework"
 	"os"
 	"testing"
 )

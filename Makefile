@@ -1,8 +1,8 @@
 .PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
 
 # autocalculate software/package versions
-VERSION := $(shell grep Version scripts/onemount.spec | sed 's/Version: *//g')
-RELEASE := $(shell grep -oP "Release: *[0-9]+" scripts/onemount.spec | sed 's/Release: *//g')
+VERSION := $(shell grep Version build/package/rpm/onemount.spec | sed 's/Version: *//g')
+RELEASE := $(shell grep -oP "Release: *[0-9]+" build/package/rpm/onemount.spec | sed 's/Release: *//g')
 DIST := $(shell rpm --eval "%{?dist}" 2> /dev/null || echo 1)
 RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 
@@ -21,8 +21,8 @@ TEST_TIMEOUT := 5m
 all: onemount onemount-launcher
 
 
-onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
-	bash scripts/cgo-helper.sh
+onemount: $(shell find internal/fs/ pkg/ -type f) cmd/onemount/main.go
+	bash build/dev/cgo-helper.sh
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount \
@@ -30,14 +30,14 @@ onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
 		./cmd/onemount
 
 
-onemount-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onemount/main.go
+onemount-headless: $(shell find internal/fs/ cmd/common/ pkg/ -type f) cmd/onemount/main.go
 	CGO_ENABLED=0 go build -v \
 		-o $(OUTPUT_DIR)/onemount/onemount-headless \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
 
 
-onemount-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onemount-launcher/main.go
+onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemount-launcher/main.go
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount-launcher \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
@@ -125,7 +125,7 @@ onemount_$(VERSION)-$(RELEASE)_amd64.deb: onemount_$(VERSION)-$(RELEASE).dsc
 clean:
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit
 	rm -f *.log *.fa *.gz *.test vgcore.* onemount onemount-headless onemount-launcher .auth_tokens.json
-	rm -rf util-linux-*/ onemount-*/ vendor/ build/
+	rm -rf util-linux-*/ onemount-*/ vendor/
 
 
 # Run all tests
@@ -138,8 +138,8 @@ unit-test:
 
 # Run integration tests
 integration-test:
-	go test -v ./internal/testutil/integration_test_env_test.go -timeout $(TEST_TIMEOUT)
+	go test -v ./pkg/testutil/integration_test_env_test.go -timeout $(TEST_TIMEOUT)
 
 # Run system tests
 system-test:
-	go test -v ./internal/testutil/system_test_env_test.go -timeout $(TEST_TIMEOUT)
+	go test -v ./pkg/testutil/system_test_env_test.go -timeout $(TEST_TIMEOUT)

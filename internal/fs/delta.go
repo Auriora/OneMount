@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )

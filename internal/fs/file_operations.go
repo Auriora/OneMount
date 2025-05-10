@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auriora/onemount/internal/common/errors"
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/errors"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
 )
@@ -329,7 +329,7 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 
 	fd, err := f.content.Open(id)
 	if err != nil {
-		errors.LogError(err, "Cache Open() failed", 
+		errors.LogError(err, "Cache Open() failed",
 			errors.FieldOperation, "Read",
 			errors.FieldID, id,
 			errors.FieldPath, path)
@@ -385,7 +385,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 
 	fd, err := f.content.Open(id)
 	if err != nil {
-		errors.LogError(err, "Cache Open() failed", 
+		errors.LogError(err, "Cache Open() failed",
 			errors.FieldOperation, "Write",
 			errors.FieldID, id,
 			errors.FieldPath, inode.Path())
@@ -396,7 +396,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 	n, err := fd.WriteAt(data, int64(offset))
 	if err != nil {
 		inode.Unlock()
-		errors.LogError(err, "Error during write", 
+		errors.LogError(err, "Error during write",
 			errors.FieldOperation, "Write",
 			errors.FieldID, id,
 			errors.FieldPath, inode.Path(),
@@ -443,13 +443,13 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 		inode.DriveItem.File = &graph.File{}
 		fd, err := f.content.Open(id)
 		if err != nil {
-			errors.LogError(err, "Could not get fd", 
+			errors.LogError(err, "Could not get fd",
 				errors.FieldOperation, "Fsync",
 				errors.FieldID, id,
 				errors.FieldPath, inode.Path())
 		} else {
 			if err := fd.Sync(); err != nil {
-				errors.LogError(err, "Failed to sync file to disk", 
+				errors.LogError(err, "Failed to sync file to disk",
 					errors.FieldOperation, "Fsync",
 					errors.FieldID, id,
 					errors.FieldPath, inode.Path())

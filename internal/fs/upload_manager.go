@@ -13,28 +13,69 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
-
-const maxUploadsInFlight = 5
-
-var bucketUploads = []byte("uploads")
 
 // UploadState represents the state of an upload
 type UploadState int
 
 const (
-	// uploadNotStarted indicates the upload is queued but not started
-	uploadNotStartedState UploadState = iota
-	// uploadStarted indicates the upload is in progress
-	uploadStartedState
-	// uploadCompleted indicates the upload completed successfully
-	uploadCompletedState
-	// uploadErrored indicates the upload failed
-	uploadErroredState
+	// UploadNotStarted indicates the upload is queued but not started
+	UploadNotStartedState UploadState = iota
+	// UploadStarted indicates the upload is in progress
+	UploadStartedState
+	// UploadCompleted indicates the upload completed successfully
+	UploadCompletedState
+	// UploadErrored indicates the upload failed
+	UploadErroredState
 )
+
+// UploadPriority defines the priority level for uploads
+type UploadPriority int
+
+const (
+	// PriorityLow is for background tasks
+	PriorityLow UploadPriority = iota
+	// PriorityHigh is for mount point requests
+	PriorityHigh
+)
+
+// UploadSessionInterface defines the interface for an upload session
+type UploadSessionInterface interface {
+	// Add methods as needed
+}
+
+// UploadManagerInterface defines the interface for the upload manager
+// that is used by other packages. This interface is implemented by the
+// UploadManager type in the upload package.
+type UploadManagerInterface interface {
+	// Queue an upload with default priority
+	QueueUpload(inode *Inode) (UploadSessionInterface, error)
+
+	// Queue an upload with specified priority
+	QueueUploadWithPriority(inode *Inode, priority UploadPriority) (UploadSessionInterface, error)
+
+	// Cancel an upload
+	CancelUpload(id string)
+
+	// Get an upload session
+	GetSession(id string) (UploadSessionInterface, bool)
+
+	// Get the status of an upload
+	GetUploadStatus(id string) (UploadState, error)
+
+	// Wait for an upload to complete
+	WaitForUpload(id string) error
+
+	// Stop the upload manager
+	Stop()
+}
+
+const maxUploadsInFlight = 5
+
+var bucketUploads = []byte("uploads")
 
 // UploadManager is used to manage and retry uploads.
 //
@@ -56,7 +97,7 @@ type UploadManager struct {
 	pendingLowPriorityUploads  map[string]bool           // Track uploads queued but not yet processed by uploadLoop
 	inFlight                   uint8                     // number of sessions in flight
 	auth                       *graph.Auth
-	fs                         *Filesystem
+	fs                         FilesystemInterface
 	db                         *bolt.DB
 	mutex                      sync.RWMutex
 	stopChan                   chan struct{}
@@ -65,18 +106,8 @@ type UploadManager struct {
 	uploadCounter map[string]int
 }
 
-// UploadPriority defines the priority level for uploads
-type UploadPriority int
-
-const (
-	// PriorityLow is for background tasks
-	PriorityLow UploadPriority = iota
-	// PriorityHigh is for mount point requests
-	PriorityHigh
-)
-
 // NewUploadManager creates a new queue/thread for uploads
-func NewUploadManager(duration time.Duration, db *bolt.DB, fs *Filesystem, auth *graph.Auth) *UploadManager {
+func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterface, auth *graph.Auth) *UploadManager {
 	manager := UploadManager{
 		highPriorityQueue:          make(chan *UploadSession),
 		lowPriorityQueue:           make(chan *UploadSession),
@@ -308,7 +339,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 						})
 
 						// Update file status attributes
-						u.fs.updateFileStatus(inode)
+						u.fs.UpdateFileStatus(inode)
 					}
 
 					// the old ID is the one that was used to add it to the queue.
@@ -341,7 +372,7 @@ func (u *UploadManager) QueueUpload(inode *Inode) (*UploadSession, error) {
 // by the uploadLoop. This allows WaitForUpload to detect sessions that have been
 // queued but not yet processed.
 func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPriority) (*UploadSession, error) {
-	data := u.fs.getInodeContent(inode)
+	data := u.fs.GetInodeContent(inode)
 	session, err := NewUploadSession(inode, data)
 	if err != nil {
 		return nil, err
@@ -487,13 +518,13 @@ func (u *UploadManager) GetUploadStatus(id string) (UploadState, error) {
 	state := session.getState()
 	switch state {
 	case uploadNotStarted:
-		return uploadNotStartedState, nil
+		return UploadNotStartedState, nil
 	case uploadStarted:
-		return uploadStartedState, nil
+		return UploadStartedState, nil
 	case uploadComplete:
-		return uploadCompletedState, nil
+		return UploadCompletedState, nil
 	case uploadErrored:
-		return uploadErroredState, nil
+		return UploadErroredState, nil
 	default:
 		return 0, errors.New("unknown upload state")
 	}
@@ -598,7 +629,7 @@ func (u *UploadManager) WaitForUpload(id string) error {
 				inode.Unlock()
 
 				// Update file status attributes
-				u.fs.updateFileStatus(inode)
+				u.fs.UpdateFileStatus(inode)
 			}
 
 			return nil

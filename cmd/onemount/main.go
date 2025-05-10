@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/cmd/common"
-	"github.com/auriora/onemount/internal/common/errors"
 	"github.com/auriora/onemount/internal/fs"
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/errors"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog"

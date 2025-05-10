@@ -6,46 +6,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
-
-// Inode represents a file or folder in the onemount filesystem.
-// It wraps a DriveItem from the Microsoft Graph API and adds filesystem-specific
-// metadata and functionality. The Inode struct is thread-safe, with all methods
-// properly handling concurrent access through its embedded RWMutex.
-//
-// The embedded DriveItem's fields should never be accessed directly, as they are
-// not safe for concurrent access. Instead, use the provided methods to access
-// and modify the Inode's properties.
-//
-// Reads and writes are performed directly on DriveItems rather than implementing
-// a separate file handle interface to minimize the complexity of operations like
-// Flush. All modifications to the Inode are tracked and synchronized with OneDrive
-// when appropriate.
-type Inode struct {
-	sync.RWMutex                      // Protects access to all fields
-	graph.DriveItem                   // The underlying OneDrive item
-	nodeID          uint64            // Filesystem node ID used by the kernel
-	children        []string          // Slice of child item IDs, nil when uninitialized
-	hasChanges      bool              // Flag to trigger an upload on flush
-	subdir          uint32            // Number of subdirectories, used by NLink()
-	mode            uint32            // File mode/permissions, do not set manually
-	xattrs          map[string][]byte // Extended attributes
-}
-
-// SerializeableInode is like a Inode, but can be serialized for local storage
-// to disk
-type SerializeableInode struct {
-	graph.DriveItem
-	Children []string
-	Subdir   uint32
-	Mode     uint32
-	Xattrs   map[string][]byte
-}
 
 // NewInode creates a new Inode with the specified name, mode, and parent.
 // This constructor is typically used when creating new files or directories
@@ -326,4 +291,202 @@ func (i *Inode) Size() uint64 {
 // Octal converts a number to its octal representation in string form.
 func Octal(i uint32) string {
 	return strconv.FormatUint(uint64(i), 8)
+}
+
+// GetName returns the name of the Inode.
+func (i *Inode) GetName() string {
+	i.RLock()
+	defer i.RUnlock()
+	return i.DriveItem.Name
+}
+
+// GetNodeID returns the filesystem node ID of the Inode.
+func (i *Inode) GetNodeID() uint64 {
+	i.RLock()
+	defer i.RUnlock()
+	return i.nodeID
+}
+
+// RandString generates a random string of the specified length.
+func RandString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+// LocalID generates a local ID for a new Inode.
+func LocalID() string {
+	return "local-" + RandString(16)
+}
+
+// IsLocalID returns true if the ID is a local ID.
+func IsLocalID(id string) bool {
+	return strings.HasPrefix(id, "local-")
+}
+
+// GetID returns the ID of the Inode.
+func (i *Inode) GetID() string {
+	i.RLock()
+	defer i.RUnlock()
+	return i.DriveItem.ID
+}
+
+// GetParentID returns the ID of the parent Inode.
+func (i *Inode) GetParentID() string {
+	i.RLock()
+	defer i.RUnlock()
+	if i.DriveItem.Parent == nil {
+		return ""
+	}
+	return i.DriveItem.Parent.ID
+}
+
+// GetPath returns the path of the Inode.
+func (i *Inode) GetPath() string {
+	i.RLock()
+	defer i.RUnlock()
+	if i.DriveItem.Parent == nil {
+		return "/"
+	}
+	if i.DriveItem.Parent.Path == "" {
+		return "/" + i.DriveItem.Name
+	}
+	return i.DriveItem.Parent.Path + "/" + i.DriveItem.Name
+}
+
+// SetHasChanges sets whether the Inode has changes that need to be uploaded.
+func (i *Inode) SetHasChanges(hasChanges bool) {
+	i.Lock()
+	defer i.Unlock()
+	i.hasChanges = hasChanges
+}
+
+// GetChildren returns the children of the Inode.
+func (i *Inode) GetChildren() []string {
+	i.RLock()
+	defer i.RUnlock()
+	return i.children
+}
+
+// SetChildren sets the children of the Inode.
+func (i *Inode) SetChildren(children []string) {
+	i.Lock()
+	defer i.Unlock()
+	i.children = children
+}
+
+// AddChild adds a child to the Inode.
+func (i *Inode) AddChild(child string) {
+	i.Lock()
+	defer i.Unlock()
+	i.children = append(i.children, child)
+}
+
+// MakeAttr creates a fuse.Attr from the Inode.
+func (i *Inode) MakeAttr() fuse.Attr {
+	i.RLock()
+	defer i.RUnlock()
+	attr := fuse.Attr{
+		Ino:  i.nodeID,
+		Mode: i.mode,
+	}
+	attr.Size = i.DriveItem.Size
+	if i.DriveItem.ModTime != nil {
+		attr.Mtime = uint64(i.DriveItem.ModTime.Unix())
+	}
+	attr.Nlink = i.GetNLink()
+	return attr
+}
+
+// GetMode returns the mode of the Inode.
+func (i *Inode) GetMode() uint32 {
+	i.RLock()
+	defer i.RUnlock()
+	if i.mode != 0 {
+		return i.mode
+	}
+	if i.DriveItem.Folder != nil {
+		return uint32(os.ModeDir) | 0755
+	}
+	return 0644
+}
+
+// SetMode sets the mode of the Inode.
+func (i *Inode) SetMode(mode uint32) {
+	i.Lock()
+	defer i.Unlock()
+	i.mode = mode
+}
+
+// GetModTime returns the modification time of the Inode.
+func (i *Inode) GetModTime() uint64 {
+	i.RLock()
+	defer i.RUnlock()
+	if i.DriveItem.ModTime != nil {
+		return uint64(i.DriveItem.ModTime.Unix())
+	}
+	return 0
+}
+
+// GetNLink returns the number of hard links to the Inode.
+func (i *Inode) GetNLink() uint32 {
+	i.RLock()
+	defer i.RUnlock()
+	if i.IsDir() {
+		return 2 + i.subdir
+	}
+	return 1
+}
+
+// GetSubdir returns the number of subdirectories of the Inode.
+func (i *Inode) GetSubdir() uint32 {
+	i.RLock()
+	defer i.RUnlock()
+	return i.subdir
+}
+
+// SetSubdir sets the number of subdirectories of the Inode.
+func (i *Inode) SetSubdir(subdir uint32) {
+	i.Lock()
+	defer i.Unlock()
+	i.subdir = subdir
+}
+
+// GetSize returns the size of the Inode.
+func (i *Inode) GetSize() uint64 {
+	i.RLock()
+	defer i.RUnlock()
+	return i.DriveItem.Size
+}
+
+// GetXattrs returns the extended attributes of the Inode.
+func (i *Inode) GetXattrs() map[string][]byte {
+	i.RLock()
+	defer i.RUnlock()
+	return i.xattrs
+}
+
+// SetXattr sets an extended attribute of the Inode.
+func (i *Inode) SetXattr(name string, value []byte) {
+	i.Lock()
+	defer i.Unlock()
+	i.xattrs[name] = value
+}
+
+// GetXattr gets an extended attribute of the Inode.
+func (i *Inode) GetXattr(name string) ([]byte, bool) {
+	i.RLock()
+	defer i.RUnlock()
+	value, ok := i.xattrs[name]
+	return value, ok
+}
+
+// RemoveXattr removes an extended attribute of the Inode.
+func (i *Inode) RemoveXattr(name string) {
+	i.Lock()
+	defer i.Unlock()
+	delete(i.xattrs, name)
 }

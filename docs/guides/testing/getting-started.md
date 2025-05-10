@@ -109,7 +109,7 @@ framework.SetNetworkConditions(100*time.Millisecond, 0.1, 1000)
 framework.DisconnectNetwork()
 ```
 
-For detailed documentation, see [Network Simulator](components/network-simulator-guide.md).
+For detailed documentation, see the code comments in `pkg/testutil/framework/network_simulator.go`.
 
 #### MockProviders
 
@@ -127,7 +127,7 @@ mockGraph.AddMockResponse("/me/drive/root", &graph.DriveItem{
 })
 ```
 
-For detailed documentation, see [Mock Providers](components/mock-providers-guide.md).
+For detailed documentation, see the code comments in `pkg/testutil/mock/mock_graph.go`, `pkg/testutil/mock/mock_filesystem.go`, and `pkg/testutil/mock/mock_ui.go`.
 
 #### IntegrationTestEnvironment
 
@@ -225,6 +225,6 @@ If you encounter issues while using the test framework, check the [Troubleshooti
 - [Performance Testing Guide](frameworks/performance-testing-guide.md)
 - [Load Testing Guide](frameworks/load-testing-guide.md)
 - [Security Testing Guide](frameworks/security-testing-guide.md)
-- [Network Simulator](components/network-simulator-guide.md)
-- [Mock Providers](components/mock-providers-guide.md)
+- Network Simulator (see code comments in `pkg/testutil/framework/network_simulator.go`)
+- Mock Providers (see code comments in `pkg/testutil/mock/` directory)
 - [System Testing Guide](frameworks/system-testing-guide.md)

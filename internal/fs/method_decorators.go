@@ -1,8 +1,9 @@
 package fs
 
 import (
-	"bytes"
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/pkg/util"
 	"runtime"
 	"time"
 
@@ -28,14 +29,14 @@ func LogMethodCall() (string, time.Time) {
 	}
 
 	// Get the current goroutine ID
-	goroutineID := getCurrentGoroutineID()
+	goroutineID := util.GetCurrentGoroutineID()
 
 	// Log method entry
 	log.Debug().
-		Str(FieldMethod, methodName).
-		Str(FieldPhase, PhaseEntry).
-		Str(FieldGoroutine, goroutineID).
-		Msg(MsgMethodCalled)
+		Str(logging.FieldMethod, methodName).
+		Str(logging.FieldPhase, logging.PhaseEntry).
+		Str(logging.FieldGoroutine, goroutineID).
+		Msg(logging.MsgMethodCalled)
 
 	return methodName, time.Now()
 }
@@ -46,37 +47,37 @@ func LogMethodReturn(methodName string, startTime time.Time, returns ...interfac
 	duration := time.Since(startTime)
 
 	// Get the current goroutine ID
-	goroutineID := getCurrentGoroutineID()
+	goroutineID := util.GetCurrentGoroutineID()
 
 	// Create log event
 	event := log.Debug().
-		Str(FieldMethod, methodName).
-		Str(FieldPhase, PhaseExit).
-		Str(FieldGoroutine, goroutineID).
-		Dur(FieldDuration, duration)
+		Str(logging.FieldMethod, methodName).
+		Str(logging.FieldPhase, logging.PhaseExit).
+		Str(logging.FieldGoroutine, goroutineID).
+		Dur(logging.FieldDuration, duration)
 
 	// Log return values if any
 	for i, ret := range returns {
 		if ret == nil {
-			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
+			event = event.Interface(logging.FieldReturn+fmt.Sprintf("%d", i+1), nil)
 		} else {
 			// Special handling for Inode objects to prevent race conditions during JSON serialization
 			if inode, ok := ret.(*Inode); ok {
 				// Only log the ID and name instead of the entire object
 				if inode != nil {
-					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1)+".id", inode.ID()).
-						Str(FieldReturn+fmt.Sprintf("%d", i+1)+".name", inode.Name()).
-						Bool(FieldReturn+fmt.Sprintf("%d", i+1)+".isDir", inode.IsDir())
+					event = event.Str(logging.FieldReturn+fmt.Sprintf("%d", i+1)+".id", inode.ID()).
+						Str(logging.FieldReturn+fmt.Sprintf("%d", i+1)+".name", inode.Name()).
+						Bool(logging.FieldReturn+fmt.Sprintf("%d", i+1)+".isDir", inode.IsDir())
 				} else {
-					event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
+					event = event.Interface(logging.FieldReturn+fmt.Sprintf("%d", i+1), nil)
 				}
 			} else {
-				event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+				event = event.Interface(logging.FieldReturn+fmt.Sprintf("%d", i+1), ret)
 			}
 		}
 	}
 
-	event.Msg(MsgMethodCompleted)
+	event.Msg(logging.MsgMethodCompleted)
 }
 
 // lastIndexDot returns the last index of '.' in the string
@@ -87,29 +88,6 @@ func lastIndexDot(s string) int {
 		}
 	}
 	return -1
-}
-
-// getCurrentGoroutineID returns the ID of the current goroutine
-func getCurrentGoroutineID() string {
-	buf := make([]byte, 64)
-	n := runtime.Stack(buf, false)
-	// The format of the first line is "goroutine N [state]:"
-	// where N is the goroutine ID
-	buf = buf[:n]
-
-	// Find the first space (after "goroutine")
-	idStart := bytes.IndexByte(buf, ' ') + 1
-	if idStart <= 0 {
-		return "unknown"
-	}
-
-	// Find the next space or '[' (before "[state]:")
-	idEnd := bytes.IndexAny(buf[idStart:], " [")
-	if idEnd <= 0 {
-		return "unknown"
-	}
-
-	return string(buf[idStart : idStart+idEnd])
 }
 
 // FilesystemMethodsToInstrument returns a list of public methods in the Filesystem struct

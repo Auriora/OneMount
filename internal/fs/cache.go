@@ -4,73 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/auriora/onemount/internal/common/errors"
-	"github.com/auriora/onemount/internal/fs/graph"
-	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/auriora/onemount/pkg/errors"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
-
-// Filesystem is the actual FUSE filesystem implementation for onemount.
-// It provides a native Linux filesystem for Microsoft OneDrive using the
-// "low-level" FUSE API (https://github.com/libfuse/libfuse/blob/master/include/fuse_lowlevel.h).
-// The Filesystem handles file operations, caching, synchronization with OneDrive,
-// and offline mode functionality.
-type Filesystem struct {
-	fuse.RawFileSystem // Implements the base FUSE filesystem interface
-
-	metadata             sync.Map        // In-memory cache of filesystem metadata
-	db                   *bolt.DB        // Persistent database for filesystem state
-	content              *LoopbackCache  // Cache for file contents
-	thumbnails           *ThumbnailCache // Cache for file thumbnails
-	auth                 *graph.Auth     // Authentication for Microsoft Graph API
-	root                 string          // The ID of the filesystem's root item
-	deltaLink            string          // Link for incremental synchronization with OneDrive
-	subscribeChangesLink string
-	uploads              *UploadManager   // Manages file uploads to OneDrive
-	downloads            *DownloadManager // Manages file downloads from OneDrive
-
-	// Root context for all operations
-	ctx    context.Context    // Root context for all operations
-	cancel context.CancelFunc // Function to cancel the root context
-	Wg     sync.WaitGroup     // Wait group for all goroutines
-
-	// Cache cleanup configuration
-	cacheExpirationDays  int            // Number of days after which cached files expire
-	cacheCleanupStop     chan struct{}  // Channel to signal cache cleanup to stop
-	cacheCleanupStopOnce sync.Once      // Ensures cleanup is stopped only once
-	cacheCleanupWg       sync.WaitGroup // Wait group for cache cleanup goroutine
-
-	// DeltaLoop stop channel and context
-	deltaLoopStop     chan struct{}      // Channel to signal delta loop to stop
-	deltaLoopWg       sync.WaitGroup     // Wait group for delta loop goroutine
-	deltaLoopStopOnce sync.Once          // Ensures delta loop is stopped only once
-	deltaLoopCtx      context.Context    // Context for delta loop cancellation
-	deltaLoopCancel   context.CancelFunc // Function to cancel delta loop context
-
-	sync.RWMutex          // Mutex for filesystem state
-	offline      bool     // Whether the filesystem is in offline mode
-	lastNodeID   uint64   // Last assigned node ID
-	inodes       []string // List of inode IDs
-
-	// Tracks currently open directories
-	opendirsM sync.RWMutex        // Mutex for open directories map
-	opendirs  map[uint64][]*Inode // Map of open directories by node ID
-
-	// Track file statuses
-	statusM  sync.RWMutex              // Mutex for file statuses map
-	statuses map[string]FileStatusInfo // Map of file statuses by ID
-
-	// D-Bus server for file status updates
-	dbusServer *FileStatusDBusServer
-}
 
 // boltdb buckets
 var (
@@ -385,7 +330,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 			item, err := graph.Mkdir(trash, fs.root, auth)
 			if err != nil {
 				log.Error().Err(err).
-					Msg("Could not create trash folder. " +
+					Msg("Could not create the trash folder. " +
 						"Trashing items through the file browser may result in errors.")
 			} else {
 				fs.InsertID(item.ID, NewInodeDriveItem(item))
@@ -469,13 +414,13 @@ func (f *Filesystem) ProcessOfflineChanges() {
 // This allows the operation to be cancelled if the filesystem is being shut down
 func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 	// Create a logging context
-	ctx := LogContext{
+	ctx := logging.LogContext{
 		Operation: "process_offline_changes",
 	}
 
 	// Log method entry with context
-	methodName, startTime, logger, ctx := LogMethodCallWithContext("ProcessOfflineChangesWithContext", ctx)
-	defer LogMethodReturnWithContext(methodName, startTime, logger, ctx)
+	methodName, startTime, logger, ctx := logging.LogMethodCallWithContext("ProcessOfflineChangesWithContext", ctx)
+	defer logging.LogMethodReturnWithContext(methodName, startTime, logger, ctx)
 
 	logger.Info().Msg("Processing offline changes...")
 
@@ -512,11 +457,11 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 			return nil
 		})
 	}); err != nil {
-		if err == context.Canceled || err == context.DeadlineExceeded {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			logger.Debug().Msg("Processing offline changes cancelled due to context cancellation")
 			return
 		}
-		LogErrorWithContext(err, ctx, "Failed to read offline changes from database")
+		logging.LogErrorWithContext(err, ctx, "Failed to read offline changes from database")
 		return
 	}
 
@@ -548,16 +493,16 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 			if inode := f.GetIDWithContext(change.ID, ctx); inode != nil {
 				_, err := f.uploads.QueueUploadWithPriority(inode, PriorityLow)
 				if err != nil {
-					LogErrorWithContext(err, ctx, "Failed to queue upload for offline change",
-						FieldID, change.ID)
+					logging.LogErrorWithContext(err, ctx, "Failed to queue upload for offline change",
+						logging.FieldID, change.ID)
 				}
 			}
 		case "delete":
 			// Handle deletion
 			if !isLocalID(change.ID) {
 				if err := graph.Remove(change.ID, f.auth); err != nil {
-					LogErrorWithContext(err, ctx, "Failed to remove item during offline change processing",
-						FieldID, change.ID)
+					logging.LogErrorWithContext(err, ctx, "Failed to remove item during offline change processing",
+						logging.FieldID, change.ID)
 				}
 			}
 		case "rename":
@@ -576,8 +521,8 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 
 					if oldParent != nil && newParent != nil {
 						if err := f.MovePath(oldParent.ID(), newParent.ID(), oldName, newName, f.auth); err != nil {
-							LogErrorWithContext(err, ctx, "Failed to move item during offline change processing",
-								FieldID, change.ID,
+							logging.LogErrorWithContext(err, ctx, "Failed to move item during offline change processing",
+								logging.FieldID, change.ID,
 								"oldPath", change.OldPath,
 								"newPath", change.NewPath)
 						}
@@ -603,12 +548,12 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 			key := []byte(fmt.Sprintf("%s-%d", change.ID, change.Timestamp.UnixNano()))
 			return b.Delete(key)
 		}); err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				logger.Debug().Msg("Removing processed offline change cancelled due to context cancellation")
 				return
 			}
-			LogErrorWithContext(err, ctx, "Failed to remove processed offline change from database",
-				FieldID, change.ID,
+			logging.LogErrorWithContext(err, ctx, "Failed to remove processed offline change from database",
+				logging.FieldID, change.ID,
 				"timestamp", change.Timestamp)
 		}
 	}
@@ -728,15 +673,15 @@ func (f *Filesystem) GetID(id string) *Inode {
 // Returns:
 //   - The Inode if found in memory or database
 //   - nil if the item is not found in the cache
-func (f *Filesystem) GetIDWithContext(id string, ctx LogContext) *Inode {
+func (f *Filesystem) GetIDWithContext(id string, ctx logging.LogContext) *Inode {
 	// Log method entry with context
-	methodName, startTime, logger, ctx := LogMethodCallWithContext("GetIDWithContext", ctx)
+	methodName, startTime, logger, ctx := logging.LogMethodCallWithContext("GetIDWithContext", ctx)
 
 	// Call the regular GetID method
 	result := f.GetID(id)
 
 	// Log method exit with context
-	defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, result)
+	defer logging.LogMethodReturnWithContext(methodName, startTime, logger, ctx, result)
 	return result
 }
 
@@ -1334,8 +1279,7 @@ func (f *Filesystem) SerializeAll() {
 	}
 }
 
-// NewFilesystemWithoutContext is a backward-compatible version of NewFilesystem that creates a context internally.
-// This function is provided for backward compatibility with existing tests and should not be used in new code.
+// NewFilesystem is provided for backward compatibility with existing tests and should not be used in new code.
 //
 // Parameters:
 //   - auth: Authentication information for Microsoft Graph API

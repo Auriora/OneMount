@@ -4,8 +4,8 @@
     <working_directory value="$PROJECT_DIR$/" />
     <root_directory value="$PROJECT_DIR$" />
     <kind value="DIRECTORY" />
-    <package value="github.com/auriora/onemount/internal/testutil" />
-    <directory value="$PROJECT_DIR$/internal/testutil" />
+    <package value="github.com/auriora/onemount/pkg/testutil" />
+    <directory value="$PROJECT_DIR$/pkg/testutil" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
     <method v="2">

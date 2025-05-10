@@ -4,7 +4,6 @@ compile_flags.txt
 .commit
 .date
 mount/
-build/
 tmp/
 *.json
 *.bak
@@ -31,7 +30,6 @@ onemount-launcher
 onemount-*/
 !cmd/onemount-launcher
 !cmd/onemount
-vendor/
 
 # rpm build stuff
 *.rpm

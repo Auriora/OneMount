@@ -15,9 +15,9 @@ import (
 	"unsafe"
 
 	"github.com/auriora/onemount/cmd/common"
-	"github.com/auriora/onemount/internal/fs/graph"
 	"github.com/auriora/onemount/internal/ui"
 	"github.com/auriora/onemount/internal/ui/systemd"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"

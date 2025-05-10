@@ -699,10 +699,10 @@ For more detailed troubleshooting information, see the [Testing Troubleshooting 
 
 ## Related Resources
 
-- [Testing Framework Guide](testing-framework-guide.md): Core test configuration and execution
+- Testing Framework (see code comments in `pkg/testutil/framework/framework.go`): Core test configuration and execution
 - [Integration Testing Guide](integration-testing-guide.md): Guide for integration testing
-- [Network Simulator](../components/network-simulator-guide.md): Network condition simulation for security testing
-- [Mock Providers](../components/mock-providers-guide.md): Mock implementations of system components
+- Network Simulator (see code comments in `pkg/testutil/framework/network_simulator.go`): Network condition simulation for security testing
+- Mock Providers (see code comments in `pkg/testutil/mock/` directory): Mock implementations of system components
 - [Performance Testing Framework](performance-testing-guide.md): Performance testing utilities
 - [Load Testing Framework](load-testing-guide.md): Load testing utilities
 - [Test Guidelines](../test-guidelines.md): General testing guidelines

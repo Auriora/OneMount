@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 )
 
@@ -16,6 +16,12 @@ func (f *Filesystem) getInodeContent(i *Inode) *[]byte {
 	defer i.RUnlock()
 	data := f.content.Get(i.DriveItem.ID)
 	return &data
+}
+
+// GetInodeContent returns the content of an inode.
+// This method is part of the FilesystemInterface.
+func (f *Filesystem) GetInodeContent(i *Inode) *[]byte {
+	return f.getInodeContent(i)
 }
 
 // remoteID uploads a file to obtain a Onedrive ID if it doesn't already

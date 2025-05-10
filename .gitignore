@@ -4,7 +4,6 @@ compile_flags.txt
 .commit
 .date
 mount/
-build/
 tmp/
 *.bak
 *.log*
@@ -29,7 +28,6 @@ onemount-launcher
 onemount-*/
 !cmd/onemount-launcher
 !cmd/onemount
-vendor/
 
 # rpm build stuff
 *.rpm
@@ -56,6 +54,4 @@ debian/files
 __pycache__
 .auth_tokens.json
 !README.*.md
-test-sandbox/
-test-artifacts/
-/.output.txt
+.output.txt

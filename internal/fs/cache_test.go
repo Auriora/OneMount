@@ -1,11 +1,11 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/auriora/onemount/pkg/testutil/framework"
+	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"testing"
 
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 )
 
 // TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly tests various cache operations.

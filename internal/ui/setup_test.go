@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/auriora/onemount/internal/testutil"
-	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/auriora/onemount/pkg/testutil"
+	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"

@@ -2,7 +2,6 @@ package fs
 
 import (
 	"context"
-
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 

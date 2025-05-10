@@ -3,12 +3,12 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/auriora/onemount/pkg/testutil/framework"
+	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/internal/fs/graph"
+	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 )
 
