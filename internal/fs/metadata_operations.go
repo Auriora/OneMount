@@ -1,10 +1,10 @@
 package fs
 
 import (
+	"github.com/auriora/onemount/pkg/logging"
 	"math"
 	"path/filepath"
 
-	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
@@ -115,19 +115,19 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 			Msg("")
 		fd, err := f.content.Open(i.DriveItem.ID)
 		if err != nil {
-			errors.LogError(err, "Failed to open file for truncation",
-				errors.FieldID, i.DriveItem.ID,
-				errors.FieldOperation, "SetAttr.truncate",
-				errors.FieldPath, path)
+			logging.LogError(err, "Failed to open file for truncation",
+				logging.FieldID, i.DriveItem.ID,
+				logging.FieldOperation, "SetAttr.truncate",
+				logging.FieldPath, path)
 			i.Unlock()
 			return fuse.EIO
 		}
 		// the unix syscall does not update the seek position, so neither should we
 		if err := fd.Truncate(int64(size)); err != nil {
-			errors.LogError(err, "Failed to truncate file",
-				errors.FieldID, i.DriveItem.ID,
-				errors.FieldOperation, "SetAttr.truncate",
-				errors.FieldPath, path,
+			logging.LogError(err, "Failed to truncate file",
+				logging.FieldID, i.DriveItem.ID,
+				logging.FieldOperation, "SetAttr.truncate",
+				logging.FieldPath, path,
 				"size", size)
 			i.Unlock()
 			return fuse.EIO
@@ -182,11 +182,11 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 
 	if isLocalID(id) || err != nil {
 		// uploads will fail without an id
-		errors.LogError(err, "ID of item to move cannot be local and we failed to obtain an ID",
-			errors.FieldOperation, "Rename",
-			errors.FieldPath, path,
+		logging.LogError(err, "ID of item to move cannot be local and we failed to obtain an ID",
+			logging.FieldOperation, "Rename",
+			logging.FieldPath, path,
 			"dest", dest,
-			errors.FieldID, id)
+			logging.FieldID, id)
 		return fuse.EREMOTEIO
 	}
 
@@ -202,10 +202,10 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 
 		// Remove the existing file
 		if err = graph.Remove(existingChild.ID(), f.auth); err != nil {
-			errors.LogError(err, "Failed to remove existing file at destination",
-				errors.FieldOperation, "Rename.removeExisting",
-				errors.FieldID, existingChild.ID(),
-				errors.FieldPath, dest)
+			logging.LogError(err, "Failed to remove existing file at destination",
+				logging.FieldOperation, "Rename.removeExisting",
+				logging.FieldID, existingChild.ID(),
+				logging.FieldPath, dest)
 			return fuse.EREMOTEIO
 		}
 
@@ -215,10 +215,10 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 
 	// perform remote rename
 	if err = graph.Rename(id, newName, newParentID, f.auth); err != nil {
-		errors.LogError(err, "Failed to rename remote item",
-			errors.FieldOperation, "Rename.remoteRename",
-			errors.FieldID, id,
-			errors.FieldPath, path,
+		logging.LogError(err, "Failed to rename remote item",
+			logging.FieldOperation, "Rename.remoteRename",
+			logging.FieldID, id,
+			logging.FieldPath, path,
 			"dest", dest,
 			"newName", newName,
 			"newParentID", newParentID)
@@ -227,10 +227,10 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 
 	// now rename local copy
 	if err = f.MovePath(oldParentID, newParentID, name, newName, f.auth); err != nil {
-		errors.LogError(err, "Failed to rename local item",
-			errors.FieldOperation, "Rename.localRename",
-			errors.FieldID, id,
-			errors.FieldPath, path,
+		logging.LogError(err, "Failed to rename local item",
+			logging.FieldOperation, "Rename.localRename",
+			logging.FieldID, id,
+			logging.FieldPath, path,
 			"dest", dest,
 			"oldParentID", oldParentID,
 			"newParentID", newParentID,

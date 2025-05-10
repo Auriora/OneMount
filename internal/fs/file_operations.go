@@ -2,12 +2,12 @@ package fs
 
 import (
 	"context"
+	"github.com/auriora/onemount/pkg/logging"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/rs/zerolog/log"
@@ -329,10 +329,10 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 
 	fd, err := f.content.Open(id)
 	if err != nil {
-		errors.LogError(err, "Cache Open() failed",
-			errors.FieldOperation, "Read",
-			errors.FieldID, id,
-			errors.FieldPath, path)
+		logging.LogError(err, "Cache Open() failed",
+			logging.FieldOperation, "Read",
+			logging.FieldID, id,
+			logging.FieldPath, path)
 		return fuse.ReadResultData(make([]byte, 0)), fuse.EIO
 	}
 
@@ -385,10 +385,10 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 
 	fd, err := f.content.Open(id)
 	if err != nil {
-		errors.LogError(err, "Cache Open() failed",
-			errors.FieldOperation, "Write",
-			errors.FieldID, id,
-			errors.FieldPath, inode.Path())
+		logging.LogError(err, "Cache Open() failed",
+			logging.FieldOperation, "Write",
+			logging.FieldID, id,
+			logging.FieldPath, inode.Path())
 		return 0, fuse.EIO
 	}
 
@@ -396,10 +396,10 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 	n, err := fd.WriteAt(data, int64(offset))
 	if err != nil {
 		inode.Unlock()
-		errors.LogError(err, "Error during write",
-			errors.FieldOperation, "Write",
-			errors.FieldID, id,
-			errors.FieldPath, inode.Path(),
+		logging.LogError(err, "Error during write",
+			logging.FieldOperation, "Write",
+			logging.FieldID, id,
+			logging.FieldPath, inode.Path(),
 			"offset", offset,
 			"size", nWrite)
 		return uint32(n), fuse.EIO
@@ -443,16 +443,16 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 		inode.DriveItem.File = &graph.File{}
 		fd, err := f.content.Open(id)
 		if err != nil {
-			errors.LogError(err, "Could not get fd",
-				errors.FieldOperation, "Fsync",
-				errors.FieldID, id,
-				errors.FieldPath, inode.Path())
+			logging.LogError(err, "Could not get fd",
+				logging.FieldOperation, "Fsync",
+				logging.FieldID, id,
+				logging.FieldPath, inode.Path())
 		} else {
 			if err := fd.Sync(); err != nil {
-				errors.LogError(err, "Failed to sync file to disk",
-					errors.FieldOperation, "Fsync",
-					errors.FieldID, id,
-					errors.FieldPath, inode.Path())
+				logging.LogError(err, "Failed to sync file to disk",
+					logging.FieldOperation, "Fsync",
+					logging.FieldID, id,
+					logging.FieldPath, inode.Path())
 			}
 		}
 		inode.DriveItem.File.Hashes.QuickXorHash = graph.QuickXORHashStream(fd)

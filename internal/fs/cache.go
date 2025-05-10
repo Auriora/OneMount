@@ -3,16 +3,15 @@ package fs
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/auriora/onemount/pkg/logging"
+	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
@@ -58,9 +57,9 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
-			errors.LogError(err, "Could not create cache directory",
-				errors.FieldOperation, "NewFilesystem",
-				errors.FieldPath, cacheDir)
+			logging.LogError(err, "Could not create cache directory",
+				logging.FieldOperation, "NewFilesystem",
+				logging.FieldPath, cacheDir)
 			return nil, errors.Wrap(err, "could not create cache directory")
 		}
 	}
@@ -123,9 +122,9 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 		// If this is the last attempt, don't wait
 		if attempt == maxRetries-1 {
-			errors.LogError(err, "Could not open DB after multiple attempts",
-				errors.FieldOperation, "NewFilesystem",
-				errors.FieldPath, dbPath,
+			logging.LogError(err, "Could not open DB after multiple attempts",
+				logging.FieldOperation, "NewFilesystem",
+				logging.FieldPath, dbPath,
 				"attempts", maxRetries)
 			return nil, errors.Wrap(err, "could not open DB (is it already in use by another mount?)")
 		}
@@ -137,9 +136,9 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 	// If we still have an error after all retries, return it
 	if err != nil {
-		errors.LogError(err, "Could not open DB",
-			errors.FieldOperation, "NewFilesystem",
-			errors.FieldPath, dbPath)
+		logging.LogError(err, "Could not open DB",
+			logging.FieldOperation, "NewFilesystem",
+			logging.FieldPath, dbPath)
 		return nil, errors.Wrap(err, "could not open DB (is it already in use by another mount?)")
 	}
 
@@ -158,17 +157,17 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 	// Create content directory
 	if err := os.MkdirAll(contentDir, 0700); err != nil {
-		errors.LogError(err, "Could not create content cache directory",
-			errors.FieldOperation, "NewFilesystem",
-			errors.FieldPath, contentDir)
+		logging.LogError(err, "Could not create content cache directory",
+			logging.FieldOperation, "NewFilesystem",
+			logging.FieldPath, contentDir)
 		return nil, errors.Wrap(err, "could not create content cache directory")
 	}
 
 	// Create thumbnail directory
 	if err := os.MkdirAll(thumbnailDir, 0700); err != nil {
-		errors.LogError(err, "Could not create thumbnail cache directory",
-			errors.FieldOperation, "NewFilesystem",
-			errors.FieldPath, thumbnailDir)
+		logging.LogError(err, "Could not create thumbnail cache directory",
+			logging.FieldOperation, "NewFilesystem",
+			logging.FieldPath, thumbnailDir)
 		return nil, errors.Wrap(err, "could not create thumbnail cache directory")
 	}
 
@@ -300,17 +299,17 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 				}
 				return nil
 			}); viewErr != nil {
-				errors.LogError(viewErr, "Failed to read delta link from database",
-					errors.FieldOperation, "NewFilesystem",
-					errors.FieldPath, dbPath)
+				logging.LogError(viewErr, "Failed to read delta link from database",
+					logging.FieldOperation, "NewFilesystem",
+					logging.FieldPath, dbPath)
 				return nil, errors.Wrap(viewErr, "failed to read delta link from database")
 			}
 			if deltaLinkErr != nil {
 				return nil, deltaLinkErr
 			}
 		} else {
-			errors.LogError(err, "Could not fetch root item of filesystem",
-				errors.FieldOperation, "NewFilesystem")
+			logging.LogError(err, "Could not fetch root item of filesystem",
+				logging.FieldOperation, "NewFilesystem")
 			return nil, errors.Wrap(err, "could not fetch root item of filesystem")
 		}
 	}
@@ -1063,9 +1062,9 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 		return nil
 	}
 	if err := f.content.Move(oldID, newID); err != nil {
-		errors.LogError(err, "Failed to move file content",
-			errors.FieldOperation, "MoveID",
-			errors.FieldID, oldID,
+		logging.LogError(err, "Failed to move file content",
+			logging.FieldOperation, "MoveID",
+			logging.FieldID, oldID,
 			"newID", newID)
 		return errors.Wrap(err, "failed to move file content")
 	}

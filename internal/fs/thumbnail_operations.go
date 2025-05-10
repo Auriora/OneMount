@@ -2,6 +2,7 @@ package fs
 
 import (
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"os"
 	"path/filepath"
@@ -49,10 +50,10 @@ func (f *Filesystem) GetThumbnail(path string, size string) ([]byte, error) {
 
 	// Cache the thumbnail
 	if err := f.thumbnails.Insert(inode.ID(), size, thumbnailData); err != nil {
-		errors.LogError(err, "Failed to cache thumbnail",
-			errors.FieldID, inode.ID(),
+		logging.LogError(err, "Failed to cache thumbnail",
+			logging.FieldID, inode.ID(),
 			"size", size,
-			errors.FieldOperation, "GetThumbnail")
+			logging.FieldOperation, "GetThumbnail")
 	}
 
 	return thumbnailData, nil
@@ -86,10 +87,10 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		}
 		defer func() {
 			if closeErr := f.thumbnails.Close(inode.ID(), size); closeErr != nil {
-				errors.LogError(closeErr, "Failed to close cached thumbnail file",
-					errors.FieldID, inode.ID(),
+				logging.LogError(closeErr, "Failed to close cached thumbnail file",
+					logging.FieldID, inode.ID(),
 					"size", size,
-					errors.FieldOperation, "GetThumbnailStream")
+					logging.FieldOperation, "GetThumbnailStream")
 			}
 		}()
 
@@ -128,28 +129,28 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		// Create a temporary file to store the thumbnail
 		tempFile, err := os.CreateTemp("", "onemount-thumbnail-*")
 		if err != nil {
-			errors.LogError(err, "Failed to create temporary file for thumbnail caching",
-				errors.FieldID, inode.ID(),
+			logging.LogError(err, "Failed to create temporary file for thumbnail caching",
+				logging.FieldID, inode.ID(),
 				"size", size,
-				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+				logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 		defer func() {
 			if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
-				errors.LogError(removeErr, "Failed to remove temporary thumbnail file",
-					errors.FieldPath, tempFile.Name(),
-					errors.FieldID, inode.ID(),
+				logging.LogError(removeErr, "Failed to remove temporary thumbnail file",
+					logging.FieldPath, tempFile.Name(),
+					logging.FieldID, inode.ID(),
 					"size", size,
-					errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+					logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			}
 		}()
 		defer func() {
 			if closeErr := tempFile.Close(); closeErr != nil {
-				errors.LogError(closeErr, "Failed to close temporary thumbnail file",
-					errors.FieldPath, tempFile.Name(),
-					errors.FieldID, inode.ID(),
+				logging.LogError(closeErr, "Failed to close temporary thumbnail file",
+					logging.FieldPath, tempFile.Name(),
+					logging.FieldID, inode.ID(),
 					"size", size,
-					errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+					logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			}
 		}()
 
@@ -167,10 +168,10 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 
 		// Get the thumbnail again and write it to the temporary file
 		if err := graph.GetThumbnailContentStream(inode.ID(), size, f.auth, tempFile); err != nil {
-			errors.LogError(err, "Failed to download thumbnail for caching",
-				errors.FieldID, inode.ID(),
+			logging.LogError(err, "Failed to download thumbnail for caching",
+				logging.FieldID, inode.ID(),
 				"size", size,
-				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+				logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 
@@ -188,20 +189,20 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 
 		// Reset the file position to the beginning
 		if _, err := tempFile.Seek(0, 0); err != nil {
-			errors.LogError(err, "Failed to reset file position for thumbnail caching",
-				errors.FieldID, inode.ID(),
+			logging.LogError(err, "Failed to reset file position for thumbnail caching",
+				logging.FieldID, inode.ID(),
 				"size", size,
-				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+				logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 
 		// Read the thumbnail data
 		thumbnailData, err := io.ReadAll(tempFile)
 		if err != nil {
-			errors.LogError(err, "Failed to read thumbnail data for caching",
-				errors.FieldID, inode.ID(),
+			logging.LogError(err, "Failed to read thumbnail data for caching",
+				logging.FieldID, inode.ID(),
 				"size", size,
-				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+				logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 			return
 		}
 
@@ -219,10 +220,10 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 
 		// Cache the thumbnail
 		if err := f.thumbnails.Insert(inode.ID(), size, thumbnailData); err != nil {
-			errors.LogError(err, "Failed to cache thumbnail",
-				errors.FieldID, inode.ID(),
+			logging.LogError(err, "Failed to cache thumbnail",
+				logging.FieldID, inode.ID(),
 				"size", size,
-				errors.FieldOperation, "GetThumbnailStream.cacheInBackground")
+				logging.FieldOperation, "GetThumbnailStream.cacheInBackground")
 		}
 	}()
 

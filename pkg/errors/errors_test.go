@@ -83,7 +83,7 @@ func TestUT_ER_03_01_WrapAndLog_WithMessage_WrapsAndLogsError(t *testing.T) {
 // TestUT_ER_03_02_WrapAndLog_WithNilError_ReturnsNil tests the WrapAndLog function with a nil error.
 func TestUT_ER_03_02_WrapAndLog_WithNilError_ReturnsNil(t *testing.T) {
 	// Wrap and log a nil error
-	wrappedErr := WrapAndLog(nil, "context message", "field1", "value1")
+	wrappedErr := logging.WrapAndLog(nil, "context message", "field1", "value1")
 
 	// Verify that the result is nil
 	assert.Nil(t, wrappedErr)
@@ -95,7 +95,7 @@ func TestUT_ER_04_01_WrapfAndLog_WithFormattedMessage_WrapsAndLogsError(t *testi
 	originalErr := New("original error")
 
 	// Wrap and log the error with a formatted message
-	wrappedErr := WrapfAndLog(originalErr, "context message with %s", "parameter")
+	wrappedErr := logging.WrapfAndLog(originalErr, "context message with %s", "parameter")
 
 	// Verify that the wrapped error contains the formatted context and the original error
 	assert.Contains(t, wrappedErr.Error(), "context message with parameter")
@@ -108,7 +108,7 @@ func TestUT_ER_04_01_WrapfAndLog_WithFormattedMessage_WrapsAndLogsError(t *testi
 // TestUT_ER_04_02_WrapfAndLog_WithNilError_ReturnsNil tests the WrapfAndLog function with a nil error.
 func TestUT_ER_04_02_WrapfAndLog_WithNilError_ReturnsNil(t *testing.T) {
 	// Wrap and log a nil error with a formatted message
-	wrappedErr := WrapfAndLog(nil, "context message with %s", "parameter")
+	wrappedErr := logging.WrapfAndLog(nil, "context message with %s", "parameter")
 
 	// Verify that the result is nil
 	assert.Nil(t, wrappedErr)
@@ -120,7 +120,7 @@ func TestUT_ER_05_01_LogAndReturn_WithMessage_LogsAndReturnsError(t *testing.T) 
 	originalErr := New("original error")
 
 	// Log and return the error
-	returnedErr := LogAndReturn(originalErr, "error message", "field1", "value1")
+	returnedErr := logging.LogAndReturn(originalErr, "error message", "field1", "value1")
 
 	// Verify that the returned error is the original error
 	assert.Equal(t, originalErr, returnedErr)
@@ -129,7 +129,7 @@ func TestUT_ER_05_01_LogAndReturn_WithMessage_LogsAndReturnsError(t *testing.T) 
 // TestUT_ER_05_02_LogAndReturn_WithNilError_ReturnsNil tests the LogAndReturn function with a nil error.
 func TestUT_ER_05_02_LogAndReturn_WithNilError_ReturnsNil(t *testing.T) {
 	// Log and return a nil error
-	returnedErr := LogAndReturn(nil, "error message", "field1", "value1")
+	returnedErr := logging.LogAndReturn(nil, "error message", "field1", "value1")
 
 	// Verify that the result is nil
 	assert.Nil(t, returnedErr)

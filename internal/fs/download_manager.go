@@ -7,6 +7,7 @@ package fs
 // OneDrive cloud file sync in the background, except when waiting for a file or folder to download.
 
 import (
+	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"os"
 	"sync"
@@ -98,9 +99,9 @@ func (dm *DownloadManager) processDownload(id string) {
 	dm.mutex.RUnlock()
 
 	if !exists {
-		errors.LogError(errors.New("download session not found"), "Failed to process download",
-			errors.FieldOperation, "processDownload",
-			errors.FieldID, id)
+		logging.LogError(errors.New("download session not found"), "Failed to process download",
+			logging.FieldOperation, "processDownload",
+			logging.FieldID, id)
 		return
 	}
 
@@ -141,8 +142,8 @@ func (dm *DownloadManager) processDownload(id string) {
 	}
 	defer func() {
 		if err := dm.fs.content.Delete(tempID); err != nil {
-			errors.LogError(err, "Failed to delete temporary file",
-				errors.FieldOperation, "processDownload.cleanup",
+			logging.LogError(err, "Failed to delete temporary file",
+				logging.FieldOperation, "processDownload.cleanup",
 				"tempID", tempID)
 		}
 	}()
@@ -223,10 +224,10 @@ func (dm *DownloadManager) setSessionError(session *DownloadSession, err error) 
 	// Update file status
 	dm.fs.MarkFileError(session.ID, err)
 
-	errors.LogError(err, "File download failed",
-		errors.FieldOperation, "setSessionError",
-		errors.FieldID, session.ID,
-		errors.FieldPath, session.Path)
+	logging.LogError(err, "File download failed",
+		logging.FieldOperation, "setSessionError",
+		logging.FieldID, session.ID,
+		logging.FieldPath, session.Path)
 }
 
 // QueueDownload adds a file to the download queue
