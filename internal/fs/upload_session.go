@@ -338,10 +338,11 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 	} else if !remote.VerifyChecksum(u.QuickXORHash) {
 		return u.setState(uploadErrored, errors.NewValidationError("remote checksum did not match", nil))
 	}
-	// update the UploadSession's ID in the event that we exchange a local for a remote ID
+	// update the UploadSession's ID, ETag, and Size in the event that we exchange a local for a remote ID
 	u.Lock()
 	u.ID = remote.ID
 	u.ETag = remote.ETag
+	u.Size = remote.Size
 	u.Unlock()
 	return u.setState(uploadComplete, nil)
 }

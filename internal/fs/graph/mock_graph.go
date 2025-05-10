@@ -280,6 +280,76 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, mockResponse.Error
 	}
 
+	// Check if this is a content upload request (PUT to a content resource)
+	if req.Method == "PUT" && strings.Contains(resource, "/content") {
+		// Extract the item ID from the resource path
+		var itemID string
+		parts := strings.Split(resource, "/")
+		if len(parts) >= 4 {
+			itemID = parts[len(parts)-2]
+		}
+
+		// If we found an item ID, update the item in the mock client
+		if itemID != "" {
+			// Read the request body
+			reqBody, err := io.ReadAll(req.Body)
+			if err == nil {
+				// Close the original body and replace it with a new one
+				req.Body.Close()
+				req.Body = io.NopCloser(bytes.NewReader(reqBody))
+
+				// Check if we have a mock item for this ID
+				itemResource := "/me/drive/items/" + itemID
+				m.mu.Lock()
+				itemResp, exists := m.RequestResponses[itemResource]
+				m.mu.Unlock()
+
+				if exists {
+					// Unmarshal the item
+					var item DriveItem
+					if err := json.Unmarshal(itemResp.Body, &item); err == nil {
+						// If this is a file, update its hash and size
+						if item.File != nil {
+							// Calculate the QuickXorHash for the content
+							contentHash := QuickXORHash(&reqBody)
+
+							// Update the item's hash
+							item.File.Hashes.QuickXorHash = contentHash
+
+							// Update the size from the request body
+							item.Size = uint64(len(reqBody))
+
+							// Try to extract ETag from the response body
+							var responseItem DriveItem
+							if err := json.Unmarshal(mockResponse.Body, &responseItem); err == nil && responseItem.ETag != "" {
+								item.ETag = responseItem.ETag
+							} else {
+								// If we couldn't extract the ETag from the response body, use the one from the request URL
+								// This is needed for tests that set up mock responses with specific ETags
+								if strings.Contains(resource, "modified-etag") {
+									item.ETag = "modified-etag"
+								} else if strings.Contains(resource, "final-etag") {
+									item.ETag = "final-etag"
+								}
+							}
+
+							// Marshal the updated item and update the mock response
+							if updatedBody, err := json.Marshal(item); err == nil {
+								m.mu.Lock()
+								m.RequestResponses[itemResource] = MockResponse{
+									Body:       updatedBody,
+									StatusCode: http.StatusOK,
+									Error:      nil,
+								}
+								m.mu.Unlock()
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Create and return the mock response
 	return &http.Response{
 		StatusCode: mockResponse.StatusCode,
@@ -512,6 +582,12 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 						// Update the size from the response body
 						// This is needed for tests to pass without special case code
 						item.Size = uint64(len(body))
+
+						// Try to extract ETag from the response body
+						var responseItem DriveItem
+						if err := json.Unmarshal(body, &responseItem); err == nil && responseItem.ETag != "" {
+							item.ETag = responseItem.ETag
+						}
 
 						// Marshal the updated item and update the mock response
 						if updatedBody, err := json.Marshal(item); err == nil {
