@@ -65,9 +65,9 @@ func LogErrorWithFields(err error, msg string, fields map[string]interface{}) {
 	LogError(err, msg, fields)
 }
 
-// LogWarn logs a warning with additional fields.
+// LogErrorAsWarn logs an error as a warning with additional fields.
 // This is useful for logging potential issues that don't prevent the application from working.
-func LogWarn(err error, msg string, fields ...interface{}) {
+func LogErrorAsWarn(err error, msg string, fields ...interface{}) {
 	if err == nil {
 		return
 	}
@@ -88,10 +88,14 @@ func LogWarn(err error, msg string, fields ...interface{}) {
 	event.Msg(msg)
 }
 
-// LogWarnWithFields logs a warning with additional fields
+// LogErrorAsWarnWithFields logs an error as a warning with additional fields
 // This is useful for logging potential issues that don't prevent the application from working
-func LogWarnWithFields(msg string, fields map[string]interface{}) {
-	event := Warn()
+func LogErrorAsWarnWithFields(err error, msg string, fields map[string]interface{}) {
+	if err == nil {
+		return
+	}
+
+	event := Warn().Err(err)
 
 	for key, value := range fields {
 		event = event.Interface(key, value)
@@ -102,25 +106,9 @@ func LogWarnWithFields(msg string, fields map[string]interface{}) {
 
 // LogWarnWithError logs a warning with an error
 // This is useful for logging non-critical errors that don't prevent the application from working
+// Deprecated: Use LogErrorAsWarn instead, which has a more consistent naming convention.
 func LogWarnWithError(err error, msg string, fields ...interface{}) {
-	if err == nil {
-		return
-	}
-
-	event := Warn().Err(err)
-
-	// Add additional fields in pairs (key, value)
-	for i := 0; i < len(fields); i += 2 {
-		if i+1 < len(fields) {
-			key, ok := fields[i].(string)
-			if !ok {
-				continue
-			}
-			event = event.Interface(key, fields[i+1])
-		}
-	}
-
-	event.Msg(msg)
+	LogErrorAsWarn(err, msg, fields...)
 }
 
 // LogAndReturn logs an error and returns it.
@@ -214,15 +202,20 @@ func WrapAndLog(err error, msg string, fields ...interface{}) error {
 	return WrapAndLogError(err, msg, fields...)
 }
 
-// WrapfAndLog wraps an error with a formatted message, logs it, and returns the wrapped error.
-// Deprecated: Use WrapAndLogError with fmt.Sprintf for formatted messages.
-func WrapfAndLog(err error, format string, args ...interface{}) error {
+// WrapAndLogErrorf wraps an error with a formatted message, logs it, and returns the wrapped error.
+func WrapAndLogErrorf(err error, format string, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
 
 	msg := fmt.Sprintf(format, args...)
 	return WrapAndLogError(err, msg)
+}
+
+// WrapfAndLog wraps an error with a formatted message, logs it, and returns the wrapped error.
+// Deprecated: Use WrapAndLogErrorf instead, which has a more consistent naming convention.
+func WrapfAndLog(err error, format string, args ...interface{}) error {
+	return WrapAndLogErrorf(err, format, args...)
 }
 
 // WrapAndLogErrorWithContext wraps an error with a message, logs it with context, and returns the wrapped error.
