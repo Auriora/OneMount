@@ -21,16 +21,15 @@ override_dh_auto_build:
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
 		./cmd/onemount-launcher
-	gzip pkg/resources/onemount.1
+	gzip docs/man/onemount.1
 
 
 override_dh_auto_install:
 	install -D -m 0755 onemount $$(pwd)/debian/onemount/usr/bin/onemount
 	install -D -m 0755 onemount-launcher $$(pwd)/debian/onemount/usr/bin/onemount-launcher
-	install -D -m 0644 pkg/resources/onemount.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount.png
-	install -D -m 0644 pkg/resources/onemount-128.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount-128.png
-	install -D -m 0644 pkg/resources/OneMount-Logo.svg $$(pwd)/debian/onemount/usr/share/icons/onemount/OneMount-Logo.svg
-	install -D -m 0644 pkg/resources/onemount-launcher.desktop $$(pwd)/debian/onemount/usr/share/applications/onemount-launcher.desktop
-	install -D -m 0644 pkg/resources/onemount@.service $$(pwd)/debian/onemount/usr/lib/systemd/user/onemount@.service
-	install -D -m 0644 pkg/resources/onemount.1.gz $$(pwd)/debian/onemount/usr/share/man/man1/onemount.1.gz
-
+	install -D -m 0644 assets/icons/onemount.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount.png
+	install -D -m 0644 assets/icons/onemount-128.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount-128.png
+	install -D -m 0644 assets/icons/OneMount-Logo.svg $$(pwd)/debian/onemount/usr/share/icons/onemount/OneMount-Logo.svg
+	install -D -m 0644 deployments/desktop/onemount-launcher.desktop $$(pwd)/debian/onemount/usr/share/applications/onemount-launcher.desktop
+	install -D -m 0644 deployments/systemd/onemount@.service $$(pwd)/debian/onemount/usr/lib/systemd/user/onemount@.service
+	install -D -m 0644 docs/man/onemount.1.gz $$(pwd)/debian/onemount/usr/share/man/man1/onemount.1.gz

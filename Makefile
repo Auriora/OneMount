@@ -1,6 +1,6 @@
 .PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
 
-# autocalculate software/package versions
+# auto-calculate software/package versions
 VERSION := $(shell grep Version build/package/rpm/onemount.spec | sed 's/Version: *//g')
 RELEASE := $(shell grep -oP "Release: *[0-9]+" build/package/rpm/onemount.spec | sed 's/Release: *//g')
 DIST := $(shell rpm --eval "%{?dist}" 2> /dev/null || echo 1)
@@ -48,12 +48,12 @@ install: onemount onemount-launcher
 	cp $(OUTPUT_DIR)/onemount $HOME/.local/bin/
 	cp $(OUTPUT_DIR)/onemount-launcher $HOME/.local/bin/
 	mkdir -p $HOME/.local/share/icons/onemount/
-	cp configs/resources/OneMount-Logo.svg $HOME/.local/share/icons/onemount/
-	cp configs/resources/onemount.png $HOME/.local/share/icons/onemount/
-	cp configs/resources/onemount-128.png $HOME/.local/share/icons/onemount/
-	cp configs/resources/onemount-launcher.desktop $HOME/.local/share/applications/
-	cp configs/resources/onemount@.service /etc/systemd/user/
-	gzip -c configs/resources/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
+	cp assets/icons/OneMount-Logo.svg $HOME/.local/share/icons/onemount/
+	cp assets/icons/onemount.png $HOME/.local/share/icons/onemount/
+	cp assets/icons/onemount-128.png $HOME/.local/share/icons/onemount/
+	cp deplopyments/desktop/onemount-launcher.desktop $HOME/.local/share/applications/
+	cp deployments/systemd/onemount@.service /etc/systemd/user/
+	gzip -c doc/man/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
 	mandb
 
 

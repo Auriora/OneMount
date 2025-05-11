@@ -39,7 +39,7 @@ go build -v -mod=vendor $BUILD_TAGS \
 go build -v -mod=vendor $BUILD_TAGS \
   -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount-launcher
-gzip configs/resources/onemount.1
+gzip docs/man/onemount.1
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -50,12 +50,12 @@ mkdir -p %{buildroot}/usr/lib/systemd/user
 mkdir -p %{buildroot}/usr/share/man/man1
 cp %{name} %{buildroot}/%{_bindir}
 cp %{name}-launcher %{buildroot}/%{_bindir}
-cp configs/resources/%{name}.png %{buildroot}/usr/share/icons/%{name}
-cp configs/resources/%{name}-128.png %{buildroot}/usr/share/icons/%{name}
-cp configs/resources/%{name}.svg %{buildroot}/usr/share/icons/%{name}
-cp configs/resources/%{name}-launcher.desktop %{buildroot}/usr/share/applications
-cp configs/resources/%{name}@.service %{buildroot}/usr/lib/systemd/user
-cp configs/resources/%{name}.1.gz %{buildroot}/usr/share/man/man1
+cp assets/icons/%{name}.png %{buildroot}/usr/share/icons/%{name}
+cp deployments/%{name}-128.png %{buildroot}/usr/share/icons/%{name}
+cp deployments/%{name}.svg %{buildroot}/usr/share/icons/%{name}
+cp deployments/desktop/%{name}-launcher.desktop %{buildroot}/usr/share/applications
+cp deployments/systemd/%{name}@.service %{buildroot}/usr/lib/systemd/user
+cp docs/man/%{name}.1.gz %{buildroot}/usr/share/man/man1
 
 # fix for el8 build in mock
 %define _empty_manifest_terminate_build 0
