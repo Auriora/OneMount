@@ -1,3 +1,5 @@
+// Package logging provides standardized logging utilities for the OneMount project.
+// This file defines performance optimization utilities for logging.
 package logging
 
 import (

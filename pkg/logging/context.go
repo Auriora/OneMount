@@ -2,8 +2,6 @@
 // This file defines the LogContext struct and related methods for context-based logging.
 package logging
 
-import ()
-
 // LogContext represents a logging context that can be passed between functions
 type LogContext struct {
 	RequestID  string
@@ -89,6 +87,42 @@ func (lc LogContext) Logger() Logger {
 
 	// Add any additional fields
 	for k, v := range lc.Additional {
+		logger = logger.Interface(k, v)
+	}
+
+	return logger.Logger()
+}
+
+// WithLogContext creates a new Logger with the given context
+func WithLogContext(ctx LogContext) Logger {
+	logger := DefaultLogger.With()
+
+	if ctx.RequestID != "" {
+		logger = logger.Str("request_id", ctx.RequestID)
+	}
+
+	if ctx.UserID != "" {
+		logger = logger.Str(FieldUser, ctx.UserID)
+	}
+
+	if ctx.Operation != "" {
+		logger = logger.Str(FieldOperation, ctx.Operation)
+	}
+
+	if ctx.Component != "" {
+		logger = logger.Str(FieldComponent, ctx.Component)
+	}
+
+	if ctx.Method != "" {
+		logger = logger.Str(FieldMethod, ctx.Method)
+	}
+
+	if ctx.Path != "" {
+		logger = logger.Str(FieldPath, ctx.Path)
+	}
+
+	// Add any additional fields
+	for k, v := range ctx.Additional {
 		logger = logger.Interface(k, v)
 	}
 

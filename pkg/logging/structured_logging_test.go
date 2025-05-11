@@ -17,17 +17,20 @@ func setupTestLogger() (*bytes.Buffer, func()) {
 	// Create a buffer to capture log output
 	var buf bytes.Buffer
 
-	// Save the original logger
+	// Save the original loggers
 	originalLogger := log.Logger
+	originalDefaultLogger := DefaultLogger
 
 	// Create a new logger that writes to the buffer
 	logger := zerolog.New(&buf).With().Timestamp().Logger()
 	log.Logger = logger
+	DefaultLogger = Logger{zl: logger}
 
 	// Return the buffer and a cleanup function
 	return &buf, func() {
-		// Restore the original logger
+		// Restore the original loggers
 		log.Logger = originalLogger
+		DefaultLogger = originalDefaultLogger
 	}
 }
 

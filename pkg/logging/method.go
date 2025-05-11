@@ -1,7 +1,10 @@
+// Package logging provides standardized logging utilities for the OneMount project.
+// This file defines method logging functionality, both with and without context.
 package logging
 
 import (
 	"fmt"
+	"github.com/auriora/onemount/pkg/util"
 	"reflect"
 	"runtime"
 	"strings"
@@ -134,4 +137,57 @@ func LoggedMethod(f interface{}, args ...interface{}) []interface{} {
 	LogMethodExit(methodName, duration, returns...)
 
 	return returns
+}
+
+// LogMethodCallWithContext logs the entry of a method with context
+func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, Logger, LogContext) {
+	// Create a logger with the context
+	logger := WithLogContext(ctx)
+
+	// Get the current goroutine ID
+	goroutineID := util.GetCurrentGoroutineID()
+
+	// Log method entry
+	logger.Debug().
+		Str(FieldMethod, methodName).
+		Str(FieldPhase, PhaseEntry).
+		Str(FieldGoroutine, goroutineID).
+		Msg(MsgMethodCalled)
+
+	return methodName, time.Now(), logger, ctx
+}
+
+// LogMethodReturnWithContext logs the exit of a method with context
+func LogMethodReturnWithContext(methodName string, startTime time.Time, logger Logger, ctx LogContext, returns ...interface{}) {
+	duration := time.Since(startTime)
+
+	// Get the current goroutine ID
+	goroutineID := util.GetCurrentGoroutineID()
+
+	// Create log event
+	event := logger.Debug().
+		Str(FieldMethod, methodName).
+		Str(FieldPhase, PhaseExit).
+		Str(FieldGoroutine, goroutineID).
+		Dur(FieldDuration, duration)
+
+	// Log return values if any
+	for i, ret := range returns {
+		if ret == nil {
+			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
+		} else {
+			// TODO move this code into 'internal/fs' - package fs
+			// Special handling for Inode objects to prevent race conditions during JSON serialization
+			//if inodeInfo, ok := ret.(fs.InodeInfo); ok {
+			//	// Only log the ID and name instead of the entire object
+			//	event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1)+".id", inodeInfo.ID()).
+			//		Str(FieldReturn+fmt.Sprintf("%d", i+1)+".name", inodeInfo.Name()).
+			//		Bool(FieldReturn+fmt.Sprintf("%d", i+1)+".isDir", inodeInfo.IsDir())
+			//} else {
+			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+			//}
+		}
+	}
+
+	event.Msg(MsgMethodCompleted)
 }
