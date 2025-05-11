@@ -89,7 +89,7 @@ func (lc LogContext) Logger() Logger {
 	}
 
 	if lc.Method != "" {
-		logger = logger.Str(FieldMethod, lc.Method)
+		logger = logger.Str("method_name", lc.Method)
 	}
 
 	if lc.Path != "" {
@@ -125,7 +125,7 @@ func WithLogContext(ctx LogContext) Logger {
 	}
 
 	if ctx.Method != "" {
-		logger = logger.Str(FieldMethod, ctx.Method)
+		logger = logger.Str("method_name", ctx.Method)
 	}
 
 	if ctx.Path != "" {

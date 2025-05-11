@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -37,8 +38,44 @@ func setupTestLogger() (*bytes.Buffer, func()) {
 // parseLogEntry parses a JSON log entry from a buffer
 func parseLogEntry(buf *bytes.Buffer) (map[string]interface{}, error) {
 	var entry map[string]interface{}
-	err := json.Unmarshal(buf.Bytes(), &entry)
-	return entry, err
+
+	// Create a copy of the buffer to avoid consuming it
+	bufCopy := bytes.NewBuffer(buf.Bytes())
+
+	// Create a decoder to read JSON objects one at a time
+	decoder := json.NewDecoder(bufCopy)
+
+	// Read the first JSON object
+	if err := decoder.Decode(&entry); err != nil {
+		return nil, err
+	}
+
+	return entry, nil
+}
+
+// parseLogEntries parses multiple JSON log entries from a buffer
+func parseLogEntries(buf *bytes.Buffer) ([]map[string]interface{}, error) {
+	var entries []map[string]interface{}
+
+	// Create a copy of the buffer to avoid consuming it
+	bufCopy := bytes.NewBuffer(buf.Bytes())
+
+	// Create a decoder to read JSON objects one at a time
+	decoder := json.NewDecoder(bufCopy)
+
+	// Read all JSON objects
+	for {
+		var entry map[string]interface{}
+		if err := decoder.Decode(&entry); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
 }
 
 // TestUT_SL_01_01_LogContext_WithMethods_AddFields tests the With* methods of LogContext
@@ -95,7 +132,7 @@ func TestUT_SL_02_01_LogContext_Logger_IncludesAllFields(t *testing.T) {
 	assert.Equal(t, "user456", entry["user"])
 	assert.Equal(t, "test_operation", entry["operation"])
 	assert.Equal(t, "test_component", entry["component"])
-	assert.Equal(t, "test_method", entry["method"])
+	assert.Equal(t, "test_method", entry["method_name"])
 	assert.Equal(t, "/test/path", entry["path"])
 	assert.Equal(t, "custom_value", entry["custom_field"])
 }
@@ -125,7 +162,7 @@ func TestUT_SL_03_01_LogErrorWithContext_IncludesErrorAndContext(t *testing.T) {
 	assert.Equal(t, "error occurred", entry["message"])
 	assert.Equal(t, "test error", entry["error"])
 	assert.Equal(t, "test_operation", entry["operation"])
-	assert.Equal(t, "test_method", entry["method"])
+	assert.Equal(t, "test_method", entry["method_name"])
 }
 
 // TestUT_SL_03_02_LogErrorWithContext_WithCustomError_IncludesErrorMessage tests LogErrorWithContext with a custom error
@@ -154,8 +191,8 @@ func TestUT_SL_03_02_LogErrorWithContext_WithCustomError_IncludesErrorMessage(t 
 	assert.Contains(t, entry["error"].(string), "not found error")
 }
 
-// TestUT_SL_04_01_LogWarnWithContext_IncludesErrorAndContext tests the LogWarnWithContext function
-func TestUT_SL_04_01_LogWarnWithContext_IncludesErrorAndContext(t *testing.T) {
+// TestUT_SL_04_01_LogErrorAsWarnWithContext_IncludesErrorAndContext tests the LogErrorAsWarnWithContext function
+func TestUT_SL_04_01_LogErrorAsWarnWithContext_IncludesErrorAndContext(t *testing.T) {
 	// Set up a test logger
 	buf, cleanup := setupTestLogger()
 	defer cleanup()
@@ -168,7 +205,7 @@ func TestUT_SL_04_01_LogWarnWithContext_IncludesErrorAndContext(t *testing.T) {
 		WithMethod("test_method")
 
 	// Log the warning with context
-	LogWarnWithContext(err, ctx, "warning occurred")
+	LogErrorAsWarnWithContext(err, ctx, "warning occurred")
 
 	// Parse the log entry
 	entry, err := parseLogEntry(buf)
@@ -179,7 +216,7 @@ func TestUT_SL_04_01_LogWarnWithContext_IncludesErrorAndContext(t *testing.T) {
 	assert.Equal(t, "warning occurred", entry["message"])
 	assert.Equal(t, "test warning", entry["error"])
 	assert.Equal(t, "test_operation", entry["operation"])
-	assert.Equal(t, "test_method", entry["method"])
+	assert.Equal(t, "test_method", entry["method_name"])
 }
 
 // TestUT_SL_05_01_LogInfoWithContext_IncludesContext tests the LogInfoWithContext function
@@ -203,11 +240,11 @@ func TestUT_SL_05_01_LogInfoWithContext_IncludesContext(t *testing.T) {
 	assert.Equal(t, "info", entry["level"])
 	assert.Equal(t, "info message", entry["message"])
 	assert.Equal(t, "test_operation", entry["operation"])
-	assert.Equal(t, "test_method", entry["method"])
+	assert.Equal(t, "test_method", entry["method_name"])
 }
 
-// TestUT_SL_06_01_WrapAndLogWithContext_WrapsAndLogsError tests the WrapAndLogWithContext function
-func TestUT_SL_06_01_WrapAndLogWithContext_WrapsAndLogsError(t *testing.T) {
+// TestUT_SL_06_01_WrapAndLogErrorWithContext_WrapsAndLogsError tests the WrapAndLogErrorWithContext function
+func TestUT_SL_06_01_WrapAndLogErrorWithContext_WrapsAndLogsError(t *testing.T) {
 	// Set up a test logger
 	buf, cleanup := setupTestLogger()
 	defer cleanup()
@@ -219,7 +256,7 @@ func TestUT_SL_06_01_WrapAndLogWithContext_WrapsAndLogsError(t *testing.T) {
 	ctx := NewLogContext("test_operation")
 
 	// Wrap and log the error with context
-	wrappedErr := WrapAndLogWithContext(originalErr, ctx, "wrapped error")
+	wrappedErr := WrapAndLogErrorWithContext(originalErr, ctx, "wrapped error")
 
 	// Parse the log entry
 	entry, err := parseLogEntry(buf)
@@ -239,6 +276,7 @@ func TestUT_SL_06_01_WrapAndLogWithContext_WrapsAndLogsError(t *testing.T) {
 }
 
 // TestUT_SL_07_01_LogAndReturnWithContext_LogsAndReturnsError tests the LogAndReturnWithContext function
+// Note: This tests a deprecated function. The recommended approach is to use LogErrorWithContext and return the error separately.
 func TestUT_SL_07_01_LogAndReturnWithContext_LogsAndReturnsError(t *testing.T) {
 	// Set up a test logger
 	buf, cleanup := setupTestLogger()
@@ -289,4 +327,84 @@ func TestUT_SL_08_01_EnrichErrorWithContext_AddsContextToError(t *testing.T) {
 
 	// Verify that the original error is preserved in the error chain
 	assert.True(t, errors.Is(enrichedErr, originalErr))
+}
+
+// TestUT_SL_09_01_LogErrorAsWarn_IncludesError tests the LogErrorAsWarn function
+func TestUT_SL_09_01_LogErrorAsWarn_IncludesError(t *testing.T) {
+	// Set up a test logger
+	buf, cleanup := setupTestLogger()
+	defer cleanup()
+
+	// Create an error
+	err := fmt.Errorf("test warning")
+
+	// Log the error as a warning
+	LogErrorAsWarn(err, "warning occurred")
+
+	// Parse the log entry
+	entry, err := parseLogEntry(buf)
+	assert.NoError(t, err)
+
+	// Verify that the error is included in the log entry
+	assert.Equal(t, "warn", entry["level"])
+	assert.Equal(t, "warning occurred", entry["message"])
+	assert.Equal(t, "test warning", entry["error"])
+}
+
+// TestUT_SL_09_02_LogErrorAsWarnWithFields_IncludesErrorAndFields tests the LogErrorAsWarnWithFields function
+func TestUT_SL_09_02_LogErrorAsWarnWithFields_IncludesErrorAndFields(t *testing.T) {
+	// Set up a test logger
+	buf, cleanup := setupTestLogger()
+	defer cleanup()
+
+	// Create an error
+	err := fmt.Errorf("test warning")
+
+	// Create fields
+	fields := map[string]interface{}{
+		"field1": "value1",
+		"field2": 42,
+	}
+
+	// Log the error as a warning with fields
+	LogErrorAsWarnWithFields(err, "warning with fields", fields)
+
+	// Parse the log entry
+	entry, err := parseLogEntry(buf)
+	assert.NoError(t, err)
+
+	// Verify that the error and fields are included in the log entry
+	assert.Equal(t, "warn", entry["level"])
+	assert.Equal(t, "warning with fields", entry["message"])
+	assert.Equal(t, "test warning", entry["error"])
+	assert.Equal(t, "value1", entry["field1"])
+	assert.Equal(t, float64(42), entry["field2"])
+}
+
+// TestUT_SL_09_03_WrapAndLogErrorf_WrapsAndLogsError tests the WrapAndLogErrorf function
+func TestUT_SL_09_03_WrapAndLogErrorf_WrapsAndLogsError(t *testing.T) {
+	// Set up a test logger
+	buf, cleanup := setupTestLogger()
+	defer cleanup()
+
+	// Create an error
+	originalErr := fmt.Errorf("original error")
+
+	// Wrap and log the error with a formatted message
+	wrappedErr := WrapAndLogErrorf(originalErr, "wrapped error with value %d", 42)
+
+	// Parse the log entry
+	entry, err := parseLogEntry(buf)
+	assert.NoError(t, err)
+
+	// Verify that the error was logged with the formatted message
+	assert.Equal(t, "error", entry["level"])
+	assert.Equal(t, "wrapped error with value 42", entry["message"])
+	assert.Contains(t, entry["error"].(string), "wrapped error with value 42")
+	assert.Contains(t, entry["error"].(string), "original error")
+
+	// Verify that the error was wrapped with the formatted message
+	assert.Contains(t, wrappedErr.Error(), "wrapped error with value 42")
+	assert.Contains(t, wrappedErr.Error(), "original error")
+	assert.True(t, errors.Is(wrappedErr, originalErr))
 }

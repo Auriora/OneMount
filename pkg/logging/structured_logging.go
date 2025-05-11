@@ -21,8 +21,8 @@ import (
 	"fmt"
 )
 
-// LogWarnWithContext logs a warning with the given context
-func LogWarnWithContext(err error, ctx LogContext, msg string) {
+// LogErrorAsWarnWithContext logs an error as a warning with the given context
+func LogErrorAsWarnWithContext(err error, ctx LogContext, msg string) {
 	if err == nil {
 		return
 	}
@@ -35,6 +35,12 @@ func LogWarnWithContext(err error, ctx LogContext, msg string) {
 
 	// Log the message
 	event.Msg(msg)
+}
+
+// LogWarnWithContext logs a warning with the given context
+// Deprecated: Use LogErrorAsWarnWithContext instead, which has a more consistent naming convention.
+func LogWarnWithContext(err error, ctx LogContext, msg string) {
+	LogErrorAsWarnWithContext(err, ctx, msg)
 }
 
 // LogInfoWithContext logs an info message with the given context

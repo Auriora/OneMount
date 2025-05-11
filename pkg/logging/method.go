@@ -37,9 +37,13 @@ func LogMethodEntry(methodName string, params ...interface{}) (string, time.Time
 		return methodName, startTime
 	}
 
+	// Get the current goroutine ID
+	goroutineID := util.GetCurrentGoroutineID()
+
 	event := Debug().
 		Str(FieldMethod, methodName).
-		Str(FieldPhase, PhaseEntry)
+		Str(FieldPhase, PhaseEntry).
+		Str(FieldGoroutine, goroutineID)
 
 	// Log parameters if any
 	if len(params) > 0 {
@@ -79,9 +83,13 @@ func LogMethodExit(methodName string, duration time.Duration, returns ...interfa
 		return
 	}
 
+	// Get the current goroutine ID
+	goroutineID := util.GetCurrentGoroutineID()
+
 	event := Debug().
 		Str(FieldMethod, methodName).
 		Str(FieldPhase, PhaseExit).
+		Str(FieldGoroutine, goroutineID).
 		Dur(FieldDuration, duration)
 
 	// Log return values if any
@@ -111,11 +119,11 @@ func LogMethodExit(methodName string, duration time.Duration, returns ...interfa
 							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "nil")
 						} else {
 							typeName := getTypeElem(retType).Name()
-							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
+							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[struct %s]", typeName))
 						}
 					} else {
 						typeName := retType.Name()
-						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
+						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[struct %s]", typeName))
 					}
 				default:
 					// For other types, log the value
