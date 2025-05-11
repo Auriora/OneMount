@@ -1,7 +1,7 @@
 package fs
 
 import (
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // OfflineMode represents the state of the filesystem's offline mode
@@ -24,10 +24,10 @@ func (f *Filesystem) SetOfflineMode(mode OfflineMode) {
 	switch mode {
 	case OfflineModeDisabled:
 		f.offline = false
-		log.Info().Msg("Offline mode disabled")
+		logging.Info().Msg("Offline mode disabled")
 	case OfflineModeReadWrite:
 		f.offline = true
-		log.Info().Msg("Offline mode enabled")
+		logging.Info().Msg("Offline mode enabled")
 	}
 }
 

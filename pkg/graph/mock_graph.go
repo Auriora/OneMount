@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // MockCall represents a record of a method call on a mock
@@ -184,7 +184,7 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Check if we're in operational offline mode
 	if GetOperationalOffline() {
-		log.Debug().Msg("Mock client in operational offline mode, returning network error")
+		logging.Debug().Msg("Mock client in operational offline mode, returning network error")
 		return nil, errors.New("operational offline mode is enabled")
 	}
 
@@ -195,7 +195,7 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	// Log the request details for debugging
-	log.Debug().
+	logging.Debug().
 		Str("method", req.Method).
 		Str("url", req.URL.String()).
 		Str("resource", resource).
@@ -310,14 +310,17 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 					if err := json.Unmarshal(itemResp.Body, &item); err == nil {
 						// If this is a file, update its hash and size
 						if item.File != nil {
-							// Calculate the QuickXorHash for the content
-							contentHash := QuickXORHash(&reqBody)
+							// Calculate the QuickXorHash for the content only if it's not already set
+							if item.File.Hashes.QuickXorHash == "" {
+								contentHash := QuickXORHash(&reqBody)
+								// Update the item's hash
+								item.File.Hashes.QuickXorHash = contentHash
+							}
 
-							// Update the item's hash
-							item.File.Hashes.QuickXorHash = contentHash
-
-							// Update the size from the request body
-							item.Size = uint64(len(reqBody))
+							// Update the size from the request body only if it's not already set
+							if item.Size == 0 {
+								item.Size = uint64(len(reqBody))
+							}
 
 							// Try to extract ETag from the response body
 							var responseItem DriveItem
@@ -393,7 +396,7 @@ func NewMockGraphClient() *MockGraphClient {
 	}
 
 	// Set this mock's HTTP client as the test HTTP client
-	log.Debug().Msg("Setting up MockGraphClient as the test HTTP client")
+	logging.Debug().Msg("Setting up MockGraphClient as the test HTTP client")
 	SetHTTPClient(mock.httpClient)
 
 	return mock
@@ -425,7 +428,7 @@ func (m *MockGraphClient) GetRecorder() MockRecorder {
 // Cleanup resets the test HTTP client when the mock is no longer needed
 // This ensures that tests don't interfere with each other
 func (m *MockGraphClient) Cleanup() {
-	log.Debug().Msg("Cleaning up MockGraphClient, resetting HTTP client to default")
+	logging.Debug().Msg("Cleaning up MockGraphClient, resetting HTTP client to default")
 	// Reset the test HTTP client
 	SetHTTPClient(nil)
 }
@@ -573,15 +576,18 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 				if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
 					// If this is a file, update its hash
 					if item.File != nil {
-						// Calculate the QuickXorHash for the content
-						contentHash := QuickXORHash(&body)
+						// Calculate the QuickXorHash for the content only if it's not already set
+						if item.File.Hashes.QuickXorHash == "" {
+							contentHash := QuickXORHash(&body)
+							// Update the item's hash
+							item.File.Hashes.QuickXorHash = contentHash
+						}
 
-						// Update the item's hash
-						item.File.Hashes.QuickXorHash = contentHash
-
-						// Update the size from the response body
+						// Update the size from the response body only if it's not already set
 						// This is needed for tests to pass without special case code
-						item.Size = uint64(len(body))
+						if item.Size == 0 {
+							item.Size = uint64(len(body))
+						}
 
 						// Try to extract ETag from the response body
 						var responseItem DriveItem
@@ -617,7 +623,36 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 
 // AddMockItem adds a predefined DriveItem response for a specific resource path
 func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
-	body, _ := json.Marshal(item)
+	// Create a new item with the same values to ensure it's not modified
+	itemCopy := *item
+
+	// Ensure we're not sharing pointers to mutable objects
+	if item.File != nil {
+		fileCopy := *item.File
+		itemCopy.File = &fileCopy
+	}
+
+	if item.Folder != nil {
+		folderCopy := *item.Folder
+		itemCopy.Folder = &folderCopy
+	}
+
+	if item.Parent != nil {
+		parentCopy := *item.Parent
+		itemCopy.Parent = &parentCopy
+	}
+
+	if item.Deleted != nil {
+		deletedCopy := *item.Deleted
+		itemCopy.Deleted = &deletedCopy
+	}
+
+	if item.ModTime != nil {
+		modTimeCopy := *item.ModTime
+		itemCopy.ModTime = &modTimeCopy
+	}
+
+	body, _ := json.Marshal(&itemCopy)
 	m.AddMockResponse(resource, body, http.StatusOK, nil)
 }
 
@@ -707,7 +742,7 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 
 	// Check if we're in operational offline mode
 	if GetOperationalOffline() {
-		log.Debug().Msg("Mock client in operational offline mode, returning network error")
+		logging.Debug().Msg("Mock client in operational offline mode, returning network error")
 		return nil, errors.New("operational offline mode is enabled")
 	}
 
@@ -952,17 +987,41 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 							fileName := nameParts[0]
 
 							// Create a new file item
-							fileItem = &DriveItem{
-								ID:   "generated-id-" + fileName,
-								Name: fileName,
-								File: &File{
-									Hashes: Hashes{
-										QuickXorHash: QuickXORHash(&contentBytes),
+							// Check if we have a mock item for this file
+							existingItemResource := "/me/drive/items/" + parentID + ":/" + fileName + ":"
+							m.mu.Lock()
+							existingItemResp, existingItemExists := m.RequestResponses[existingItemResource]
+							m.mu.Unlock()
+
+							if existingItemExists {
+								// Use the existing item as a base
+								var existingItem DriveItem
+								if err := json.Unmarshal(existingItemResp.Body, &existingItem); err == nil {
+									fileItem = &existingItem
+									// Update the size from the content bytes
+									fileItem.Size = uint64(len(contentBytes))
+									// Update the hash only if it's not already set
+									if fileItem.File == nil {
+										fileItem.File = &File{}
+									}
+									if fileItem.File.Hashes.QuickXorHash == "" {
+										fileItem.File.Hashes.QuickXorHash = QuickXORHash(&contentBytes)
+									}
+								}
+							} else {
+								// Create a new file item
+								fileItem = &DriveItem{
+									ID:   "generated-id-" + fileName,
+									Name: fileName,
+									File: &File{
+										Hashes: Hashes{
+											QuickXorHash: QuickXORHash(&contentBytes),
+										},
 									},
-								},
-								// Update the size from the content bytes
-								// This is needed for tests to pass without special case code
-								Size: uint64(len(contentBytes)),
+									// Update the size from the content bytes
+									// This is needed for tests to pass without special case code
+									Size: uint64(len(contentBytes)),
+								}
 							}
 
 							// Add the item to the parent's children
@@ -992,9 +1051,11 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 							if item.File.Hashes.QuickXorHash == "" {
 								item.File.Hashes.QuickXorHash = QuickXORHash(&contentBytes)
 							}
-							// Update the size from the content bytes
+							// Update the size from the content bytes only if it's not already set
 							// This is needed for tests to pass without special case code
-							item.Size = uint64(len(contentBytes))
+							if item.Size == 0 {
+								item.Size = uint64(len(contentBytes))
+							}
 							fileItem = &item
 
 							// Update the item
@@ -1126,6 +1187,34 @@ func (m *MockGraphClient) GetItem(id string) (*DriveItem, error) {
 	}
 
 	resource := IDPath(id)
+
+	// Check if we have a predefined response for this resource
+	m.mu.Lock()
+	response, exists := m.RequestResponses[resource]
+	m.mu.Unlock()
+
+	if exists {
+		if response.Error != nil {
+			call.Result = response.Error
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, response.Error
+		}
+
+		// Unmarshal directly from the stored response
+		item := &DriveItem{}
+		err := json.Unmarshal(response.Body, item)
+		if err != nil {
+			call.Result = err
+			m.Recorder.RecordCall(call.Method, call.Args...)
+			return nil, err
+		}
+
+		call.Result = item
+		m.Recorder.RecordCall(call.Method, call.Args...)
+		return item, nil
+	}
+
+	// If no predefined response, fall back to the original behavior
 	body, err := m.Get(resource)
 	if err != nil {
 		call.Result = err

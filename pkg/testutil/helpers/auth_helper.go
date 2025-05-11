@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 	"time"
 )
 
@@ -21,7 +21,7 @@ import (
 func GetTestAuth() *graph.Auth {
 	// Ensure test directories exist
 	if err := EnsureTestDirectories(); err != nil {
-		log.Warn().Err(err).Msg("Failed to ensure test directories exist")
+		logging.Warn().Err(err).Msg("Failed to ensure test directories exist")
 	}
 
 	// Check if the auth tokens file exists
@@ -29,11 +29,11 @@ func GetTestAuth() *graph.Auth {
 		// File exists, try to load it
 		auth, err := graph.LoadAuthTokens(testutil.AuthTokensPath)
 		if err == nil {
-			log.Debug().Str("path", testutil.AuthTokensPath).Msg("Loaded existing auth tokens for test")
+			logging.Debug().Str("path", testutil.AuthTokensPath).Msg("Loaded existing auth tokens for test")
 			return auth
 		}
 		// Log the error but continue to create a mock auth object
-		log.Warn().Err(err).Str("path", testutil.AuthTokensPath).Msg("Failed to load existing auth tokens for test, creating mock auth")
+		logging.Warn().Err(err).Str("path", testutil.AuthTokensPath).Msg("Failed to load existing auth tokens for test, creating mock auth")
 	}
 
 	return createMockAuth()

@@ -1,13 +1,13 @@
 package fs
 
 import (
+	"github.com/auriora/onemount/pkg/logging"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // isMountpointMounted checks if a filesystem is mounted at the given mountpoint
@@ -30,7 +30,7 @@ func isMountpointMounted(mountpoint string) bool {
 func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Filesystem, done <-chan struct{}) {
 	select {
 	case sig := <-signal: // block until signal
-		log.Info().Str("signal", strings.ToUpper(sig.String())).
+		logging.Info().Str("signal", strings.ToUpper(sig.String())).
 			Msg("Signal received, cleaning up and unmounting filesystem.")
 
 		// Stop all background processes
@@ -48,7 +48,7 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Fi
 			filesystem.StopUploadManager()
 
 			// Give the system a moment to release all resources
-			log.Info().Msg("Waiting for all resources to be released before unmounting...")
+			logging.Info().Msg("Waiting for all resources to be released before unmounting...")
 			time.Sleep(500 * time.Millisecond)
 		}
 
@@ -59,7 +59,7 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Fi
 
 		// Check if the server is nil, which would indicate it's not mounted
 		if server == nil {
-			log.Warn().Msg("FUSE server is nil, skipping unmount operation")
+			logging.Warn().Msg("FUSE server is nil, skipping unmount operation")
 		} else {
 			for i := 0; i < maxRetries; i++ {
 				err = server.Unmount()
@@ -68,7 +68,7 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Fi
 				}
 
 				if i < maxRetries-1 {
-					log.Warn().Err(err).
+					logging.Warn().Err(err).
 						Int("retry", i+1).
 						Dur("delay", retryDelay).
 						Msg("Failed to unmount filesystem, retrying after delay...")
@@ -79,15 +79,15 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Fi
 		}
 
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to unmount filesystem cleanly after multiple attempts! " +
+			logging.Error().Err(err).Msg("Failed to unmount filesystem cleanly after multiple attempts! " +
 				"Run \"fusermount3 -uz /MOUNTPOINT/GOES/HERE\" to unmount.")
 			os.Exit(1) // Exit with error code 1 to indicate failure
 		} else {
-			log.Info().Msg("Filesystem unmounted successfully.")
+			logging.Info().Msg("Filesystem unmounted successfully.")
 			os.Exit(0) // Exit with success code 0
 		}
 	case <-done: // Exit if done channel is closed
-		log.Debug().Msg("UnmountHandler stopped")
+		logging.Debug().Msg("UnmountHandler stopped")
 		return
 	}
 }

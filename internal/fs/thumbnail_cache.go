@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // ThumbnailCache stores thumbnails for files under a folder as regular files
@@ -24,6 +26,7 @@ func NewThumbnailCache(directory string) *ThumbnailCache {
 		// or we might be able to create files directly
 		// This is a best-effort approach
 		// Using MkdirAll instead of Mkdir to create parent directories if needed
+		logging.Error().Err(err).Str("directory", directory).Msg("Failed to create thumbnail cache directory")
 	}
 	return &ThumbnailCache{
 		directory:   directory,
@@ -111,6 +114,7 @@ func (t *ThumbnailCache) Open(id string, size string) (*os.File, error) {
 
 	// Ensure the directory exists
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		logging.Error().Err(err).Str("directory", filepath.Dir(path)).Msg("Failed to create parent directory for thumbnail file")
 		return nil, err
 	}
 
@@ -175,6 +179,7 @@ func (t *ThumbnailCache) CleanupCache(expirationDays int) (int, error) {
 			// Try to remove the file
 			if err := os.Remove(path); err != nil {
 				// Log the error but continue
+				logging.Error().Err(err).Str("path", path).Msg("Failed to remove old thumbnail file during cleanup")
 				return nil
 			}
 			count++

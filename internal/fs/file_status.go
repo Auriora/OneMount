@@ -2,10 +2,10 @@ package fs
 
 import (
 	"bytes"
+	"github.com/auriora/onemount/pkg/logging"
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -85,7 +85,7 @@ func (f *Filesystem) determineFileStatus(id string) FileStatusInfo {
 		}
 		return nil
 	}); err != nil {
-		log.Error().Err(err).Str("id", id).Msg("Error checking offline changes")
+		logging.DefaultLogger.Error().Err(err).Str("id", id).Msg("Error checking offline changes")
 	}
 
 	if hasOfflineChanges {

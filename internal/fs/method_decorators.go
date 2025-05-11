@@ -6,8 +6,6 @@ import (
 	"github.com/auriora/onemount/pkg/util"
 	"runtime"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 // LogMethodCall wraps a function call with entry and exit logging
@@ -32,7 +30,7 @@ func LogMethodCall() (string, time.Time) {
 	goroutineID := util.GetCurrentGoroutineID()
 
 	// Log method entry
-	log.Debug().
+	logging.Debug().
 		Str(logging.FieldMethod, methodName).
 		Str(logging.FieldPhase, logging.PhaseEntry).
 		Str(logging.FieldGoroutine, goroutineID).
@@ -50,7 +48,7 @@ func LogMethodReturn(methodName string, startTime time.Time, returns ...interfac
 	goroutineID := util.GetCurrentGoroutineID()
 
 	// Create log event
-	event := log.Debug().
+	event := logging.Debug().
 		Str(logging.FieldMethod, methodName).
 		Str(logging.FieldPhase, logging.PhaseExit).
 		Str(logging.FieldGoroutine, goroutineID).

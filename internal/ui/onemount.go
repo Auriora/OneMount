@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // onemount specific utility functions
@@ -62,7 +62,7 @@ func GetKnownMounts(cacheDir string) []string {
 	dirents, err := os.ReadDir(cacheDir)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Could not fetch known mountpoints.")
+		logging.Error().Err(err).Msg("Could not fetch known mountpoints.")
 		return mounts
 	}
 

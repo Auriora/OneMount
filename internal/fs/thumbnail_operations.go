@@ -10,7 +10,6 @@ import (
 
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
 )
 
 // GetThumbnail retrieves a thumbnail for a file.
@@ -117,7 +116,7 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		// Check if context is already cancelled
 		select {
 		case <-f.ctx.Done():
-			log.Debug().
+			logging.Debug().
 				Str("id", inode.ID()).
 				Str("size", size).
 				Msg("Thumbnail caching cancelled due to context cancellation")
@@ -157,7 +156,7 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		// Check context cancellation before network operation
 		select {
 		case <-f.ctx.Done():
-			log.Debug().
+			logging.Debug().
 				Str("id", inode.ID()).
 				Str("size", size).
 				Msg("Thumbnail caching cancelled due to context cancellation")
@@ -178,7 +177,7 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		// Check context cancellation after network operation
 		select {
 		case <-f.ctx.Done():
-			log.Debug().
+			logging.Debug().
 				Str("id", inode.ID()).
 				Str("size", size).
 				Msg("Thumbnail caching cancelled due to context cancellation")
@@ -209,7 +208,7 @@ func (f *Filesystem) GetThumbnailStream(path string, size string, output io.Writ
 		// Check context cancellation before final operation
 		select {
 		case <-f.ctx.Done():
-			log.Debug().
+			logging.Debug().
 				Str("id", inode.ID()).
 				Str("size", size).
 				Msg("Thumbnail caching cancelled due to context cancellation")

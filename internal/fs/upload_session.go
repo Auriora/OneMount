@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"math"
 	"net/http"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -186,7 +186,7 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 	// no Authorization header - it will throw a 401 if present
 	request.Header.Add("Content-Length", strconv.Itoa(int(reqChunkSize)))
 	frags := fmt.Sprintf("bytes %d-%d/%d", offset, end-1, u.Size)
-	log.Info().Str("id", u.ID).Msg("Uploading " + frags)
+	logging.Info().Str("id", u.ID).Msg("Uploading " + frags)
 	request.Header.Add("Content-Range", frags)
 
 	resp, err := client.Do(request)
@@ -203,7 +203,7 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 // goroutine, or it can potentially block for a very long time. The uploadSession.error
 // field contains errors to be handled if called as a goroutine.
 func (u *UploadSession) Upload(auth *graph.Auth) error {
-	log.Info().Str("id", u.ID).Str("name", u.Name).Msg("Uploading file.")
+	logging.Info().Str("id", u.ID).Str("name", u.Name).Msg("Uploading file.")
 	u.setState(uploadStarted, nil)
 
 	var uploadPath string
@@ -285,7 +285,7 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 			// retry server-side failures with an exponential back-off strategy. Will not
 			// exit this loop unless it receives a non 5xx error or serious failure
 			for backoff := 1; status >= 500; backoff *= 2 {
-				log.Error().
+				logging.Error().
 					Str("id", u.ID).
 					Str("name", u.Name).
 					Int("chunk", i).

@@ -3,8 +3,6 @@ package logging
 import (
 	"reflect"
 	"sync"
-
-	"github.com/rs/zerolog/log"
 )
 
 // typeCache is used to cache type information for reflection-based logging
@@ -35,30 +33,30 @@ func getTypeName(t reflect.Type) string {
 // isDebugEnabled returns true if debug logging is enabled
 // This function is used to avoid expensive logging operations when debug is disabled
 func isDebugEnabled() bool {
-	return log.Debug().Enabled()
+	return Debug().Enabled()
 }
 
 // isTraceEnabled returns true if trace logging is enabled
 // This function is used to avoid expensive logging operations when trace is disabled
 func isTraceEnabled() bool {
-	return log.Trace().Enabled()
+	return Trace().Enabled()
 }
 
-// LogComplexObjectIfDebug logs a complex object only if debug logging is enabled
+// LogComplexObjectIfDebug logs a complex object only if debug logging is enabled,
 // This function is used to avoid expensive serialization when debug is disabled
 func LogComplexObjectIfDebug(fieldName string, obj interface{}, msg string) {
 	if isDebugEnabled() {
-		log.Debug().
+		Debug().
 			Interface(fieldName, obj).
 			Msg(msg)
 	}
 }
 
-// LogComplexObjectIfTrace logs a complex object only if trace logging is enabled
+// LogComplexObjectIfTrace logs a complex object only if trace logging is enabled,
 // This function is used to avoid expensive serialization when trace is disabled
 func LogComplexObjectIfTrace(fieldName string, obj interface{}, msg string) {
 	if isTraceEnabled() {
-		log.Trace().
+		Trace().
 			Interface(fieldName, obj).
 			Msg(msg)
 	}

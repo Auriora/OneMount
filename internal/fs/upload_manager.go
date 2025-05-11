@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -136,7 +136,7 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 			session := &UploadSession{}
 			err := json.Unmarshal(val, session)
 			if err != nil {
-				log.Error().Err(err).Msg("Failure restoring upload sessions from disk.")
+				logging.Error().Err(err).Msg("Failure restoring upload sessions from disk.")
 				return err
 			}
 			if session.getState() != uploadNotStarted {
@@ -282,7 +282,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 				case uploadErrored:
 					session.retries++
 					if session.retries > 5 {
-						log.Error().
+						logging.Error().
 							Str("id", session.ID).
 							Str("name", session.Name).
 							Err(session).
@@ -293,7 +293,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 						u.finishUpload(session.ID)
 					}
 
-					log.Warn().
+					logging.Warn().
 						Str("id", session.ID).
 						Str("name", session.Name).
 						Err(session).
@@ -302,7 +302,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					session.setState(uploadNotStarted, nil)
 
 				case uploadComplete:
-					log.Info().
+					logging.Info().
 						Str("id", session.ID).
 						Str("oldID", session.OldID).
 						Str("name", session.Name).
@@ -312,7 +312,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					if session.OldID != session.ID {
 						err := u.fs.MoveID(session.OldID, session.ID)
 						if err != nil {
-							log.Error().
+							logging.Error().
 								Str("id", session.ID).
 								Str("oldID", session.OldID).
 								Str("name", session.Name).
@@ -407,7 +407,7 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 			return b.Put([]byte(session.ID), contents)
 		})
 
-		log.Info().
+		logging.Info().
 			Str("id", session.ID).
 			Str("name", session.Name).
 			Str("priority", priorityToString(priority)).
@@ -441,7 +441,7 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 
 	select {
 	case targetQueue <- session:
-		log.Info().
+		logging.Info().
 			Str("id", session.ID).
 			Str("name", session.Name).
 			Str("priority", priorityToString(priority)).
@@ -561,7 +561,7 @@ func (u *UploadManager) WaitForUpload(id string) error {
 		if existsInHighPriority {
 			priority = "high"
 		}
-		log.Debug().
+		logging.Debug().
 			Str("id", id).
 			Str("priority", priority).
 			Msg("Waiting for upload session that is queued but not yet processed")
@@ -610,7 +610,7 @@ func (u *UploadManager) WaitForUpload(id string) error {
 			// If the ID changed during upload, update the inode
 			if session.OldID != session.ID {
 				if err := u.fs.MoveID(session.OldID, session.ID); err != nil {
-					log.Error().
+					logging.Error().
 						Str("id", session.ID).
 						Str("oldID", session.OldID).
 						Str("name", session.Name).
@@ -644,7 +644,7 @@ func (u *UploadManager) WaitForUpload(id string) error {
 
 // Stop stops the upload manager and waits for all uploads to finish
 func (u *UploadManager) Stop() {
-	log.Info().Msg("Stopping upload manager...")
+	logging.Info().Msg("Stopping upload manager...")
 	close(u.stopChan)
 
 	// Wait for all workers to finish with a timeout
@@ -657,8 +657,8 @@ func (u *UploadManager) Stop() {
 	// Wait for workers to finish or timeout after 5 seconds
 	select {
 	case <-done:
-		log.Info().Msg("Upload manager stopped successfully")
+		logging.Info().Msg("Upload manager stopped successfully")
 	case <-time.After(5 * time.Second):
-		log.Warn().Msg("Timed out waiting for upload manager to stop")
+		logging.Warn().Msg("Timed out waiting for upload manager to stop")
 	}
 }

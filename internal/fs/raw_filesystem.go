@@ -1,8 +1,8 @@
 package fs
 
 import (
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // CustomRawFileSystem is a custom implementation of the fuse.RawFileSystem interface
@@ -23,7 +23,7 @@ func NewCustomRawFileSystem(fs FilesystemInterface) *CustomRawFileSystem {
 
 // Implement the POLL opcode handler
 func (c *CustomRawFileSystem) Poll(cancel <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
-	log.Debug().
+	logging.Debug().
 		Str("op", "CustomRawFileSystem.Poll").
 		Uint64("nodeID", in.NodeId).
 		Msg("Handling POLL opcode")

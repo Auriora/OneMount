@@ -10,7 +10,6 @@ import (
 
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // Mknod creates a regular file. The server doesn't have this yet.
@@ -30,7 +29,7 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 	}
 
 	path := filepath.Join(parent.Path(), name)
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Mknod").
 		Uint64("nodeID", in.NodeId).
 		Str("path", path).
@@ -73,7 +72,7 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 		// return the existing file inode as per "man creat"
 		parentID := f.TranslateID(in.NodeId)
 		child, _ := f.GetChild(parentID, name, f.auth)
-		logger := log.Debug().
+		logger := logging.Debug().
 			Str("op", "Create").
 			Uint64("nodeID", in.NodeId).
 			Str("id", parentID).
@@ -83,10 +82,10 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 		logger.Msg("Child inode already exists, truncating.")
 
 		if err := f.content.Delete(child.ID()); err != nil {
-			log.Error().Err(err).Str("id", child.ID()).Msg("Failed to delete existing file content")
+			logging.Error().Err(err).Str("id", child.ID()).Msg("Failed to delete existing file content")
 		}
 		if _, err := f.content.Open(child.ID()); err != nil {
-			log.Error().Err(err).Str("id", child.ID()).Msg("Failed to open file for writing")
+			logging.Error().Err(err).Str("id", child.ID()).Msg("Failed to open file for writing")
 		}
 		child.DriveItem.Size = 0
 		child.hasChanges = true
@@ -134,7 +133,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	}
 
 	path := inode.Path()
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Open").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
@@ -249,7 +248,7 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 
 	id := child.ID()
 	path := child.Path()
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Unlink").
 		Uint64("nodeID", in.NodeId).
 		Str("id", parentID).
@@ -267,7 +266,7 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 	// server
 	if !isLocalID(id) {
 		if err := graph.Remove(id, f.auth); err != nil {
-			ctx.Err(err).Msg("Failed to delete item on server. Aborting op.")
+			ctx.Error().Err(err).Msg("Failed to delete item on server. Aborting op.")
 			return fuse.EREMOTEIO
 		}
 	}
@@ -318,7 +317,7 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 
 	id := inode.ID()
 	path := inode.Path()
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Read").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
@@ -368,7 +367,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 
 	nWrite := len(data)
 	offset := int(in.Offset)
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Write").
 		Str("id", id).
 		Uint64("nodeID", in.NodeId).
@@ -428,7 +427,7 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 		return fuse.EBADF
 	}
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Fsync").
 		Str("id", id).
 		Uint64("nodeID", in.NodeId).
@@ -493,7 +492,7 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	}
 
 	id := inode.ID()
-	log.Trace().
+	logging.Trace().
 		Str("op", "Flush").
 		Str("id", id).
 		Str("path", inode.Path()).
@@ -504,7 +503,7 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	// grab a lock to prevent a race condition closing an opened file prior to its use (use after free segfault)
 	inode.Lock()
 	if err := f.content.Close(id); err != nil {
-		log.Error().Err(err).Str("id", id).Str("path", inode.Path()).Msg("Failed to close file")
+		logging.Error().Err(err).Str("id", id).Str("path", inode.Path()).Msg("Failed to close file")
 	}
 	inode.Unlock()
 
@@ -516,7 +515,7 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 // Poll implements the poll operation for the FUSE filesystem.
 // This method is called when the kernel wants to check if a file descriptor is ready for I/O.
 func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
-	log.Trace().
+	logging.Trace().
 		Str("op", "Poll").
 		Uint64("nodeID", in.NodeId).
 		Msg("Poll operation")
@@ -535,7 +534,7 @@ func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHea
 // PollOperationHandler is an alternative implementation of the poll operation.
 // This is provided as a fallback in case the Poll method is not recognized by the go-fuse library.
 func (f *Filesystem) PollOperationHandler(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
-	log.Trace().
+	logging.Trace().
 		Str("op", "PollOperationHandler").
 		Uint64("nodeID", in.NodeId).
 		Msg("Poll operation (alternative handler)")

@@ -1,4 +1,4 @@
-// Package testutil provides testing utilities for the OneMount project.
+// Package mock Package testutil provides testing utilities for the OneMount project.
 // This package contains mock implementations of various components used in testing.
 // The mock implementations simulate the behavior of real components without making
 // actual API calls or filesystem operations, allowing for faster and more reliable tests.
@@ -246,14 +246,110 @@ func (m *MockGraphProvider) AddMockResponse(resource string, body []byte, status
 
 // AddMockItem adds a predefined DriveItem response for a specific resource path
 func (m *MockGraphProvider) AddMockItem(resource string, item *graph.DriveItem) {
-	m.Client.AddMockItem(resource, item)
-	m.recorder.RecordCall("AddMockItem", resource, item)
+	// Make a deep copy of the item to ensure it isn't modified
+	itemCopy := &graph.DriveItem{
+		ID:               item.ID,
+		Name:             item.Name,
+		Size:             item.Size,
+		ModTime:          item.ModTime,
+		ConflictBehavior: item.ConflictBehavior,
+		ETag:             item.ETag,
+	}
+
+	// Copy parent if it exists
+	if item.Parent != nil {
+		itemCopy.Parent = &graph.DriveItemParent{
+			Path:      item.Parent.Path,
+			ID:        item.Parent.ID,
+			DriveID:   item.Parent.DriveID,
+			DriveType: item.Parent.DriveType,
+		}
+	}
+
+	// Copy folder if it exists
+	if item.Folder != nil {
+		itemCopy.Folder = &graph.Folder{
+			ChildCount: item.Folder.ChildCount,
+		}
+	}
+
+	// Copy file if it exists
+	if item.File != nil {
+		itemCopy.File = &graph.File{}
+		if item.File.Hashes.SHA1Hash != "" || item.File.Hashes.QuickXorHash != "" {
+			itemCopy.File.Hashes = graph.Hashes{
+				SHA1Hash:     item.File.Hashes.SHA1Hash,
+				QuickXorHash: item.File.Hashes.QuickXorHash,
+			}
+		}
+	}
+
+	// Copy deleted if it exists
+	if item.Deleted != nil {
+		itemCopy.Deleted = &graph.Deleted{
+			State: item.Deleted.State,
+		}
+	}
+
+	m.Client.AddMockItem(resource, itemCopy)
+	m.recorder.RecordCall("AddMockItem", resource, itemCopy)
 }
 
 // AddMockItems adds a predefined list of DriveItems for a children request
 func (m *MockGraphProvider) AddMockItems(resource string, items []*graph.DriveItem) {
-	m.Client.AddMockItems(resource, items)
-	m.recorder.RecordCall("AddMockItems", resource, items)
+	// Make deep copies of all items
+	itemsCopy := make([]*graph.DriveItem, len(items))
+	for i, item := range items {
+		// Make a deep copy of the item to ensure it isn't modified
+		itemCopy := &graph.DriveItem{
+			ID:               item.ID,
+			Name:             item.Name,
+			Size:             item.Size,
+			ModTime:          item.ModTime,
+			ConflictBehavior: item.ConflictBehavior,
+			ETag:             item.ETag,
+		}
+
+		// Copy parent if it exists
+		if item.Parent != nil {
+			itemCopy.Parent = &graph.DriveItemParent{
+				Path:      item.Parent.Path,
+				ID:        item.Parent.ID,
+				DriveID:   item.Parent.DriveID,
+				DriveType: item.Parent.DriveType,
+			}
+		}
+
+		// Copy folder if it exists
+		if item.Folder != nil {
+			itemCopy.Folder = &graph.Folder{
+				ChildCount: item.Folder.ChildCount,
+			}
+		}
+
+		// Copy file if it exists
+		if item.File != nil {
+			itemCopy.File = &graph.File{}
+			if item.File.Hashes.SHA1Hash != "" || item.File.Hashes.QuickXorHash != "" {
+				itemCopy.File.Hashes = graph.Hashes{
+					SHA1Hash:     item.File.Hashes.SHA1Hash,
+					QuickXorHash: item.File.Hashes.QuickXorHash,
+				}
+			}
+		}
+
+		// Copy deleted if it exists
+		if item.Deleted != nil {
+			itemCopy.Deleted = &graph.Deleted{
+				State: item.Deleted.State,
+			}
+		}
+
+		itemsCopy[i] = itemCopy
+	}
+
+	m.Client.AddMockItems(resource, itemsCopy)
+	m.recorder.RecordCall("AddMockItems", resource, itemsCopy)
 }
 
 // SimulateNetworkDelay simulates network delay based on current network conditions

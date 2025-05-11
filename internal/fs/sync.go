@@ -2,13 +2,13 @@ package fs
 
 import (
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // SyncDirectoryTree recursively traverses the filesystem from the root
 // and caches all directory metadata (not file contents)
 func (f *Filesystem) SyncDirectoryTree(auth *graph.Auth) error {
-	log.Info().Msg("Starting full directory tree synchronization...")
+	logging.Info().Msg("Starting full directory tree synchronization...")
 	// Create a map to track visited directories to prevent cycles
 	visited := make(map[string]bool)
 	// Set a reasonable maximum depth to prevent excessive recursion
@@ -21,13 +21,13 @@ func (f *Filesystem) SyncDirectoryTree(auth *graph.Auth) error {
 func (f *Filesystem) syncDirectoryTreeRecursive(dirID string, auth *graph.Auth, visited map[string]bool, depth int, maxDepth int) error {
 	// Check if we've already visited this directory to prevent cycles
 	if visited[dirID] {
-		log.Debug().Str("dirID", dirID).Msg("Skipping already visited directory to prevent cycle")
+		logging.Debug().Str("dirID", dirID).Msg("Skipping already visited directory to prevent cycle")
 		return nil
 	}
 
 	// Check if we've reached the maximum depth
 	if depth >= maxDepth {
-		log.Warn().Str("dirID", dirID).Int("depth", depth).Int("maxDepth", maxDepth).Msg("Reached maximum recursion depth, stopping")
+		logging.Warn().Str("dirID", dirID).Int("depth", depth).Int("maxDepth", maxDepth).Msg("Reached maximum recursion depth, stopping")
 		return nil
 	}
 
@@ -37,7 +37,7 @@ func (f *Filesystem) syncDirectoryTreeRecursive(dirID string, auth *graph.Auth, 
 	// Get all children of the current directory
 	children, err := f.GetChildrenID(dirID, auth)
 	if err != nil {
-		log.Error().Err(err).Str("dirID", dirID).Msg("Failed to get children")
+		logging.Error().Err(err).Str("dirID", dirID).Msg("Failed to get children")
 		return err
 	}
 
@@ -46,7 +46,7 @@ func (f *Filesystem) syncDirectoryTreeRecursive(dirID string, auth *graph.Auth, 
 		if child.IsDir() {
 			if err := f.syncDirectoryTreeRecursive(child.ID(), auth, visited, depth+1, maxDepth); err != nil {
 				// Log the error but continue with other directories
-				log.Warn().Err(err).Str("dirID", child.ID()).Msg("Error syncing directory")
+				logging.Warn().Err(err).Str("dirID", child.ID()).Msg("Error syncing directory")
 			}
 		}
 	}

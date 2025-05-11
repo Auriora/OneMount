@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/yousong/socketio-go/engineio"
 	"github.com/yousong/socketio-go/socketio"
 )
@@ -90,7 +90,7 @@ func (s *subscription) Start() {
 	for {
 		resp, err := s.subscribe()
 		if err != nil {
-			log.Error().Err(err).Msg("make subscription")
+			logging.Error().Err(err).Msg("make subscription")
 			triggerOnErr()
 			time.Sleep(errRetryInterval)
 			continue
@@ -101,7 +101,7 @@ func (s *subscription) Start() {
 		cleanup, err := s.setupEventChan(ctx, resp.NotificationUrl)
 		if err != nil {
 			cancel() // Cancel the context to prevent leaks
-			log.Error().Err(err).Msg("subscription chan setup")
+			logging.Error().Err(err).Msg("subscription chan setup")
 			triggerOnErr()
 			time.Sleep(errRetryInterval)
 			continue
@@ -116,7 +116,7 @@ func (s *subscription) Start() {
 			select {
 			case <-time.After(nextDur):
 			case err := <-s.sioErrCh:
-				log.Warn().Err(err).Msg("socketio session error")
+				logging.Warn().Err(err).Msg("socketio session error")
 			case <-s.closeCh:
 				return true
 			}
@@ -221,7 +221,7 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 	select {
 	case <-readyCh:
 		// Connection is ready
-		log.Debug().Msg("socketio connection established successfully")
+		logging.Debug().Msg("socketio connection established successfully")
 	case err := <-errCh:
 		// Connection failed
 		safeConn.mu.Lock()
@@ -256,11 +256,11 @@ func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(
 func (s *subscription) notificationHandler(msg socketio.Message) {
 	var evt []string
 	if err := json.Unmarshal(msg.DataRaw, &evt); err != nil {
-		log.Warn().Err(err).Msg("unmarshal socketio event")
+		logging.Warn().Err(err).Msg("unmarshal socketio event")
 		return
 	}
 	if len(evt) < 2 || evt[0] != "notification" {
-		log.Warn().Int("len", len(evt)).Str("type", evt[0]).Msg("check event type")
+		logging.Warn().Int("len", len(evt)).Str("type", evt[0]).Msg("check event type")
 		return
 	}
 	var n struct {
@@ -271,10 +271,10 @@ func (s *subscription) notificationHandler(msg socketio.Message) {
 		Resource                       string `json:"resource"`
 	}
 	if err := json.Unmarshal([]byte(evt[1]), &n); err != nil {
-		log.Warn().Err(err).Msg("unmarshal notification content")
+		logging.Warn().Err(err).Msg("unmarshal notification content")
 		return
 	}
-	log.Debug().Str("notification", evt[1]).Msg("notification content")
+	logging.Debug().Str("notification", evt[1]).Msg("notification content")
 	s.trigger()
 }
 

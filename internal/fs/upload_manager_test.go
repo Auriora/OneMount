@@ -3,13 +3,13 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/auriora/onemount/pkg/testutil/framework"
 	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"testing"
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
 )
 
 // TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
@@ -109,7 +109,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		graph.SetOperationalOffline(false)
 
 		// Step 1: Create a file with initial content
-		log.Info().Msg("Step 1: Creating file with initial content")
+		logging.Info().Msg("Step 1: Creating file with initial content")
 
 		// Create the initial file item
 		initialContentBytes := []byte(initialContent)
@@ -145,7 +145,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		fileInode.hasChanges = true
 
 		// Step 2: Wait for upload to complete
-		log.Info().Msg("Step 2: Waiting for initial upload to complete")
+		logging.Info().Msg("Step 2: Waiting for initial upload to complete")
 
 		// Mock the upload response
 		mockClient.AddMockItem("/me/drive/items/"+fileID, initialFileItem)
@@ -171,7 +171,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		assert.Equal("initial-etag", fileInode.DriveItem.ETag, "ETag mismatch")
 
 		// Step 3: Modify the file content
-		log.Info().Msg("Step 3: Modifying file content")
+		logging.Info().Msg("Step 3: Modifying file content")
 
 		// Create the modified file item
 		modifiedContent := "modified content"
@@ -203,7 +203,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		fileInode.hasChanges = true
 
 		// Step 4: Wait for upload to complete
-		log.Info().Msg("Step 4: Waiting for modified content upload to complete")
+		logging.Info().Msg("Step 4: Waiting for modified content upload to complete")
 
 		// Mock the upload response
 		mockClient.AddMockItem("/me/drive/items/"+fileID, modifiedFileItem)
@@ -240,7 +240,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		assert.Equal("modified-etag", fileInode.DriveItem.ETag, "ETag mismatch")
 
 		// Step 5: Repeat steps 3-4 with final content
-		log.Info().Msg("Step 5: Modifying file content again")
+		logging.Info().Msg("Step 5: Modifying file content again")
 
 		// Create the final file item
 		finalContent := "final content with more data to ensure it's different"
@@ -415,7 +415,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		}()
 
 		// Step 1: Create a file with initial content
-		log.Info().Msg("Step 1: Creating file with initial content")
+		logging.Info().Msg("Step 1: Creating file with initial content")
 
 		// Create the initial file item
 		initialContentBytes := []byte(initialContent)
@@ -451,7 +451,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		fileInode.hasChanges = true
 
 		// Step 2: Queue the file for upload (will be stored for later upload when online)
-		log.Info().Msg("Step 2: Queuing initial content for upload")
+		logging.Info().Msg("Step 2: Queuing initial content for upload")
 
 		// Mock the upload response for when we go back online
 		mockClient.AddMockItem("/me/drive/items/"+fileID, initialFileItem)
@@ -477,7 +477,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		assert.Equal(StatusLocalModified, status.Status, "File status should be LocalModified in offline mode")
 
 		// Step 3: Modify the file content
-		log.Info().Msg("Step 3: Modifying file content")
+		logging.Info().Msg("Step 3: Modifying file content")
 
 		// Create the modified file item
 		modifiedContent := "modified content"
@@ -509,7 +509,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		fileInode.hasChanges = true
 
 		// Step 4: Queue the file for upload again
-		log.Info().Msg("Step 4: Queuing modified content for upload")
+		logging.Info().Msg("Step 4: Queuing modified content for upload")
 
 		// Mock the upload response for when we go back online
 		mockClient.AddMockItem("/me/drive/items/"+fileID, modifiedFileItem)
@@ -531,7 +531,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		assert.Equal(testFileName, session.Name, "Upload session name should match file name")
 
 		// Step 5: Repeat steps 3-4 with final content
-		log.Info().Msg("Step 5: Modifying file content again")
+		logging.Info().Msg("Step 5: Modifying file content again")
 
 		// Create the final file item
 		finalContent := "final content with more data to ensure it's different"
@@ -582,14 +582,14 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		assert.Equal(testFileName, session.Name, "Upload session name should match file name")
 
 		// Step 6: Verify uploads are properly queued for when connectivity is restored
-		log.Info().Msg("Step 6: Verifying uploads are properly queued")
+		logging.Info().Msg("Step 6: Verifying uploads are properly queued")
 
 		// Verify the file status is still set to LocalModified in offline mode
 		status = fs.GetFileStatus(fileID)
 		assert.Equal(StatusLocalModified, status.Status, "File status should be LocalModified in offline mode")
 
 		// Simulate going back online and processing the queued uploads
-		log.Info().Msg("Simulating going back online")
+		logging.Info().Msg("Simulating going back online")
 		graph.SetOperationalOffline(false)
 
 		// Manually update the file metadata to simulate a successful upload

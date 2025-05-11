@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 const timeout = time.Second
@@ -59,7 +59,7 @@ func (f *Filesystem) remoteID(i *Inode) (string, error) {
 				}
 				for _, child := range children {
 					if child.Name == name {
-						log.Info().
+						logging.Info().
 							Str("name", name).
 							Str("originalID", originalID).
 							Str("newID", child.ID).
@@ -79,7 +79,7 @@ func (f *Filesystem) remoteID(i *Inode) (string, error) {
 
 		// this is all we really wanted from this transaction
 		err = f.MoveID(originalID, session.ID)
-		log.Info().
+		logging.Info().
 			Str("name", name).
 			Str("originalID", originalID).
 			Str("newID", session.ID).

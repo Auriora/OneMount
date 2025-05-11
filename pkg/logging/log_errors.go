@@ -2,7 +2,6 @@ package logging
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 )
 
 // LogErrorWithFields logs an error with additional fields
@@ -12,7 +11,7 @@ func LogErrorWithFields(err error, msg string, fields map[string]interface{}) {
 		return
 	}
 
-	event := log.Error().Err(err)
+	event := Error().Err(err)
 
 	for key, value := range fields {
 		event = event.Interface(key, value)
@@ -24,7 +23,7 @@ func LogErrorWithFields(err error, msg string, fields map[string]interface{}) {
 // LogWarnWithFields logs a warning with additional fields
 // This is useful for logging potential issues that don't prevent the application from working
 func LogWarnWithFields(msg string, fields map[string]interface{}) {
-	event := log.Warn()
+	event := Warn()
 
 	for key, value := range fields {
 		event = event.Interface(key, value)
@@ -40,7 +39,7 @@ func LogWarnWithError(err error, msg string, fields ...interface{}) {
 		return
 	}
 
-	event := log.Warn().Err(err)
+	event := Warn().Err(err)
 
 	// Add additional fields in pairs (key, value)
 	for i := 0; i < len(fields); i += 2 {

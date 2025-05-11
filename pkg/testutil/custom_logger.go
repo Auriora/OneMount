@@ -1,25 +1,25 @@
 package testutil
 
 import (
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
-// ZerologLogger implements the Logger interface using zerolog.
-type ZerologLogger struct {
+// CustomLogger implements the Logger interface using our custom logging package.
+type CustomLogger struct {
 	// Optional prefix for log messages
 	prefix string
 }
 
-// NewZerologLogger creates a new ZerologLogger with the given prefix.
-func NewZerologLogger(prefix string) *ZerologLogger {
-	return &ZerologLogger{
+// NewCustomLogger creates a new CustomLogger with the given prefix.
+func NewCustomLogger(prefix string) *CustomLogger {
+	return &CustomLogger{
 		prefix: prefix,
 	}
 }
 
 // Debug logs a debug message.
-func (l *ZerologLogger) Debug(msg string, args ...interface{}) {
-	event := log.Debug()
+func (l *CustomLogger) Debug(msg string, args ...interface{}) {
+	event := logging.Debug()
 	if l.prefix != "" {
 		event = event.Str("prefix", l.prefix)
 	}
@@ -39,8 +39,8 @@ func (l *ZerologLogger) Debug(msg string, args ...interface{}) {
 }
 
 // Info logs an informational message.
-func (l *ZerologLogger) Info(msg string, args ...interface{}) {
-	event := log.Info()
+func (l *CustomLogger) Info(msg string, args ...interface{}) {
+	event := logging.Info()
 	if l.prefix != "" {
 		event = event.Str("prefix", l.prefix)
 	}
@@ -60,8 +60,8 @@ func (l *ZerologLogger) Info(msg string, args ...interface{}) {
 }
 
 // Warn logs a warning message.
-func (l *ZerologLogger) Warn(msg string, args ...interface{}) {
-	event := log.Warn()
+func (l *CustomLogger) Warn(msg string, args ...interface{}) {
+	event := logging.Warn()
 	if l.prefix != "" {
 		event = event.Str("prefix", l.prefix)
 	}
@@ -81,8 +81,8 @@ func (l *ZerologLogger) Warn(msg string, args ...interface{}) {
 }
 
 // Error logs an error message.
-func (l *ZerologLogger) Error(msg string, args ...interface{}) {
-	event := log.Error()
+func (l *CustomLogger) Error(msg string, args ...interface{}) {
+	event := logging.Error()
 	if l.prefix != "" {
 		event = event.Str("prefix", l.prefix)
 	}

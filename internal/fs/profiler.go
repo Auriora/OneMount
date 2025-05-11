@@ -2,13 +2,12 @@ package fs
 
 import (
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 // ProfileType represents the type of profiling to perform
@@ -41,7 +40,7 @@ type Profiler struct {
 func NewProfiler(outputDir string) *Profiler {
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		log.Error().Err(err).Str("dir", outputDir).Msg("Failed to create profiling directory")
+		logging.Error().Err(err).Str("dir", outputDir).Msg("Failed to create profiling directory")
 		return nil
 	}
 
@@ -77,17 +76,17 @@ func (p *Profiler) Start(profileType ProfileType) error {
 			return fmt.Errorf("could not start CPU profile: %w", err)
 		}
 
-		log.Info().Str("file", cpuFile).Msg("Started CPU profiling")
+		logging.Info().Str("file", cpuFile).Msg("Started CPU profiling")
 
 	case ProfileBlock:
 		// Enable block profiling
 		runtime.SetBlockProfileRate(1)
-		log.Info().Msg("Started block profiling")
+		logging.Info().Msg("Started block profiling")
 
 	case ProfileMutex:
 		// Enable mutex profiling
 		runtime.SetMutexProfileFraction(1)
-		log.Info().Msg("Started mutex profiling")
+		logging.Info().Msg("Started mutex profiling")
 
 	default:
 		return fmt.Errorf("unsupported profile type: %v", profileType)
@@ -116,7 +115,7 @@ func (p *Profiler) Stop(profileType ProfileType) error {
 			pprof.StopCPUProfile()
 			p.cpuProfile.Close()
 			p.cpuProfile = nil
-			log.Info().Msg("Stopped CPU profiling")
+			logging.Info().Msg("Stopped CPU profiling")
 		}
 
 	case ProfileMemory:
@@ -131,7 +130,7 @@ func (p *Profiler) Stop(profileType ProfileType) error {
 		if err := pprof.WriteHeapProfile(p.memProfile); err != nil {
 			return fmt.Errorf("could not write memory profile: %w", err)
 		}
-		log.Info().Str("file", memFile).Msg("Wrote memory profile")
+		logging.Info().Str("file", memFile).Msg("Wrote memory profile")
 
 	case ProfileGoroutine:
 		goroutineFile := filepath.Join(p.outputDir, fmt.Sprintf("goroutine-%s.pprof", timestamp))
@@ -144,7 +143,7 @@ func (p *Profiler) Stop(profileType ProfileType) error {
 		if err := pprof.Lookup("goroutine").WriteTo(f, 0); err != nil {
 			return fmt.Errorf("could not write goroutine profile: %w", err)
 		}
-		log.Info().Str("file", goroutineFile).Msg("Wrote goroutine profile")
+		logging.Info().Str("file", goroutineFile).Msg("Wrote goroutine profile")
 
 	case ProfileBlock:
 		blockFile := filepath.Join(p.outputDir, fmt.Sprintf("block-%s.pprof", timestamp))
@@ -158,7 +157,7 @@ func (p *Profiler) Stop(profileType ProfileType) error {
 			return fmt.Errorf("could not write block profile: %w", err)
 		}
 		runtime.SetBlockProfileRate(0) // Disable block profiling
-		log.Info().Str("file", blockFile).Msg("Wrote block profile")
+		logging.Info().Str("file", blockFile).Msg("Wrote block profile")
 
 	case ProfileMutex:
 		mutexFile := filepath.Join(p.outputDir, fmt.Sprintf("mutex-%s.pprof", timestamp))
@@ -172,7 +171,7 @@ func (p *Profiler) Stop(profileType ProfileType) error {
 			return fmt.Errorf("could not write mutex profile: %w", err)
 		}
 		runtime.SetMutexProfileFraction(0) // Disable mutex profiling
-		log.Info().Str("file", mutexFile).Msg("Wrote mutex profile")
+		logging.Info().Str("file", mutexFile).Msg("Wrote mutex profile")
 
 	default:
 		return fmt.Errorf("unsupported profile type: %v", profileType)
@@ -218,22 +217,22 @@ func (p *Profiler) CaptureAllProfiles(duration time.Duration) error {
 
 	// Capture memory profile
 	if err := p.Stop(ProfileMemory); err != nil {
-		log.Error().Err(err).Msg("Failed to capture memory profile")
+		logging.Error().Err(err).Msg("Failed to capture memory profile")
 	}
 
 	// Capture goroutine profile
 	if err := p.Stop(ProfileGoroutine); err != nil {
-		log.Error().Err(err).Msg("Failed to capture goroutine profile")
+		logging.Error().Err(err).Msg("Failed to capture goroutine profile")
 	}
 
 	// Capture block profile
 	if err := p.Stop(ProfileBlock); err != nil {
-		log.Error().Err(err).Msg("Failed to capture block profile")
+		logging.Error().Err(err).Msg("Failed to capture block profile")
 	}
 
 	// Capture mutex profile
 	if err := p.Stop(ProfileMutex); err != nil {
-		log.Error().Err(err).Msg("Failed to capture mutex profile")
+		logging.Error().Err(err).Msg("Failed to capture mutex profile")
 	}
 
 	return nil

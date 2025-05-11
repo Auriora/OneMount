@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // CacheEntry represents a cached API response with expiration
@@ -133,6 +133,6 @@ func (c *ResponseCache) cleanupExpired() {
 	}
 
 	if expiredCount > 0 {
-		log.Debug().Int("count", expiredCount).Msg("Removed expired entries from response cache")
+		logging.Debug().Int("count", expiredCount).Msg("Removed expired entries from response cache")
 	}
 }

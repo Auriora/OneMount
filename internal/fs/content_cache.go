@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 // LoopbackCache stores the content for files under a folder as regular files
@@ -22,15 +22,15 @@ type LoopbackCache struct {
 func NewLoopbackCache(directory string) *LoopbackCache {
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		// Log the error properly
-		log.Error().Err(err).Str("directory", directory).Msg("Failed to create content cache directory")
+		logging.Error().Err(err).Str("directory", directory).Msg("Failed to create content cache directory")
 		// Try to create parent directories if they don't exist
 		parentDir := filepath.Dir(directory)
 		if err := os.MkdirAll(parentDir, 0700); err != nil {
-			log.Error().Err(err).Str("parentDir", parentDir).Msg("Failed to create parent directory for content cache")
+			logging.Error().Err(err).Str("parentDir", parentDir).Msg("Failed to create parent directory for content cache")
 		}
 		// Try again to create the content directory
 		if err := os.MkdirAll(directory, 0700); err != nil {
-			log.Error().Err(err).Str("directory", directory).Msg("Second attempt to create content cache directory failed")
+			logging.Error().Err(err).Str("directory", directory).Msg("Second attempt to create content cache directory failed")
 		}
 	}
 	return &LoopbackCache{
@@ -161,7 +161,7 @@ func (l *LoopbackCache) Open(id string) (*os.File, error) {
 	filePath := l.contentPath(id)
 	dirPath := filepath.Dir(filePath)
 	if err := os.MkdirAll(dirPath, 0700); err != nil {
-		log.Error().Err(err).Str("directory", dirPath).Msg("Failed to create parent directory for content file")
+		logging.Error().Err(err).Str("directory", dirPath).Msg("Failed to create parent directory for content file")
 		return nil, err
 	}
 

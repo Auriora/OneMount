@@ -2,10 +2,7 @@
 // This file defines the LogContext struct and related methods for context-based logging.
 package logging
 
-import (
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-)
+import ()
 
 // LogContext represents a logging context that can be passed between functions
 type LogContext struct {
@@ -62,9 +59,9 @@ func (lc LogContext) With(key string, value interface{}) LogContext {
 	return lc
 }
 
-// Logger returns a zerolog.Logger with the context fields added
-func (lc LogContext) Logger() zerolog.Logger {
-	logger := log.With()
+// Logger returns a Logger with the context fields added
+func (lc LogContext) Logger() Logger {
+	logger := DefaultLogger.With()
 
 	if lc.RequestID != "" {
 		logger = logger.Str("request_id", lc.RequestID)

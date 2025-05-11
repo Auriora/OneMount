@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/imdario/mergo"
-	"github.com/rs/zerolog/log"
 )
 
 // AuthTokensFileName is the name of the file where authentication tokens are stored
@@ -146,21 +146,21 @@ func (a *Auth) createRefreshTokenRequest() *strings.Reader {
 func (a *Auth) handleRefreshResponse(resp *http.Response, err error) (bool, error) {
 	if err != nil {
 		if IsOffline(err) || resp == nil {
-			log.Trace().Err(err).Msg("Network unreachable during token renewal, ignoring.")
+			logging.Trace().Err(err).Msg("Network unreachable during token renewal, ignoring.")
 			return false, err
 		}
-		log.Error().Err(err).Msg("Could not POST to renew tokens, forcing reauth.")
+		logging.Error().Err(err).Msg("Could not POST to renew tokens, forcing reauth.")
 		return true, err
 	}
 
 	// Check for non-2xx status codes which indicate auth failure
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Error().Int("status_code", resp.StatusCode).Msg("Token refresh failed with non-2xx status code")
+		logging.Error().Int("status_code", resp.StatusCode).Msg("Token refresh failed with non-2xx status code")
 		return true, fmt.Errorf("token refresh failed with status code %d", resp.StatusCode)
 	}
 
 	// put here so as to avoid spamming the log when offline
-	log.Info().Msg("Auth tokens expired, attempting renewal.")
+	logging.Info().Msg("Auth tokens expired, attempting renewal.")
 	return false, nil
 }
 
@@ -176,21 +176,21 @@ func (a *Auth) updateTokenExpiration(oldTime int64) {
 // Uses the context from the Refresh method
 func (a *Auth) handleFailedRefresh(ctx context.Context, resp *http.Response, body []byte, reauth bool) error {
 	if reauth || a.AccessToken == "" || a.RefreshToken == "" {
-		log.Error().
-			Bytes("response", body).
+		logging.Error().
+			Str("response", string(body)).
 			Int("http_code", resp.StatusCode).
 			Msg("Failed to renew access tokens. Attempting to reauthenticate.")
 
 		newAuth, err := newAuth(ctx, a.AuthConfig, a.Path, false)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to reauthenticate. Using existing tokens.")
+			logging.Error().Err(err).Msg("Failed to reauthenticate. Using existing tokens.")
 			return fmt.Errorf("failed to refresh token: reauthentication failed: %w", err)
 		}
 		*a = *newAuth
 	} else {
 		err := a.ToFile(a.Path)
 		if err != nil {
-			log.Warn().Err(err).Msg("handleFailedRefresh() Failed to save auth tokens to file")
+			logging.Warn().Err(err).Msg("handleFailedRefresh() Failed to save auth tokens to file")
 			return fmt.Errorf("failed to refresh token: could not save auth tokens to file: %w", err)
 		}
 	}
@@ -230,7 +230,7 @@ func (a *Auth) Refresh(ctx context.Context) error {
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
 				if err != nil {
-					log.Warn().Err(err).Msg("Failed to close refresh response body")
+					logging.Warn().Err(err).Msg("Failed to close refresh response body")
 				}
 			}(resp.Body)
 			body, err := io.ReadAll(resp.Body)
@@ -317,7 +317,7 @@ func getAuthTokens(ctx context.Context, a AuthConfig, authCode string) (*Auth, e
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			log.Warn().Err(err).Msg("Failed to close auth token response body")
+			logging.Warn().Err(err).Msg("Failed to close auth token response body")
 		}
 	}(resp.Body)
 
@@ -344,7 +344,7 @@ func getAuthTokens(ctx context.Context, a AuthConfig, authCode string) (*Auth, e
 			// we got a parseable error message out of microsoft's servers
 			errMsg = fmt.Sprintf("Failed to retrieve access tokens: %s - %s",
 				authErr.Error, authErr.ErrorDescription)
-			log.Error().
+			logging.Error().
 				Int("status", resp.StatusCode).
 				Str("error", authErr.Error).
 				Str("errorDescription", authErr.ErrorDescription).
@@ -353,9 +353,9 @@ func getAuthTokens(ctx context.Context, a AuthConfig, authCode string) (*Auth, e
 		} else {
 			// things are extra broken and this is an error type we haven't seen before
 			errMsg = "Failed to retrieve access tokens with unknown error format"
-			log.Error().
+			logging.Error().
 				Int("status", resp.StatusCode).
-				Bytes("response", body).
+				Str("response", string(body)).
 				Err(err).
 				Msg(errMsg)
 		}
@@ -379,7 +379,7 @@ func newAuth(ctx context.Context, config AuthConfig, path string, headless bool)
 
 	config_err := config.applyDefaults()
 	if config_err != nil {
-		log.Warn().Err(config_err).Msg("Failed to apply default auth config")
+		logging.Warn().Err(config_err).Msg("Failed to apply default auth config")
 		return nil, config_err
 	}
 	var code string
@@ -408,7 +408,7 @@ func newAuth(ctx context.Context, config AuthConfig, path string, headless bool)
 	}
 
 	if err := auth.ToFile(path); err != nil {
-		log.Warn().Err(err).Msg("newAuth() Failed to save auth tokens to file")
+		logging.Warn().Err(err).Msg("newAuth() Failed to save auth tokens to file")
 	}
 
 	return auth, nil
@@ -437,7 +437,7 @@ func Authenticate(ctx context.Context, config AuthConfig, path string, headless 
 			return nil, fmt.Errorf("failed to load auth tokens: %w", err)
 		}
 		if err := auth.Refresh(ctx); err != nil {
-			log.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
+			logging.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
 		}
 	}
 	return auth, nil

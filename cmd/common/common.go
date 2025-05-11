@@ -13,8 +13,7 @@ import (
 
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 )
 
 const version = "0.14.1"
@@ -30,12 +29,12 @@ func Version() string {
 	return fmt.Sprintf("v%s %s", version, commit[:clen])
 }
 
-// StringToLevel converts a string to a zerolog.LogLevel that can be used with zerolog
-func StringToLevel(input string) zerolog.Level {
-	level, err := zerolog.ParseLevel(input)
+// StringToLevel converts a string to a logging.Level that can be used with the logging package
+func StringToLevel(input string) logging.Level {
+	level, err := logging.ParseLevel(input)
 	if err != nil {
-		log.Error().Err(err).Msg("Could not parse log level, defaulting to \"debug\"")
-		return zerolog.DebugLevel
+		logging.Error().Err(err).Msg("Could not parse log level, defaulting to \"debug\"")
+		return logging.DebugLevel
 	}
 	return level
 }
@@ -78,10 +77,10 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	if child, _ := filesystem.GetPath("/.xdg-volume-info", auth); child != nil {
 		return
 	}
-	log.Info().Msg("Creating .xdg-volume-info")
+	logging.Info().Msg("Creating .xdg-volume-info")
 	user, err := graph.GetUser(auth)
 	if err != nil {
-		log.Error().Err(err).Msg("Could not create .xdg-volume-info")
+		logging.Error().Err(err).Msg("Could not create .xdg-volume-info")
 		return
 	}
 	xdgVolumeInfo := TemplateXDGVolumeInfo(user.UserPrincipalName)
@@ -94,7 +93,7 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 		strings.NewReader(xdgVolumeInfo),
 	)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to write .xdg-volume-info")
+		logging.Error().Err(err).Msg("Failed to write .xdg-volume-info")
 	}
 	root, _ := filesystem.GetPath("/", auth) // cannot fail
 	inode := fs.NewInode(".xdg-volume-info", 0644, root)
@@ -108,13 +107,13 @@ func IsUserAllowOtherEnabled() bool {
 	// Try to open /etc/fuse.conf
 	file, err := os.Open("/etc/fuse.conf")
 	if err != nil {
-		log.Debug().Err(err).Msg("Could not open /etc/fuse.conf, assuming user_allow_other is not enabled")
+		logging.Debug().Err(err).Msg("Could not open /etc/fuse.conf, assuming user_allow_other is not enabled")
 		return false
 	}
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
-			log.Error().Err(err).Msg("Error closing /etc/fuse.conf")
+			logging.Error().Err(err).Msg("Error closing /etc/fuse.conf")
 		}
 	}(file)
 
@@ -130,15 +129,15 @@ func IsUserAllowOtherEnabled() bool {
 
 		// Check if the line contains user_allow_other
 		if line == "user_allow_other" {
-			log.Debug().Msg("Found user_allow_other in /etc/fuse.conf")
+			logging.Debug().Msg("Found user_allow_other in /etc/fuse.conf")
 			return true
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Debug().Err(err).Msg("Error reading /etc/fuse.conf, assuming user_allow_other is not enabled")
+		logging.Debug().Err(err).Msg("Error reading /etc/fuse.conf, assuming user_allow_other is not enabled")
 	}
 
-	log.Debug().Msg("user_allow_other not found in /etc/fuse.conf")
+	logging.Debug().Msg("user_allow_other not found in /etc/fuse.conf")
 	return false
 }

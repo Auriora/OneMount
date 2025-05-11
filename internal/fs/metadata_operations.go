@@ -7,13 +7,12 @@ import (
 
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // StatFs Statfs returns information about the filesystem. Mainly useful for checking
 // quotas and storage limits.
 func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.StatfsOut) fuse.Status {
-	ctx := log.With().Str("op", "StatFs").Logger()
+	ctx := logging.DefaultLogger.With().Str("op", "StatFs").Logger()
 	ctx.Debug().Msg("")
 	drive, err := graph.GetDrive(f.auth)
 	if err != nil {
@@ -51,7 +50,7 @@ func (f *Filesystem) GetAttr(_ <-chan struct{}, in *fuse.GetAttrIn, out *fuse.At
 	if inode == nil {
 		return fuse.ENOENT
 	}
-	log.Trace().
+	logging.Trace().
 		Str("op", "GetAttr").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
@@ -75,7 +74,7 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 	isDir := i.IsDir() // holds an rlock
 	i.Lock()
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "SetAttr").
 		Uint64("nodeID", in.NodeId).
 		Str("id", i.DriveItem.ID).
@@ -168,7 +167,7 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 	id, err := f.remoteID(inode)
 	newParentID := newParentItem.ID()
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Rename").
 		Str("id", id).
 		Str("parentID", newParentID).

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -36,7 +36,7 @@ func SetDBusServiceNamePrefix(prefix string) {
 	}
 
 	DBusServiceName = fmt.Sprintf("%s.%s_%s", DBusServiceNameBase, prefix, uniqueSuffix)
-	log.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name")
+	logging.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name")
 }
 
 func init() {
@@ -73,7 +73,7 @@ func (s *FileStatusDBusServer) StartForTesting() error {
 
 	conn, err := dbus.SessionBus()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to connect to D-Bus session bus")
+		logging.Error().Err(err).Msg("Failed to connect to D-Bus session bus")
 		return err
 	}
 	s.conn = conn
@@ -81,7 +81,7 @@ func (s *FileStatusDBusServer) StartForTesting() error {
 	// Export the FileStatusDBusServer object
 	err = conn.Export(s, DBusObjectPath, DBusInterface)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to export D-Bus object")
+		logging.Error().Err(err).Msg("Failed to export D-Bus object")
 		s.conn = nil
 		return err
 	}
@@ -115,13 +115,13 @@ func (s *FileStatusDBusServer) StartForTesting() error {
 	}
 	err = conn.Export(introspect.NewIntrospectable(node), DBusObjectPath, "org.freedesktop.DBus.Introspectable")
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to export introspection data")
+		logging.Error().Err(err).Msg("Failed to export introspection data")
 		s.conn = nil
 		return err
 	}
 
 	s.started = true
-	log.Info().Msg("D-Bus server started in test mode")
+	logging.Info().Msg("D-Bus server started in test mode")
 	return nil
 }
 
@@ -136,7 +136,7 @@ func (s *FileStatusDBusServer) Start() error {
 
 	conn, err := dbus.SessionBus()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to connect to D-Bus session bus")
+		logging.Error().Err(err).Msg("Failed to connect to D-Bus session bus")
 		return err
 	}
 	s.conn = conn
@@ -145,22 +145,22 @@ func (s *FileStatusDBusServer) Start() error {
 	// This ensures we can always get a name, even if there are conflicts
 	reply, err := conn.RequestName(DBusServiceName, dbus.NameFlagAllowReplacement|dbus.NameFlagReplaceExisting|dbus.NameFlagDoNotQueue)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to request D-Bus name")
+		logging.Error().Err(err).Msg("Failed to request D-Bus name")
 		s.conn = nil
 		return err
 	}
 	if reply != dbus.RequestNameReplyPrimaryOwner {
 		// Since we're using a unique name and NameFlagReplaceExisting, this should rarely happen
 		// But if it does, we'll log it and continue
-		log.Warn().Msgf("Not primary owner of D-Bus name (reply: %v), but continuing with unique name: %s", reply, DBusServiceName)
+		logging.Warn().Msgf("Not primary owner of D-Bus name (reply: %v), but continuing with unique name: %s", reply, DBusServiceName)
 	} else {
-		log.Debug().Str("dbusName", DBusServiceName).Msg("Successfully acquired D-Bus name")
+		logging.Debug().Str("dbusName", DBusServiceName).Msg("Successfully acquired D-Bus name")
 	}
 
 	// Export the FileStatusDBusServer object
 	err = conn.Export(s, DBusObjectPath, DBusInterface)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to export D-Bus object")
+		logging.Error().Err(err).Msg("Failed to export D-Bus object")
 		s.conn = nil
 		return err
 	}
@@ -194,13 +194,13 @@ func (s *FileStatusDBusServer) Start() error {
 	}
 	err = conn.Export(introspect.NewIntrospectable(node), DBusObjectPath, "org.freedesktop.DBus.Introspectable")
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to export introspection data")
+		logging.Error().Err(err).Msg("Failed to export introspection data")
 		s.conn = nil
 		return err
 	}
 
 	s.started = true
-	log.Info().Msg("D-Bus server started")
+	logging.Info().Msg("D-Bus server started")
 	return nil
 }
 
@@ -224,27 +224,27 @@ func (s *FileStatusDBusServer) Stop() {
 	if s.conn != nil {
 		// Release the D-Bus name before closing the connection
 		// This helps prevent name conflicts in subsequent runs
-		log.Debug().Str("dbusName", DBusServiceName).Msg("Releasing D-Bus name")
+		logging.Debug().Str("dbusName", DBusServiceName).Msg("Releasing D-Bus name")
 		if _, err := s.conn.ReleaseName(DBusServiceName); err != nil {
-			log.Warn().Err(err).Msg("Failed to release D-Bus name")
+			logging.Warn().Err(err).Msg("Failed to release D-Bus name")
 		}
 
 		// Unexport the objects to clean up resources
 		if err := s.conn.Export(nil, DBusObjectPath, DBusInterface); err != nil {
-			log.Warn().Err(err).Msg("Failed to unexport D-Bus object")
+			logging.Warn().Err(err).Msg("Failed to unexport D-Bus object")
 		}
 		if err := s.conn.Export(nil, DBusObjectPath, "org.freedesktop.DBus.Introspectable"); err != nil {
-			log.Warn().Err(err).Msg("Failed to unexport introspection data")
+			logging.Warn().Err(err).Msg("Failed to unexport introspection data")
 		}
 
 		// Close the connection
 		if err := s.conn.Close(); err != nil {
-			log.Error().Err(err).Msg("Failed to close D-Bus connection")
+			logging.Error().Err(err).Msg("Failed to close D-Bus connection")
 		}
 		s.conn = nil
 	}
 	s.started = false
-	log.Info().Msg("D-Bus server stopped and resources cleaned up")
+	logging.Info().Msg("D-Bus server stopped and resources cleaned up")
 }
 
 // GetFileStatus returns the status of a file
@@ -252,7 +252,7 @@ func (s *FileStatusDBusServer) GetFileStatus(path string) (string, *dbus.Error) 
 	// Since GetPath is not available in the FilesystemInterface,
 	// we need to handle this differently.
 	// For now, return "Unknown" status
-	log.Warn().Str("path", path).Msg("GetPath not available in FilesystemInterface, returning Unknown status")
+	logging.Warn().Str("path", path).Msg("GetPath not available in FilesystemInterface, returning Unknown status")
 	return "Unknown", nil
 }
 
@@ -269,6 +269,6 @@ func (s *FileStatusDBusServer) SendFileStatusUpdate(path string, status string) 
 		status,
 	)
 	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("status", status).Msg("Failed to emit D-Bus signal")
+		logging.Error().Err(err).Str("path", path).Str("status", status).Msg("Failed to emit D-Bus signal")
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // Mkdir creates a directory.
@@ -25,7 +24,7 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 	}
 	id := inode.ID()
 	path := filepath.Join(inode.Path(), name)
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "Mkdir").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
@@ -91,15 +90,15 @@ func (f *Filesystem) OpenDir(_ <-chan struct{}, in *fuse.OpenIn, _ *fuse.OpenOut
 	id := f.TranslateID(in.NodeId)
 	dir := f.GetID(id)
 	if dir == nil {
-		log.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Directory not found")
+		logging.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Directory not found")
 		return fuse.ENOENT
 	}
 	if !dir.IsDir() {
-		log.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Not a directory")
+		logging.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Not a directory")
 		return fuse.ENOTDIR
 	}
 	path := dir.Path()
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "OpenDir").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
@@ -263,7 +262,7 @@ func (f *Filesystem) ReadDir(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.
 // a directory.
 func (f *Filesystem) Lookup(_ <-chan struct{}, in *fuse.InHeader, name string, out *fuse.EntryOut) fuse.Status {
 	id := f.TranslateID(in.NodeId)
-	log.Trace().
+	logging.Trace().
 		Str("op", "Lookup").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).

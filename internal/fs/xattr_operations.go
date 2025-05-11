@@ -1,11 +1,10 @@
 package fs
 
 import (
-	"bytes"
+	"github.com/auriora/onemount/pkg/logging"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // GetXAttr retrieves the value of an extended attribute.
@@ -16,7 +15,7 @@ func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name str
 		return 0, fuse.ENOENT
 	}
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "GetXAttr").
 		Uint64("nodeID", header.NodeId).
 		Str("id", id).
@@ -60,7 +59,7 @@ func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name strin
 		return fuse.ENOENT
 	}
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "SetXAttr").
 		Uint64("nodeID", in.NodeId).
 		Str("id", id).
@@ -78,7 +77,9 @@ func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name strin
 	}
 
 	// Store a copy of the value
-	inode.xattrs[name] = bytes.Clone(value)
+	valueCopy := make([]byte, len(value))
+	copy(valueCopy, value)
+	inode.xattrs[name] = valueCopy
 	ctx.Debug().Msg("Set xattr")
 
 	return fuse.OK
@@ -92,7 +93,7 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 		return 0, fuse.ENOENT
 	}
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "ListXAttr").
 		Uint64("nodeID", header.NodeId).
 		Str("id", id).
@@ -126,10 +127,16 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 	var offset int
 	for name := range inode.xattrs {
 		nameBytes := []byte(name)
-		copy(buf[offset:], nameBytes)
-		offset += len(nameBytes)
-		buf[offset] = 0 // null terminator
-		offset++
+		// Ensure we don't exceed buffer bounds
+		if offset+len(nameBytes)+1 <= len(buf) {
+			copy(buf[offset:], nameBytes)
+			offset += len(nameBytes)
+			buf[offset] = 0 // null terminator
+			offset++
+		} else {
+			// Buffer too small, shouldn't happen due to earlier check but added for safety
+			return 0, fuse.Status(syscall.ERANGE)
+		}
 	}
 
 	ctx.Debug().
@@ -147,7 +154,7 @@ func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name 
 		return fuse.ENOENT
 	}
 
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "RemoveXAttr").
 		Uint64("nodeID", header.NodeId).
 		Str("id", id).
@@ -158,7 +165,12 @@ func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name 
 	inode.Lock()
 	defer inode.Unlock()
 
-	if inode.xattrs == nil || inode.xattrs[name] == nil {
+	if inode.xattrs == nil {
+		ctx.Debug().Msg("Xattr map is nil")
+		return fuse.Status(syscall.ENODATA)
+	}
+
+	if _, exists := inode.xattrs[name]; !exists {
 		ctx.Debug().Msg("Xattr not found")
 		return fuse.Status(syscall.ENODATA)
 	}

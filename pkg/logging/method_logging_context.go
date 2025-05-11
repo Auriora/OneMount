@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"github.com/auriora/onemount/pkg/util"
 	"time"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
-// WithLogContext creates a new zerolog.Logger with the given context
-func WithLogContext(ctx LogContext) zerolog.Logger {
-	logger := log.With()
+// WithLogContext creates a new Logger with the given context
+func WithLogContext(ctx LogContext) Logger {
+	logger := DefaultLogger.With()
 
 	if ctx.RequestID != "" {
 		logger = logger.Str("request_id", ctx.RequestID)
@@ -31,7 +28,7 @@ func WithLogContext(ctx LogContext) zerolog.Logger {
 }
 
 // LogMethodCallWithContext logs the entry of a method with context
-func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, zerolog.Logger, LogContext) {
+func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, Logger, LogContext) {
 	// Create a logger with the context
 	logger := WithLogContext(ctx)
 
@@ -49,7 +46,7 @@ func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.T
 }
 
 // LogMethodReturnWithContext logs the exit of a method with context
-func LogMethodReturnWithContext(methodName string, startTime time.Time, logger zerolog.Logger, ctx LogContext, returns ...interface{}) {
+func LogMethodReturnWithContext(methodName string, startTime time.Time, logger Logger, ctx LogContext, returns ...interface{}) {
 	duration := time.Since(startTime)
 
 	// Get the current goroutine ID

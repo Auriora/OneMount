@@ -4,7 +4,6 @@ package logging
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 )
 
 // LogError logs an error with additional fields.
@@ -14,7 +13,7 @@ func LogError(err error, msg string, fields ...interface{}) {
 		return
 	}
 
-	event := log.Error().Err(err)
+	event := Error().Err(err)
 
 	// Add additional fields in pairs (key, value)
 	for i := 0; i < len(fields); i += 2 {
@@ -37,7 +36,7 @@ func LogWarn(err error, msg string, fields ...interface{}) {
 		return
 	}
 
-	event := log.Warn().Err(err)
+	event := Warn().Err(err)
 
 	// Add additional fields in pairs (key, value)
 	for i := 0; i < len(fields); i += 2 {

@@ -1,10 +1,10 @@
 package systemd
 
 import (
+	"github.com/auriora/onemount/pkg/logging"
+
 	"github.com/auriora/onemount/pkg/testutil"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 	"os"
 	"testing"
 )
@@ -15,24 +15,24 @@ import (
 func TestMain(m *testing.M) {
 	// Ensure test directories exist
 	if err := helpers.EnsureTestDirectories(); err != nil {
-		log.Error().Err(err).Msg("Failed to ensure test directories exist")
+		logging.Error().Err(err).Msg("Failed to ensure test directories exist")
 		os.Exit(1)
 	}
 
 	// Set up logging
 	logFile, err := os.OpenFile(testutil.TestLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to open log file")
+		logging.Error().Err(err).Msg("Failed to open log file")
 		os.Exit(1)
 	}
 	defer func() {
 		if err := logFile.Close(); err != nil {
-			log.Error().Err(err).Msg("Failed to close log file")
+			logging.Error().Err(err).Msg("Failed to close log file")
 		}
 	}()
 
-	// Configure zerolog to write to the log file
-	log.Logger = zerolog.New(logFile).With().Timestamp().Logger()
+	// Configure logging to write to the log file
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(logFile, "15:04:05"))
 
 	// Run the tests and exit with the appropriate status code
 	os.Exit(m.Run())

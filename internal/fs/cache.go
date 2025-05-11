@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -77,14 +76,14 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 			if lockInfo, infoErr := os.Stat(lockPath); infoErr == nil {
 				lockAge := time.Since(lockInfo.ModTime())
 				if lockAge > 5*time.Minute {
-					log.Warn().Dur("age", lockAge).Msg("Found stale lock file (older than 5 minutes), attempting to remove it")
+					logging.Warn().Dur("age", lockAge).Msg("Found stale lock file (older than 5 minutes), attempting to remove it")
 					if rmErr := os.Remove(lockPath); rmErr != nil {
-						log.Warn().Err(rmErr).Msg("Failed to remove stale lock file")
+						logging.Warn().Err(rmErr).Msg("Failed to remove stale lock file")
 					} else {
-						log.Info().Msg("Successfully removed stale lock file")
+						logging.Info().Msg("Successfully removed stale lock file")
 					}
 				} else {
-					log.Warn().Dur("age", lockAge).Msg("Found recent lock file, another instance may be running")
+					logging.Warn().Dur("age", lockAge).Msg("Found recent lock file, another instance may be running")
 				}
 			}
 		}
@@ -116,7 +115,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 		if err == nil {
 			// Successfully opened the database
-			log.Debug().Int("attempt", attempt+1).Msg("Successfully opened database")
+			logging.Debug().Int("attempt", attempt+1).Msg("Successfully opened database")
 			break
 		}
 
@@ -130,7 +129,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		}
 
 		// Log the error and wait before retrying
-		log.Warn().Err(err).Int("attempt", attempt+1).Dur("backoff", backoff).Msg("Failed to open database, retrying after backoff")
+		logging.Warn().Err(err).Int("attempt", attempt+1).Dur("backoff", backoff).Msg("Failed to open database, retrying after backoff")
 		time.Sleep(backoff)
 	}
 
@@ -148,7 +147,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		tx.DB().NoSync = true
 		return nil
 	}); err != nil {
-		log.Warn().Err(err).Msg("Failed to set database options")
+		logging.Warn().Err(err).Msg("Failed to set database options")
 	}
 
 	// Explicitly create content and thumbnail directories
@@ -175,16 +174,16 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	thumbnails := NewThumbnailCache(thumbnailDir)
 	err = db.Update(func(tx *bolt.Tx) error {
 		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
-			log.Error().Err(err).Msg("Failed to create metadata bucket")
+			logging.Error().Err(err).Msg("Failed to create metadata bucket")
 			return err
 		}
 		if _, err := tx.CreateBucketIfNotExists(bucketDelta); err != nil {
-			log.Error().Err(err).Msg("Failed to create delta bucket")
+			logging.Error().Err(err).Msg("Failed to create delta bucket")
 			return err
 		}
 		versionBucket, err := tx.CreateBucketIfNotExists(bucketVersion)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to create version bucket")
+			logging.Error().Err(err).Msg("Failed to create version bucket")
 			return err
 		}
 
@@ -192,24 +191,24 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		b := tx.Bucket(bucketContent)
 		if b != nil {
 			oldVersion := "0"
-			log.Info().
+			logging.Info().
 				Str("oldVersion", oldVersion).
 				Str("version", fsVersion).
 				Msg("Migrating to new db format.")
 			err := b.ForEach(func(k []byte, v []byte) error {
-				log.Info().Bytes("key", k).Msg("Migrating file content.")
+				logging.Info().Str("key", string(k)).Msg("Migrating file content.")
 				if err := content.Insert(string(k), v); err != nil {
 					return err
 				}
 				return b.Delete(k)
 			})
 			if err != nil {
-				log.Error().Err(err).Msg("Migration failed.")
+				logging.Error().Err(err).Msg("Migration failed.")
 			}
 			if err := tx.DeleteBucket(bucketContent); err != nil {
-				log.Error().Err(err).Msg("Failed to delete content bucket during migration")
+				logging.Error().Err(err).Msg("Failed to delete content bucket during migration")
 			}
-			log.Info().
+			logging.Info().
 				Str("oldVersion", oldVersion).
 				Str("version", fsVersion).
 				Msg("Migrations complete.")
@@ -272,13 +271,13 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 						return nil
 					})
 				}); err != nil && err.Error() != "found root item, stopping iteration" {
-					log.Error().Err(err).Msg("Error searching for root item in database")
+					logging.Error().Err(err).Msg("Error searching for root item in database")
 				}
 			}
 
 			// If we still couldn't find a root item, return an error
 			if root == nil {
-				log.Error().Msg(
+				logging.Error().Msg(
 					"We are offline and could not fetch the filesystem root item from disk.",
 				)
 				return nil, errors.New("offline and could not fetch the filesystem root item from disk")
@@ -293,7 +292,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 					// long enough to save its delta link. We explicitly disallow these
 					// types of startups as it's possible for things to get out of sync
 					// this way.
-					log.Error().Msg("Cannot perform an offline startup without a valid " +
+					logging.Error().Msg("Cannot perform an offline startup without a valid " +
 						"delta link from a previous session.")
 					deltaLinkErr = errors.New("cannot perform an offline startup without a valid delta link from a previous session")
 				}
@@ -329,7 +328,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		if child, _ := fs.GetChild(fs.root, trash, auth); child == nil {
 			item, err := graph.Mkdir(trash, fs.root, auth)
 			if err != nil {
-				log.Error().Err(err).
+				logging.Error().Err(err).
 					Msg("Could not create the trash folder. " +
 						"Trashing items through the file browser may result in errors.")
 			} else {
@@ -349,7 +348,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	fs.dbusServer = NewFileStatusDBusServer(fs)
 	// Use StartForTesting in test environment
 	if err := fs.dbusServer.Start(); err != nil {
-		log.Error().Err(err).Msg("Failed to start D-Bus server")
+		logging.Error().Err(err).Msg("Failed to start D-Bus server")
 		// Continue even if D-Bus server fails to start
 	}
 
@@ -645,7 +644,7 @@ func (f *Filesystem) GetID(id string) *Inode {
 			}
 			return err
 		}); err != nil {
-			log.Error().Err(err).Str("id", id).Msg("Failed to read inode from database")
+			logging.Error().Err(err).Str("id", id).Msg("Failed to read inode from database")
 			defer LogMethodReturn(methodName, startTime, nil)
 			return nil
 		}
@@ -712,7 +711,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 		if nodeID <= f.lastNodeID {
 			f.inodes[nodeID-1] = id
 		} else {
-			log.Error().
+			logging.Error().
 				Uint64("nodeID", nodeID).
 				Uint64("lastNodeID", f.lastNodeID).
 				Msg("NodeID exceeded maximum node ID! Ignoring ID change.")
@@ -731,7 +730,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 		// Check if the parent ID is the root ID
 		if parentID == f.root {
 			// Create a dummy root item if it doesn't exist
-			log.Warn().
+			logging.Warn().
 				Str("parentID", parentID).
 				Str("childID", id).
 				Str("childName", inode.Name()).
@@ -751,7 +750,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 			f.metadata.Store(parentID, rootInode)
 			parent = rootInode
 		} else {
-			log.Error().
+			logging.Error().
 				Str("parentID", parentID).
 				Str("childID", id).
 				Str("childName", inode.Name()).
@@ -850,18 +849,18 @@ func (f *Filesystem) GetChild(id string, name string, auth *graph.Auth) (*Inode,
 // GetChildrenID grabs all DriveItems that are the children of the given ID. If
 // items are not found, they are fetched.
 func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Inode, error) {
-	log.Debug().Str("id", id).Str("func", "GetChildrenID").Msg("Starting GetChildrenID")
+	logging.Debug().Str("id", id).Str("func", "GetChildrenID").Msg("Starting GetChildrenID")
 
 	// fetch item and catch common errors
 	inode := f.GetID(id)
 	children := make(map[string]*Inode)
 	if inode == nil {
-		log.Error().Str("id", id).Msg("Inode not found in cache")
+		logging.Error().Str("id", id).Msg("Inode not found in cache")
 		return children, errors.New(id + " not found in cache")
 	} else if !inode.IsDir() {
 		// Normal files are treated as empty folders. This only gets called if
 		// we messed up and tried to get the children of a plain-old file.
-		log.Warn().
+		logging.Warn().
 			Str("id", id).
 			Str("path", inode.Path()).
 			Msg("Attepted to get children of ordinary file")
@@ -870,13 +869,13 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 
 	// Get the path before acquiring any locks to avoid potential deadlocks
 	pathForLogs := inode.Path()
-	log.Debug().Str("id", id).Str("path", pathForLogs).Msg("Checking if children are already cached")
+	logging.Debug().Str("id", id).Str("path", pathForLogs).Msg("Checking if children are already cached")
 
 	// If item.children is not nil, it means we have the item's children
 	// already and can fetch them directly from the cache
 	inode.RLock()
 	if inode.children != nil {
-		log.Debug().Str("id", id).Str("path", pathForLogs).Int("childCount", len(inode.children)).Msg("Children found in cache, retrieving them")
+		logging.Debug().Str("id", id).Str("path", pathForLogs).Int("childCount", len(inode.children)).Msg("Children found in cache, retrieving them")
 		// can potentially have out-of-date child metadata if started offline, but since
 		// changes are disallowed while offline, the children will be back in sync after
 		// the first successful delta fetch (which also brings the fs back online)
@@ -889,33 +888,33 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			children[strings.ToLower(child.Name())] = child
 		}
 		inode.RUnlock()
-		log.Debug().Str("id", id).Str("path", pathForLogs).Int("childCount", len(children)).Msg("Successfully retrieved children from cache")
+		logging.Debug().Str("id", id).Str("path", pathForLogs).Int("childCount", len(children)).Msg("Successfully retrieved children from cache")
 		return children, nil
 	}
 	// Update path before unlocking to avoid potential deadlocks
 	pathForLogs = inode.Path()
 	inode.RUnlock()
 
-	log.Debug().Str("id", id).Str("path", pathForLogs).Msg("Children not in cache, fetching from server")
+	logging.Debug().Str("id", id).Str("path", pathForLogs).Msg("Children not in cache, fetching from server")
 
 	// We haven't fetched the children for this item yet, get them from the server.
-	log.Debug().Str("id", id).Str("path", pathForLogs).Msg("About to call graph.GetItemChildren")
+	logging.Debug().Str("id", id).Str("path", pathForLogs).Msg("About to call graph.GetItemChildren")
 	fetched, err := graph.GetItemChildren(id, auth)
-	log.Debug().Str("id", id).Str("path", pathForLogs).Err(err).Msg("Returned from graph.GetItemChildren")
+	logging.Debug().Str("id", id).Str("path", pathForLogs).Err(err).Msg("Returned from graph.GetItemChildren")
 
 	if err != nil {
 		if graph.IsOffline(err) {
-			log.Warn().Str("id", id).
+			logging.Warn().Str("id", id).
 				Msg("We are offline, and no children found in cache. " +
 					"Pretending there are no children.")
 			return children, nil
 		}
 		// something else happened besides being offline
-		log.Error().Str("id", id).Str("path", pathForLogs).Err(err).Msg("Error fetching children from server")
+		logging.Error().Str("id", id).Str("path", pathForLogs).Err(err).Msg("Error fetching children from server")
 		return nil, err
 	}
 
-	log.Debug().Str("id", id).Str("path", pathForLogs).Int("fetchedCount", len(fetched)).Msg("Processing fetched children")
+	logging.Debug().Str("id", id).Str("path", pathForLogs).Int("fetchedCount", len(fetched)).Msg("Processing fetched children")
 
 	// Store the path before locking to avoid potential deadlocks
 	processingPath := pathForLogs
@@ -938,13 +937,13 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 		}
 
 		if i%50 == 0 && i > 0 {
-			log.Debug().Str("id", id).Str("path", processingPath).Int("processedCount", i).Int("totalCount", len(fetched)).Msg("Processing children progress")
+			logging.Debug().Str("id", id).Str("path", processingPath).Int("processedCount", i).Int("totalCount", len(fetched)).Msg("Processing children progress")
 		}
 	}
-	log.Debug().Str("id", id).Str("path", processingPath).Int("childrenCount", len(children)).Uint32("subdirCount", inode.subdir).Msg("Finished processing all children")
+	logging.Debug().Str("id", id).Str("path", processingPath).Int("childrenCount", len(children)).Uint64("subdirCount", uint64(inode.subdir)).Msg("Finished processing all children")
 	inode.Unlock()
 
-	log.Debug().Str("id", id).Str("path", processingPath).Int("childrenCount", len(children)).Msg("GetChildrenID completed successfully")
+	logging.Debug().Str("id", id).Str("path", processingPath).Int("childrenCount", len(children)).Msg("GetChildrenID completed successfully")
 	return children, nil
 }
 
@@ -1013,7 +1012,7 @@ func (f *Filesystem) InsertPath(key string, auth *graph.Auth, inode *Inode) (uin
 		return 0, err
 	} else if parent == nil {
 		const errMsg string = "parent of key was nil"
-		log.Error().
+		logging.Error().
 			Str("key", key).
 			Str("path", inode.Path()).
 			Msg(errMsg)
@@ -1095,11 +1094,11 @@ func (f *Filesystem) MovePath(oldParent, newParent, oldName, newName string, aut
 func (f *Filesystem) StartCacheCleanup() {
 	// Don't start cleanup if expiration days is 0 or negative
 	if f.cacheExpirationDays <= 0 {
-		log.Info().Msg("Cache cleanup disabled (expiration days <= 0)")
+		logging.Info().Msg("Cache cleanup disabled (expiration days <= 0)")
 		return
 	}
 
-	log.Info().Int("expirationDays", f.cacheExpirationDays).Msg("Starting content cache cleanup routine")
+	logging.Info().Int("expirationDays", f.cacheExpirationDays).Msg("Starting content cache cleanup routine")
 
 	// Add to wait group to track this goroutine
 	f.cacheCleanupWg.Add(1)
@@ -1113,9 +1112,9 @@ func (f *Filesystem) StartCacheCleanup() {
 		// Run cleanup immediately on startup
 		count, err := f.content.CleanupCache(f.cacheExpirationDays)
 		if err != nil {
-			log.Error().Err(err).Msg("Error during initial content cache cleanup")
+			logging.Error().Err(err).Msg("Error during initial content cache cleanup")
 		} else {
-			log.Info().Int("removedFiles", count).Msg("Initial content cache cleanup completed")
+			logging.Info().Int("removedFiles", count).Msg("Initial content cache cleanup completed")
 		}
 
 		// Set up ticker for periodic cleanup (once per day)
@@ -1128,17 +1127,17 @@ func (f *Filesystem) StartCacheCleanup() {
 				// Run cleanup
 				count, err := f.content.CleanupCache(f.cacheExpirationDays)
 				if err != nil {
-					log.Error().Err(err).Msg("Error during content cache cleanup")
+					logging.Error().Err(err).Msg("Error during content cache cleanup")
 				} else {
-					log.Info().Int("removedFiles", count).Msg("Content cache cleanup completed")
+					logging.Info().Int("removedFiles", count).Msg("Content cache cleanup completed")
 				}
 			case <-f.cacheCleanupStop:
 				// Stop the cleanup routine
-				log.Info().Msg("Stopping content cache cleanup routine via stop channel")
+				logging.Info().Msg("Stopping content cache cleanup routine via stop channel")
 				return
 			case <-f.ctx.Done():
 				// Context cancelled, stop the cleanup routine
-				log.Info().Msg("Stopping content cache cleanup routine via context cancellation")
+				logging.Info().Msg("Stopping content cache cleanup routine via context cancellation")
 				return
 			}
 		}
@@ -1147,30 +1146,30 @@ func (f *Filesystem) StartCacheCleanup() {
 
 // StopCacheCleanup stops the background cache cleanup routine.
 func (f *Filesystem) StopCacheCleanup() {
-	log.Info().Msg("Stopping cache cleanup routine...")
+	logging.Info().Msg("Stopping cache cleanup routine...")
 	// Only send stop signal if expiration days is positive (cleanup is running)
 	if f.cacheExpirationDays > 0 {
 		f.cacheCleanupStopOnce.Do(func() {
 			close(f.cacheCleanupStop)
 		})
 		f.cacheCleanupWg.Wait()
-		log.Info().Msg("Cache cleanup routine stopped")
+		logging.Info().Msg("Cache cleanup routine stopped")
 	}
 }
 
 // StopDeltaLoop stops the delta loop goroutine and waits for it to finish.
 func (f *Filesystem) StopDeltaLoop() {
-	log.Info().Msg("Stopping delta loop...")
+	logging.Info().Msg("Stopping delta loop...")
 
 	// Cancel the context to interrupt any in-progress network requests
 	f.deltaLoopCancel()
-	log.Debug().Msg("Cancelled delta loop context to interrupt network operations")
+	logging.Debug().Msg("Cancelled delta loop context to interrupt network operations")
 
 	// Close the stop channel to signal the delta loop to stop
 	f.deltaLoopStopOnce.Do(func() {
 		close(f.deltaLoopStop)
 	})
-	log.Debug().Msg("Closed delta loop stop channel")
+	logging.Debug().Msg("Closed delta loop stop channel")
 
 	// Wait for delta loop to finish with a timeout
 	done := make(chan struct{})
@@ -1182,18 +1181,18 @@ func (f *Filesystem) StopDeltaLoop() {
 	// Wait for delta loop to finish or timeout after 10 seconds
 	select {
 	case <-done:
-		log.Info().Msg("Delta loop stopped successfully")
+		logging.Info().Msg("Delta loop stopped successfully")
 	case <-time.After(10 * time.Second):
-		log.Warn().Msg("Timed out waiting for delta loop to stop - continuing shutdown anyway")
+		logging.Warn().Msg("Timed out waiting for delta loop to stop - continuing shutdown anyway")
 		// Log additional debug information
-		log.Debug().Msg("Delta loop may be stuck in a network operation or processing a large batch of changes")
-		log.Debug().Msg("This is not a critical error, but may indicate a potential issue with network operations")
+		logging.Debug().Msg("Delta loop may be stuck in a network operation or processing a large batch of changes")
+		logging.Debug().Msg("This is not a critical error, but may indicate a potential issue with network operations")
 	}
 }
 
 // StopDownloadManager stops the download manager and waits for all workers to finish.
 func (f *Filesystem) StopDownloadManager() {
-	log.Info().Msg("Stopping download manager...")
+	logging.Info().Msg("Stopping download manager...")
 	if f.downloads != nil {
 		// Create a channel to signal when the download manager has stopped
 		done := make(chan struct{})
@@ -1207,16 +1206,16 @@ func (f *Filesystem) StopDownloadManager() {
 		// Wait for download manager to stop or timeout after 5 seconds
 		select {
 		case <-done:
-			log.Info().Msg("Download manager stopped successfully")
+			logging.Info().Msg("Download manager stopped successfully")
 		case <-time.After(5 * time.Second):
-			log.Warn().Msg("Timed out waiting for download manager to stop")
+			logging.Warn().Msg("Timed out waiting for download manager to stop")
 		}
 	}
 }
 
 // StopUploadManager stops the upload manager and waits for all uploads to finish.
 func (f *Filesystem) StopUploadManager() {
-	log.Info().Msg("Stopping upload manager...")
+	logging.Info().Msg("Stopping upload manager...")
 	if f.uploads != nil {
 		// Create a channel to signal when the upload manager has stopped
 		done := make(chan struct{})
@@ -1230,9 +1229,9 @@ func (f *Filesystem) StopUploadManager() {
 		// Wait for upload manager to stop or timeout after 5 seconds
 		select {
 		case <-done:
-			log.Info().Msg("Upload manager stopped successfully")
+			logging.Info().Msg("Upload manager stopped successfully")
 		case <-time.After(5 * time.Second):
-			log.Warn().Msg("Timed out waiting for upload manager to stop")
+			logging.Warn().Msg("Timed out waiting for upload manager to stop")
 		}
 	}
 }
@@ -1242,7 +1241,7 @@ func (f *Filesystem) StopUploadManager() {
 // cache is offline. Old metadata is not removed, only overwritten (to avoid an
 // offline session from wiping all metadata on a subsequent serialization).
 func (f *Filesystem) SerializeAll() {
-	log.Debug().Msg("Serializing cache metadata to disk.")
+	logging.Debug().Msg("Serializing cache metadata to disk.")
 
 	allItems := make(map[string][]byte)
 	f.metadata.Range(func(k interface{}, v interface{}) bool {
@@ -1275,7 +1274,7 @@ func (f *Filesystem) SerializeAll() {
 		}
 		return nil
 	}); err != nil {
-		log.Error().Err(err).Msg("Failed to serialize metadata to database")
+		logging.Error().Err(err).Msg("Failed to serialize metadata to database")
 	}
 }
 

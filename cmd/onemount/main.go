@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"os"
 	"os/exec"
@@ -18,10 +17,9 @@ import (
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
 )
 
@@ -96,9 +94,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		if *cacheDir != "" {
 			config.CacheDir = *cacheDir
 		}
-		log.Info().Str("path", config.CacheDir).Msg("Removing cache.")
+		logging.Info().Str("path", config.CacheDir).Msg("Removing cache.")
 		if err := os.RemoveAll(config.CacheDir); err != nil {
-			log.Error().Err(err).Msg("Failed to remove cache directory")
+			logging.Error().Err(err).Msg("Failed to remove cache directory")
 		}
 		os.Exit(0)
 	}
@@ -107,7 +105,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	if len(flag.Args()) == 0 {
 		flag.Usage()
 		if _, err := fmt.Fprintf(os.Stderr, "\nNo mountpoint provided, exiting.\n"); err != nil {
-			log.Error().Err(err).Msg("Failed to write to stderr")
+			logging.Error().Err(err).Msg("Failed to write to stderr")
 		}
 		os.Exit(1)
 	}
@@ -134,7 +132,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		config.CacheExpiration = *cacheExpiration
 	}
 
-	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
 	return config, *authOnlyFlag, *headlessFlag, *debugOnFlag, *statsFlag, *daemonFlag, mountpoint
 }
@@ -170,7 +168,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	}
 
 	// create the filesystem
-	log.Info().Msgf("onemount %s", common.Version())
+	logging.Info().Msgf("onemount %s", common.Version())
 	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
 	if err != nil {
 		logging.LogError(err, "Authentication failed",
@@ -187,12 +185,12 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to initialize filesystem")
 	}
 
-	log.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
+	logging.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
 	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Second)
 
 	// Start the content cache cleanup routine
 	if config.CacheExpiration > 0 {
-		log.Info().Msgf("Setting content cache expiration to %d day(s)", config.CacheExpiration)
+		logging.Info().Msgf("Setting content cache expiration to %d day(s)", config.CacheExpiration)
 		filesystem.StartCacheCleanup()
 	}
 
@@ -200,7 +198,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 
 	// Sync the full directory tree if requested
 	if config.SyncTree {
-		log.Info().Msg("Starting full directory tree synchronization in background...")
+		logging.Info().Msg("Starting full directory tree synchronization in background...")
 		filesystem.Wg.Add(1)
 		go func(ctx context.Context) {
 			defer filesystem.Wg.Done()
@@ -208,7 +206,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 			// Check if context is already cancelled
 			select {
 			case <-ctx.Done():
-				log.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
+				logging.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
 				return
 			default:
 				// Continue with normal operation
@@ -217,13 +215,13 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 			if err := filesystem.SyncDirectoryTree(auth); err != nil {
 				// Check if the error is due to context cancellation
 				if ctx.Err() != nil {
-					log.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
+					logging.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
 					return
 				}
 				logging.LogError(err, "Error syncing directory tree",
 					logging.FieldOperation, "SyncDirectoryTree")
 			} else {
-				log.Info().Msg("Directory tree sync completed successfully")
+				logging.Info().Msg("Directory tree sync completed successfully")
 			}
 		}(ctx)
 	}
@@ -239,10 +237,10 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 
 	// Only set AllowOther if user_allow_other is enabled in /etc/fuse.conf
 	if common.IsUserAllowOtherEnabled() {
-		log.Info().Msg("Setting AllowOther mount option (user_allow_other is enabled in /etc/fuse.conf)")
+		logging.Info().Msg("Setting AllowOther mount option (user_allow_other is enabled in /etc/fuse.conf)")
 		mountOptions.AllowOther = true
 	} else {
-		log.Info().Msg("Not setting AllowOther mount option (user_allow_other is not enabled in /etc/fuse.conf)")
+		logging.Info().Msg("Not setting AllowOther mount option (user_allow_other is not enabled in /etc/fuse.conf)")
 	}
 
 	// Create the FUSE server
@@ -261,7 +259,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 func displayStats(ctx context.Context, config *common.Config, mountpoint string) {
 	// Determine the cache directory
 	if mountpoint == "" {
-		log.Fatal().Msg("No mountpoint specified. Please provide a mountpoint.")
+		logging.Fatal().Msg("No mountpoint specified. Please provide a mountpoint.")
 	}
 	absMountPath, _ := filepath.Abs(mountpoint)
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
@@ -270,21 +268,21 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
 	auth, err := graph.Authenticate(ctx, config.AuthConfig, authPath, true)
 	if err != nil {
-		log.Error().Err(err).Msg("Authentication failed")
+		logging.Error().Err(err).Msg("Authentication failed")
 		os.Exit(1)
 	}
 
 	// Initialize the filesystem without mounting
 	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to initialize filesystem")
+		logging.Error().Err(err).Msg("Failed to initialize filesystem")
 		os.Exit(1)
 	}
 
 	// Get statistics
 	stats, err := filesystem.GetStats()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to get statistics")
+		logging.Error().Err(err).Msg("Failed to get statistics")
 		os.Exit(1)
 	}
 
@@ -412,10 +410,10 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	filesystem.StopUploadManager()
 }
 
-// setupLogging configures the zerolog logger based on the configuration
+// setupLogging configures the logger based on the configuration
 func setupLogging(config *common.Config, daemon bool) error {
 	// Set the global log level
-	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
 	// Configure the log output
 	var output io.Writer
@@ -424,11 +422,11 @@ func setupLogging(config *common.Config, daemon bool) error {
 	if daemon && (config.LogOutput == "STDOUT" || config.LogOutput == "STDERR") {
 		// Use a default log file in the cache directory
 		logFile := filepath.Join(config.CacheDir, "onemount.log")
-		log.Info().Str("logFile", logFile).Msg("Daemon mode: redirecting logs to file")
+		logging.Info().Str("logFile", logFile).Msg("Daemon mode: redirecting logs to file")
 
 		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			log.Error().Err(err).Str("path", logFile).Msg("Failed to open log file, falling back to STDOUT")
+			logging.Error().Err(err).Str("path", logFile).Msg("Failed to open log file, falling back to STDOUT")
 			output = os.Stdout
 		} else {
 			output = file
@@ -446,7 +444,7 @@ func setupLogging(config *common.Config, daemon bool) error {
 			// Open the log file
 			file, err := os.OpenFile(config.LogOutput, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 			if err != nil {
-				log.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
+				logging.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
 				output = os.Stdout
 			} else {
 				output = file
@@ -455,14 +453,14 @@ func setupLogging(config *common.Config, daemon bool) error {
 	}
 
 	// Set up the logger with console formatting
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: output, TimeFormat: "15:04:05"})
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(output, "15:04:05"))
 	return nil
 }
 
 func main() {
 	// Initialize with a basic logger that outputs to stderr
 	// This will be replaced after loading the configuration
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(os.Stderr, "15:04:05"))
 
 	// Create a root context that can be canceled
 	ctx, cancel := context.WithCancel(context.Background())
@@ -472,12 +470,12 @@ func main() {
 
 	// Configure logging based on the configuration
 	if err := setupLogging(config, daemon); err != nil {
-		log.Error().Err(err).Msg("Failed to set up logging")
+		logging.Error().Err(err).Msg("Failed to set up logging")
 	}
 
 	// If daemon flag is set, daemonize the process
 	if daemon {
-		log.Info().Msg("Starting onemount in daemon mode...")
+		logging.Info().Msg("Starting onemount in daemon mode...")
 		daemonize()
 	}
 
@@ -489,37 +487,37 @@ func main() {
 
 	// Check if the mountpoint might be a mistyped flag
 	if len(mountpoint) == 1 && strings.Contains("acdefhilnsvw", mountpoint) {
-		log.Fatal().
+		logging.Fatal().
 			Str("mountpoint", mountpoint).
 			Msg("Mountpoint looks like a flag without the hyphen prefix. Did you mean '-" + mountpoint + "'? Use '--help' for usage information.")
 	}
 
 	st, err := os.Stat(mountpoint)
 	if err != nil || !st.IsDir() {
-		log.Fatal().
+		logging.Fatal().
 			Str("mountpoint", mountpoint).
 			Msg("Mountpoint did not exist or was not a directory.")
 	}
 	if res, _ := os.ReadDir(mountpoint); len(res) > 0 {
-		log.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint must be empty.")
+		logging.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint must be empty.")
 	}
 
 	// Check if the mountpoint is already mounted
 	if isMounted := checkIfMounted(mountpoint); isMounted {
-		log.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint is already mounted. Unmount it first or choose a different mountpoint.")
+		logging.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint is already mounted. Unmount it first or choose a different mountpoint.")
 	}
 
 	// Initialize the filesystem
 	filesystem, _, server, cachePath, absMountPath, err := initializeFilesystem(ctx, config, mountpoint, authOnly, headless, debugOn)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize filesystem")
+		logging.Fatal().Err(err).Msg("Failed to initialize filesystem")
 	}
 
 	// setup signal handler for graceful unmount on signals like sigint
 	setupSignalHandler(filesystem, server, absMountPath, cancel)
 
 	// serve filesystem
-	log.Info().
+	logging.Info().
 		Str("cachePath", cachePath).
 		Str("mountpoint", absMountPath).
 		Msg("Serving filesystem.")
@@ -546,7 +544,7 @@ func checkIfMounted(mountpoint string) bool {
 	// Check if it's a mount point using findmnt
 	cmd := exec.Command("findmnt", "--noheadings", "--output", "TARGET", mountpoint)
 	if output, err := cmd.Output(); err == nil && len(output) > 0 {
-		log.Warn().Str("mountpoint", mountpoint).Msg("Mount point is already mounted")
+		logging.Warn().Str("mountpoint", mountpoint).Msg("Mount point is already mounted")
 		return true
 	}
 
@@ -554,13 +552,13 @@ func checkIfMounted(mountpoint string) bool {
 	// If the mountpoint is already mounted but empty, the previous check might not catch it
 	testFile := filepath.Join(mountpoint, ".onemount-mount-test")
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-		log.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to write test file, mountpoint might be mounted or inaccessible")
+		logging.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to write test file, mountpoint might be mounted or inaccessible")
 		return true
 	}
 
 	// Clean up the test file
 	if err := os.Remove(testFile); err != nil {
-		log.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to remove test file, but mountpoint appears accessible")
+		logging.Warn().Err(err).Str("mountpoint", mountpoint).Msg("Failed to remove test file, but mountpoint appears accessible")
 	}
 
 	return false
@@ -598,10 +596,10 @@ func daemonize() {
 
 	// Start the process in the background
 	if err := cmd.Start(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start daemon process")
+		logging.Fatal().Err(err).Msg("Failed to start daemon process")
 	}
 
-	log.Info().Msg("Daemon process started successfully")
+	logging.Info().Msg("Daemon process started successfully")
 	os.Exit(0)
 }
 
@@ -613,11 +611,11 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 	// Create a custom signal handler that stops background processes before unmounting
 	go func() {
 		sig := <-sigChan // block until signal
-		log.Info().Str("signal", strings.ToUpper(sig.String())).
+		logging.Info().Str("signal", strings.ToUpper(sig.String())).
 			Msg("Signal received, cleaning up and unmounting filesystem.")
 
 		// Cancel the context to notify all goroutines to stop
-		log.Info().Msg("Canceling context to notify all goroutines to stop...")
+		logging.Info().Msg("Canceling context to notify all goroutines to stop...")
 		cancel()
 
 		// Stop the cache cleanup routine
@@ -633,7 +631,7 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 		filesystem.StopUploadManager()
 
 		// Give the system a moment to release all resources
-		log.Info().Msg("Waiting for all resources to be released before unmounting...")
+		logging.Info().Msg("Waiting for all resources to be released before unmounting...")
 		time.Sleep(500 * time.Millisecond)
 
 		// Unmount the filesystem with retries
@@ -643,7 +641,7 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 
 		// Check if the filesystem is actually mounted before attempting to unmount
 		if !isMountpointMounted(mountpoint) {
-			log.Warn().Str("mountpoint", mountpoint).Msg("Filesystem does not appear to be mounted, skipping unmount operation")
+			logging.Warn().Str("mountpoint", mountpoint).Msg("Filesystem does not appear to be mounted, skipping unmount operation")
 		} else {
 			for i := 0; i < maxRetries; i++ {
 				err = server.Unmount()
@@ -652,7 +650,7 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 				}
 
 				if i < maxRetries-1 {
-					log.Warn().Err(err).
+					logging.Warn().Err(err).
 						Int("retry", i+1).
 						Dur("delay", retryDelay).
 						Msg("Failed to unmount filesystem, retrying after delay...")
@@ -663,11 +661,11 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 		}
 
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to unmount filesystem cleanly after multiple attempts! " +
+			logging.Error().Err(err).Msg("Failed to unmount filesystem cleanly after multiple attempts! " +
 				"Run \"fusermount3 -uz /MOUNTPOINT/GOES/HERE\" to unmount.")
 			os.Exit(1) // Exit with error code 1 to indicate failure
 		} else {
-			log.Info().Msg("Filesystem unmounted successfully.")
+			logging.Info().Msg("Filesystem unmounted successfully.")
 			os.Exit(0) // Exit with success code 0
 		}
 	}()

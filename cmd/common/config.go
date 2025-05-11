@@ -8,8 +8,8 @@ import (
 	"github.com/auriora/onemount/internal/ui"
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/imdario/mergo"
-	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -27,7 +27,7 @@ type Config struct {
 func DefaultConfigPath() string {
 	confDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Error().Err(err).Msg("Could not determine configuration directory.")
+		logging.Error().Err(err).Msg("Could not determine configuration directory.")
 	}
 	return filepath.Join(confDir, "onemount/config.yml")
 }
@@ -74,16 +74,16 @@ func validateConfig(config *Config) error {
 		}
 	}
 	if !isValidLogLevel {
-		log.Warn().
+		logging.Warn().
 			Str("logLevel", config.LogLevel).
-			Strs("validLevels", validLogLevels).
+			Interface("validLevels", validLogLevels).
 			Msg("Invalid log level, using default.")
 		config.LogLevel = "debug"
 	}
 
 	// Validate LogOutput
 	if config.LogOutput == "" {
-		log.Warn().Msg("Log output location cannot be empty, using default (STDOUT).")
+		logging.Warn().Msg("Log output location cannot be empty, using default (STDOUT).")
 		config.LogOutput = "STDOUT"
 	} else {
 		// Normalize special values to uppercase
@@ -95,7 +95,7 @@ func validateConfig(config *Config) error {
 			logDir := filepath.Dir(config.LogOutput)
 			if logDir != "." {
 				if err := os.MkdirAll(logDir, 0755); err != nil {
-					log.Warn().
+					logging.Warn().
 						Err(err).
 						Str("logOutput", config.LogOutput).
 						Msg("Could not create directory for log file, using STDOUT.")
@@ -107,7 +107,7 @@ func validateConfig(config *Config) error {
 
 	// Validate DeltaInterval
 	if config.DeltaInterval <= 0 {
-		log.Warn().
+		logging.Warn().
 			Int("deltaInterval", config.DeltaInterval).
 			Msg("Delta interval must be positive, using default.")
 		config.DeltaInterval = 1
@@ -115,7 +115,7 @@ func validateConfig(config *Config) error {
 
 	// Validate CacheExpiration
 	if config.CacheExpiration < 0 {
-		log.Warn().
+		logging.Warn().
 			Int("cacheExpiration", config.CacheExpiration).
 			Msg("Cache expiration must be non-negative, using default.")
 		config.CacheExpiration = 30
@@ -123,7 +123,7 @@ func validateConfig(config *Config) error {
 
 	// Validate CacheDir
 	if config.CacheDir == "" {
-		log.Warn().Msg("Cache directory cannot be empty, using default.")
+		logging.Warn().Msg("Cache directory cannot be empty, using default.")
 		xdgCacheDir, _ := os.UserCacheDir()
 		config.CacheDir = filepath.Join(xdgCacheDir, "onemount")
 	}
@@ -146,7 +146,7 @@ func LoadConfig(path string) *Config {
 	// Read configuration file
 	conf, err := readConfigFile(path)
 	if err != nil {
-		log.Warn().
+		logging.Warn().
 			Err(err).
 			Str("path", path).
 			Msg("Configuration file not found, using defaults.")
@@ -156,7 +156,7 @@ func LoadConfig(path string) *Config {
 	// Parse configuration
 	config, err := parseConfig(conf)
 	if err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("path", path).
 			Msg("Could not parse configuration file, using defaults.")
@@ -165,7 +165,7 @@ func LoadConfig(path string) *Config {
 
 	// Merge with defaults
 	if err = mergeWithDefaults(config, defaults); err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("path", path).
 			Msg("Could not merge configuration file with defaults, using defaults only.")
@@ -177,7 +177,7 @@ func LoadConfig(path string) *Config {
 
 	// Validate configuration
 	if err = validateConfig(config); err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("path", path).
 			Msg("Invalid configuration, using defaults.")
@@ -191,7 +191,7 @@ func LoadConfig(path string) *Config {
 func (c Config) WriteConfig(path string) error {
 	out, err := yaml.Marshal(c)
 	if err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("path", path).
 			Msg("Could not marshal config!")
@@ -200,7 +200,7 @@ func (c Config) WriteConfig(path string) error {
 
 	err = os.MkdirAll(filepath.Dir(path), 0700)
 	if err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("path", path).
 			Msg("Could not create directory for config file.")
@@ -209,14 +209,14 @@ func (c Config) WriteConfig(path string) error {
 
 	err = os.WriteFile(path, out, 0600)
 	if err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("path", path).
 			Msg("Could not write config to disk.")
 		return err
 	}
 
-	log.Debug().
+	logging.Debug().
 		Str("path", path).
 		Msg("Configuration written to file.")
 	return nil

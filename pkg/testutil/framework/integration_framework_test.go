@@ -73,7 +73,7 @@ func (c *TestTargetComponent) HandleInteraction() error {
 func TestUT_IF_01_01_IntegrationFrameworkCreation_NewFramework_CreatesSuccessfully(t *testing.T) {
 	// Create a new integration framework
 	ctx := context.Background()
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Verify the framework was created successfully
@@ -302,7 +302,7 @@ func TestUT_IF_04_01_InteractionCondition_SetupTeardown_ExecutesCorrectly(t *tes
 func TestUT_IF_05_01_CreateNetworkCondition_SlowNetwork_CreatesCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a network condition
@@ -343,7 +343,7 @@ func TestUT_IF_05_01_CreateNetworkCondition_SlowNetwork_CreatesCondition(t *test
 func TestUT_IF_06_01_CreateDisconnectedCondition_NetworkDisconnect_CreatesCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Create a disconnected condition
@@ -385,7 +385,7 @@ func TestUT_IF_06_01_CreateDisconnectedCondition_NetworkDisconnect_CreatesCondit
 func TestUT_IF_07_01_CreateErrorCondition_ComponentError_CreatesCondition(t *testing.T) {
 	// Create a framework
 	ctx := context.Background()
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 	framework := NewIntegrationFramework(ctx, logger)
 
 	// Define setup and cleanup functions

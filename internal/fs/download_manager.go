@@ -15,7 +15,6 @@ import (
 
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -207,7 +206,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	session.EndTime = time.Now()
 	session.mutex.Unlock()
 
-	log.Info().
+	logging.Info().
 		Str("id", id).
 		Str("path", session.Path).
 		Msg("File download completed")
@@ -265,7 +264,7 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 	// Add to download queue
 	select {
 	case dm.queue <- id:
-		log.Info().
+		logging.Info().
 			Str("id", id).
 			Str("path", path).
 			Msg("File queued for download")
@@ -327,7 +326,7 @@ func (dm *DownloadManager) WaitForDownload(id string) error {
 
 // Stop stops the download manager and waits for all workers to finish
 func (dm *DownloadManager) Stop() {
-	log.Info().Msg("Stopping download manager...")
+	logging.Info().Msg("Stopping download manager...")
 	close(dm.stopChan)
 
 	// Wait for all workers to finish with a timeout
@@ -340,9 +339,9 @@ func (dm *DownloadManager) Stop() {
 	// Wait for workers to finish or timeout after 5 seconds
 	select {
 	case <-done:
-		log.Info().Msg("Download manager stopped successfully")
+		logging.Info().Msg("Download manager stopped successfully")
 	case <-time.After(5 * time.Second):
-		log.Warn().Msg("Timed out waiting for download manager to stop")
+		logging.Warn().Msg("Timed out waiting for download manager to stop")
 	}
 }
 

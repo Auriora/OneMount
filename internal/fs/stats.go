@@ -2,12 +2,12 @@ package fs
 
 import (
 	"fmt"
+	"github.com/auriora/onemount/pkg/logging"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -287,7 +287,7 @@ func (f *Filesystem) GetStats() (*Stats, error) {
 		return nil
 	})
 	if err != nil {
-		log.Error().Err(err).Msg("Error analyzing metadata in bbolt database")
+		logging.Error().Err(err).Msg("Error analyzing metadata in bbolt database")
 	}
 
 	// Get database page statistics

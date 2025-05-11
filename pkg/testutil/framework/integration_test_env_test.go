@@ -15,7 +15,7 @@ import (
 
 func TestIntegrationTestEnvironment_Setup(t *testing.T) {
 	// Create a test logger
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -101,7 +101,7 @@ func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
 
 func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 	// Create a test logger
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -173,7 +173,7 @@ func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 
 func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 	// Create a test logger
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()
@@ -228,7 +228,7 @@ func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 
 func TestIntegrationTestEnvironment_ComponentIsolation(t *testing.T) {
 	// Create a test logger
-	logger := testutil.NewZerologLogger("integration-test")
+	logger := testutil.NewCustomLogger("integration-test")
 
 	// Create a context
 	ctx := context.Background()

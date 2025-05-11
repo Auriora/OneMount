@@ -18,18 +18,17 @@ import (
 	"github.com/auriora/onemount/internal/ui"
 	"github.com/auriora/onemount/internal/ui/systemd"
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
 )
 
-// setupLogging configures the zerolog logger based on the configuration
+// setupLogging configures the logger based on the configuration
 func setupLogging(config *common.Config) error {
 	// Set the global log level
-	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
 	// Configure the log output
 	var output io.Writer
@@ -42,7 +41,7 @@ func setupLogging(config *common.Config) error {
 		// Open the log file
 		file, err := os.OpenFile(config.LogOutput, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			log.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
+			logging.Error().Err(err).Str("path", config.LogOutput).Msg("Failed to open log file, falling back to STDOUT")
 			output = os.Stdout
 		} else {
 			output = file
@@ -50,7 +49,7 @@ func setupLogging(config *common.Config) error {
 	}
 
 	// Set up the logger with console formatting
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: output, TimeFormat: "15:04:05"})
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(output, "15:04:05"))
 	return nil
 }
 
@@ -91,7 +90,7 @@ func main() {
 	}
 
 	// loading config can emit an unformatted log message, so we do this first with a basic logger
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(os.Stderr, "15:04:05"))
 
 	// command line options override config options
 	config := common.LoadConfig(*configPath)
@@ -112,13 +111,13 @@ func main() {
 		config.LogOutput = *logOutput
 	}
 
-	zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
-	log.Info().Msgf("onemount-launcher %s", common.Version())
+	logging.Info().Msgf("onemount-launcher %s", common.Version())
 
 	app, err := gtk.ApplicationNew("com.github.auriora.onemount", glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Could not create application.")
+		logging.Fatal().Err(err).Msg("Could not create application.")
 	}
 	app.Connect("activate", func(application *gtk.Application) {
 		activateCallback(application, config, *configPath)
@@ -138,7 +137,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 
 	err := window.SetIconFromFile("/usr/share/icons/onemount/OneMount-Logo.svg")
 	if err != nil {
-		log.Warn().Err(err).Msg("Could not find logo.")
+		logging.Warn().Err(err).Msg("Could not find logo.")
 	}
 
 	listbox, _ := gtk.ListBoxNew()
@@ -151,7 +150,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	mountpointBtn.Connect("clicked", func(button *gtk.Button) {
 		mount := ui.DirChooser("Select a mountpoint")
 		if !ui.MountpointIsValid(mount) {
-			log.Error().Str("mountpoint", mount).
+			logging.Error().Str("mountpoint", mount).
 				Msg("Mountpoint was not valid (or user cancelled the operation). " +
 					"Mountpoint must be an empty directory.")
 			if mount != "" {
@@ -164,13 +163,13 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 
 		escapedMount := unit.UnitNamePathEscape(mount)
 		systemdUnit := systemd.TemplateUnit(systemd.OneMountServiceTemplate, escapedMount)
-		log.Info().
+		logging.Info().
 			Str("mountpoint", mount).
 			Str("systemdUnit", systemdUnit).
 			Msg("Creating mountpoint.")
 
 		if err := systemd.UnitSetActive(systemdUnit, true); err != nil {
-			log.Error().Err(err).Msg("Failed to start unit.")
+			logging.Error().Err(err).Msg("Failed to start unit.")
 			return
 		}
 
@@ -212,7 +211,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 		aboutDialog.SetLicenseType(gtk.LICENSE_GPL_3_0)
 		logo, err := gtk.ImageNewFromFile("/usr/share/icons/onemount/onemount-128.png")
 		if err != nil {
-			log.Warn().Err(err).Msg("Could not find logo.")
+			logging.Warn().Err(err).Msg("Could not find logo.")
 		} else {
 			aboutDialog.SetLogo(logo.GetPixbuf())
 		}
@@ -231,7 +230,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	for _, mount := range mounts {
 		mount = unit.UnitNamePathUnescape(mount)
 
-		log.Info().Str("mount", mount).Msg("Found existing mount.")
+		logging.Info().Str("mount", mount).Msg("Found existing mount.")
 
 		row, sw := newMountRow(*config, mount)
 		switches[mount] = sw
@@ -244,7 +243,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 		unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate,
 			unit.UnitNamePathEscape(mount))
 
-		log.Debug().
+		logging.Debug().
 			Str("mount", mount).
 			Str("unit", unitName).
 			Str("signal", "row-activated").
@@ -254,7 +253,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 		if !active {
 			err := systemd.UnitSetActive(unitName, true)
 			if err != nil {
-				log.Error().
+				logging.Error().
 					Err(err).
 					Str("unit", unitName).
 					Msg("Could not set unit state to active.")
@@ -272,9 +271,9 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 // xdgOpenDir opens a folder in the user's default file browser.
 // Should be invoked as a goroutine to not block the main app.
 func xdgOpenDir(mount string) {
-	log.Debug().Str("dir", mount).Msg("Opening directory.")
+	logging.Debug().Str("dir", mount).Msg("Opening directory.")
 	if mount == "" || !ui.PollUntilAvail(mount, -1) {
-		log.Error().
+		logging.Error().
 			Str("dir", mount).
 			Msg("Either directory was invalid or exceeded timeout waiting for fs to become available.")
 		return
@@ -297,7 +296,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 
 	driveName, err := common.GetXDGVolumeInfoName(filepath.Join(mount, ".xdg-volume-info"))
 	if err != nil {
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("mountpoint", mount).
 			Msg("Could not determine user-specified acccount name.")
@@ -319,7 +318,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 		))
 	} else {
 		// something went wrong and all we have is the mountpoint name
-		log.Error().
+		logging.Error().
 			Err(err).
 			Str("mountpoint", mount).
 			Msg("Could not determine user principal name.")
@@ -333,12 +332,12 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	if err == nil {
 		mountToggle.SetActive(active)
 	} else {
-		log.Error().Err(err).Msg("Error checking unit active state.")
+		logging.Error().Err(err).Msg("Error checking unit active state.")
 	}
 	mountToggle.SetTooltipText("Mount or unmount selected OneDrive account")
 	mountToggle.SetVAlign(gtk.ALIGN_CENTER)
 	mountToggle.Connect("state-set", func() {
-		log.Info().
+		logging.Info().
 			Str("signal", "state-set").
 			Str("mount", mount).
 			Str("unitName", unitName).
@@ -346,7 +345,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 			Msg("Changing systemd unit active state.")
 		err := systemd.UnitSetActive(unitName, mountToggle.GetActive())
 		if err != nil {
-			log.Error().
+			logging.Error().
 				Err(err).
 				Str("unit", unitName).
 				Msg("Could not change systemd unit active state.")
@@ -372,7 +371,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	// runs on enter
 	renameMountpointEntry.Connect("activate", func(entry *gtk.Entry) {
 		newName, err := entry.GetText()
-		ctx := log.With().
+		ctx := logging.DefaultLogger.With().
 			Str("signal", "clicked").
 			Str("mount", mount).
 			Str("unitName", unitName).
@@ -430,10 +429,10 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	if err == nil {
 		unitEnabledBtn.SetActive(enabled)
 	} else {
-		log.Error().Err(err).Msg("Error checking unit enabled state.")
+		logging.Error().Err(err).Msg("Error checking unit enabled state.")
 	}
 	unitEnabledBtn.Connect("toggled", func() {
-		log.Info().
+		logging.Info().
 			Str("signal", "toggled").
 			Str("mount", mount).
 			Str("unitName", unitName).
@@ -441,7 +440,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 			Msg("Changing systemd unit enabled state.")
 		err := systemd.UnitSetEnabled(unitName, unitEnabledBtn.GetActive())
 		if err != nil {
-			log.Error().
+			logging.Error().
 				Err(err).
 				Str("unit", unitName).
 				Msg("Could not change systemd unit enabled state.")
@@ -454,7 +453,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	deleteMountpointBtn.SetLabel("Remove Drive")
 	deleteMountpointBtn.SetTooltipText("Remove OneDrive account from local computer")
 	deleteMountpointBtn.Connect("clicked", func(button *gtk.ModelButton) {
-		log.Trace().
+		logging.Trace().
 			Str("signal", "clicked").
 			Str("mount", mount).
 			Str("unitName", unitName).
@@ -463,27 +462,27 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 		if ui.CancelDialog(nil, "<span weight=\"bold\">Remove drive?</span>",
 			"This will remove all data for this drive from your local computer. "+
 				"It can also be used to \"reset\" the drive to its original state.") {
-			log.Info().
+			logging.Info().
 				Str("signal", "clicked").
 				Str("mount", mount).
 				Str("unitName", unitName).
 				Msg("Deleting mount.")
 			err := systemd.UnitSetEnabled(unitName, false)
 			if err != nil {
-				log.Error().Err(err).Msg("Could not disable unit.")
+				logging.Error().Err(err).Msg("Could not disable unit.")
 				return
 			}
 
 			err = systemd.UnitSetActive(unitName, false)
 			if err != nil {
-				log.Error().Err(err).Msg("Could not deactivate unit.")
+				logging.Error().Err(err).Msg("Could not deactivate unit.")
 				return
 			}
 
 			cachedir, _ := os.UserCacheDir()
 			err = os.RemoveAll(fmt.Sprintf("%s/onemount/%s/", cachedir, escapedMount))
 			if err != nil {
-				log.Error().Err(err).Msg("Could not remove mount.")
+				logging.Error().Err(err).Msg("Could not remove mount.")
 				return
 			}
 
@@ -528,13 +527,13 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 	}
 	logLevelSelector.Connect("changed", func(box *gtk.ComboBoxText) {
 		config.LogLevel = box.GetActiveText()
-		log.Debug().
+		logging.Debug().
 			Str("newLevel", config.LogLevel).
 			Msg("Log level changed.")
-		zerolog.SetGlobalLevel(common.StringToLevel(config.LogLevel))
+		logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 		err := config.WriteConfig(configPath)
 		if err != nil {
-			log.Error().Err(err).Msg("Could not write config.")
+			logging.Error().Err(err).Msg("Could not write config.")
 			return
 		}
 	})
@@ -552,24 +551,24 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 	logOutputEntry.Connect("activate", func(entry *gtk.Entry) {
 		newOutput, err := entry.GetText()
 		if err != nil {
-			log.Error().Err(err).Msg("Could not get log output text.")
+			logging.Error().Err(err).Msg("Could not get log output text.")
 			return
 		}
 		if newOutput == config.LogOutput {
 			return // No change
 		}
 		config.LogOutput = newOutput
-		log.Debug().
+		logging.Debug().
 			Str("newOutput", config.LogOutput).
 			Msg("Log output changed.")
 		err = config.WriteConfig(configPath)
 		if err != nil {
-			log.Error().Err(err).Msg("Could not write config.")
+			logging.Error().Err(err).Msg("Could not write config.")
 			return
 		}
 		// Apply the change immediately
 		if err := setupLogging(config); err != nil {
-			log.Error().Err(err).Msg("Failed to update logging configuration")
+			logging.Error().Err(err).Msg("Failed to update logging configuration")
 		}
 	})
 	settingsRowLogOutput.PackEnd(logOutputEntry, false, false, 0)
@@ -589,7 +588,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 		if !ui.CancelDialog(settingsDialog, "Remount all drives?", "") {
 			return
 		}
-		log.Warn().
+		logging.Warn().
 			Str("oldPath", oldPath).
 			Str("newPath", path).
 			Msg("All active drives will be remounted to move cache directory.")
@@ -598,7 +597,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 		isMounted := make([]string, 0)
 		for _, mount := range ui.GetKnownMounts(oldPath) {
 			unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate, mount)
-			log.Info().
+			logging.Info().
 				Str("mount", mount).
 				Str("unit", unitName).
 				Msg("Disabling mount.")
@@ -610,7 +609,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 			if err != nil {
 				ui.Dialog("Could not disable mount: "+err.Error(),
 					gtk.MESSAGE_ERROR, settingsDialog)
-				log.Error().
+				logging.Error().
 					Err(err).
 					Str("mount", mount).
 					Str("unit", unitName).
@@ -622,7 +621,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 			if err != nil {
 				ui.Dialog("Could not move cache for mount: "+err.Error(),
 					gtk.MESSAGE_ERROR, settingsDialog)
-				log.Error().
+				logging.Error().
 					Err(err).
 					Str("mount", mount).
 					Str("unit", unitName).
@@ -635,7 +634,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 		for _, unitName := range isMounted {
 			err := systemd.UnitSetActive(unitName, true)
 			if err != nil {
-				log.Error().
+				logging.Error().
 					Err(err).
 					Str("unit", unitName).
 					Msg("Failed to restart unit.")
@@ -646,7 +645,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 		config.CacheDir = path
 		err := config.WriteConfig(configPath)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to write config.")
+			logging.Error().Err(err).Msg("Failed to write config.")
 			return
 		}
 		button.SetLabel(path)
@@ -662,7 +661,7 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 
 	contentArea, err := settingsDialog.GetContentArea()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to get settings dialog content area.")
+		logging.Error().Err(err).Msg("Failed to get settings dialog content area.")
 		return
 	}
 

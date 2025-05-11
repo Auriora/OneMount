@@ -19,7 +19,6 @@ import (
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/logging"
 	"github.com/imdario/mergo"
-	"github.com/rs/zerolog/log"
 )
 
 // GraphURL is the API endpoint of Microsoft Graph
@@ -77,7 +76,7 @@ func getResponseCache() *ResponseCache {
 	cacheOnce.Do(func() {
 		// Create the response cache with a default TTL of 5 minutes
 		responseCache = NewResponseCache(5 * time.Minute)
-		log.Info().Msg("Initialized response cache with 5-minute TTL")
+		logging.Info().Msg("Initialized response cache with 5-minute TTL")
 	})
 
 	return responseCache
@@ -301,7 +300,7 @@ func GetWithContext(ctx context.Context, resource string, auth *Auth, headers ..
 
 		// Try to get from cache first
 		if data, found := cache.Get(resource); found {
-			log.Debug().Str("resource", resource).Msg("Cache hit for GET request")
+			logging.Debug().Str("resource", resource).Msg("Cache hit for GET request")
 			return data, nil
 		}
 
@@ -310,7 +309,7 @@ func GetWithContext(ctx context.Context, resource string, auth *Auth, headers ..
 		if err == nil {
 			// Cache the successful response
 			cache.Set(resource, data)
-			log.Debug().Str("resource", resource).Msg("Cached GET response")
+			logging.Debug().Str("resource", resource).Msg("Cached GET response")
 		}
 		return data, err
 	}
@@ -341,7 +340,7 @@ func invalidateResourceCache(resource string) {
 		cache.InvalidatePrefix("/me/drive/root/children")
 	}
 
-	log.Debug().Str("resource", resource).Msg("Invalidated cache entries for modified resource")
+	logging.Debug().Str("resource", resource).Msg("Invalidated cache entries for modified resource")
 }
 
 // Patch is a convenience wrapper around Request
@@ -513,7 +512,7 @@ func SetOperationalOffline(offline bool) {
 	operationalOfflineMutex.Lock()
 	defer operationalOfflineMutex.Unlock()
 	operationalOffline = offline
-	log.Info().Bool("offline", offline).Msg("Set operational offline state")
+	logging.Info().Bool("offline", offline).Msg("Set operational offline state")
 }
 
 // GetOperationalOffline returns the current operational offline state

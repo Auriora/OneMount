@@ -6,13 +6,11 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 // LogMethodEntry logs the entry of a method with its parameters
 func LogMethodEntry(methodName string, params ...interface{}) {
-	event := log.Debug().
+	event := Debug().
 		Str(FieldMethod, methodName).
 		Str(FieldPhase, PhaseEntry)
 
@@ -48,7 +46,7 @@ func LogMethodEntry(methodName string, params ...interface{}) {
 
 // LogMethodExit logs the exit of a method with its return values
 func LogMethodExit(methodName string, duration time.Duration, returns ...interface{}) {
-	event := log.Debug().
+	event := Debug().
 		Str(FieldMethod, methodName).
 		Str(FieldPhase, PhaseExit).
 		Dur(FieldDuration, duration)

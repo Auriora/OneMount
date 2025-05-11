@@ -1,7 +1,7 @@
 package graph
 
 import (
-	"github.com/rs/zerolog/log"
+	"github.com/auriora/onemount/pkg/logging"
 	"net/http"
 	"time"
 )
@@ -23,7 +23,7 @@ func getSharedHTTPClient() HTTPClient {
 			Timeout:   defaultRequestTimeout,
 		}
 
-		log.Info().Msg("Initialized shared HTTP client with connection pooling")
+		logging.Info().Msg("Initialized shared HTTP client with connection pooling")
 	})
 
 	return sharedHTTPClient

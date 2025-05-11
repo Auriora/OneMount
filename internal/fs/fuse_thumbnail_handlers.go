@@ -2,6 +2,7 @@ package fs
 
 import (
 	"context"
+	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/rs/zerolog/log"
 )
 
 // HandleThumbnailRequest handles a request for a thumbnail.
@@ -42,7 +42,7 @@ func (f *Filesystem) HandleThumbnailRequest(_ <-chan struct{}, in *fuse.OpenIn, 
 	fullPath := filepath.Join(parent.Path(), originalPath)
 
 	// Log the thumbnail request
-	ctx := log.With().
+	ctx := logging.DefaultLogger.With().
 		Str("op", "HandleThumbnailRequest").
 		Str("path", fullPath).
 		Str("size", size).
@@ -109,7 +109,7 @@ type ThumbnailFileHandle struct {
 func (fh *ThumbnailFileHandle) Read(_ context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// Seek to the offset
 	if _, err := fh.file.Seek(off, 0); err != nil {
-		log.Error().Err(err).
+		logging.Error().Err(err).
 			Str("path", fh.path).
 			Str("size", fh.size).
 			Str("origPath", fh.origPath).
@@ -120,7 +120,7 @@ func (fh *ThumbnailFileHandle) Read(_ context.Context, dest []byte, off int64) (
 	// Read the data
 	n, err := fh.file.Read(dest)
 	if err != nil && err != io.EOF {
-		log.Error().Err(err).
+		logging.Error().Err(err).
 			Str("path", fh.path).
 			Str("size", fh.size).
 			Str("origPath", fh.origPath).
@@ -136,7 +136,7 @@ func (fh *ThumbnailFileHandle) Read(_ context.Context, dest []byte, off int64) (
 func (fh *ThumbnailFileHandle) Release(_ context.Context) syscall.Errno {
 	// Close the file
 	if err := fh.file.Close(); err != nil {
-		log.Error().Err(err).
+		logging.Error().Err(err).
 			Str("path", fh.path).
 			Str("size", fh.size).
 			Str("origPath", fh.origPath).
@@ -145,7 +145,7 @@ func (fh *ThumbnailFileHandle) Release(_ context.Context) syscall.Errno {
 
 	// Remove the temporary file
 	if err := os.Remove(fh.path); err != nil {
-		log.Error().Err(err).
+		logging.Error().Err(err).
 			Str("path", fh.path).
 			Str("size", fh.size).
 			Str("origPath", fh.origPath).
