@@ -1,5 +1,23 @@
 // Package logging provides standardized logging utilities for the OneMount project.
 // This file defines error logging functionality.
+//
+// Error logging is a critical aspect of application monitoring and debugging. This file
+// provides a comprehensive set of functions for logging errors with different levels of
+// detail and context. Key features include:
+//
+//   - Basic error logging with LogError and LogErrorWithFields
+//   - Warning-level logging with LogWarn, LogWarnWithFields, and LogWarnWithError
+//   - Context-aware error logging with LogErrorWithContext
+//   - Combined logging and returning with LogAndReturn, LogErrorAndReturn, and LogErrorWithContextAndReturn
+//   - Error wrapping and logging with WrapAndLog and WrapfAndLog
+//   - Error formatting with FormatErrorWithContext
+//
+// This file is part of the consolidated logging package structure, which includes:
+//   - logger.go: Core logger implementation and level management
+//   - context.go: Context-aware logging functionality
+//   - method.go: Method entry/exit logging (both with and without context)
+//   - error.go (this file): Error logging functionality
+//   - performance.go: Performance optimization utilities
 package logging
 
 import (

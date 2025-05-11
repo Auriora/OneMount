@@ -1,6 +1,18 @@
 // Package logging provides standardized logging utilities for the OneMount project.
-// This file defines the Logger and Event types that encapsulate zerolog functionality,
-// as well as level-related functionality.
+//
+// The logging package is organized into several files, each with a specific purpose:
+//   - logger.go: Core logger implementation and level management
+//   - context.go: Context-aware logging functionality
+//   - method.go: Method entry/exit logging (both with and without context)
+//   - error.go: Error logging functionality
+//   - performance.go: Performance optimization utilities
+//   - constants.go: Constants used throughout the logging package
+//   - console_writer.go: Console writer functionality
+//   - structured_logging.go: Structured logging functions
+//
+// This file (logger.go) defines the core Logger and Event types that encapsulate zerolog functionality,
+// as well as level-related functionality. It provides the foundation for all logging operations
+// in the OneMount project.
 package logging
 
 import (

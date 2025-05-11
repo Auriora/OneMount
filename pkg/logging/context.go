@@ -1,5 +1,16 @@
 // Package logging provides standardized logging utilities for the OneMount project.
 // This file defines the LogContext struct and related methods for context-based logging.
+//
+// The LogContext struct allows for consistent logging of contextual information across
+// multiple function calls. It provides a fluent interface for building context with
+// common fields like request ID, user ID, operation, component, method, and path.
+//
+// This file is part of the consolidated logging package structure, which includes:
+//   - logger.go: Core logger implementation and level management
+//   - context.go (this file): Context-aware logging functionality
+//   - method.go: Method entry/exit logging (both with and without context)
+//   - error.go: Error logging functionality
+//   - performance.go: Performance optimization utilities
 package logging
 
 // LogContext represents a logging context that can be passed between functions

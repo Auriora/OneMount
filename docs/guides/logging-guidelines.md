@@ -110,8 +110,8 @@ zerolog provides several log levels. Use them consistently according to these gu
 ```go
 // Trace - detailed method tracing
 func SomeMethod() {
-    methodName, startTime := LogMethodCall()
-    defer LogMethodReturn(methodName, startTime)
+    methodName, startTime := LogMethodEntry("SomeMethod")
+    defer LogMethodExit(methodName, time.Since(startTime))
     // Method implementation...
 }
 
@@ -152,8 +152,15 @@ The onemount project implements a method logging framework that provides a way t
 
 The logging framework consists of two main components:
 
-1. `LogMethodCall()` - A function that logs method entry and returns the method name and start time.
-2. `LogMethodReturn()` - A function that logs method exit, including return values and execution duration.
+1. `LogMethodEntry()` - A function that logs method entry with its parameters.
+2. `LogMethodExit()` - A function that logs method exit, including return values and execution duration.
+
+For context-aware method logging, the framework provides:
+
+1. `LogMethodEntryWithContext()` - A function that logs method entry with context.
+2. `LogMethodExitWithContext()` - A function that logs method exit with context.
+
+There's also a helper function `LoggedMethod()` that wraps a function call with entry and exit logging.
 
 These functions use the zerolog library to produce structured logs that can be easily parsed and analyzed.
 
@@ -165,12 +172,12 @@ To add logging to a method, follow these patterns:
 
 ```go
 func (f *Filesystem) IsOffline() bool {
-    methodName, startTime := LogMethodCall()
+    methodName, startTime := LogMethodEntry("IsOffline")
     f.RLock()
     defer f.RUnlock()
 
     result := f.offline
-    defer LogMethodReturn(methodName, startTime, result)
+    defer LogMethodExit(methodName, time.Since(startTime), result)
     return result
 }
 ```
@@ -179,10 +186,10 @@ func (f *Filesystem) IsOffline() bool {
 
 ```go
 func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
-    methodName, startTime := LogMethodCall()
+    methodName, startTime := LogMethodEntry("TrackOfflineChange", change)
     defer func() {
         // We can't capture the return value directly in a defer, so we'll just log completion
-        LogMethodReturn(methodName, startTime)
+        LogMethodExit(methodName, time.Since(startTime))
     }()
 
     // Method implementation...
@@ -194,16 +201,16 @@ func (f *Filesystem) TrackOfflineChange(change *OfflineChange) error {
 
 ```go
 func (f *Filesystem) GetNodeID(nodeID uint64) *Inode {
-    methodName, startTime := LogMethodCall()
+    methodName, startTime := LogMethodEntry("GetNodeID", nodeID)
 
     // Early return case
     if someCondition {
-        defer LogMethodReturn(methodName, startTime, nil)
+        defer LogMethodExit(methodName, time.Since(startTime), nil)
         return nil
     }
 
     result := someOperation()
-    defer LogMethodReturn(methodName, startTime, result)
+    defer LogMethodExit(methodName, time.Since(startTime), result)
     return result
 }
 ```
@@ -214,9 +221,9 @@ For methods with multiple return values, you'll need to use named return values 
 
 ```go
 func (f *Filesystem) SomeMethod() (result1 Type1, result2 Type2, err error) {
-    methodName, startTime := LogMethodCall()
+    methodName, startTime := LogMethodEntry("SomeMethod")
     defer func() {
-        LogMethodReturn(methodName, startTime, result1, result2, err)
+        LogMethodExit(methodName, time.Since(startTime), result1, result2, err)
     }()
 
     // Method implementation...
@@ -224,6 +231,22 @@ func (f *Filesystem) SomeMethod() (result1 Type1, result2 Type2, err error) {
     result2 = ...
     err = ...
     return
+}
+```
+
+### Using context-aware method logging
+
+For methods that need to include context information:
+
+```go
+func (f *Filesystem) ProcessWithContext(ctx LogContext, data []byte) error {
+    methodName, startTime, logger, ctx := LogMethodEntryWithContext("ProcessWithContext", ctx)
+
+    // Method implementation...
+
+    // Log method exit with context
+    LogMethodExitWithContext(methodName, startTime, logger, ctx, err)
+    return err
 }
 ```
 
@@ -291,6 +314,8 @@ The logs produced by this framework include:
 Example log entry:
 ```json
 {"level":"debug","method":"IsOffline","phase":"entry","goroutine":"1","time":"2023-04-27T21:00:00Z","message":"Method called"}
+```
+```json
 {"level":"debug","method":"IsOffline","phase":"exit","goroutine":"1","duration_ms":0.123,"return1":false,"time":"2023-04-27T21:00:00Z","message":"Method completed"}
 ```
 
@@ -298,14 +323,14 @@ The `goroutine` field contains the ID of the goroutine (Go's lightweight thread)
 
 ## Testing
 
-The logging framework includes tests in `logging_test.go` that verify:
+The logging framework includes tests in `method_logging_test.go` that verify:
 
 1. Basic functionality of the logging functions
 2. Integration with instrumented methods
 
 Run the tests with:
 ```bash
-go test -v ./fs/...
+go test -v ./pkg/logging/...
 ```
 
 ## Context Propagation
@@ -338,24 +363,23 @@ func syncFiles(ctx context.Context, requestID string) {
 }
 ```
 
-### Using Context
+### Using LogContext
 
-Go's `context.Context` can be used to propagate request-scoped values, including logging context:
+The logging package provides a `LogContext` struct for propagating logging context:
 
 ```go
 // Create a context with a logger
-ctx := log.With().
-    Str("request_id", requestID).
-    Str("user", userID).
-    Logger().WithContext(context.Background())
+ctx := NewLogContext("sync_operation").
+    WithRequestID(requestID).
+    WithUserID(userID)
 
 // Pass the context to other functions
 processRequest(ctx)
 
 // In the called function
-func processRequest(ctx context.Context) {
-    // Get the logger from context
-    logger := log.Ctx(ctx)
+func processRequest(ctx LogContext) {
+    // Get a logger with the context
+    logger := ctx.Logger()
 
     // Log with the context already included
     logger.Info().Str("operation", "process").Msg("Processing request")
@@ -378,7 +402,7 @@ Logging can impact performance, especially in high-throughput applications.
    log.Debug().Msg("Request body: " + string(json.Marshal(body)))
 
    // Good - Only executes if debug is enabled
-   if log.Debug().Enabled() {
+   if IsDebugEnabled() {
        bodyJSON, _ := json.Marshal(body)
        log.Debug().RawJSON("body", bodyJSON).Msg("Request body")
    }
@@ -395,7 +419,7 @@ Logging can impact performance, especially in high-throughput applications.
 
 3. **Optimize reflection-based logging**:
 
-   The current method logging uses reflection to log parameters and return values, which can be expensive. Consider caching type information or providing type-specific logging helpers.
+   The method logging uses reflection to log parameters and return values, which can be expensive. The `performance.go` file provides utilities to optimize this, such as type name caching and conditional logging functions.
 
 ## Error Handling and Logging
 
@@ -458,7 +482,16 @@ Proper error handling and logging is crucial for debugging and monitoring.
 
 ### Current Implementation
 
-The onemount project uses zerolog for structured logging and has a method logging framework that logs method entry and exit with parameters and return values.
+The onemount project uses zerolog for structured logging and has a consolidated logging package structure:
+
+- `logger.go`: Core logger implementation and level management
+- `context.go`: Context-aware logging functionality
+- `method.go`: Method entry/exit logging (both with and without context)
+- `error.go`: Error logging functionality
+- `performance.go`: Performance optimization utilities
+- `constants.go`: Constants used throughout the logging package
+- `console_writer.go`: Console writer functionality
+- `structured_logging.go`: Structured logging functions
 
 ### Recommendations for Improvement
 
@@ -468,7 +501,7 @@ The onemount project uses zerolog for structured logging and has a method loggin
 
 2. **Enhance context propagation**:
    - Use request IDs for operations that span multiple functions
-   - Consider using context.Context for propagating logging context
+   - Consider using LogContext for propagating logging context
 
 3. **Optimize performance**:
    - Add level checks before expensive logging operations

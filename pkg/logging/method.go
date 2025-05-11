@@ -1,5 +1,20 @@
 // Package logging provides standardized logging utilities for the OneMount project.
 // This file defines method logging functionality, both with and without context.
+//
+// Method logging is a key feature of the OneMount logging system, providing automatic
+// logging of method entry and exit, including parameters, return values, and execution duration.
+// This helps with debugging, performance analysis, and understanding the flow of execution.
+//
+// The file provides two sets of functions:
+//   - Standard method logging: LogMethodEntry, LogMethodExit, LoggedMethod
+//   - Context-aware method logging: LogMethodCallWithContext, LogMethodReturnWithContext
+//
+// This file is part of the consolidated logging package structure, which includes:
+//   - logger.go: Core logger implementation and level management
+//   - context.go: Context-aware logging functionality
+//   - method.go (this file): Method entry/exit logging (both with and without context)
+//   - error.go: Error logging functionality
+//   - performance.go: Performance optimization utilities
 package logging
 
 import (
@@ -12,7 +27,15 @@ import (
 )
 
 // LogMethodEntry logs the entry of a method with its parameters
-func LogMethodEntry(methodName string, params ...interface{}) {
+// It returns the method name and start time for use with LogMethodExit
+func LogMethodEntry(methodName string, params ...interface{}) (string, time.Time) {
+	startTime := time.Now()
+
+	// Only perform expensive operations if debug logging is enabled
+	if !IsLevelEnabled(DebugLevel) {
+		return methodName, startTime
+	}
+
 	event := Debug().
 		Str(FieldMethod, methodName).
 		Str(FieldPhase, PhaseEntry)
@@ -29,11 +52,11 @@ func LogMethodEntry(methodName string, params ...interface{}) {
 
 				// Handle different types of parameters
 				switch {
-				case paramType.Kind() == reflect.Ptr && paramType.Elem().Kind() == reflect.Slice && paramType.Elem().Elem().Kind() == reflect.Uint8:
+				case isPointerToByteSlice(paramType):
 					// For []byte pointers, just log the length
 					byteSlice := reflect.ValueOf(param).Elem().Interface().([]byte)
 					event = event.Int(FieldParam+fmt.Sprintf("%d_size", i+1), len(byteSlice))
-				case strings.Contains(paramType.String(), "Auth"):
+				case strings.Contains(getTypeName(paramType), "Auth"):
 					// Don't log auth objects which might contain sensitive information
 					event = event.Str(FieldParam+fmt.Sprintf("%d", i+1), "[Auth object]")
 				default:
@@ -45,10 +68,16 @@ func LogMethodEntry(methodName string, params ...interface{}) {
 	}
 
 	event.Msg(MsgMethodCalled)
+	return methodName, startTime
 }
 
 // LogMethodExit logs the exit of a method with its return values
 func LogMethodExit(methodName string, duration time.Duration, returns ...interface{}) {
+	// Only perform expensive operations if debug logging is enabled
+	if !IsLevelEnabled(DebugLevel) {
+		return
+	}
+
 	event := Debug().
 		Str(FieldMethod, methodName).
 		Str(FieldPhase, PhaseExit).
@@ -63,23 +92,24 @@ func LogMethodExit(methodName string, duration time.Duration, returns ...interfa
 			} else {
 				// Get the type of the return value
 				retType := reflect.TypeOf(ret)
+				retKind := getTypeKind(retType)
 
 				// Handle different types of return values
 				switch {
-				case retType.Kind() == reflect.Ptr && retType.Elem().Kind() == reflect.Slice && retType.Elem().Elem().Kind() == reflect.Uint8:
+				case isPointerToByteSlice(retType):
 					// For []byte pointers, just log the length
 					byteSlice := reflect.ValueOf(ret).Elem().Interface().([]byte)
 					event = event.Int(FieldReturn+fmt.Sprintf("%d_size", i+1), len(byteSlice))
-				case strings.Contains(retType.String(), "Auth"):
+				case strings.Contains(getTypeName(retType), "Auth"):
 					// Don't log auth objects which might contain sensitive information
 					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "[Auth object]")
-				case retType.Kind() == reflect.Struct || (retType.Kind() == reflect.Ptr && retType.Elem().Kind() == reflect.Struct):
+				case retKind == reflect.Struct || (retKind == reflect.Ptr && getTypeKind(getTypeElem(retType)) == reflect.Struct):
 					// For structs, log a simplified representation
-					if retType.Kind() == reflect.Ptr {
+					if retKind == reflect.Ptr {
 						if reflect.ValueOf(ret).IsNil() {
 							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "nil")
 						} else {
-							typeName := retType.Elem().Name()
+							typeName := getTypeElem(retType).Name()
 							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
 						}
 					} else {
@@ -106,7 +136,7 @@ func LoggedMethod(f interface{}, args ...interface{}) []interface{} {
 	methodName := parts[len(parts)-1]
 
 	// Log method entry
-	LogMethodEntry(methodName, args...)
+	methodName, startTime := LogMethodEntry(methodName, args...)
 
 	// Prepare for function call
 	fValue := reflect.ValueOf(f)
@@ -123,7 +153,6 @@ func LoggedMethod(f interface{}, args ...interface{}) []interface{} {
 	}
 
 	// Call the function
-	startTime := time.Now()
 	out := fValue.Call(in)
 	duration := time.Since(startTime)
 
@@ -141,8 +170,15 @@ func LoggedMethod(f interface{}, args ...interface{}) []interface{} {
 
 // LogMethodCallWithContext logs the entry of a method with context
 func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, Logger, LogContext) {
+	startTime := time.Now()
+
 	// Create a logger with the context
 	logger := WithLogContext(ctx)
+
+	// Only perform expensive operations if debug logging is enabled
+	if !IsLevelEnabled(DebugLevel) {
+		return methodName, startTime, logger, ctx
+	}
 
 	// Get the current goroutine ID
 	goroutineID := util.GetCurrentGoroutineID()
@@ -154,11 +190,16 @@ func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.T
 		Str(FieldGoroutine, goroutineID).
 		Msg(MsgMethodCalled)
 
-	return methodName, time.Now(), logger, ctx
+	return methodName, startTime, logger, ctx
 }
 
 // LogMethodReturnWithContext logs the exit of a method with context
 func LogMethodReturnWithContext(methodName string, startTime time.Time, logger Logger, ctx LogContext, returns ...interface{}) {
+	// Only perform expensive operations if debug logging is enabled
+	if !IsLevelEnabled(DebugLevel) {
+		return
+	}
+
 	duration := time.Since(startTime)
 
 	// Get the current goroutine ID
@@ -176,16 +217,36 @@ func LogMethodReturnWithContext(methodName string, startTime time.Time, logger L
 		if ret == nil {
 			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), nil)
 		} else {
-			// TODO move this code into 'internal/fs' - package fs
-			// Special handling for Inode objects to prevent race conditions during JSON serialization
-			//if inodeInfo, ok := ret.(fs.InodeInfo); ok {
-			//	// Only log the ID and name instead of the entire object
-			//	event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1)+".id", inodeInfo.ID()).
-			//		Str(FieldReturn+fmt.Sprintf("%d", i+1)+".name", inodeInfo.Name()).
-			//		Bool(FieldReturn+fmt.Sprintf("%d", i+1)+".isDir", inodeInfo.IsDir())
-			//} else {
-			event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
-			//}
+			// Get the type of the return value
+			retType := reflect.TypeOf(ret)
+			retKind := getTypeKind(retType)
+
+			// Handle different types of return values
+			switch {
+			case isPointerToByteSlice(retType):
+				// For []byte pointers, just log the length
+				byteSlice := reflect.ValueOf(ret).Elem().Interface().([]byte)
+				event = event.Int(FieldReturn+fmt.Sprintf("%d_size", i+1), len(byteSlice))
+			case strings.Contains(getTypeName(retType), "Auth"):
+				// Don't log auth objects which might contain sensitive information
+				event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "[Auth object]")
+			case retKind == reflect.Struct || (retKind == reflect.Ptr && getTypeKind(getTypeElem(retType)) == reflect.Struct):
+				// For structs, log a simplified representation
+				if retKind == reflect.Ptr {
+					if reflect.ValueOf(ret).IsNil() {
+						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "nil")
+					} else {
+						typeName := getTypeElem(retType).Name()
+						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
+					}
+				} else {
+					typeName := retType.Name()
+					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
+				}
+			default:
+				// For other types, log the value
+				event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+			}
 		}
 	}
 

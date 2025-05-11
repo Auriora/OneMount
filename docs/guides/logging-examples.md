@@ -4,16 +4,16 @@ This document provides examples of how to use the improved logging framework in 
 
 ## Basic Method Logging
 
-The simplest way to add logging to a method is to use the `LogMethodCall` and `LogMethodReturn` functions:
+The simplest way to add logging to a method is to use the `LogMethodEntry` and `LogMethodExit` functions:
 
 ```go
 func (f *Filesystem) IsOffline() bool {
-    methodName, startTime := LogMethodCall()
+    methodName, startTime := LogMethodEntry("IsOffline")
     f.RLock()
     defer f.RUnlock()
 
     result := f.offline
-    defer LogMethodReturn(methodName, startTime, result)
+    defer LogMethodExit(methodName, time.Since(startTime), result)
     return result
 }
 ```
@@ -27,13 +27,11 @@ For operations that span multiple functions or goroutines, use the context-aware
 ```go
 func (f *Filesystem) ProcessChanges(requestID string) error {
     // Create a logging context
-    ctx := LogContext{
-        RequestID: requestID,
-        Operation: "process_changes",
-    }
+    ctx := NewLogContext("process_changes").
+        WithRequestID(requestID)
 
     // Log method entry with context
-    methodName, startTime, logger, ctx := LogMethodCallWithContext(methodName, ctx)
+    methodName, startTime, logger, ctx := LogMethodEntryWithContext("ProcessChanges", ctx)
 
     // Use the logger for additional logs within the method
     logger.Info().Str(FieldPath, "/some/path").Msg("Processing changes for path")
@@ -42,13 +40,13 @@ func (f *Filesystem) ProcessChanges(requestID string) error {
     err := f.processChangesInternal(ctx)
 
     // Log method exit with context and return value
-    defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, err)
+    LogMethodExitWithContext(methodName, startTime, logger, ctx, err)
     return err
 }
 
 func (f *Filesystem) processChangesInternal(ctx LogContext) error {
     // Log method entry with the same context
-    methodName, startTime, logger, ctx := LogMethodCallWithContext("processChangesInternal", ctx)
+    methodName, startTime, logger, ctx := LogMethodEntryWithContext("processChangesInternal", ctx)
 
     // Use the logger for additional logs
     logger.Debug().Msg("Internal processing started")
@@ -63,7 +61,7 @@ func (f *Filesystem) processChangesInternal(ctx LogContext) error {
     }
 
     // Log method exit with context
-    defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, nil)
+    LogMethodExitWithContext(methodName, startTime, logger, ctx, nil)
     return nil
 }
 ```
@@ -72,7 +70,7 @@ func (f *Filesystem) processChangesInternal(ctx LogContext) error {
 
 ### Basic Error Logging
 
-Use the `LogError` and `LogErrorWithContext` functions to log errors with additional context:
+Use the `LogError` function to log errors with additional context:
 
 ```go
 func (f *Filesystem) ReadFile(path string) ([]byte, error) {
@@ -97,7 +95,7 @@ Use the `LogErrorWithContext` function to log errors with a logging context:
 
 ```go
 func (f *Filesystem) ReadFile(path string, ctx LogContext) ([]byte, error) {
-    methodName, startTime, logger, ctx := LogMethodCallWithContext("ReadFile", ctx)
+    methodName, startTime, logger, ctx := LogMethodEntryWithContext("ReadFile", ctx)
 
     // ... method implementation ...
 
@@ -107,11 +105,11 @@ func (f *Filesystem) ReadFile(path string, ctx LogContext) ([]byte, error) {
         LogErrorWithContext(err, ctx, "Failed to read file", 
             FieldPath, path, 
             FieldSize, fileSize)
-        defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, nil, err)
+        LogMethodExitWithContext(methodName, startTime, logger, ctx, nil, err)
         return nil, err
     }
 
-    defer LogMethodReturnWithContext(methodName, startTime, logger, ctx, len(data), nil)
+    LogMethodExitWithContext(methodName, startTime, logger, ctx, len(data), nil)
     return data, nil
 }
 ```
@@ -168,8 +166,8 @@ func (f *Filesystem) ProcessLargeData(data []byte) error {
     // ... method implementation ...
 
     // Only log large data if debug is enabled
-    if log.Debug().Enabled() {
-        log.Debug().
+    if IsDebugEnabled() {
+        Debug().
             Int(FieldSize, len(data)).
             Str(FieldPath, path).
             Msg("Processing large data")
@@ -185,10 +183,10 @@ Use the helper functions for level checks and complex object logging:
 
 ```go
 // Check if debug logging is enabled
-if isDebugEnabled() {
+if IsDebugEnabled() {
     // Perform expensive operation only if debug is enabled
     details := generateDetailedReport(data)
-    log.Debug().
+    Debug().
         Interface("report", details).
         Msg("Generated detailed report")
 }
@@ -207,17 +205,17 @@ For reflection-based logging, use the type caching mechanism:
 ```go
 // Get the type name of an object using the cache
 typeName := getTypeName(reflect.TypeOf(obj))
-log.Debug().
+Debug().
     Str("type", typeName).
     Msg("Processing object")
 ```
 
 ## Standardized Field Names
 
-Use the standardized field names defined in `log_constants.go` for consistent logging:
+Use the standardized field names defined in `constants.go` for consistent logging:
 
 ```go
-log.Info().
+Info().
     Str(FieldMethod, "UploadFile").
     Str(FieldPath, path).
     Int(FieldSize, len(data)).
@@ -230,7 +228,7 @@ log.Info().
 Group related fields using the `Dict` method for better readability:
 
 ```go
-log.Info().
+Info().
     Str(FieldOperation, "file_upload").
     Dict("file", zerolog.Dict().
         Str("name", filename).
@@ -248,37 +246,57 @@ Use the appropriate log level for different types of information:
 
 ```go
 // Trace - very detailed information
-log.Trace().
+Trace().
     Str(FieldMethod, "calculateHash").
     Int(FieldSize, len(data)).
     Msg("Calculating hash for data")
 
 // Debug - information useful for debugging
-log.Debug().
+Debug().
     Str(FieldPath, cachePath).
     Int("expiration_days", expirationDays).
     Msg("Cache configuration")
 
 // Info - general information about application operation
-log.Info().
+Info().
     Str(FieldPath, mountpoint).
     Msg("Filesystem mounted successfully")
 
 // Warn - potential issues that don't prevent the application from working
-log.Warn().
+Warn().
     Str(FieldPath, path).
     Msg("File not found in cache, downloading from server")
 
 // Error - issues that prevent a specific operation from completing
-log.Error().
+Error().
     Err(err).
     Str(FieldPath, path).
     Msg("Failed to download file")
 
 // Fatal - critical issues that prevent the application from starting or continuing
-log.Fatal().
+Fatal().
     Err(err).
     Msg("Failed to initialize filesystem, cannot continue")
+```
+
+## Using the LoggedMethod Helper
+
+For simple method logging, you can use the `LoggedMethod` helper function:
+
+```go
+func (f *Filesystem) CalculateHash(data []byte) string {
+    // Use LoggedMethod to wrap the function call
+    results := LoggedMethod(f.calculateHashInternal, data)
+    
+    // Extract the return value from the results
+    return results[0].(string)
+}
+
+func (f *Filesystem) calculateHashInternal(data []byte) string {
+    // Implementation without explicit logging
+    hash := sha256.Sum256(data)
+    return hex.EncodeToString(hash[:])
+}
 ```
 
 ## Conclusion

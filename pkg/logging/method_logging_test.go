@@ -4,21 +4,21 @@ import (
 	"testing"
 )
 
-// TestUT_FS_05_01_Logging_MethodCallsAndReturns_LogsCorrectly tests the LogMethodCall and LogMethodReturn functions.
+// TestUT_FS_05_01_Logging_MethodEntryAndExit_LogsCorrectly tests the LogMethodEntry and LogMethodExit functions.
 //
 //	Test Case ID    UT-FS-05-01
 //	Title           Method Logging
-//	Description     Tests the LogMethodCall and LogMethodReturn functions
+//	Description     Tests the LogMethodEntry and LogMethodExit functions
 //	Preconditions   None
-//	Steps           1. Call LogMethodCall
-//	                2. Call LogMethodReturn with different types of return values
+//	Steps           1. Call LogMethodEntry
+//	                2. Call LogMethodExit with different types of return values
 //	                3. Verify the log output contains the expected information
-//	Expected Result Logging functions correctly log method calls and returns
-//	Notes: This test verifies that the logging functions correctly log method calls and returns.
-func TestUT_FS_05_01_Logging_MethodCallsAndReturns_LogsCorrectly(t *testing.T) {
+//	Expected Result Logging functions correctly log method entry and exit
+//	Notes: This test verifies that the logging functions correctly log method entry and exit.
+func TestUT_FS_05_01_Logging_MethodEntryAndExit_LogsCorrectly(t *testing.T) {
 	// TODO: Implement the test case
-	// 1. Call LogMethodCall
-	// 2. Call LogMethodReturn with different types of return values
+	// 1. Call LogMethodEntry
+	// 2. Call LogMethodExit with different types of return values
 	// 3. Verify the log output contains the expected information
 	t.Skip("Test not implemented yet")
 }
@@ -49,8 +49,8 @@ func TestUT_FS_06_01_GoroutineID_GetCurrent_ReturnsValidID(t *testing.T) {
 //	Steps           1. Create a test filesystem
 //	                2. Call methods with logging
 //	                3. Verify the log output contains the expected information
-//	Expected Result Methods correctly log their calls and returns
-//	Notes: This test verifies that methods correctly log their calls and returns.
+//	Expected Result Methods correctly log their entry and exit
+//	Notes: This test verifies that methods correctly log their entry and exit.
 func TestUT_FS_07_01_Logging_InMethods_LogsCorrectly(t *testing.T) {
 	// TODO: Implement the test case
 	// 1. Create a test filesystem

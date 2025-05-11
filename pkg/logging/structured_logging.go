@@ -1,14 +1,25 @@
 // Package logging provides standardized logging utilities for the OneMount project.
 // This file defines structured logging functions for errors.
+//
+// Structured logging with context is a powerful way to add consistent contextual
+// information to log entries. This file provides functions for logging at different
+// levels (error, warn, info, debug, trace) with context, as well as utilities for
+// enriching errors with context information.
+//
+// This file is part of the consolidated logging package structure, which includes:
+//   - logger.go: Core logger implementation and level management
+//   - context.go: Context-aware logging functionality
+//   - method.go: Method entry/exit logging (both with and without context)
+//   - error.go: Error logging functionality
+//   - performance.go: Performance optimization utilities
+//   - constants.go: Constants used throughout the logging package
+//   - console_writer.go: Console writer functionality
+//   - structured_logging.go (this file): Structured logging functions
 package logging
 
 import (
 	"fmt"
 )
-
-// Note: Field constants are now defined in constants.go
-// Note: LogContext and related methods are now defined in context.go
-// Note: LogErrorWithContext is now defined in method_logging_context.go
 
 // LogWarnWithContext logs a warning with the given context
 func LogWarnWithContext(err error, ctx LogContext, msg string) {
