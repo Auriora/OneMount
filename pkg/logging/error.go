@@ -5,11 +5,10 @@
 // provides a comprehensive set of functions for logging errors with different levels of
 // detail and context. Key features include:
 //
-//   - Basic error logging with LogError and LogErrorWithFields
+//   - Basic error logging with LogError
 //   - Warning-level logging with LogWarn, LogWarnWithFields, and LogWarnWithError
 //   - Context-aware error logging with LogErrorWithContext
-//   - Combined logging and returning with LogAndReturn, LogErrorAndReturn, and LogErrorWithContextAndReturn
-//   - Error wrapping and logging with WrapAndLog and WrapfAndLog
+//   - Error wrapping and logging with WrapAndLogError and WrapAndLogErrorWithContext
 //   - Error formatting with FormatErrorWithContext
 //
 // This file is part of the consolidated logging package structure, which includes:
@@ -26,12 +25,24 @@ import (
 
 // LogError logs an error with additional fields.
 // This is a convenience function for logging errors with additional context.
+// The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
 func LogError(err error, msg string, fields ...interface{}) {
 	if err == nil {
 		return
 	}
 
 	event := Error().Err(err)
+
+	// Check if fields is a single map[string]interface{}
+	if len(fields) == 1 {
+		if fieldsMap, ok := fields[0].(map[string]interface{}); ok {
+			for key, value := range fieldsMap {
+				event = event.Interface(key, value)
+			}
+			event.Msg(msg)
+			return
+		}
+	}
 
 	// Add additional fields in pairs (key, value)
 	for i := 0; i < len(fields); i += 2 {
@@ -49,18 +60,9 @@ func LogError(err error, msg string, fields ...interface{}) {
 
 // LogErrorWithFields logs an error with additional fields
 // This is a convenience function for logging errors with additional context
+// Deprecated: Use LogError instead, which now accepts both variadic fields and map fields.
 func LogErrorWithFields(err error, msg string, fields map[string]interface{}) {
-	if err == nil {
-		return
-	}
-
-	event := Error().Err(err)
-
-	for key, value := range fields {
-		event = event.Interface(key, value)
-	}
-
-	event.Msg(msg)
+	LogError(err, msg, fields)
 }
 
 // LogWarn logs a warning with additional fields.
@@ -123,6 +125,7 @@ func LogWarnWithError(err error, msg string, fields ...interface{}) {
 
 // LogAndReturn logs an error and returns it.
 // This is a convenience function for the common pattern of logging an error and then returning it.
+// Deprecated: Use LogError and return the error separately for clarity.
 func LogAndReturn(err error, msg string, fields ...interface{}) error {
 	if err == nil {
 		return nil
@@ -134,6 +137,7 @@ func LogAndReturn(err error, msg string, fields ...interface{}) error {
 
 // LogErrorAndReturn logs an error and returns it
 // This is a convenience function for the common pattern of logging an error and then returning it
+// Deprecated: Use LogError and return the error separately for clarity.
 func LogErrorAndReturn(err error, msg string, fields ...interface{}) error {
 	if err == nil {
 		return nil
@@ -144,6 +148,7 @@ func LogErrorAndReturn(err error, msg string, fields ...interface{}) error {
 }
 
 // LogErrorWithContext logs an error with the given context
+// The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
 func LogErrorWithContext(err error, ctx LogContext, msg string, fields ...interface{}) {
 	if err == nil {
 		return
@@ -151,6 +156,17 @@ func LogErrorWithContext(err error, ctx LogContext, msg string, fields ...interf
 
 	logger := WithLogContext(ctx)
 	event := logger.Error().Err(err)
+
+	// Check if fields is a single map[string]interface{}
+	if len(fields) == 1 {
+		if fieldsMap, ok := fields[0].(map[string]interface{}); ok {
+			for key, value := range fieldsMap {
+				event = event.Interface(key, value)
+			}
+			event.Msg(msg)
+			return
+		}
+	}
 
 	// Add additional fields in pairs (key, value)
 	for i := 0; i < len(fields); i += 2 {
@@ -168,6 +184,7 @@ func LogErrorWithContext(err error, ctx LogContext, msg string, fields ...interf
 
 // LogErrorWithContextAndReturn logs an error with context and returns it
 // This is a convenience function for the common pattern of logging an error with context and then returning it
+// Deprecated: Use LogErrorWithContext and return the error separately for clarity.
 func LogErrorWithContextAndReturn(err error, ctx LogContext, msg string, fields ...interface{}) error {
 	if err == nil {
 		return nil
@@ -177,9 +194,10 @@ func LogErrorWithContextAndReturn(err error, ctx LogContext, msg string, fields 
 	return err
 }
 
-// WrapAndLog wraps an error with a message, logs it, and returns the wrapped error.
+// WrapAndLogError wraps an error with a message, logs it, and returns the wrapped error.
 // This is a convenience function for the common pattern of wrapping an error, logging it, and then returning it.
-func WrapAndLog(err error, msg string, fields ...interface{}) error {
+// The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
+func WrapAndLogError(err error, msg string, fields ...interface{}) error {
 	if err == nil {
 		return nil
 	}
@@ -190,17 +208,34 @@ func WrapAndLog(err error, msg string, fields ...interface{}) error {
 	return wrapped
 }
 
+// WrapAndLog wraps an error with a message, logs it, and returns the wrapped error.
+// Deprecated: Use WrapAndLogError instead, which has a more consistent naming convention.
+func WrapAndLog(err error, msg string, fields ...interface{}) error {
+	return WrapAndLogError(err, msg, fields...)
+}
+
 // WrapfAndLog wraps an error with a formatted message, logs it, and returns the wrapped error.
-// This is a convenience function for the common pattern of wrapping an error, logging it, and then returning it.
+// Deprecated: Use WrapAndLogError with fmt.Sprintf for formatted messages.
 func WrapfAndLog(err error, format string, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
 
 	msg := fmt.Sprintf(format, args...)
+	return WrapAndLogError(err, msg)
+}
+
+// WrapAndLogErrorWithContext wraps an error with a message, logs it with context, and returns the wrapped error.
+// This is a convenience function for the common pattern of wrapping an error, logging it with context, and then returning it.
+// The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
+func WrapAndLogErrorWithContext(err error, ctx LogContext, msg string, fields ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+
 	// We can't use errors.Wrap here to avoid circular dependency
 	wrapped := fmt.Errorf("%s: %w", msg, err)
-	LogError(wrapped, msg)
+	LogErrorWithContext(wrapped, ctx, msg, fields...)
 	return wrapped
 }
 

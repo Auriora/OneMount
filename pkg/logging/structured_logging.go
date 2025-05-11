@@ -65,17 +65,13 @@ func LogTraceWithContext(ctx LogContext, msg string) {
 }
 
 // WrapAndLogWithContext wraps an error, logs it with context, and returns the wrapped error
+// Deprecated: Use WrapAndLogErrorWithContext instead, which has a more consistent naming convention.
 func WrapAndLogWithContext(err error, ctx LogContext, msg string) error {
-	if err == nil {
-		return nil
-	}
-
-	wrapped := fmt.Errorf("%s: %w", msg, err)
-	LogErrorWithContext(wrapped, ctx, msg)
-	return wrapped
+	return WrapAndLogErrorWithContext(err, ctx, msg)
 }
 
 // LogAndReturnWithContext logs an error with context and returns it
+// Deprecated: Use LogErrorWithContext and return the error separately for clarity.
 func LogAndReturnWithContext(err error, ctx LogContext, msg string) error {
 	if err == nil {
 		return nil
