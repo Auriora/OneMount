@@ -24,7 +24,7 @@ from pathlib import Path
 
 # Constants
 GITHUB_ISSUES_FILE = 'data/github_issues.json'
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 def parse_arguments():
     """Parse command line arguments."""
@@ -129,88 +129,24 @@ def create_junie_prompt(issue, doc_references):
     # Replace placeholders in the template
     prompt = template.replace('[ISSUE_NUMBER]', str(issue_number))
 
-    # Add issue-specific information at the end
-#     prompt += f"""
-# # Implement GitHub Issue
-#
-# ## Instructions
-# I need your help implementing a GitHub issue for the OneMount project. I'll provide the issue number, and I'd like you to:
-#
-# 1. Extract the issue details from the GitHub repository
-# 2. Open the corresponding JetBrains task (creating a branch)
-# 3. Gather relevant documentation
-# 4. Analyze the issue and documentation to create an implementation plan
-# 5. Implement the changes according to the plan
-# 6. Update the issue comment with implementation details
-# 7. Close the issue if resolved
-# 8. Commit the changes to git
-#
-# ## Issue Number
-# {issue_number}
-#
-# ## Project Context
-# OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-demand file downloads rather than syncing. It's written in Go and uses FUSE to implement the filesystem.
-#
-# The project follows a structured organization:
-# - **cmd/** - Command-line applications
-# - **configs/** - Configuration files and resources
-# - **data/** - Data files and resources
-# - **docs/** - Documentation
-# - **internal/** - Internal implementation code
-# - **scripts/** - Utility scripts
-#
-# ## Implementation Process
-# Please follow this process:
-#
-# 1. **Extract Issue Details**
-#    - Use the GitHub API or local JSON file to get the issue details
-#    - Analyze the issue description, labels, and any referenced documentation
-#
-# 2. **Open JetBrains Task**
-#    - Open the JetBrains task with the same ID as the issue number
-#    - This should create a branch with the same name
-#
-# 3. **Gather Documentation**
-#    - Identify relevant documentation based on the issue type and labels
-#    - Review the documentation to understand the context and requirements
-#
-# 4. **Create Implementation Plan**
-#    - Based on the issue and documentation, create a detailed implementation plan
-#    - Break down the implementation into manageable steps
-#
-# 5. **Implement Changes**
-#    - Follow the implementation plan to make the necessary changes
-#    - Write or update tests as needed
-#    - Ensure all tests pass
-#
-# 6. **Update Issue Comment**
-#    - Prepare a summary of the implementation
-#    - Update the issue comment with the implementation details
-#
-# 7. **Close Issue**
-#    - If the implementation resolves the issue, close it
-#
-# 8. **Commit Changes**
-#    - Commit the changes to git with a descriptive message
-#
-# ## Additional Requirements
-# - Follow the project's coding standards and best practices
-# - Ensure backward compatibility unless explicitly stated otherwise
-# - Handle edge cases appropriately
-# - Add appropriate error handling and logging
-# - Document your changes according to the project's documentation guidelines
-#
-# ## Output Format
-# Please provide your response in the following format:
-#
-# 1. **Issue Analysis**: A brief analysis of the issue and its requirements
-# 2. **Implementation Plan**: A detailed plan for implementing the changes
-# 3. **Implementation**: The actual implementation of the changes
-# 4. **Testing**: How you tested the changes
-# 5. **Documentation**: Any documentation updates
-# 6. **Issue Comment**: A summary of the implementation for the issue comment
-# 7. **Next Steps**: Any recommended follow-up actions
-# """
+    # Add issue-specific information at the end of the template
+    prompt += f"""
+## Issue Details
+
+### Issue #{issue_number}: {issue_title}
+
+#### Description
+{issue_body}
+
+#### Labels
+{', '.join(issue_labels)}
+
+#### Relevant Documentation
+"""
+
+    # Add documentation references
+    for doc_name, doc_path in doc_references:
+        prompt += f"- [{doc_name}]({doc_path})\n"
 
     # Add additional considerations based on issue labels and content
     if any(label in issue_labels for label in ['complex', 'large']):
@@ -292,137 +228,6 @@ This issue involves filesystem operations:
 4. How do I ensure proper cleanup of resources?
 ```
 """
-
-    # Add command examples
-    prompt += """
-## Command Examples
-
-### Extract Issue Information
-Issues can be extracted using the 'gh' command-line tool.
-
-
-### Find Relevant Documentation
-```
-search_project "documentation" docs/
-```
-
-### Create a git branch
-Create a new branch with the same name as the issue number using the 'git' command.
-
-### Build and Test
-```
-# Build the project
-make
-
-# Run all tests
-make test
-
-# Run specific tests
-go test ./internal/fs/...
-```
-
-### Commit Changes
-```
-# Example git commands for committing changes
-git add .
-git commit -m "Fix #${ISSUE_NUMBER}: Brief description of changes"
-git push origin issue-${ISSUE_NUMBER}
-```
-
-### Update Issue Comment
-```
-# Example GitHub CLI command to add a comment and close an issue
-gh issue comment ${ISSUE_NUMBER} --body "Implementation completed:
-- [Description of changes made]
-- [Tests added/modified]
-- [Documentation updated]
-
-Closes #${ISSUE_NUMBER}"
-```
-"""
-
-    # Add project-specific notes
-    prompt += """
-## Project-Specific Notes
-
-### Project Structure
-OneMount follows this structure:
-- **cmd/** - Command-line applications
-- **configs/** - Configuration files and resources
-- **data/** - Data files and resources
-- **docs/** - Documentation
-- **internal/** - Internal implementation code
-  - **fs/** - Filesystem implementation
-  - **ui/** - GUI implementation
-  - **testutil/** - Testing utilities
-- **scripts/** - Utility scripts
-
-### Tech Stack
-- **Go** - Primary programming language
-- **FUSE (go-fuse/v2)** - Filesystem implementation
-- **GTK3 (gotk3)** - GUI components
-- **bbolt** - Embedded database for caching
-- **zerolog** - Structured logging
-- **testify** - Testing framework
-
-### Best Practices
-1. **Code Organization**
-   - Group related functionality into separate files
-   - Use interfaces to decouple components
-   - Follow Go's standard project layout
-
-2. **Error Handling**
-   - Return errors to callers instead of handling them internally
-   - Use structured logging with zerolog
-   - Avoid using `log.Fatal()` in library code
-
-3. **Testing**
-   - Write both unit and integration tests
-   - Use 'testify' for assertions
-   - Test edge cases, especially around network connectivity
-
-4. **Performance**
-   - Cache filesystem metadata and file contents
-   - Minimize network requests
-   - Use concurrent operations where appropriate
-
-5. **Documentation**
-   - Document public APIs with godoc-compatible comments
-   - Add comments explaining complex logic
-   - Update existing documentation rather than adding new documentation
-   - Add links to new documentation in relevant existing documentation
-
-6. **Method Logging**
-   - Use the method logging framework for all public methods
-   - Log method entry and exit, including parameters and return values
-
-7. **D-Bus Integration**
-   - Use the D-Bus interface for file status updates
-   - Ensure backward compatibility with extended attributes
-
-8. **Microsoft Graph API Integration**
-   - Use direct API endpoints when available for better performance
-   - Cache API responses appropriately to reduce network traffic
-"""
-
-    # Add issue-specific information
-    prompt += f"""
-## Issue Details
-
-### Issue #{issue_number}: {issue_title}
-
-#### Description
-{issue_body}
-
-#### Labels
-{', '.join(issue_labels)}
-
-#### Relevant Documentation
-"""
-
-    # Add documentation references
-    for doc_name, doc_path in doc_references:
-        prompt += f"- [{doc_name}]({doc_path})\n"
 
     return prompt
 

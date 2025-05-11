@@ -8,22 +8,44 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
 
 ## Project Structure
 
+- **assets/** - Project assets
+    - **examples/** - Example files
+    - **icons/** - Icon files
+- **build/** - Build artifacts and configuration
+    - **cli/** - Command-line interface build files
+    - **dev/** - Development build files
+    - **package/** - Packaging files
 - **cmd/** - Command-line applications
-  - **common/** - Shared code between applications
-  - **onemount/** - Main filesystem application
-  - **onemount-launcher/** - GUI launcher application
-- **internal/** - Internal packages not meant for external use
-  - **fs/** - Filesystem implementation
-    - **graph/** - Microsoft Graph API integration
-    - **offline/** - Offline mode functionality
-  - **ui/** - GUI implementation
-    - **systemd/** - Systemd integration for the UI
-  - **testutil/** - Testing utilities
-  - **nemo/** - Nemo file manager integration
-- **configs/** - Configuration and resource files
-  - **resources/** - Application resources (icons, man pages, etc.)
-- **scripts/** - Utility scripts
-  - **debian/** - Debian packaging files
+    - **common/** - Shared code between applications
+    - **onemount/** - Main filesystem application
+    - **onemount-launcher/** - GUI launcher application
+- **configs/** - Configuration files and resources
+    - **resources/** - Resource files for the application
+- **data/** - Data files and resources for the project
+- **deployments/** - Deployment configurations
+    - **desktop/** - Desktop environment integration
+    - **systemd/** - Systemd service files
+- **docs/** - Documentation
+    - **0-project-management/** - Project management documentation
+    - **1-requirements/** - Project requirements
+    - **2-architecture-and-design/** - Design documentation
+    - **3-implementation/** - Implementation details
+    - **4-testing/** - Testing documentation
+    - **A-templates/** - Documentation templates
+    - **guides/** - Development guides
+    - **training/** - Training materials
+- **internal/** - Internal implementation code
+    - **fs/** - Filesystem implementation
+    - **ui/** - GUI implementation
+        - **systemd/** - Systemd integration for the UI
+    - **nemo/** - Nemo file manager integration
+- **pkg/** - Shared packages
+    - **errors/** - Error handling utilities
+    - **graph/** - Microsoft Graph API client
+    - **logging/** - Logging utilities
+    - **quickxorhash/** - QuickXorHash implementation
+    - **testutil/** - Testing utilities
+    - **util/** - General utilities
 
 ## Tech Stack
 
