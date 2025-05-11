@@ -418,8 +418,8 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 	}
 
 	// Log method entry with context
-	methodName, startTime, logger, ctx := logging.LogMethodCallWithContext("ProcessOfflineChangesWithContext", ctx)
-	defer logging.LogMethodReturnWithContext(methodName, startTime, logger, ctx)
+	methodName, startTime, logger, ctx := logging.LogMethodEntryWithContext("ProcessOfflineChangesWithContext", ctx)
+	defer logging.LogMethodExitWithContext(methodName, startTime, logger, ctx)
 
 	logger.Info().Msg("Processing offline changes...")
 
@@ -674,13 +674,13 @@ func (f *Filesystem) GetID(id string) *Inode {
 //   - nil if the item is not found in the cache
 func (f *Filesystem) GetIDWithContext(id string, ctx logging.LogContext) *Inode {
 	// Log method entry with context
-	methodName, startTime, logger, ctx := logging.LogMethodCallWithContext("GetIDWithContext", ctx)
+	methodName, startTime, logger, ctx := logging.LogMethodEntryWithContext("GetIDWithContext", ctx)
 
 	// Call the regular GetID method
 	result := f.GetID(id)
 
 	// Log method exit with context
-	defer logging.LogMethodReturnWithContext(methodName, startTime, logger, ctx, result)
+	defer logging.LogMethodExitWithContext(methodName, startTime, logger, ctx, result)
 	return result
 }
 

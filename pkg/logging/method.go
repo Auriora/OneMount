@@ -7,7 +7,8 @@
 //
 // The file provides two sets of functions:
 //   - Standard method logging: LogMethodEntry, LogMethodExit, LoggedMethod
-//   - Context-aware method logging: LogMethodCallWithContext, LogMethodReturnWithContext
+//   - Context-aware method logging: LogMethodEntryWithContext, LogMethodExitWithContext
+//   - Helper functions: WithMethodLogging, WithMethodLoggingAndContext
 //
 // This file is part of the consolidated logging package structure, which includes:
 //   - logger.go: Core logger implementation and level management
@@ -168,8 +169,8 @@ func LoggedMethod(f interface{}, args ...interface{}) []interface{} {
 	return returns
 }
 
-// LogMethodCallWithContext logs the entry of a method with context
-func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, Logger, LogContext) {
+// LogMethodEntryWithContext logs the entry of a method with context
+func LogMethodEntryWithContext(methodName string, ctx LogContext) (string, time.Time, Logger, LogContext) {
 	startTime := time.Now()
 
 	// Create a logger with the context
@@ -193,8 +194,14 @@ func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.T
 	return methodName, startTime, logger, ctx
 }
 
-// LogMethodReturnWithContext logs the exit of a method with context
-func LogMethodReturnWithContext(methodName string, startTime time.Time, logger Logger, ctx LogContext, returns ...interface{}) {
+// LogMethodCallWithContext logs the entry of a method with context
+// Deprecated: Use LogMethodEntryWithContext instead
+func LogMethodCallWithContext(methodName string, ctx LogContext) (string, time.Time, Logger, LogContext) {
+	return LogMethodEntryWithContext(methodName, ctx)
+}
+
+// LogMethodExitWithContext logs the exit of a method with context
+func LogMethodExitWithContext(methodName string, startTime time.Time, logger Logger, ctx LogContext, returns ...interface{}) {
 	// Only perform expensive operations if debug logging is enabled
 	if !IsLevelEnabled(DebugLevel) {
 		return
@@ -251,4 +258,83 @@ func LogMethodReturnWithContext(methodName string, startTime time.Time, logger L
 	}
 
 	event.Msg(MsgMethodCompleted)
+}
+
+// LogMethodReturnWithContext logs the exit of a method with context
+// Deprecated: Use LogMethodExitWithContext instead
+func LogMethodReturnWithContext(methodName string, startTime time.Time, logger Logger, ctx LogContext, returns ...interface{}) {
+	LogMethodExitWithContext(methodName, startTime, logger, ctx, returns...)
+}
+
+// WithMethodLogging executes a function with method entry and exit logging
+// It logs the method entry before executing the function and the method exit after execution
+// The function can return multiple values, which will be logged and returned
+func WithMethodLogging(methodName string, fn interface{}, params ...interface{}) []interface{} {
+	// Log method entry
+	methodName, startTime := LogMethodEntry(methodName, params...)
+
+	// Prepare for function call
+	fValue := reflect.ValueOf(fn)
+	fType := fValue.Type()
+
+	// Create input arguments
+	in := make([]reflect.Value, len(params))
+	for i, arg := range params {
+		if arg == nil {
+			in[i] = reflect.Zero(fType.In(i))
+		} else {
+			in[i] = reflect.ValueOf(arg)
+		}
+	}
+
+	// Call the function
+	out := fValue.Call(in)
+	duration := time.Since(startTime)
+
+	// Convert output to interface slice
+	returns := make([]interface{}, len(out))
+	for i, val := range out {
+		returns[i] = val.Interface()
+	}
+
+	// Log method exit
+	LogMethodExit(methodName, duration, returns...)
+
+	return returns
+}
+
+// WithMethodLoggingAndContext executes a function with context-aware method entry and exit logging
+// It logs the method entry with context before executing the function and the method exit with context after execution
+// The function can return multiple values, which will be logged and returned
+func WithMethodLoggingAndContext(methodName string, ctx LogContext, fn interface{}, params ...interface{}) []interface{} {
+	// Log method entry with context
+	methodName, startTime, logger, ctx := LogMethodEntryWithContext(methodName, ctx)
+
+	// Prepare for function call
+	fValue := reflect.ValueOf(fn)
+	fType := fValue.Type()
+
+	// Create input arguments
+	in := make([]reflect.Value, len(params))
+	for i, arg := range params {
+		if arg == nil {
+			in[i] = reflect.Zero(fType.In(i))
+		} else {
+			in[i] = reflect.ValueOf(arg)
+		}
+	}
+
+	// Call the function
+	out := fValue.Call(in)
+
+	// Convert output to interface slice
+	returns := make([]interface{}, len(out))
+	for i, val := range out {
+		returns[i] = val.Interface()
+	}
+
+	// Log method exit with context
+	LogMethodExitWithContext(methodName, startTime, logger, ctx, returns...)
+
+	return returns
 }
