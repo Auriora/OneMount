@@ -2,6 +2,6 @@
 Name=OneMount
 Comment=Mount your Microsoft OneDrive account as a native filesystem on Linux.
 Type=Application
-Exec=/usr/bin/onemount-launcher
-Icon=/usr/share/icons/onemount/OneMount-Logo.svg
+Exec=$HOME/.local/bin/onemount-launcher
+Icon=$HOME/.local/share/icons/onemount/OneMount-Logo.svg
 Categories=Utility

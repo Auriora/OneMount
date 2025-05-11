@@ -52,7 +52,7 @@ install: onemount onemount-launcher
 	cp assets/icons/onemount.png $HOME/.local/share/icons/onemount/
 	cp assets/icons/onemount-128.png $HOME/.local/share/icons/onemount/
 	cp deplopyments/desktop/onemount-launcher.desktop $HOME/.local/share/applications/
-	cp deployments/systemd/onemount@.service /etc/systemd/user/
+	cp deployments/systemd/onemount@.service $HOME/.config/systemd/user/
 	gzip -c doc/man/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
 	mandb
 
@@ -61,7 +61,7 @@ uninstall:
 	rm -f \
 		$HOME/.local/bin/onemount \
 		$HOME/.local/bin/onemount-launcher \
-		/etc/systemd/user/onemount@.service \
+		$HOME/.config/systemd/user/onemount@.service \
 		$HOME/.local/share/applications/onemount-launcher.desktop \
 		$HOME/.local/share/man/man1/onemount.1.gz
 	rm -rf $HOME/.local/share/icons/onemount
