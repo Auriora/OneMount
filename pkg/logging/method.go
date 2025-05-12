@@ -57,16 +57,16 @@ func LogMethodEntry(methodName string, params ...interface{}) (string, time.Time
 
 				// Handle different types of parameters
 				switch {
-				case isPointerToByteSlice(paramType):
+				case IsPointerToByteSlice(paramType):
 					// For []byte pointers, just log the length
 					byteSlice := reflect.ValueOf(param).Elem().Interface().([]byte)
 					event = event.Int(FieldParam+fmt.Sprintf("%d_size", i+1), len(byteSlice))
-				case strings.Contains(getTypeName(paramType), "Auth"):
+				case strings.Contains(GetTypeName(paramType), "Auth"):
 					// Don't log auth objects which might contain sensitive information
 					event = event.Str(FieldParam+fmt.Sprintf("%d", i+1), "[Auth object]")
 				default:
-					// For other types, log the value
-					event = event.Interface(FieldParam+fmt.Sprintf("%d", i+1), param)
+					// For other types, use type-specific logging helpers
+					event = LogParam(event, i, param)
 				}
 			}
 		}
@@ -101,24 +101,23 @@ func LogMethodExit(methodName string, duration time.Duration, returns ...interfa
 			} else {
 				// Get the type of the return value
 				retType := reflect.TypeOf(ret)
-				retKind := getTypeKind(retType)
 
 				// Handle different types of return values
 				switch {
-				case isPointerToByteSlice(retType):
+				case IsPointerToByteSlice(retType):
 					// For []byte pointers, just log the length
 					byteSlice := reflect.ValueOf(ret).Elem().Interface().([]byte)
 					event = event.Int(FieldReturn+fmt.Sprintf("%d_size", i+1), len(byteSlice))
-				case strings.Contains(getTypeName(retType), "Auth"):
+				case strings.Contains(GetTypeName(retType), "Auth"):
 					// Don't log auth objects which might contain sensitive information
 					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "[Auth object]")
-				case retKind == reflect.Struct || (retKind == reflect.Ptr && getTypeKind(getTypeElem(retType)) == reflect.Struct):
+				case IsStruct(retType) || (IsPointer(retType) && IsStruct(GetTypeElem(retType))):
 					// For structs, log a simplified representation
-					if retKind == reflect.Ptr {
+					if IsPointer(retType) {
 						if reflect.ValueOf(ret).IsNil() {
 							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "nil")
 						} else {
-							typeName := getTypeElem(retType).Name()
+							typeName := GetTypeElem(retType).Name()
 							event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[struct %s]", typeName))
 						}
 					} else {
@@ -126,8 +125,8 @@ func LogMethodExit(methodName string, duration time.Duration, returns ...interfa
 						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[struct %s]", typeName))
 					}
 				default:
-					// For other types, log the value
-					event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+					// For other types, use type-specific logging helpers
+					event = LogReturn(event, i, ret)
 				}
 			}
 		}
@@ -234,24 +233,23 @@ func LogMethodExitWithContext(methodName string, startTime time.Time, logger Log
 		} else {
 			// Get the type of the return value
 			retType := reflect.TypeOf(ret)
-			retKind := getTypeKind(retType)
 
 			// Handle different types of return values
 			switch {
-			case isPointerToByteSlice(retType):
+			case IsPointerToByteSlice(retType):
 				// For []byte pointers, just log the length
 				byteSlice := reflect.ValueOf(ret).Elem().Interface().([]byte)
 				event = event.Int(FieldReturn+fmt.Sprintf("%d_size", i+1), len(byteSlice))
-			case strings.Contains(getTypeName(retType), "Auth"):
+			case strings.Contains(GetTypeName(retType), "Auth"):
 				// Don't log auth objects which might contain sensitive information
 				event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "[Auth object]")
-			case retKind == reflect.Struct || (retKind == reflect.Ptr && getTypeKind(getTypeElem(retType)) == reflect.Struct):
+			case IsStruct(retType) || (IsPointer(retType) && IsStruct(GetTypeElem(retType))):
 				// For structs, log a simplified representation
-				if retKind == reflect.Ptr {
+				if IsPointer(retType) {
 					if reflect.ValueOf(ret).IsNil() {
 						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), "nil")
 					} else {
-						typeName := getTypeElem(retType).Name()
+						typeName := GetTypeElem(retType).Name()
 						event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
 					}
 				} else {
@@ -259,8 +257,8 @@ func LogMethodExitWithContext(methodName string, startTime time.Time, logger Log
 					event = event.Str(FieldReturn+fmt.Sprintf("%d", i+1), fmt.Sprintf("[%s object]", typeName))
 				}
 			default:
-				// For other types, log the value
-				event = event.Interface(FieldReturn+fmt.Sprintf("%d", i+1), ret)
+				// For other types, use type-specific logging helpers
+				event = LogReturn(event, i, ret)
 			}
 		}
 	}

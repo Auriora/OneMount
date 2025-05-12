@@ -419,7 +419,11 @@ Logging can impact performance, especially in high-throughput applications.
 
 3. **Optimize reflection-based logging**:
 
-   The method logging uses reflection to log parameters and return values, which can be expensive. The `performance.go` file provides utilities to optimize this, such as type name caching and conditional logging functions.
+   The method logging uses reflection to log parameters and return values, which can be expensive. The following utilities are provided to optimize this:
+
+   - Type-specific logging helpers in `type_helpers.go` for common types (string, int, bool, etc.)
+   - Enhanced type caching mechanism in `type_cache.go` to reduce reflection overhead
+   - Conditional logging functions in `performance.go` to avoid expensive operations when not needed
 
 ## Error Handling and Logging
 
@@ -493,28 +497,92 @@ The onemount project uses zerolog for structured logging and has a consolidated 
 - `console_writer.go`: Console writer functionality
 - `structured_logging.go`: Structured logging functions
 
-### Recommendations for Improvement
+### API Overview
 
-1. **Standardize field names**:
-   - Define constants for common field names
-   - Use consistent field names across the codebase
+The logging package provides a simplified and consistent API for logging in the OneMount project. The key components are:
 
-2. **Enhance context propagation**:
-   - Use request IDs for operations that span multiple functions
-   - Consider using LogContext for propagating logging context
+1. **Core Logging API** (`logger.go`):
+   - `Logger` struct: The main logger type
+   - `Event` struct: Represents a log event
+   - Log level functions: `Debug()`, `Info()`, `Warn()`, `Error()`, `Fatal()`, `Panic()`, `Trace()`
+   - Level management: `SetGlobalLevel()`, `IsDebugEnabled()`, `IsTraceEnabled()`
 
-3. **Optimize performance**:
-   - Add level checks before expensive logging operations
-   - Consider caching type information for reflection-based logging
+2. **Method Logging API** (`method.go`):
+   - Basic method logging: `LogMethodEntry()`, `LogMethodExit()`
+   - Context-aware method logging: `LogMethodEntryWithContext()`, `LogMethodExitWithContext()`
+   - Helper functions: `LoggedMethod()`, `WithMethodLogging()`, `WithMethodLoggingAndContext()`
 
-4. **Improve error logging**:
-   - Always include the error using Err()
-   - Add relevant context to error logs
-   - Use error wrapping for better error context
+3. **Error Logging API** (`error.go`):
+   - Basic error logging: `LogError()`, `LogErrorWithFields()`
+   - Warning-level error logging: `LogErrorAsWarn()`, `LogErrorAsWarnWithFields()`
+   - Context-aware error logging: `LogErrorWithContext()`
+   - Error wrapping: `WrapAndLogError()`, `WrapAndLogErrorWithContext()`
 
-5. **Document logging standards**:
-   - Update the logging documentation with these best practices
-   - Provide examples for common logging scenarios
+4. **Context-Aware Logging API** (`context.go`):
+   - `LogContext` struct: For propagating logging context
+   - Context building methods: `WithRequestID()`, `WithUserID()`, `WithComponent()`, etc.
+   - Logger creation: `Logger()` method to create a logger with context
+
+5. **Performance Optimization API** (`performance.go`):
+   - Level checks: `IsLevelEnabled()`, `LogIfEnabled()`
+   - Complex object logging: `LogComplexObjectIfDebug()`, `LogComplexObjectIfTrace()`, `LogComplexObjectIfEnabled()`
+   - Type caching: `getTypeName()`, `getTypeKind()`, `getTypeElem()`
+
+6. **Structured Logging API** (`structured_logging.go`):
+   - Context-aware logging at different levels: `LogInfoWithContext()`, `LogDebugWithContext()`, `LogTraceWithContext()`
+   - Error enrichment: `EnrichErrorWithContext()`
+
+7. **Constants** (`constants.go`):
+   - Standard field names: `FieldMethod`, `FieldOperation`, `FieldComponent`, etc.
+   - Method logging specific fields: `FieldReturn`, `FieldParam`
+   - Phase values: `PhaseEntry`, `PhaseExit`
+   - Message templates: `MsgMethodCalled`, `MsgMethodCompleted`
+
+### Recommended Patterns
+
+1. **Use structured logging with typed fields**:
+   ```go
+   Info().
+       Str(FieldMethod, "UploadFile").
+       Str(FieldPath, path).
+       Int(FieldSize, len(data)).
+       Msg("File uploaded successfully")
+   ```
+
+2. **Use context-aware logging for operations that span multiple functions**:
+   ```go
+   ctx := NewLogContext("sync_operation").
+       WithRequestID(requestID).
+       WithUserID(userID)
+
+   LogMethodEntryWithContext("ProcessChanges", ctx)
+   ```
+
+3. **Check log levels before expensive operations**:
+   ```go
+   if IsDebugEnabled() {
+       details := generateDetailedReport(data)
+       Debug().Interface("report", details).Msg("Generated detailed report")
+   }
+   ```
+
+4. **Use the standardized error logging functions**:
+   ```go
+   // For basic error logging
+   LogError(err, "Failed to read file", FieldPath, path)
+
+   // For context-aware error logging
+   LogErrorWithContext(err, ctx, "Failed to read file", FieldPath, path)
+   ```
+
+5. **Use the helper functions for method logging**:
+   ```go
+   // For simple methods
+   results := LoggedMethod(calculateHash, data)
+
+   // For methods with context
+   results := WithMethodLoggingAndContext("CalculateHash", ctx, calculateHash, data)
+   ```
 
 ## Conclusion
 

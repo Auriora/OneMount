@@ -22,101 +22,34 @@ package logging
 import (
 	"github.com/rs/zerolog"
 	"reflect"
-	"sync"
 )
 
-// Type caching for reflection-based logging
-var (
-	// typeCache caches type names
-	typeCache = make(map[reflect.Type]string)
-	// typeKindCache caches type kinds
-	typeKindCache = make(map[reflect.Type]reflect.Kind)
-	// typeElemCache caches element types for pointers and slices
-	typeElemCache = make(map[reflect.Type]reflect.Type)
-	// typeCacheMutex protects all type caches
-	typeCacheMutex sync.RWMutex
-)
+// Note: Type caching has been moved to type_cache.go
+// The functions below are deprecated and will be removed in a future release.
+// Use the functions in type_cache.go instead.
 
 // getTypeName returns the name of a type, using a cache for performance
-// This function is used to optimize reflection-based logging
+// Deprecated: Use GetTypeName from type_cache.go instead
 func getTypeName(t reflect.Type) string {
-	typeCacheMutex.RLock()
-	name, ok := typeCache[t]
-	typeCacheMutex.RUnlock()
-
-	if ok {
-		return name
-	}
-
-	// Compute type name
-	name = t.String()
-
-	typeCacheMutex.Lock()
-	typeCache[t] = name
-	typeCacheMutex.Unlock()
-
-	return name
+	return GetTypeName(t)
 }
 
 // getTypeKind returns the kind of a type, using a cache for performance
-// This function is used to optimize reflection-based logging
+// Deprecated: Use GetTypeKind from type_cache.go instead
 func getTypeKind(t reflect.Type) reflect.Kind {
-	typeCacheMutex.RLock()
-	kind, ok := typeKindCache[t]
-	typeCacheMutex.RUnlock()
-
-	if ok {
-		return kind
-	}
-
-	// Compute type kind
-	kind = t.Kind()
-
-	typeCacheMutex.Lock()
-	typeKindCache[t] = kind
-	typeCacheMutex.Unlock()
-
-	return kind
+	return GetTypeKind(t)
 }
 
 // getTypeElem returns the element type of a pointer or slice, using a cache for performance
-// This function is used to optimize reflection-based logging
+// Deprecated: Use GetTypeElem from type_cache.go instead
 func getTypeElem(t reflect.Type) reflect.Type {
-	typeCacheMutex.RLock()
-	elem, ok := typeElemCache[t]
-	typeCacheMutex.RUnlock()
-
-	if ok {
-		return elem
-	}
-
-	// Compute element type
-	elem = t.Elem()
-
-	typeCacheMutex.Lock()
-	typeElemCache[t] = elem
-	typeCacheMutex.Unlock()
-
-	return elem
+	return GetTypeElem(t)
 }
 
 // isPointerToByteSlice checks if a type is a pointer to a byte slice
-// This function uses the type caching mechanism for performance
+// Deprecated: Use IsPointerToByteSlice from type_cache.go instead
 func isPointerToByteSlice(t reflect.Type) bool {
-	kind := getTypeKind(t)
-	if kind != reflect.Ptr {
-		return false
-	}
-
-	elemType := getTypeElem(t)
-	elemKind := getTypeKind(elemType)
-	if elemKind != reflect.Slice {
-		return false
-	}
-
-	elemElemType := getTypeElem(elemType)
-	elemElemKind := getTypeKind(elemElemType)
-	return elemElemKind == reflect.Uint8
+	return IsPointerToByteSlice(t)
 }
 
 // Note: The functions isDebugEnabled and isTraceEnabled have been removed.

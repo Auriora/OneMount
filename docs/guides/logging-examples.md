@@ -134,20 +134,22 @@ LogWarnWithFields("File not found in cache, downloading from server",
         "cache_status": "miss",
     })
 
-// Log a warning with an error
-LogWarnWithError(err, "Retrying operation after error", 
+// Log a warning with an error (using the recommended function)
+LogErrorAsWarn(err, "Retrying operation after error", 
     FieldPath, path, 
     "retry_count", retryCount)
 
-// Log an error and return it in one step
-return LogErrorAndReturn(err, "Failed to process file", 
+// Log an error and return it separately (recommended pattern)
+LogError(err, "Failed to process file", 
     FieldPath, path, 
     FieldSize, fileSize)
+return err
 
-// Log an error with context and return it in one step
-return LogErrorWithContextAndReturn(err, ctx, "Failed to process file", 
+// Log an error with context and return it separately (recommended pattern)
+LogErrorWithContext(err, ctx, "Failed to process file", 
     FieldPath, path, 
     FieldSize, fileSize)
+return err
 
 // Format an error with additional context
 return FormatErrorWithContext(err, "Failed to process file", 
@@ -198,16 +200,33 @@ LogComplexObjectIfDebug("fileStats", stats, "File statistics")
 LogComplexObjectIfTrace("requestDetails", request, "Request details")
 ```
 
-### Type Caching
+### Type Caching and Type-Specific Logging
 
-For reflection-based logging, use the type caching mechanism:
+For reflection-based logging, use the enhanced type caching mechanism and type-specific logging helpers:
 
 ```go
-// Get the type name of an object using the cache
-typeName := getTypeName(reflect.TypeOf(obj))
+// Get the type name of an object using the enhanced cache
+typeName := GetTypeName(reflect.TypeOf(obj))
 Debug().
     Str("type", typeName).
     Msg("Processing object")
+
+// Use type-specific logging helpers for common types
+event := Debug()
+event = LogParam(event, 0, "string value")  // Logs a string parameter
+event = LogParam(event, 1, 42)              // Logs an int parameter
+event = LogParam(event, 2, true)            // Logs a bool parameter
+event.Msg("Parameters logged with type-specific helpers")
+
+// Use the enhanced type caching mechanism for type checks
+t := reflect.TypeOf(obj)
+if IsStruct(t) {
+    Debug().Str("type", "struct").Msg("Object is a struct")
+} else if IsPointer(t) {
+    Debug().Str("type", "pointer").Msg("Object is a pointer")
+} else if IsSlice(t) {
+    Debug().Str("type", "slice").Msg("Object is a slice")
+}
 ```
 
 ## Standardized Field Names
@@ -287,7 +306,7 @@ For simple method logging, you can use the `LoggedMethod` helper function:
 func (f *Filesystem) CalculateHash(data []byte) string {
     // Use LoggedMethod to wrap the function call
     results := LoggedMethod(f.calculateHashInternal, data)
-    
+
     // Extract the return value from the results
     return results[0].(string)
 }
