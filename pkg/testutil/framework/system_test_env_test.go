@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/auriora/onemount/pkg/testutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"testing"
 	"time"
@@ -24,6 +25,43 @@ func TestSystemTestEnvironment_Setup(t *testing.T) {
 	// Create a new SystemTestEnvironment
 	env := NewSystemTestEnvironment(ctx, logger)
 	require.NotNil(t, env)
+
+	// Ensure signal handling is not active
+	if env.framework.isHandling {
+		t.Log("Signal handling is active at the start of the test, cleaning up")
+		// Create a cleanup function that stops signal handling
+		cleanup := func() {
+			env.framework.signalMu.Lock()
+			defer env.framework.signalMu.Unlock()
+
+			if !env.framework.isHandling {
+				return
+			}
+
+			// Stop receiving signals
+			signal.Stop(env.framework.signalChan)
+
+			// Cancel the context to stop the goroutine
+			if env.framework.signalCancel != nil {
+				env.framework.signalCancel()
+			}
+
+			// Only close the channel if it's not nil
+			if env.framework.signalChan != nil {
+				close(env.framework.signalChan)
+				env.framework.signalChan = nil
+			}
+
+			// Set the isHandling flag to false
+			env.framework.isHandling = false
+		}
+
+		// Call the cleanup function
+		cleanup()
+
+		// Verify that signal handling is stopped
+		assert.False(t, env.framework.isHandling, "Signal handling should be inactive after cleanup")
+	}
 
 	// Set up the environment
 	err := env.SetupEnvironment()
@@ -321,4 +359,42 @@ func TestCommonSystemScenarios(t *testing.T) {
 	// Run all scenarios
 	errors := env.RunAllScenarios()
 	assert.Empty(t, errors)
+}
+
+// TestSystemTestEnvironment_SignalHandling tests the interaction between SystemTestEnvironment and signal handling
+func TestSystemTestEnvironment_SignalHandling(t *testing.T) {
+	// Create a logger
+	logger := testutil.NewCustomLogger("system-test")
+
+	// Create a context
+	ctx := context.Background()
+
+	// Create a new SystemTestEnvironment
+	env := NewSystemTestEnvironment(ctx, logger)
+	require.NotNil(t, env)
+
+	// Explicitly set up signal handling on the framework
+	cleanup := env.framework.SetupSignalHandling()
+	require.NotNil(t, cleanup)
+
+	// Verify that signal handling is set up
+	assert.True(t, env.framework.isHandling, "Signal handling should be active")
+	assert.NotNil(t, env.framework.signalChan, "Signal channel should not be nil")
+
+	// Set up the environment
+	err := env.SetupEnvironment()
+	require.NoError(t, err)
+
+	// Clean up signal handling
+	cleanup()
+
+	// Verify that signal handling is stopped
+	assert.False(t, env.framework.isHandling, "Signal handling should be inactive after cleanup")
+	assert.Nil(t, env.framework.signalChan, "Signal channel should be nil after cleanup")
+
+	// Clean up the environment
+	defer func() {
+		err := env.TeardownEnvironment()
+		require.NoError(t, err)
+	}()
 }

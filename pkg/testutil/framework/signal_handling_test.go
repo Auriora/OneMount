@@ -3,11 +3,22 @@ package framework
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// contains checks if a string is present in a slice of strings
+func contains(slice []string, str string) bool {
+	for _, s := range slice {
+		if strings.Contains(s, str) {
+			return true
+		}
+	}
+	return false
+}
 
 // TestUT_FW_10_01_SetupSignalHandling_ValidFramework_RegistersSignalHandlers tests setting up signal handling in the test framework.
 //
@@ -93,17 +104,41 @@ func TestUT_FW_10_02_SetupSignalHandlingIdempotent_CalledTwice_OnlyRegistersOnce
 	// Verify that the logger recorded that signal handling was already set up
 	assert.Contains(t, logger.infoMessages, "Signal handling already set up", "Logger should record that signal handling was already set up")
 
+	// Print the current state before calling cleanup functions
+	t.Logf("Before cleanup calls - isHandling: %v, infoMessages count: %d", tf.isHandling, len(logger.infoMessages))
+	for i, msg := range logger.infoMessages {
+		t.Logf("Info message %d: %s", i, msg)
+	}
+
 	// Call the second cleanup function
+	t.Log("Calling cleanup2()")
 	cleanup2()
 
+	// Print the state after calling cleanup2
+	t.Logf("After cleanup2 - isHandling: %v, infoMessages count: %d", tf.isHandling, len(logger.infoMessages))
+	for i, msg := range logger.infoMessages {
+		t.Logf("Info message %d: %s", i, msg)
+	}
+
 	// Verify that the logger recorded that signal handling was already stopped
+	containsMsg := contains(logger.infoMessages, "Signal handling already stopped by another call")
+	t.Logf("Contains 'Signal handling already stopped by another call': %v", containsMsg)
 	assert.Contains(t, logger.infoMessages, "Signal handling already stopped by another call", "Logger should record that signal handling was already stopped")
 
 	// Call the first cleanup function
+	t.Log("Calling cleanup1()")
 	cleanup1()
+
+	// Print the state after calling cleanup1
+	t.Logf("After cleanup1 - isHandling: %v, infoMessages count: %d", tf.isHandling, len(logger.infoMessages))
+	for i, msg := range logger.infoMessages {
+		t.Logf("Info message %d: %s", i, msg)
+	}
 
 	// Verify that signal handling is stopped
 	assert.False(t, tf.isHandling, "Signal handling should be inactive after cleanup")
+	containsMsg = contains(logger.infoMessages, "Signal handling stopped")
+	t.Logf("Contains 'Signal handling stopped': %v", containsMsg)
 	assert.Contains(t, logger.infoMessages, "Signal handling stopped", "Logger should record signal handling stopped")
 }
 

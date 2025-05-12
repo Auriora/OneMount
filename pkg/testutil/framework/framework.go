@@ -652,9 +652,9 @@ func (tf *TestFramework) SetupSignalHandling() func() {
 
 	// If signal handling is already set up, return a no-op cleanup function
 	if tf.isHandling {
-		tf.logger.Info("Signal handling already set up")
+		tf.logger.Info("Signal handling already set up", "isHandling", tf.isHandling)
 		return func() {
-			tf.logger.Info("Signal handling already stopped by another call")
+			tf.logger.Info("Signal handling already stopped by another call", "isHandling", tf.isHandling)
 		}
 	}
 
@@ -687,7 +687,13 @@ func (tf *TestFramework) SetupSignalHandling() func() {
 	// Start a goroutine to handle signals
 	go func(ctx context.Context) {
 		select {
-		case sig := <-tf.signalChan:
+		case sig, ok := <-tf.signalChan:
+			// Check if the channel is closed
+			if !ok {
+				tf.logger.Debug("Signal channel closed, exiting signal handling goroutine")
+				return
+			}
+
 			tf.logger.Info("Received signal", "signal", sig)
 
 			// Clean up resources
@@ -708,31 +714,38 @@ func (tf *TestFramework) SetupSignalHandling() func() {
 
 	// Return a function that can be called to stop signal handling
 	return func() {
+		tf.logger.Debug("Cleanup function called", "before_lock_isHandling", tf.isHandling)
 		tf.signalMu.Lock()
 		defer tf.signalMu.Unlock()
+		tf.logger.Debug("Cleanup function acquired lock", "after_lock_isHandling", tf.isHandling)
 
 		if !tf.isHandling {
-			tf.logger.Info("Signal handling already stopped")
+			tf.logger.Info("Signal handling already stopped", "isHandling", tf.isHandling)
 			return
 		}
 
 		// Stop receiving signals
+		tf.logger.Debug("Stopping signal reception", "signalChan", tf.signalChan != nil)
 		signal.Stop(tf.signalChan)
+
+		// Cancel the context to stop the goroutine
+		if tf.signalCancel != nil {
+			tf.logger.Debug("Cancelling signal context")
+			tf.signalCancel()
+		}
 
 		// Only close the channel if it's not nil
 		if tf.signalChan != nil {
+			tf.logger.Debug("Closing signal channel")
 			close(tf.signalChan)
 			tf.signalChan = nil
 		}
 
-		// Cancel the context to stop the goroutine
-		if tf.signalCancel != nil {
-			tf.signalCancel()
-		}
-
 		// Set the isHandling flag to false
+		tf.logger.Debug("Setting isHandling to false", "before", tf.isHandling)
 		tf.isHandling = false
+		tf.logger.Debug("Set isHandling to false", "after", tf.isHandling)
 
-		tf.logger.Info("Signal handling stopped")
+		tf.logger.Info("Signal handling stopped", "isHandling", tf.isHandling)
 	}
 }
