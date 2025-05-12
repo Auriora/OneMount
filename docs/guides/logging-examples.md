@@ -24,6 +24,8 @@ This logs the method entry and exit, including the return value and execution du
 
 For operations that span multiple functions or goroutines, use the context-aware logging functions:
 
+### Basic Context-Aware Logging
+
 ```go
 func (f *Filesystem) ProcessChanges(requestID string) error {
     // Create a logging context
@@ -57,6 +59,52 @@ func (f *Filesystem) processChangesInternal(ctx LogContext) error {
         LogErrorWithContext(err, ctx, "Failed to process changes", 
             FieldPath, "/some/path", 
             FieldID, "123")
+        return err
+    }
+
+    // Log method exit with context
+    LogMethodExitWithContext(methodName, startTime, logger, ctx, nil)
+    return nil
+}
+```
+
+### Enhanced Context-Aware Logging with Request IDs and User IDs
+
+For operations that span multiple functions or user-initiated operations, use the enhanced context-aware logging functions:
+
+```go
+func (f *Filesystem) ProcessUserRequest(path string) error {
+    // Create a logging context with a unique request ID and the current user's ID
+    ctx := NewLogContextWithRequestAndUserID("process_user_request").
+        WithPath(path)
+
+    // Log method entry with context
+    methodName, startTime, logger, ctx := LogMethodEntryWithContext("ProcessUserRequest", ctx)
+
+    // Use the logger for additional logs within the method
+    logger.Info().Msg("Processing user request for path")
+
+    // Process the request...
+    err := f.processRequestInternal(ctx)
+
+    // Log method exit with context and return value
+    LogMethodExitWithContext(methodName, startTime, logger, ctx, err)
+    return err
+}
+
+func (f *Filesystem) processRequestInternal(ctx LogContext) error {
+    // Log method entry with the same context
+    // The request ID and user ID are automatically propagated
+    methodName, startTime, logger, ctx := LogMethodEntryWithContext("processRequestInternal", ctx)
+
+    // Use the logger for additional logs
+    logger.Debug().Msg("Internal processing started")
+
+    // Process the request...
+    if err := someOperation(); err != nil {
+        // Log errors with context
+        // The request ID and user ID are included in the error logs
+        LogErrorWithContext(err, ctx, "Failed to process request")
         return err
     }
 

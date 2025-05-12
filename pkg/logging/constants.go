@@ -33,6 +33,7 @@ const (
 	FieldPath      = "path"        // File or resource path
 	FieldID        = "id"          // Identifier
 	FieldUser      = "user"        // User identifier
+	FieldRequestID = "request_id"  // Request identifier for operations spanning multiple functions
 	FieldStatus    = "status"      // Status code or string
 	FieldSize      = "size"        // Size in bytes
 	FieldGoroutine = "goroutine"   // Goroutine ID

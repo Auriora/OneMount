@@ -19,8 +19,8 @@ func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name str
 		return 0, fuse.ENOENT
 	}
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("xattr_operations").
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
 		WithPath(inode.Path()).
 		With("id", id).
 		With("nodeID", header.NodeId).
@@ -73,8 +73,8 @@ func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name strin
 		return fuse.ENOENT
 	}
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("xattr_operations").
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
 		WithPath(inode.Path()).
 		With("id", id).
 		With("nodeID", in.NodeId).
@@ -113,8 +113,8 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 		return 0, fuse.ENOENT
 	}
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("xattr_operations").
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
 		WithPath(inode.Path()).
 		With("id", id).
 		With("nodeID", header.NodeId)
@@ -183,8 +183,8 @@ func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name 
 		return fuse.ENOENT
 	}
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("xattr_operations").
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
 		WithPath(inode.Path()).
 		With("id", id).
 		With("nodeID", header.NodeId).

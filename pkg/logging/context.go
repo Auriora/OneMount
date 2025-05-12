@@ -73,7 +73,7 @@ func (lc LogContext) Logger() Logger {
 	logger := DefaultLogger.With()
 
 	if lc.RequestID != "" {
-		logger = logger.Str("request_id", lc.RequestID)
+		logger = logger.Str(FieldRequestID, lc.RequestID)
 	}
 
 	if lc.UserID != "" {
@@ -109,7 +109,7 @@ func WithLogContext(ctx LogContext) Logger {
 	logger := DefaultLogger.With()
 
 	if ctx.RequestID != "" {
-		logger = logger.Str("request_id", ctx.RequestID)
+		logger = logger.Str(FieldRequestID, ctx.RequestID)
 	}
 
 	if ctx.UserID != "" {

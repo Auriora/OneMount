@@ -137,9 +137,8 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	}
 
 	path := inode.Path()
-	// Create a context for this operation
-	logCtx := logging.NewLogContext("file_open").
-		WithRequestID(id).
+	// Create a context for this operation with request ID, user ID, and path
+	logCtx := logging.NewLogContextWithRequestAndUserID("file_open").
 		WithPath(path)
 
 	logger := logging.WithLogContext(logCtx)
@@ -352,9 +351,8 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 	id := inode.ID()
 	path := inode.Path()
 
-	// Create a context for this operation
-	logCtx := logging.NewLogContext("file_read").
-		WithRequestID(id).
+	// Create a context for this operation with request ID, user ID, and path
+	logCtx := logging.NewLogContextWithRequestAndUserID("file_read").
 		WithPath(path)
 
 	logger := logging.WithLogContext(logCtx)
@@ -419,9 +417,8 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 	offset := int(in.Offset)
 	path := inode.Path()
 
-	// Create a context for this operation
-	logCtx := logging.NewLogContext("file_write").
-		WithRequestID(id).
+	// Create a context for this operation with request ID, user ID, and path
+	logCtx := logging.NewLogContextWithRequestAndUserID("file_write").
 		WithPath(path)
 
 	logger := logging.WithLogContext(logCtx)

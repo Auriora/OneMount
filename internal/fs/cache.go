@@ -851,9 +851,8 @@ func (f *Filesystem) GetChild(id string, name string, auth *graph.Auth) (*Inode,
 func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Inode, error) {
 	methodName, startTime := logging.LogMethodEntry("GetChildrenID", id)
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("get_children").
-		WithRequestID(id)
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("get_children")
 
 	logger := logging.WithLogContext(ctx)
 
@@ -1033,9 +1032,8 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]*Inode, error) {
 	methodName, startTime := logging.LogMethodEntry("GetChildrenPath", path)
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("get_children_path").
-		WithRequestID(path).
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("get_children_path").
 		WithPath(path)
 
 	logger := logging.WithLogContext(ctx)
@@ -1088,9 +1086,8 @@ func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]
 func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 	methodName, startTime := logging.LogMethodEntry("GetPath", path)
 
-	// Create a context for this operation
-	ctx := logging.NewLogContext("get_path").
-		WithRequestID(path).
+	// Create a context for this operation with request ID and user ID
+	ctx := logging.NewLogContextWithRequestAndUserID("get_path").
 		WithPath(path)
 
 	logger := logging.WithLogContext(ctx)

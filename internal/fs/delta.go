@@ -387,7 +387,8 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	id := delta.ID
 	name := delta.Name
 	parentID := delta.Parent.ID
-	logCtx := logging.NewLogContext("delta")
+	// Create a context for this operation with request ID and user ID
+	logCtx := logging.NewLogContextWithRequestAndUserID("delta")
 	logCtx = logCtx.WithComponent("fs").WithMethod("applyDelta")
 	logCtx = logCtx.With("id", id).With("parentID", parentID).With("name", name)
 	logger := logging.WithLogContext(logCtx)
