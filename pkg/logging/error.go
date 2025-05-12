@@ -31,6 +31,11 @@ func LogError(err error, msg string, fields ...interface{}) {
 		return
 	}
 
+	// Check if error level is enabled before performing operations
+	if !IsLevelEnabled(ErrorLevel) {
+		return
+	}
+
 	event := Error().Err(err)
 
 	// Check if fields is a single map[string]interface{}
@@ -72,6 +77,11 @@ func LogErrorAsWarn(err error, msg string, fields ...interface{}) {
 		return
 	}
 
+	// Check if warn level is enabled before performing operations
+	if !IsLevelEnabled(WarnLevel) {
+		return
+	}
+
 	event := Warn().Err(err)
 
 	// Add additional fields in pairs (key, value)
@@ -92,6 +102,11 @@ func LogErrorAsWarn(err error, msg string, fields ...interface{}) {
 // This is useful for logging potential issues that don't prevent the application from working
 func LogErrorAsWarnWithFields(err error, msg string, fields map[string]interface{}) {
 	if err == nil {
+		return
+	}
+
+	// Check if warn level is enabled before performing operations
+	if !IsLevelEnabled(WarnLevel) {
 		return
 	}
 
@@ -139,6 +154,11 @@ func LogErrorAndReturn(err error, msg string, fields ...interface{}) error {
 // The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
 func LogErrorWithContext(err error, ctx LogContext, msg string, fields ...interface{}) {
 	if err == nil {
+		return
+	}
+
+	// Check if error level is enabled before performing operations
+	if !IsLevelEnabled(ErrorLevel) {
 		return
 	}
 
@@ -192,7 +212,12 @@ func WrapAndLogError(err error, msg string, fields ...interface{}) error {
 
 	// We can't use errors.Wrap here to avoid circular dependency
 	wrapped := fmt.Errorf("%s: %w", msg, err)
-	LogError(wrapped, msg, fields...)
+
+	// Only log if error level is enabled
+	if IsLevelEnabled(ErrorLevel) {
+		LogError(wrapped, msg, fields...)
+	}
+
 	return wrapped
 }
 
@@ -228,7 +253,12 @@ func WrapAndLogErrorWithContext(err error, ctx LogContext, msg string, fields ..
 
 	// We can't use errors.Wrap here to avoid circular dependency
 	wrapped := fmt.Errorf("%s: %w", msg, err)
-	LogErrorWithContext(wrapped, ctx, msg, fields...)
+
+	// Only log if error level is enabled
+	if IsLevelEnabled(ErrorLevel) {
+		LogErrorWithContext(wrapped, ctx, msg, fields...)
+	}
+
 	return wrapped
 }
 

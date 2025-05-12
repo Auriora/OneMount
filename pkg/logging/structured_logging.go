@@ -27,6 +27,11 @@ func LogErrorAsWarnWithContext(err error, ctx LogContext, msg string) {
 		return
 	}
 
+	// Check if warn level is enabled before performing operations
+	if !IsLevelEnabled(WarnLevel) {
+		return
+	}
+
 	// Get the logger with context
 	logger := ctx.Logger()
 
@@ -45,6 +50,11 @@ func LogWarnWithContext(err error, ctx LogContext, msg string) {
 
 // LogInfoWithContext logs an info message with the given context
 func LogInfoWithContext(ctx LogContext, msg string) {
+	// Check if info level is enabled before performing operations
+	if !IsLevelEnabled(InfoLevel) {
+		return
+	}
+
 	// Get the logger with context
 	logger := ctx.Logger()
 
@@ -54,6 +64,11 @@ func LogInfoWithContext(ctx LogContext, msg string) {
 
 // LogDebugWithContext logs a debug message with the given context
 func LogDebugWithContext(ctx LogContext, msg string) {
+	// Check if debug level is enabled before performing operations
+	if !IsLevelEnabled(DebugLevel) {
+		return
+	}
+
 	// Get the logger with context
 	logger := ctx.Logger()
 
@@ -63,6 +78,11 @@ func LogDebugWithContext(ctx LogContext, msg string) {
 
 // LogTraceWithContext logs a trace message with the given context
 func LogTraceWithContext(ctx LogContext, msg string) {
+	// Check if trace level is enabled before performing operations
+	if !IsLevelEnabled(TraceLevel) {
+		return
+	}
+
 	// Get the logger with context
 	logger := ctx.Logger()
 
