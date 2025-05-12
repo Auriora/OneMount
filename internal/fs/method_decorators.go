@@ -1,15 +1,14 @@
 package fs
 
 import (
-	"fmt"
 	"github.com/auriora/onemount/pkg/logging"
-	"github.com/auriora/onemount/pkg/util"
 	"runtime"
 	"time"
 )
 
 // LogMethodCall wraps a function call with entry and exit logging
 // This is a helper function to be used in each public method
+// Deprecated: Use logging.LogMethodEntry instead
 func LogMethodCall() (string, time.Time) {
 	// Get the caller function name
 	pc, _, _, _ := runtime.Caller(1)
@@ -26,56 +25,16 @@ func LogMethodCall() (string, time.Time) {
 		methodName = fullName[lastDot+1:]
 	}
 
-	// Get the current goroutine ID
-	goroutineID := util.GetCurrentGoroutineID()
-
-	// Log method entry
-	logging.Debug().
-		Str(logging.FieldMethod, methodName).
-		Str(logging.FieldPhase, logging.PhaseEntry).
-		Str(logging.FieldGoroutine, goroutineID).
-		Msg(logging.MsgMethodCalled)
-
-	return methodName, time.Now()
+	// Use the new logging.LogMethodEntry function
+	return logging.LogMethodEntry(methodName)
 }
 
 // LogMethodReturn logs the exit of a method with its return values
 // This should be deferred at the beginning of each public method
+// Deprecated: Use logging.LogMethodExit instead
 func LogMethodReturn(methodName string, startTime time.Time, returns ...interface{}) {
-	duration := time.Since(startTime)
-
-	// Get the current goroutine ID
-	goroutineID := util.GetCurrentGoroutineID()
-
-	// Create log event
-	event := logging.Debug().
-		Str(logging.FieldMethod, methodName).
-		Str(logging.FieldPhase, logging.PhaseExit).
-		Str(logging.FieldGoroutine, goroutineID).
-		Dur(logging.FieldDuration, duration)
-
-	// Log return values if any
-	for i, ret := range returns {
-		if ret == nil {
-			event = event.Interface(logging.FieldReturn+fmt.Sprintf("%d", i+1), nil)
-		} else {
-			// Special handling for Inode objects to prevent race conditions during JSON serialization
-			if inode, ok := ret.(*Inode); ok {
-				// Only log the ID and name instead of the entire object
-				if inode != nil {
-					event = event.Str(logging.FieldReturn+fmt.Sprintf("%d", i+1)+".id", inode.ID()).
-						Str(logging.FieldReturn+fmt.Sprintf("%d", i+1)+".name", inode.Name()).
-						Bool(logging.FieldReturn+fmt.Sprintf("%d", i+1)+".isDir", inode.IsDir())
-				} else {
-					event = event.Interface(logging.FieldReturn+fmt.Sprintf("%d", i+1), nil)
-				}
-			} else {
-				event = event.Interface(logging.FieldReturn+fmt.Sprintf("%d", i+1), ret)
-			}
-		}
-	}
-
-	event.Msg(logging.MsgMethodCompleted)
+	// Use the new logging.LogMethodExit function
+	logging.LogMethodExit(methodName, time.Since(startTime), returns...)
 }
 
 // lastIndexDot returns the last index of '.' in the string

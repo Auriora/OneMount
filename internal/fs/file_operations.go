@@ -115,9 +115,12 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 //   - fuse.EIO if there was an error creating the cache file
 //   - fuse.EREMOTEIO if the download failed
 func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
+	methodName, startTime := logging.LogMethodEntry("Open", in.NodeId)
+
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
 		return fuse.ENOENT
 	}
 
@@ -129,26 +132,32 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		if status == fuse.OK {
 			out.Fh = handleID
 		}
+		defer logging.LogMethodExit(methodName, time.Since(startTime), status)
 		return status
 	}
 
 	path := inode.Path()
-	ctx := logging.DefaultLogger.With().
-		Str("op", "Open").
-		Uint64("nodeID", in.NodeId).
-		Str("id", id).
-		Str("path", path).
-		Logger()
+	// Create a context for this operation
+	logCtx := logging.NewLogContext("file_open").
+		WithRequestID(id).
+		WithPath(path)
+
+	logger := logging.WithLogContext(logCtx)
 
 	flags := int(in.Flags)
 	if flags&os.O_RDWR+flags&os.O_WRONLY > 0 && f.IsOffline() {
-		ctx.Info().
+		logger.Info().
 			Bool("readWrite", flags&os.O_RDWR > 0).
 			Bool("writeOnly", flags&os.O_WRONLY > 0).
 			Msg("Write operations in offline mode will be cached locally")
 	}
 
-	ctx.Debug().Msg("")
+	if logging.IsDebugEnabled() {
+		logger.Debug().
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldID, id).
+			Msg("Opening file")
+	}
 
 	// we have something on disk-
 	// verify content against what we're supposed to have
@@ -158,7 +167,10 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	fd, err := f.content.Open(id)
 	if err != nil {
 		inode.Unlock()
-		ctx.Error().Err(err).Msg("Could not create cache file.")
+		logging.LogErrorWithContext(err, logCtx, "Could not create cache file",
+			logging.FieldID, id,
+			logging.FieldPath, path)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
 		return fuse.EIO
 	}
 
@@ -170,47 +182,56 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	// If we're in offline mode, use the cached content regardless of checksum
 	if f.IsOffline() {
-		ctx.Info().Msg("Using cached content in offline mode regardless of checksum.")
+		logger.Info().Msg("Using cached content in offline mode regardless of checksum")
 
 		// we check size ourselves in case the API file sizes are WRONG (it happens)
 		st, err := fd.Stat()
 		if err != nil {
 			inode.Unlock()
-			ctx.Error().Err(err).Msg("Could not fetch file stats.")
+			logging.LogErrorWithContext(err, logCtx, "Could not fetch file stats",
+				logging.FieldID, id,
+				logging.FieldPath, path)
+			defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
 		inode.Unlock()
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 		return fuse.OK
 	}
 
 	if inode.VerifyChecksum(graph.QuickXORHashStream(fd)) {
 		// disk content is only used if the checksums match
-		ctx.Info().Msg("Found content in cache.")
+		logger.Info().Msg("Found content in cache")
 
 		// we check size ourselves in case the API file sizes are WRONG (it happens)
 		st, err := fd.Stat()
 		if err != nil {
 			inode.Unlock()
-			ctx.Error().Err(err).Msg("Could not fetch file stats.")
+			logging.LogErrorWithContext(err, logCtx, "Could not fetch file stats",
+				logging.FieldID, id,
+				logging.FieldPath, path)
+			defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
 		inode.Unlock()
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 		return fuse.OK
 	}
 
 	// Release the lock before network operations
 	inode.Unlock()
 
-	ctx.Info().Msg(
-		"Not using cached item due to file hash mismatch, fetching content from API.",
-	)
+	logger.Info().Msg("Not using cached item due to file hash mismatch, fetching content from API")
 
 	// Queue the download in the background
 	if _, err := f.downloads.QueueDownload(id); err != nil {
-		ctx.Error().Err(err).Msg("Failed to queue download.")
+		logging.LogErrorWithContext(err, logCtx, "Failed to queue download",
+			logging.FieldID, id,
+			logging.FieldPath, path)
 		f.MarkFileError(id, err)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
 		return fuse.EIO
 	}
 
@@ -218,22 +239,29 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	// Check if this is a directory - if so, return immediately without waiting for download
 	// This prevents the 'ls' command from hanging when there are pending downloads
 	if inode.IsDir() {
-		ctx.Debug().Msg("Non-blocking open for directory")
+		if logging.IsDebugEnabled() {
+			logger.Debug().Msg("Non-blocking open for directory")
+		}
 		// Update file status attributes but don't wait for download
 		f.updateFileStatus(inode)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 		return fuse.OK
 	}
 
 	// For actual file read/write operations, wait for the download to complete
 	// This ensures we don't return until the file is available
 	if err := f.downloads.WaitForDownload(id); err != nil {
-		ctx.Error().Err(err).Msg("Download failed.")
+		logging.LogErrorWithContext(err, logCtx, "Download failed",
+			logging.FieldID, id,
+			logging.FieldPath, path)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EREMOTEIO)
 		return fuse.EREMOTEIO
 	}
 
 	// Update file status attributes
 	f.updateFileStatus(inode)
 
+	defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 	return fuse.OK
 }
 
@@ -294,6 +322,8 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error opening the cache file
 func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
+	methodName, startTime := logging.LogMethodEntry("Read", in.NodeId, len(buf))
+
 	// Check if this is a thumbnail file handle
 	if in.Fh != 0 {
 		// Get the file handle
@@ -303,8 +333,10 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 			ctx := context.Background()
 			result, errno := fh.Read(ctx, buf, int64(in.Offset))
 			if errno != 0 {
+				defer logging.LogMethodExit(methodName, time.Since(startTime), nil, fuse.Status(errno))
 				return nil, fuse.Status(errno)
 			}
+			defer logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
 			return result, fuse.OK
 		}
 	}
@@ -312,33 +344,48 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 	// Regular file read
 	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
-		return fuse.ReadResultData(make([]byte, 0)), fuse.EBADF
+		emptyResult := fuse.ReadResultData(make([]byte, 0))
+		defer logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EBADF)
+		return emptyResult, fuse.EBADF
 	}
 
 	id := inode.ID()
 	path := inode.Path()
-	ctx := logging.DefaultLogger.With().
-		Str("op", "Read").
-		Uint64("nodeID", in.NodeId).
-		Str("id", id).
-		Str("path", path).
-		Int("bufsize", len(buf)).
-		Logger()
-	ctx.Trace().Msg("")
+
+	// Create a context for this operation
+	logCtx := logging.NewLogContext("file_read").
+		WithRequestID(id).
+		WithPath(path)
+
+	logger := logging.WithLogContext(logCtx)
+
+	if logging.IsTraceEnabled() {
+		logger.Trace().
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldID, id).
+			Int(logging.FieldSize, len(buf)).
+			Int(logging.FieldOffset, int(in.Offset)).
+			Msg("Reading file")
+	}
 
 	fd, err := f.content.Open(id)
 	if err != nil {
-		logging.LogError(err, "Cache Open() failed",
-			logging.FieldOperation, "Read",
+		logging.LogErrorWithContext(err, logCtx, "Cache Open() failed",
+			logging.FieldOperation, "file_read",
 			logging.FieldID, id,
 			logging.FieldPath, path)
-		return fuse.ReadResultData(make([]byte, 0)), fuse.EIO
+		emptyResult := fuse.ReadResultData(make([]byte, 0))
+		defer logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EIO)
+		return emptyResult, fuse.EIO
 	}
 
 	// we are locked for the remainder of this op
 	inode.RLock()
 	defer inode.RUnlock()
-	return fuse.ReadResultFd(fd.Fd(), int64(in.Offset), int(in.Size)), fuse.OK
+
+	result := fuse.ReadResultFd(fd.Fd(), int64(in.Offset), int(in.Size))
+	defer logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+	return result, fuse.OK
 }
 
 // Write handles file write operations for the FUSE filesystem.
@@ -359,35 +406,47 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error writing to the cache file
 func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
+	methodName, startTime := logging.LogMethodEntry("Write", in.NodeId, len(data), in.Offset)
+
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.EBADF)
 		return 0, fuse.EBADF
 	}
 
 	nWrite := len(data)
 	offset := int(in.Offset)
-	ctx := logging.DefaultLogger.With().
-		Str("op", "Write").
-		Str("id", id).
-		Uint64("nodeID", in.NodeId).
-		Str("path", inode.Path()).
-		Int("bufsize", nWrite).
-		Int("offset", offset).
-		Logger()
-	ctx.Trace().Msg("")
+	path := inode.Path()
+
+	// Create a context for this operation
+	logCtx := logging.NewLogContext("file_write").
+		WithRequestID(id).
+		WithPath(path)
+
+	logger := logging.WithLogContext(logCtx)
+
+	if logging.IsTraceEnabled() {
+		logger.Trace().
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldID, id).
+			Int(logging.FieldSize, nWrite).
+			Int(logging.FieldOffset, offset).
+			Msg("Writing to file")
+	}
 
 	// In offline mode, we allow writes but they will be cached locally
 	if f.IsOffline() {
-		ctx.Info().Msg("Write operations in offline mode will be cached locally")
+		logger.Info().Msg("Write operations in offline mode will be cached locally")
 	}
 
 	fd, err := f.content.Open(id)
 	if err != nil {
-		logging.LogError(err, "Cache Open() failed",
-			logging.FieldOperation, "Write",
+		logging.LogErrorWithContext(err, logCtx, "Cache Open() failed",
+			logging.FieldOperation, "file_write",
 			logging.FieldID, id,
-			logging.FieldPath, inode.Path())
+			logging.FieldPath, path)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.EIO)
 		return 0, fuse.EIO
 	}
 
@@ -395,12 +454,13 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 	n, err := fd.WriteAt(data, int64(offset))
 	if err != nil {
 		inode.Unlock()
-		logging.LogError(err, "Error during write",
-			logging.FieldOperation, "Write",
+		logging.LogErrorWithContext(err, logCtx, "Error during write",
+			logging.FieldOperation, "file_write",
 			logging.FieldID, id,
-			logging.FieldPath, inode.Path(),
-			"offset", offset,
-			"size", nWrite)
+			logging.FieldPath, path,
+			logging.FieldOffset, offset,
+			logging.FieldSize, nWrite)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), fuse.EIO)
 		return uint32(n), fuse.EIO
 	}
 
@@ -415,6 +475,14 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 		Timestamp: time.Now(),
 	})
 
+	if logging.IsDebugEnabled() {
+		logger.Debug().
+			Int("bytesWritten", n).
+			Uint64("newSize", inode.DriveItem.Size).
+			Msg("File write completed successfully")
+	}
+
+	defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), fuse.OK)
 	return uint32(n), fuse.OK
 }
 
