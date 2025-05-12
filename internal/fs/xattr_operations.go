@@ -1,72 +1,88 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/pkg/logging"
 	"syscall"
+	"time"
 
+	"github.com/auriora/onemount/pkg/logging"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
 // GetXAttr retrieves the value of an extended attribute.
 func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name string, buf []byte) (uint32, fuse.Status) {
+	methodName, startTime := logging.LogMethodEntry("GetXAttr", header.NodeId, name, len(buf))
+
 	id := f.TranslateID(header.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.ENOENT)
 		return 0, fuse.ENOENT
 	}
 
-	ctx := logging.DefaultLogger.With().
-		Str("op", "GetXAttr").
-		Uint64("nodeID", header.NodeId).
-		Str("id", id).
-		Str("path", inode.Path()).
-		Str("name", name).
-		Logger()
+	// Create a context for this operation
+	ctx := logging.NewLogContext("xattr_operations").
+		WithPath(inode.Path()).
+		With("id", id).
+		With("nodeID", header.NodeId).
+		With("name", name)
+
+	// Get a logger with the context
+	logger := ctx.Logger()
 
 	inode.RLock()
 	defer inode.RUnlock()
 
 	value, exists := inode.xattrs[name]
 	if !exists {
-		ctx.Debug().Msg("Xattr not found")
+		logger.Debug().Msg("Xattr not found")
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.Status(syscall.ENODATA))
 		return 0, fuse.Status(syscall.ENODATA)
 	}
 
-	ctx.Debug().
+	logger.Debug().
 		Int("valueLen", len(value)).
 		Msg("Retrieved xattr")
 
 	// If this is just a size query, return the size
 	if len(buf) == 0 {
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(len(value)), fuse.OK)
 		return uint32(len(value)), fuse.OK
 	}
 
 	// If the buffer is too small, return ERANGE
 	if len(buf) < len(value) {
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.Status(syscall.ERANGE))
 		return 0, fuse.Status(syscall.ERANGE)
 	}
 
 	// Copy the value to the output buffer
 	copy(buf, value)
-	return uint32(len(value)), fuse.OK
+	result := uint32(len(value))
+	logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+	return result, fuse.OK
 }
 
 // SetXAttr sets the value of an extended attribute.
 func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name string, value []byte) fuse.Status {
+	methodName, startTime := logging.LogMethodEntry("SetXAttr", in.NodeId, name, len(value))
+
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
+		logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
 		return fuse.ENOENT
 	}
 
-	ctx := logging.DefaultLogger.With().
-		Str("op", "SetXAttr").
-		Uint64("nodeID", in.NodeId).
-		Str("id", id).
-		Str("path", inode.Path()).
-		Str("name", name).
-		Int("valueLen", len(value)).
-		Logger()
+	// Create a context for this operation
+	ctx := logging.NewLogContext("xattr_operations").
+		WithPath(inode.Path()).
+		With("id", id).
+		With("nodeID", in.NodeId).
+		With("name", name).
+		With("valueLen", len(value))
+
+	// Get a logger with the context
+	logger := ctx.Logger()
 
 	inode.Lock()
 	defer inode.Unlock()
@@ -80,25 +96,31 @@ func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name strin
 	valueCopy := make([]byte, len(value))
 	copy(valueCopy, value)
 	inode.xattrs[name] = valueCopy
-	ctx.Debug().Msg("Set xattr")
+	logger.Debug().Msg("Set xattr")
 
+	logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 	return fuse.OK
 }
 
 // ListXAttr lists all extended attributes for a file.
 func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []byte) (uint32, fuse.Status) {
+	methodName, startTime := logging.LogMethodEntry("ListXAttr", header.NodeId, len(buf))
+
 	id := f.TranslateID(header.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.ENOENT)
 		return 0, fuse.ENOENT
 	}
 
-	ctx := logging.DefaultLogger.With().
-		Str("op", "ListXAttr").
-		Uint64("nodeID", header.NodeId).
-		Str("id", id).
-		Str("path", inode.Path()).
-		Logger()
+	// Create a context for this operation
+	ctx := logging.NewLogContext("xattr_operations").
+		WithPath(inode.Path()).
+		With("id", id).
+		With("nodeID", header.NodeId)
+
+	// Get a logger with the context
+	logger := ctx.Logger()
 
 	inode.RLock()
 	defer inode.RUnlock()
@@ -112,14 +134,16 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 
 	// If this is just a size query, return the size
 	if len(buf) == 0 {
-		ctx.Debug().
+		logger.Debug().
 			Uint32("size", totalSize).
 			Msg("Returning xattr list size")
+		logging.LogMethodExit(methodName, time.Since(startTime), totalSize, fuse.OK)
 		return totalSize, fuse.OK
 	}
 
 	// If the buffer is too small, return ERANGE
 	if len(buf) < int(totalSize) {
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.Status(syscall.ERANGE))
 		return 0, fuse.Status(syscall.ERANGE)
 	}
 
@@ -135,48 +159,58 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 			offset++
 		} else {
 			// Buffer too small, shouldn't happen due to earlier check but added for safety
+			logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.Status(syscall.ERANGE))
 			return 0, fuse.Status(syscall.ERANGE)
 		}
 	}
 
-	ctx.Debug().
+	logger.Debug().
 		Int("count", len(inode.xattrs)).
 		Msg("Listed xattrs")
 
+	logging.LogMethodExit(methodName, time.Since(startTime), totalSize, fuse.OK)
 	return totalSize, fuse.OK
 }
 
 // RemoveXAttr removes an extended attribute.
 func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name string) fuse.Status {
+	methodName, startTime := logging.LogMethodEntry("RemoveXAttr", header.NodeId, name)
+
 	id := f.TranslateID(header.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
+		logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
 		return fuse.ENOENT
 	}
 
-	ctx := logging.DefaultLogger.With().
-		Str("op", "RemoveXAttr").
-		Uint64("nodeID", header.NodeId).
-		Str("id", id).
-		Str("path", inode.Path()).
-		Str("name", name).
-		Logger()
+	// Create a context for this operation
+	ctx := logging.NewLogContext("xattr_operations").
+		WithPath(inode.Path()).
+		With("id", id).
+		With("nodeID", header.NodeId).
+		With("name", name)
+
+	// Get a logger with the context
+	logger := ctx.Logger()
 
 	inode.Lock()
 	defer inode.Unlock()
 
 	if inode.xattrs == nil {
-		ctx.Debug().Msg("Xattr map is nil")
+		logger.Debug().Msg("Xattr map is nil")
+		logging.LogMethodExit(methodName, time.Since(startTime), fuse.Status(syscall.ENODATA))
 		return fuse.Status(syscall.ENODATA)
 	}
 
 	if _, exists := inode.xattrs[name]; !exists {
-		ctx.Debug().Msg("Xattr not found")
+		logger.Debug().Msg("Xattr not found")
+		logging.LogMethodExit(methodName, time.Since(startTime), fuse.Status(syscall.ENODATA))
 		return fuse.Status(syscall.ENODATA)
 	}
 
 	delete(inode.xattrs, name)
-	ctx.Debug().Msg("Removed xattr")
+	logger.Debug().Msg("Removed xattr")
 
+	logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 	return fuse.OK
 }

@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"time"
+
 	"github.com/auriora/onemount/pkg/logging"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
@@ -23,11 +25,11 @@ func NewCustomRawFileSystem(fs FilesystemInterface) *CustomRawFileSystem {
 
 // Implement the POLL opcode handler
 func (c *CustomRawFileSystem) Poll(cancel <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
-	logging.Debug().
-		Str("op", "CustomRawFileSystem.Poll").
-		Uint64("nodeID", in.NodeId).
-		Msg("Handling POLL opcode")
+	methodName, startTime := logging.LogMethodEntry("Poll", in.NodeId)
 
 	// Call the Poll method on the filesystem
-	return c.fs.Poll(cancel, in, out)
+	result := c.fs.Poll(cancel, in, out)
+
+	defer logging.LogMethodExit(methodName, time.Since(startTime), result)
+	return result
 }
