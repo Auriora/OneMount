@@ -1,8 +1,10 @@
 package graph
 
 import (
-	"github.com/auriora/onemount/pkg/testutil/framework"
+	"fmt"
 	"testing"
+
+	"github.com/auriora/onemount/pkg/testutil/framework"
 )
 
 // TestUT_GR_01_01_ResourcePath_VariousInputs_ReturnsEscapedPath tests the ResourcePath function with various inputs.
@@ -99,7 +101,8 @@ func TestUT_GR_02_01_Request_UnauthenticatedUser_ReturnsError(t *testing.T) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// Get the Auth object from the fixture
+		// Debug print for fixture type and value
+		fmt.Printf("DEBUG: fixture type is %T, value = %+v\n", fixture, fixture)
 		auth, ok := fixture.(*Auth)
 		assert.True(ok, "Expected fixture to be of type *Auth, but got %T", fixture)
 

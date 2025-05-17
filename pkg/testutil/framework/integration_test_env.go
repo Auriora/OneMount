@@ -5,12 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/auriora/onemount/pkg/testutil"
-	"github.com/auriora/onemount/pkg/testutil/mock"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/auriora/onemount/pkg/graph/mock"
+	"github.com/auriora/onemount/pkg/testutil"
 )
 
 // NetworkRule represents a network isolation rule

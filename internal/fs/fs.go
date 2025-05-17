@@ -9,6 +9,8 @@ import (
 	"github.com/auriora/onemount/pkg/logging"
 )
 
+// Package fs implements the core FUSE-based filesystem logic, including caching, file operations, and OneDrive integration for OneMount.
+
 const timeout = time.Second
 
 func (f *Filesystem) getInodeContent(i *Inode) *[]byte {

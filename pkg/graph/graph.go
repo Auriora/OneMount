@@ -1,3 +1,4 @@
+// Package graph provides OneDrive API integration, authentication, and related helpers for interacting with Microsoft Graph.
 // Package graph provides the basic APIs to interact with Microsoft Graph. This includes
 // Package graph provides the basic APIs to interact with Microsoft Graph. This includes
 // the DriveItem resource and supporting resources which are the basis of working with

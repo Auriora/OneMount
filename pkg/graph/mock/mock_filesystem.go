@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/auriora/onemount/pkg/graph/api"
 )
 
 // MockFile represents a file in the mock filesystem
@@ -51,7 +53,7 @@ type MockFileSystemProvider struct {
 	errorConditions ErrorConditions
 
 	// Mock recorder for verification
-	recorder MockRecorder
+	recorder api.MockRecorder
 
 	// Configuration for mock behavior
 	config MockConfig
@@ -172,7 +174,7 @@ func (m *MockFileSystemProvider) SetConfig(config MockConfig) {
 }
 
 // GetRecorder returns the mock recorder
-func (m *MockFileSystemProvider) GetRecorder() MockRecorder {
+func (m *MockFileSystemProvider) GetRecorder() api.MockRecorder {
 	return m.recorder
 }
 

@@ -22,7 +22,7 @@ all: onemount onemount-launcher
 
 
 onemount: $(shell find internal/fs/ pkg/ -type f) cmd/onemount/main.go
-	bash build/dev/cgo-helper.sh
+	bash scripts/cgo-helper.sh
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount \

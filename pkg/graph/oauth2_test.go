@@ -2,8 +2,9 @@ package graph
 
 import (
 	"context"
+	"fmt"
+	"github.com/auriora/onemount/pkg/testutil"
 	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"os"
 	"testing"
 	"time"
@@ -181,8 +182,26 @@ func TestUT_GR_20_01_Auth_TokenRefresh_TokensRefreshedSuccessfully(t *testing.T)
 
 	// Set up the fixture
 	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
-		// Get auth tokens, either from existing file or create mock
-		auth := helpers.GetTestAuth()
+		// Get mock auth object
+		mockAuth := testutil.GetMockAuth()
+
+		// Convert MockAuth to graph.Auth
+		auth := &Auth{
+			AuthConfig: AuthConfig{
+				ClientID:    mockAuth.ClientID,
+				CodeURL:     mockAuth.CodeURL,
+				TokenURL:    mockAuth.TokenURL,
+				RedirectURL: mockAuth.RedirectURL,
+			},
+			Account:      mockAuth.Account,
+			ExpiresIn:    mockAuth.ExpiresIn,
+			ExpiresAt:    mockAuth.ExpiresAt,
+			AccessToken:  mockAuth.AccessToken,
+			RefreshToken: mockAuth.RefreshToken,
+			Path:         mockAuth.Path,
+		}
+
+		fmt.Printf("Created mock Auth for refresh test: %+v\n", auth)
 		return auth, nil
 	})
 

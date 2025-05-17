@@ -1,4 +1,4 @@
-// Package errors provides standardized error handling utilities for the OneMount project.
+// Package errors provides custom error types and error handling utilities for the OneMount project.
 // It includes functions for error wrapping and error context propagation.
 package errors
 

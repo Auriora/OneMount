@@ -2,9 +2,10 @@
 package framework
 
 import (
-	"github.com/auriora/onemount/pkg/testutil/mock"
 	"testing"
 	"time"
+
+	"github.com/auriora/onemount/pkg/graph/mock"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -1,3 +1,7 @@
+# Nemo Extension for OneMount
+
+This directory contains the Nemo file manager extension and related integration code for OneMount. It enables enhanced file manager support and D-Bus integration for OneDrive mounts.
+
 # OneMount Nemo Extension
 
 This extension adds file status indicators (emblems) to files and folders managed by OneMount in the Nemo file manager.

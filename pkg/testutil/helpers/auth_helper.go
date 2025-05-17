@@ -4,7 +4,6 @@ package helpers
 import (
 	"github.com/auriora/onemount/pkg/testutil"
 	"os"
-	"path/filepath"
 
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/auriora/onemount/pkg/logging"
@@ -51,25 +50,4 @@ func createMockAuth() *graph.Auth {
 	}
 
 	return auth
-}
-
-// EnsureTestDirectories ensures that all required test directories exist
-func EnsureTestDirectories() error {
-	// Create the test sandbox directory if it doesn't exist
-	if err := os.MkdirAll(testutil.TestSandboxDir, 0755); err != nil {
-		return err
-	}
-
-	// Create the temporary directory if it doesn't exist
-	if err := os.MkdirAll(testutil.TestSandboxTmpDir, 0755); err != nil {
-		return err
-	}
-
-	// Create the logs directory if it doesn't exist
-	logsDir := filepath.Dir(testutil.TestLogPath)
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
-		return err
-	}
-
-	return nil
 }

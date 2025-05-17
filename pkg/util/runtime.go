@@ -1,3 +1,4 @@
+// Package util provides utility functions for runtime operations, such as retrieving the current goroutine ID.
 package util
 
 import (

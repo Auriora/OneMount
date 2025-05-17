@@ -1,6 +1,4 @@
-// Package quickxorhash provides the quickXorHash algorithm which is a
-// quick, simple non-cryptographic hash algorithm that works by XORing
-// the bytes in a circular-shifting fashion.
+// Package quickxorhash implements the QuickXorHash algorithm for file integrity verification, as used by Microsoft OneDrive.
 //
 // It is used by Microsoft Onedrive for Business to hash data.
 //

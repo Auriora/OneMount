@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/auriora/onemount/pkg/graph/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -365,9 +366,9 @@ func TestUT_GR_09_02_MockGraphClient_Pagination_ReturnsPagedResults(t *testing.T
 	client := NewMockGraphClient()
 
 	// Create a large list of items
-	items := make([]*DriveItem, 0, 25)
+	items := make([]*api.DriveItem, 0, 25)
 	for i := 0; i < 25; i++ {
-		items = append(items, &DriveItem{
+		items = append(items, &api.DriveItem{
 			ID:   fmt.Sprintf("item-%d", i),
 			Name: fmt.Sprintf("Item %d", i),
 		})
@@ -448,9 +449,9 @@ func TestUT_GR_10_02_MockGraphClient_PaginationWithGetItemChildrenPath_Retrieves
 	client := NewMockGraphClient()
 
 	// Create a large collection of items (>25)
-	items := make([]*DriveItem, 0, 30)
+	items := make([]*api.DriveItem, 0, 30)
 	for i := 0; i < 30; i++ {
-		items = append(items, &DriveItem{
+		items = append(items, &api.DriveItem{
 			ID:   fmt.Sprintf("item-%d", i),
 			Name: fmt.Sprintf("Item %d", i),
 		})
@@ -513,9 +514,9 @@ func TestUT_GR_11_02_MockGraphClient_PaginationWithGetItemChildren_RetrievesAllI
 	client := NewMockGraphClient()
 
 	// Create a large collection of items (>25)
-	items := make([]*DriveItem, 0, 30)
+	items := make([]*api.DriveItem, 0, 30)
 	for i := 0; i < 30; i++ {
-		items = append(items, &DriveItem{
+		items = append(items, &api.DriveItem{
 			ID:   fmt.Sprintf("item-%d", i),
 			Name: fmt.Sprintf("Item %d", i),
 		})
@@ -577,9 +578,9 @@ func TestUT_GR_12_02_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentReque
 	client := NewMockGraphClient()
 
 	// Configure some responses
-	client.AddMockItem("/me/drive/items/item1", &DriveItem{ID: "item1", Name: "Item 1"})
-	client.AddMockItem("/me/drive/items/item2", &DriveItem{ID: "item2", Name: "Item 2"})
-	client.AddMockItem("/me/drive/items/item3", &DriveItem{ID: "item3", Name: "Item 3"})
+	client.AddMockItem("/me/drive/items/item1", &api.DriveItem{ID: "item1", Name: "Item 1"})
+	client.AddMockItem("/me/drive/items/item2", &api.DriveItem{ID: "item2", Name: "Item 2"})
+	client.AddMockItem("/me/drive/items/item3", &api.DriveItem{ID: "item3", Name: "Item 3"})
 
 	// Number of concurrent goroutines
 	numGoroutines := 10
@@ -611,7 +612,7 @@ func TestUT_GR_12_02_MockGraphClient_ThreadSafety_HandlesMultipleConcurrentReque
 				}
 
 				// Parse the response
-				var item DriveItem
+				var item api.DriveItem
 				err = json.Unmarshal(body, &item)
 				if err != nil {
 					t.Errorf("Error parsing response in goroutine %d, request %d: %v", id, j, err)
@@ -662,7 +663,7 @@ func TestUT_GR_13_02_MockGraphClient_GetUser_ReturnsUserInformation(t *testing.T
 	assert.Equal(t, "mock@example.com", user.UserPrincipalName)
 
 	// Test with custom response
-	customUser := User{
+	customUser := api.User{
 		UserPrincipalName: "custom@example.com",
 	}
 	userBytes, _ := json.Marshal(customUser)
@@ -747,10 +748,10 @@ func TestUT_GR_15_02_MockGraphClient_GetDrive_ReturnsDriveInformation(t *testing
 	assert.Equal(t, "normal", drive.Quota.State)
 
 	// Test with custom response
-	customDrive := Drive{
+	customDrive := api.Drive{
 		ID:        "custom-drive-id",
 		DriveType: "business",
-		Quota: DriveQuota{
+		Quota: api.DriveQuota{
 			Total:     1024 * 1024 * 1024 * 100, // 100 GB
 			Used:      1024 * 1024 * 1024 * 50,  // 50 GB
 			Remaining: 1024 * 1024 * 1024 * 50,  // 50 GB
@@ -806,7 +807,7 @@ func TestUT_GR_16_02_MockGraphClient_GetItemChild_ReturnsChildItem(t *testing.T)
 	assert.Equal(t, "child-name", item.Name)
 
 	// Test with custom response
-	customItem := DriveItem{
+	customItem := api.DriveItem{
 		ID:   "custom-child-id",
 		Name: "custom-child-name",
 		Size: 1024,
@@ -855,21 +856,21 @@ func TestUT_GR_17_01_MockGraphClient_MethodCallRecording_TracksMethodCallsAndArg
 	client := NewMockGraphClient()
 
 	// Add some mock items for testing
-	rootItem := &DriveItem{
+	rootItem := &api.DriveItem{
 		ID:   "root-id",
 		Name: "root",
 	}
 	client.AddMockItem("/me/drive/items/root-id", rootItem)
 
-	childItem1 := &DriveItem{
+	childItem1 := &api.DriveItem{
 		ID:   "child-id-1",
 		Name: "child1",
 	}
-	childItem2 := &DriveItem{
+	childItem2 := &api.DriveItem{
 		ID:   "child-id-2",
 		Name: "child2",
 	}
-	children := []*DriveItem{childItem1, childItem2}
+	children := []*api.DriveItem{childItem1, childItem2}
 	client.AddMockItems("/me/drive/items/root-id/children", children)
 
 	// Perform several operations

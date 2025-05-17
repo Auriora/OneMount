@@ -285,3 +285,13 @@ If you encounter issues with OneMount:
 OneMount is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/auriora/OneMount/blob/master/LICENSE).
 
 This project is provided AS IS with no warranties or guarantees. It is in active development.
+
+## Project structure
+
+- `cmd/` — Main application entry points (CLI, GUI, etc.)
+- `internal/` — Internal Go packages
+- `pkg/` — Reusable Go packages
+- `scripts/` — General-purpose shell and Python scripts for development, testing, and tooling
+- `packaging/` — Files for building distribution packages (deb, rpm, etc.)
+- `build/` — Build artifacts (binaries, release zips/tars, etc.)
+- `assets/`, `configs/`, `docs/`, etc. — Supporting files and documentation

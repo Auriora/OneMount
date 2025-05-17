@@ -10,9 +10,10 @@ package framework
 
 import (
 	"errors"
-	"github.com/auriora/onemount/pkg/testutil/mock"
 	"sync"
 	"time"
+
+	"github.com/auriora/onemount/pkg/graph/mock"
 )
 
 // NetworkCondition represents a specific network condition configuration.

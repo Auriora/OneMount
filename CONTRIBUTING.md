@@ -158,3 +158,15 @@ Feature requests are welcome. Please provide:
 2. A detailed description of the proposed feature
 3. Any relevant use cases
 4. If possible, a suggestion for how to implement the feature
+
+## Project Directory Structure (Updated)
+
+- `cmd/` — Main application entry points (CLI, GUI, etc.)
+- `internal/` — Internal Go packages (not importable outside this repo)
+- `pkg/` — Reusable Go packages
+- `scripts/` — General-purpose shell and Python scripts for development, testing, and tooling
+- `packaging/` — Files for building distribution packages (deb, rpm, etc.)
+- `build/` — Build artifacts (binaries, release zips/tars, etc.)
+- `assets/`, `configs/`, `docs/`, etc. — Supporting files and documentation
+
+All development and helper scripts should be placed in `scripts/`. Packaging files for distributions should be placed in `packaging/`. The `build/` directory is reserved for build outputs and can be safely cleaned without losing source scripts or packaging files.

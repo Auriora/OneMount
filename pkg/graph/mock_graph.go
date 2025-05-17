@@ -29,90 +29,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auriora/onemount/pkg/graph/api"
 	"github.com/auriora/onemount/pkg/logging"
 )
 
-// MockCall represents a record of a method call on a mock
-type MockCall struct {
-	Method    string
-	Resource  string
-	Args      []interface{}
-	Result    interface{}
-	Timestamp time.Time
-}
-
-// NetworkConditions simulates different network scenarios
+// Simulated network conditions
 type NetworkConditions struct {
-	Latency    time.Duration // Simulated network latency
-	PacketLoss float64       // Probability of packet loss (0.0-1.0)
-	Bandwidth  int           // Simulated bandwidth in KB/s (0 = unlimited)
-}
-
-// MockRecorder records and verifies mock interactions
-type MockRecorder interface {
-	RecordCall(method string, args ...interface{})
-	RecordCallWithResult(method string, result interface{}, args ...interface{})
-	GetCalls() []MockCall
-	VerifyCall(method string, times int) bool
-	Clear()
-}
-
-// DefaultMockRecorder is a basic implementation of MockRecorder
-type DefaultMockRecorder struct {
-	calls []MockCall
-	mu    sync.Mutex
-}
-
-// RecordCall records a method call
-func (r *DefaultMockRecorder) RecordCall(method string, args ...interface{}) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.calls = append(r.calls, MockCall{
-		Method:    method,
-		Args:      args,
-		Timestamp: time.Now(),
-	})
-}
-
-// RecordCallWithResult records a method call with a specific result
-func (r *DefaultMockRecorder) RecordCallWithResult(method string, result interface{}, args ...interface{}) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.calls = append(r.calls, MockCall{
-		Method:    method,
-		Args:      args,
-		Result:    result,
-		Timestamp: time.Now(),
-	})
-}
-
-// GetCalls returns all recorded calls
-func (r *DefaultMockRecorder) GetCalls() []MockCall {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	result := make([]MockCall, len(r.calls))
-	copy(result, r.calls)
-	return result
-}
-
-// VerifyCall checks if a method was called a specific number of times
-func (r *DefaultMockRecorder) VerifyCall(method string, times int) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	count := 0
-	for _, call := range r.calls {
-		if call.Method == method {
-			count++
-		}
-	}
-	return count == times
-}
-
-// Clear clears all recorded calls
-func (r *DefaultMockRecorder) Clear() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.calls = []MockCall{}
+	Latency    time.Duration
+	PacketLoss float64
+	Bandwidth  int
 }
 
 // MockConfig defines configuration for mock behavior
@@ -164,7 +89,7 @@ type MockGraphClient struct {
 	NetworkConditions NetworkConditions
 
 	// Mock recorder for verification
-	Recorder MockRecorder
+	Recorder api.MockRecorder
 
 	// Configuration for mock behavior
 	Config MockConfig
@@ -306,7 +231,7 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 
 				if exists {
 					// Unmarshal the item
-					var item DriveItem
+					var item api.DriveItem
 					if err := json.Unmarshal(itemResp.Body, &item); err == nil {
 						// If this is a file, update its hash and size
 						if item.File != nil {
@@ -323,7 +248,7 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 							}
 
 							// Try to extract ETag from the response body
-							var responseItem DriveItem
+							var responseItem api.DriveItem
 							if err := json.Unmarshal(mockResponse.Body, &responseItem); err == nil && responseItem.ETag != "" {
 								item.ETag = responseItem.ETag
 							} else {
@@ -376,9 +301,7 @@ func NewMockGraphClient() *MockGraphClient {
 			PacketLoss: 0,
 			Bandwidth:  0,
 		},
-		Recorder: &DefaultMockRecorder{
-			calls: []MockCall{},
-		},
+		Recorder: NewBasicMockRecorder(),
 		Config: MockConfig{
 			Latency:        0,
 			ErrorRate:      0,
@@ -421,7 +344,7 @@ func (m *MockGraphClient) SetConfig(config MockConfig) {
 }
 
 // GetRecorder returns the mock recorder
-func (m *MockGraphClient) GetRecorder() MockRecorder {
+func (m *MockGraphClient) GetRecorder() api.MockRecorder {
 	return m.Recorder
 }
 
@@ -541,7 +464,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 						m.mu.Unlock()
 
 						if exists {
-							var children driveChildren
+							var children api.DriveChildren
 							if err := json.Unmarshal(childrenResp.Body, &children); err == nil {
 								for _, child := range children.Children {
 									if child.Name == fileName {
@@ -572,7 +495,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 
 			if exists {
 				// Unmarshal the item
-				var item DriveItem
+				var item api.DriveItem
 				if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
 					// If this is a file, update its hash
 					if item.File != nil {
@@ -590,7 +513,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 						}
 
 						// Try to extract ETag from the response body
-						var responseItem DriveItem
+						var responseItem api.DriveItem
 						if err := json.Unmarshal(body, &responseItem); err == nil && responseItem.ETag != "" {
 							item.ETag = responseItem.ETag
 						}
@@ -622,7 +545,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 }
 
 // AddMockItem adds a predefined DriveItem response for a specific resource path
-func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
+func (m *MockGraphClient) AddMockItem(resource string, item *api.DriveItem) {
 	// Create a new item with the same values to ensure it's not modified
 	itemCopy := *item
 
@@ -657,20 +580,20 @@ func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
 }
 
 // AddMockItems adds a predefined list of DriveItems for a children request
-func (m *MockGraphClient) AddMockItems(resource string, items []*DriveItem) {
+func (m *MockGraphClient) AddMockItems(resource string, items []*api.DriveItem) {
 	// Default behavior - no pagination
 	m.AddMockItemsWithPagination(resource, items, 0)
 }
 
 // AddMockItemsWithPagination adds a predefined list of DriveItems with pagination support
 // pageSize of 0 means no pagination
-func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*DriveItem, pageSize int) {
+func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*api.DriveItem, pageSize int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if pageSize <= 0 || len(items) <= pageSize {
 		// No pagination needed or requested
-		response := driveChildren{
+		response := api.DriveChildren{
 			Children: items,
 		}
 		body, _ := json.Marshal(response)
@@ -695,7 +618,7 @@ func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*D
 			nextLink = fmt.Sprintf("%s%s?skiptoken=%d", GraphURL, resource, end)
 		}
 
-		response := driveChildren{
+		response := api.DriveChildren{
 			Children: pageItems,
 			NextLink: nextLink,
 		}
@@ -722,7 +645,7 @@ func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*D
 }
 
 // RequestWithContext is a mock implementation of the real RequestWithContext function
-func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource string, method string, content io.Reader, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource string, method string, content io.Reader, headers ...api.Header) ([]byte, error) {
 	// Record the call
 	var contentBytes []byte
 	if content != nil {
@@ -837,7 +760,7 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 		result = nil
 	} else {
 		// For other requests, return a generic DriveItem
-		item := &DriveItem{
+		item := &api.DriveItem{
 			ID:   "mock-id",
 			Name: "mock-item",
 		}
@@ -848,7 +771,7 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 }
 
 // Get is a mock implementation of the real Get function
-func (m *MockGraphClient) Get(resource string, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) Get(resource string, headers ...api.Header) ([]byte, error) {
 	args := []interface{}{resource}
 	for _, h := range headers {
 		args = append(args, h)
@@ -861,7 +784,7 @@ func (m *MockGraphClient) Get(resource string, headers ...Header) ([]byte, error
 }
 
 // GetWithContext is a mock implementation of the real GetWithContext function
-func (m *MockGraphClient) GetWithContext(ctx context.Context, resource string, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) GetWithContext(ctx context.Context, resource string, headers ...api.Header) ([]byte, error) {
 	args := []interface{}{ctx, resource}
 	for _, h := range headers {
 		args = append(args, h)
@@ -869,18 +792,18 @@ func (m *MockGraphClient) GetWithContext(ctx context.Context, resource string, h
 
 	// Check for context cancellation
 	if ctx.Err() != nil {
-		m.Recorder.RecordCallWithResult("GetWithContext", ctx.Err(), args...)
+		m.Recorder.RecordCallWithResult("GetWithContext", nil, ctx.Err(), args...)
 		return nil, ctx.Err()
 	}
 
 	result, err := m.RequestWithContext(ctx, resource, "GET", nil, headers...)
 
-	m.Recorder.RecordCallWithResult("GetWithContext", result, args...)
+	m.Recorder.RecordCallWithResult("GetWithContext", result, nil, args...)
 	return result, err
 }
 
 // Patch is a mock implementation of the real Patch function
-func (m *MockGraphClient) Patch(resource string, content io.Reader, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) Patch(resource string, content io.Reader, headers ...api.Header) ([]byte, error) {
 	var contentBytes []byte
 	if content != nil {
 		var err error
@@ -892,11 +815,10 @@ func (m *MockGraphClient) Patch(resource string, content io.Reader, headers ...H
 		content = strings.NewReader(string(contentBytes))
 	}
 
-	call := MockCall{
-		Method:    "Patch",
-		Resource:  resource,
-		Args:      []interface{}{resource, contentBytes},
-		Timestamp: time.Now(),
+	call := api.MockCall{
+		Method: "Patch",
+		Args:   []interface{}{resource, contentBytes},
+		Time:   time.Now(),
 	}
 
 	for _, h := range headers {
@@ -910,7 +832,7 @@ func (m *MockGraphClient) Patch(resource string, content io.Reader, headers ...H
 }
 
 // Post is a mock implementation of the real Post function
-func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...api.Header) ([]byte, error) {
 	var contentBytes []byte
 	if content != nil {
 		var err error
@@ -934,7 +856,7 @@ func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...He
 }
 
 // Put is a mock implementation of the real Put function
-func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Header) ([]byte, error) {
+func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...api.Header) ([]byte, error) {
 	var contentBytes []byte
 	if content != nil {
 		var err error
@@ -946,11 +868,10 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 		content = strings.NewReader(string(contentBytes))
 	}
 
-	call := MockCall{
-		Method:    "Put",
-		Resource:  resource,
-		Args:      []interface{}{resource, contentBytes},
-		Timestamp: time.Now(),
+	call := api.MockCall{
+		Method: "Put",
+		Args:   []interface{}{resource, contentBytes},
+		Time:   time.Now(),
 	}
 
 	for _, h := range headers {
@@ -967,7 +888,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 		if !exists {
 			// Extract the item ID or parent ID and name
 			var itemID string
-			var fileItem *DriveItem
+			var fileItem *api.DriveItem
 
 			if strings.Contains(resource, ":/") {
 				// Format: /me/drive/items/{parentId}:/{name}:/content
@@ -995,14 +916,14 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 
 							if existingItemExists {
 								// Use the existing item as a base
-								var existingItem DriveItem
+								var existingItem api.DriveItem
 								if err := json.Unmarshal(existingItemResp.Body, &existingItem); err == nil {
 									fileItem = &existingItem
 									// Update the size from the content bytes
 									fileItem.Size = uint64(len(contentBytes))
 									// Update the hash only if it's not already set
 									if fileItem.File == nil {
-										fileItem.File = &File{}
+										fileItem.File = &api.File{}
 									}
 									if fileItem.File.Hashes.QuickXorHash == "" {
 										fileItem.File.Hashes.QuickXorHash = QuickXORHash(&contentBytes)
@@ -1010,11 +931,11 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 								}
 							} else {
 								// Create a new file item
-								fileItem = &DriveItem{
+								fileItem = &api.DriveItem{
 									ID:   "generated-id-" + fileName,
 									Name: fileName,
-									File: &File{
-										Hashes: Hashes{
+									File: &api.File{
+										Hashes: api.Hashes{
 											QuickXorHash: QuickXORHash(&contentBytes),
 										},
 									},
@@ -1042,11 +963,11 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 					m.mu.Unlock()
 
 					if exists {
-						var item DriveItem
+						var item api.DriveItem
 						if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
 							// Update the item with new content
 							if item.File == nil {
-								item.File = &File{}
+								item.File = &api.File{}
 							}
 							if item.File.Hashes.QuickXorHash == "" {
 								item.File.Hashes.QuickXorHash = QuickXORHash(&contentBytes)
@@ -1080,7 +1001,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...Hea
 }
 
 // Delete is a mock implementation of the real Delete function
-func (m *MockGraphClient) Delete(resource string, headers ...Header) error {
+func (m *MockGraphClient) Delete(resource string, headers ...api.Header) error {
 	args := []interface{}{resource}
 	for _, h := range headers {
 		args = append(args, h)
@@ -1094,10 +1015,10 @@ func (m *MockGraphClient) Delete(resource string, headers ...Header) error {
 
 // GetItemContent is a mock implementation of the real GetItemContent function
 func (m *MockGraphClient) GetItemContent(id string) ([]byte, uint64, error) {
-	call := MockCall{
-		Method:    "GetItemContent",
-		Args:      []interface{}{id},
-		Timestamp: time.Now(),
+	call := api.MockCall{
+		Method: "GetItemContent",
+		Args:   []interface{}{id},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
@@ -1131,10 +1052,10 @@ func (m *MockGraphClient) GetItemContent(id string) ([]byte, uint64, error) {
 
 // GetItemContentStream is a mock implementation of the real GetItemContentStream function
 func (m *MockGraphClient) GetItemContentStream(id string, output io.Writer) (uint64, error) {
-	call := MockCall{
-		Method:    "GetItemContentStream",
-		Args:      []interface{}{id, output},
-		Timestamp: time.Now(),
+	call := api.MockCall{
+		Method: "GetItemContentStream",
+		Args:   []interface{}{id, output},
+		Time:   time.Now(),
 	}
 
 	content, size, err := m.GetItemContent(id)
@@ -1179,11 +1100,11 @@ func (m *MockGraphClient) GetItemContentStream(id string, output io.Writer) (uin
 }
 
 // GetItem is a mock implementation of the real GetItem function
-func (m *MockGraphClient) GetItem(id string) (*DriveItem, error) {
-	call := MockCall{
-		Method:    "GetItem",
-		Args:      []interface{}{id},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetItem(id string) (*api.DriveItem, error) {
+	call := api.MockCall{
+		Method: "GetItem",
+		Args:   []interface{}{id},
+		Time:   time.Now(),
 	}
 
 	resource := IDPath(id)
@@ -1201,7 +1122,7 @@ func (m *MockGraphClient) GetItem(id string) (*DriveItem, error) {
 		}
 
 		// Unmarshal directly from the stored response
-		item := &DriveItem{}
+		item := &api.DriveItem{}
 		err := json.Unmarshal(response.Body, item)
 		if err != nil {
 			call.Result = err
@@ -1222,7 +1143,7 @@ func (m *MockGraphClient) GetItem(id string) (*DriveItem, error) {
 		return nil, err
 	}
 
-	item := &DriveItem{}
+	item := &api.DriveItem{}
 	err = json.Unmarshal(body, item)
 	call.Result = item
 	m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1230,11 +1151,11 @@ func (m *MockGraphClient) GetItem(id string) (*DriveItem, error) {
 }
 
 // GetItemPath is a mock implementation of the real GetItemPath function
-func (m *MockGraphClient) GetItemPath(path string) (*DriveItem, error) {
-	call := MockCall{
-		Method:    "GetItemPath",
-		Args:      []interface{}{path},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetItemPath(path string) (*api.DriveItem, error) {
+	call := api.MockCall{
+		Method: "GetItemPath",
+		Args:   []interface{}{path},
+		Time:   time.Now(),
 	}
 
 	resource := ResourcePath(path)
@@ -1245,7 +1166,7 @@ func (m *MockGraphClient) GetItemPath(path string) (*DriveItem, error) {
 		return nil, err
 	}
 
-	item := &DriveItem{}
+	item := &api.DriveItem{}
 	err = json.Unmarshal(body, item)
 	call.Result = item
 	m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1253,16 +1174,16 @@ func (m *MockGraphClient) GetItemPath(path string) (*DriveItem, error) {
 }
 
 // GetItemChildren is a mock implementation of the real GetItemChildren function
-func (m *MockGraphClient) GetItemChildren(id string) ([]*DriveItem, error) {
-	call := MockCall{
-		Method:    "GetItemChildren",
-		Args:      []interface{}{id},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetItemChildren(id string) ([]*api.DriveItem, error) {
+	call := api.MockCall{
+		Method: "GetItemChildren",
+		Args:   []interface{}{id},
+		Time:   time.Now(),
 	}
 
 	// Start with the initial resource path
 	resource := childrenPathID(id)
-	allChildren := make([]*DriveItem, 0)
+	allChildren := make([]*api.DriveItem, 0)
 
 	// Loop until we've processed all pages
 	for resource != "" {
@@ -1273,7 +1194,7 @@ func (m *MockGraphClient) GetItemChildren(id string) ([]*DriveItem, error) {
 			return nil, err
 		}
 
-		var result driveChildren
+		var result api.DriveChildren
 		err = json.Unmarshal(body, &result)
 		if err != nil {
 			call.Result = err
@@ -1299,16 +1220,16 @@ func (m *MockGraphClient) GetItemChildren(id string) ([]*DriveItem, error) {
 }
 
 // GetItemChildrenPath is a mock implementation of the real GetItemChildrenPath function
-func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*DriveItem, error) {
-	call := MockCall{
-		Method:    "GetItemChildrenPath",
-		Args:      []interface{}{path},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*api.DriveItem, error) {
+	call := api.MockCall{
+		Method: "GetItemChildrenPath",
+		Args:   []interface{}{path},
+		Time:   time.Now(),
 	}
 
 	// Start with the initial resource path
 	resource := childrenPath(path)
-	allChildren := make([]*DriveItem, 0)
+	allChildren := make([]*api.DriveItem, 0)
 
 	// Loop until we've processed all pages
 	for resource != "" {
@@ -1319,7 +1240,7 @@ func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*DriveItem, error)
 			return nil, err
 		}
 
-		var result driveChildren
+		var result api.DriveChildren
 		err = json.Unmarshal(body, &result)
 		if err != nil {
 			call.Result = err
@@ -1345,11 +1266,11 @@ func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*DriveItem, error)
 }
 
 // Mkdir is a mock implementation of the real Mkdir function
-func (m *MockGraphClient) Mkdir(name string, parentID string) (*DriveItem, error) {
-	call := MockCall{
-		Method:    "Mkdir",
-		Args:      []interface{}{name, parentID},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) Mkdir(name string, parentID string) (*api.DriveItem, error) {
+	call := api.MockCall{
+		Method: "Mkdir",
+		Args:   []interface{}{name, parentID},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
@@ -1359,9 +1280,9 @@ func (m *MockGraphClient) Mkdir(name string, parentID string) (*DriveItem, error
 		return nil, err
 	}
 
-	newFolder := DriveItem{
+	newFolder := api.DriveItem{
 		Name:   name,
-		Folder: &Folder{},
+		Folder: &api.Folder{},
 	}
 	bytePayload, _ := json.Marshal(newFolder)
 	resp, err := m.Post(childrenPathID(parentID), strings.NewReader(string(bytePayload)))
@@ -1379,10 +1300,10 @@ func (m *MockGraphClient) Mkdir(name string, parentID string) (*DriveItem, error
 
 // Rename is a mock implementation of the real Rename function
 func (m *MockGraphClient) Rename(itemID string, itemName string, parentID string) error {
-	call := MockCall{
-		Method:    "Rename",
-		Args:      []interface{}{itemID, itemName, parentID},
-		Timestamp: time.Now(),
+	call := api.MockCall{
+		Method: "Rename",
+		Args:   []interface{}{itemID, itemName, parentID},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
@@ -1392,10 +1313,10 @@ func (m *MockGraphClient) Rename(itemID string, itemName string, parentID string
 		return err
 	}
 
-	patchContent := DriveItem{
+	patchContent := api.DriveItem{
 		ConflictBehavior: "replace",
 		Name:             itemName,
-		Parent: &DriveItemParent{
+		Parent: &api.DriveItemParent{
 			ID: parentID,
 		},
 	}
@@ -1409,10 +1330,10 @@ func (m *MockGraphClient) Rename(itemID string, itemName string, parentID string
 
 // Remove is a mock implementation of the real Remove function
 func (m *MockGraphClient) Remove(id string) error {
-	call := MockCall{
-		Method:    "Remove",
-		Args:      []interface{}{id},
-		Timestamp: time.Now(),
+	call := api.MockCall{
+		Method: "Remove",
+		Args:   []interface{}{id},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
@@ -1429,18 +1350,18 @@ func (m *MockGraphClient) Remove(id string) error {
 }
 
 // GetUser is a mock implementation of the real GetUser function
-func (m *MockGraphClient) GetUser() (User, error) {
-	call := MockCall{
-		Method:    "GetUser",
-		Args:      []interface{}{},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetUser() (api.User, error) {
+	call := api.MockCall{
+		Method: "GetUser",
+		Args:   []interface{}{},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
 	if err := m.simulateNetworkConditions(); err != nil {
 		call.Result = err
 		m.Recorder.RecordCall(call.Method, call.Args...)
-		return User{}, err
+		return api.User{}, err
 	}
 
 	// Check if we have a predefined response for this resource
@@ -1452,10 +1373,10 @@ func (m *MockGraphClient) GetUser() (User, error) {
 		if response.Error != nil {
 			call.Result = response.Error
 			m.Recorder.RecordCall(call.Method, call.Args...)
-			return User{}, response.Error
+			return api.User{}, response.Error
 		}
 
-		var user User
+		var user api.User
 		err := json.Unmarshal(response.Body, &user)
 		call.Result = user
 		m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1463,7 +1384,7 @@ func (m *MockGraphClient) GetUser() (User, error) {
 	}
 
 	// Default mock user
-	user := User{
+	user := api.User{
 		UserPrincipalName: "mock@example.com",
 	}
 	call.Result = user
@@ -1472,25 +1393,25 @@ func (m *MockGraphClient) GetUser() (User, error) {
 }
 
 // GetUserWithContext is a mock implementation of the real GetUserWithContext function
-func (m *MockGraphClient) GetUserWithContext(ctx context.Context) (User, error) {
-	call := MockCall{
-		Method:    "GetUserWithContext",
-		Args:      []interface{}{ctx},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetUserWithContext(ctx context.Context) (api.User, error) {
+	call := api.MockCall{
+		Method: "GetUserWithContext",
+		Args:   []interface{}{ctx},
+		Time:   time.Now(),
 	}
 
 	// Check for context cancellation
 	if ctx.Err() != nil {
 		call.Result = ctx.Err()
 		m.Recorder.RecordCall(call.Method, call.Args...)
-		return User{}, ctx.Err()
+		return api.User{}, ctx.Err()
 	}
 
 	// Simulate network conditions
 	if err := m.simulateNetworkConditions(); err != nil {
 		call.Result = err
 		m.Recorder.RecordCall(call.Method, call.Args...)
-		return User{}, err
+		return api.User{}, err
 	}
 
 	// Check if we have a predefined response for this resource
@@ -1502,10 +1423,10 @@ func (m *MockGraphClient) GetUserWithContext(ctx context.Context) (User, error) 
 		if response.Error != nil {
 			call.Result = response.Error
 			m.Recorder.RecordCall(call.Method, call.Args...)
-			return User{}, response.Error
+			return api.User{}, response.Error
 		}
 
-		var user User
+		var user api.User
 		err := json.Unmarshal(response.Body, &user)
 		call.Result = user
 		m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1513,7 +1434,7 @@ func (m *MockGraphClient) GetUserWithContext(ctx context.Context) (User, error) 
 	}
 
 	// Default mock user
-	user := User{
+	user := api.User{
 		UserPrincipalName: "mock@example.com",
 	}
 	call.Result = user
@@ -1522,18 +1443,18 @@ func (m *MockGraphClient) GetUserWithContext(ctx context.Context) (User, error) 
 }
 
 // GetDrive is a mock implementation of the real GetDrive function
-func (m *MockGraphClient) GetDrive() (Drive, error) {
-	call := MockCall{
-		Method:    "GetDrive",
-		Args:      []interface{}{},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetDrive() (api.Drive, error) {
+	call := api.MockCall{
+		Method: "GetDrive",
+		Args:   []interface{}{},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
 	if err := m.simulateNetworkConditions(); err != nil {
 		call.Result = err
 		m.Recorder.RecordCall(call.Method, call.Args...)
-		return Drive{}, err
+		return api.Drive{}, err
 	}
 
 	// Check if we have a predefined response for this resource
@@ -1545,10 +1466,10 @@ func (m *MockGraphClient) GetDrive() (Drive, error) {
 		if response.Error != nil {
 			call.Result = response.Error
 			m.Recorder.RecordCall(call.Method, call.Args...)
-			return Drive{}, response.Error
+			return api.Drive{}, response.Error
 		}
 
-		var drive Drive
+		var drive api.Drive
 		err := json.Unmarshal(response.Body, &drive)
 		call.Result = drive
 		m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1556,10 +1477,10 @@ func (m *MockGraphClient) GetDrive() (Drive, error) {
 	}
 
 	// Default mock drive
-	drive := Drive{
+	drive := api.Drive{
 		ID:        "mock-drive-id",
-		DriveType: DriveTypePersonal,
-		Quota: DriveQuota{
+		DriveType: api.DriveTypePersonal,
+		Quota: api.DriveQuota{
 			Total:     1024 * 1024 * 1024 * 10, // 10 GB
 			Used:      1024 * 1024 * 1024 * 2,  // 2 GB
 			Remaining: 1024 * 1024 * 1024 * 8,  // 8 GB
@@ -1572,11 +1493,11 @@ func (m *MockGraphClient) GetDrive() (Drive, error) {
 }
 
 // GetItemChild is a mock implementation of the real GetItemChild function
-func (m *MockGraphClient) GetItemChild(id string, name string) (*DriveItem, error) {
-	call := MockCall{
-		Method:    "GetItemChild",
-		Args:      []interface{}{id, name},
-		Timestamp: time.Now(),
+func (m *MockGraphClient) GetItemChild(id string, name string) (*api.DriveItem, error) {
+	call := api.MockCall{
+		Method: "GetItemChild",
+		Args:   []interface{}{id, name},
+		Time:   time.Now(),
 	}
 
 	// Simulate network conditions
@@ -1601,7 +1522,7 @@ func (m *MockGraphClient) GetItemChild(id string, name string) (*DriveItem, erro
 			return nil, response.Error
 		}
 
-		var item DriveItem
+		var item api.DriveItem
 		err := json.Unmarshal(response.Body, &item)
 		call.Result = &item
 		m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1609,11 +1530,55 @@ func (m *MockGraphClient) GetItemChild(id string, name string) (*DriveItem, erro
 	}
 
 	// Default mock item
-	item := &DriveItem{
+	item := &api.DriveItem{
 		ID:   "mock-child-id",
 		Name: name,
 	}
 	call.Result = item
 	m.Recorder.RecordCall(call.Method, call.Args...)
 	return item, nil
+}
+
+// Define BasicMockRecorder type locally, implementing api.MockRecorder
+// Place this before the NewBasicMockRecorder constructor
+
+type BasicMockRecorder struct {
+	calls []api.MockCall
+}
+
+func (r *BasicMockRecorder) RecordCall(method string, args ...interface{}) {
+	r.calls = append(r.calls, api.MockCall{
+		Method: method,
+		Args:   args,
+		Time:   time.Now(),
+	})
+}
+
+func (r *BasicMockRecorder) RecordCallWithResult(method string, result interface{}, err error, args ...interface{}) {
+	r.calls = append(r.calls, api.MockCall{
+		Method: method,
+		Args:   args,
+		Result: result,
+		Error:  err,
+		Time:   time.Now(),
+	})
+}
+
+func (r *BasicMockRecorder) GetCalls() []api.MockCall {
+	return r.calls
+}
+
+func (r *BasicMockRecorder) VerifyCall(method string, times int) bool {
+	count := 0
+	for _, call := range r.calls {
+		if call.Method == method {
+			count++
+		}
+	}
+	return count == times
+}
+
+// NewBasicMockRecorder constructor
+func NewBasicMockRecorder() *BasicMockRecorder {
+	return &BasicMockRecorder{}
 }

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
 	"github.com/auriora/onemount/pkg/graph/api"
 )
 
@@ -114,7 +113,7 @@ func (r *BasicMockRecorder) VerifyCall(method string, times int) bool {
 //	item, err := provider.GetItem("root")
 type MockGraphProvider struct {
 	// Underlying mock graph client
-	Client *graph.MockGraphClient
+	Client *MockGraphClient
 
 	// Record of calls made to the mock
 	recorder MockRecorder
@@ -132,7 +131,7 @@ type MockGraphProvider struct {
 // NewMockGraphProvider creates a new MockGraphProvider
 func NewMockGraphProvider() *MockGraphProvider {
 	return &MockGraphProvider{
-		Client:   graph.NewMockGraphClient(),
+		Client:   NewMockGraphClient(),
 		recorder: NewBasicMockRecorder(),
 		config: MockConfig{
 			Latency:        0,
@@ -198,7 +197,7 @@ func (m *MockGraphProvider) Reset() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.Client = graph.NewMockGraphClient()
+	m.Client = NewMockGraphClient()
 	m.recorder = NewBasicMockRecorder()
 	m.config = MockConfig{}
 	m.networkConditions = NetworkConditions{}

@@ -3,9 +3,10 @@ package framework
 
 import (
 	"context"
-	"github.com/auriora/onemount/pkg/testutil/mock"
 	"testing"
 	"time"
+
+	"github.com/auriora/onemount/pkg/graph/mock"
 )
 
 func TestLoadTestScenarios(t *testing.T) {

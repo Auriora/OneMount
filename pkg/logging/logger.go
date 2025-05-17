@@ -1,4 +1,4 @@
-// Package logging provides standardized logging utilities for the OneMount project.
+// Package logging provides structured and performance logging utilities for the OneMount project.
 //
 // The logging package is organized into several files, each with a specific purpose:
 //   - logger.go: Core logger implementation and level management
@@ -17,11 +17,12 @@ package logging
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
 	"io"
 	"os"
 	"time"
+
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 )
 
 // Logger is a wrapper around zerolog.Logger that provides the same functionality

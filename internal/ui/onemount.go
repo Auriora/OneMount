@@ -10,6 +10,8 @@ import (
 	"github.com/auriora/onemount/pkg/logging"
 )
 
+// Package ui provides user interface components and logic for the OneMount application, including widgets and system integration.
+
 // onemount specific utility functions
 
 // PollUntilAvail will block until the mountpoint is available or a timeout is reached.
