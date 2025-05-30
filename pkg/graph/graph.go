@@ -19,6 +19,7 @@ import (
 
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/pkg/retry"
 	"github.com/imdario/mergo"
 )
 
@@ -101,57 +102,8 @@ func Request(resource string, auth *Auth, method string, content io.Reader, head
 	return RequestWithContext(context.Background(), resource, auth, method, content, headers...)
 }
 
-// RequestWithContext performs an authenticated request to Microsoft Graph with context
-func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
-	// Create a log context for this request
-	logCtx := logging.NewLogContext("graph_request").
-		WithMethod("RequestWithContext").
-		WithPath(resource).
-		With("http_method", method)
-	// Check if we're in operational offline mode
-	isMockClientMutex.RLock()
-	mockClient := isMockClient
-	isMockClientMutex.RUnlock()
-
-	if GetOperationalOffline() && !mockClient {
-		logging.LogDebugWithContext(logCtx, "In operational offline mode, returning network error")
-		return nil, errors.NewNetworkError("operational offline mode is enabled", nil)
-	}
-
-	if auth == nil || auth.AccessToken == "" {
-		// a catch all condition to avoid wiping our auth by accident
-		authErr := errors.NewAuthError("cannot make a request with empty auth", nil)
-		logging.LogErrorWithContext(authErr, logCtx, "Auth was empty and we attempted to make a request with it!")
-		return nil, authErr
-	}
-
-	logging.LogDebugWithContext(logCtx, "Starting auth refresh")
-	if err := auth.Refresh(ctx); err != nil {
-		// Add context to error message for better troubleshooting
-		logging.LogErrorAsWarnWithContext(err, logCtx, "Auth refresh failed, continuing with current token")
-	}
-	logging.LogDebugWithContext(logCtx, "Auth refresh completed")
-
-	logging.LogDebugWithContext(logCtx, "Using HTTP client")
-	request, _ := http.NewRequestWithContext(ctx, method, GraphURL+resource, content)
-	request.Header.Add("Authorization", "bearer "+auth.AccessToken)
-	switch method { // request type-specific code here
-	case "PATCH":
-		request.Header.Add("If-Match", "*")
-		request.Header.Add("Content-Type", "application/json")
-	case "POST":
-		request.Header.Add("Content-Type", "application/json")
-	case "PUT":
-		request.Header.Add("Content-Type", "text/plain")
-	}
-	for _, header := range headers {
-		request.Header.Add(header.key, header.value)
-	}
-
-	// Update log context with URL
-	logCtx = logCtx.With("url", GraphURL+resource)
-
-	logging.LogDebugWithContext(logCtx, "Starting network request with context")
+// executeRequest executes an HTTP request and processes the response
+func executeRequest(ctx context.Context, request *http.Request, auth *Auth, logCtx logging.LogContext) ([]byte, error) {
 	logging.LogDebugWithContext(logCtx, "About to execute HTTP request")
 	response, err := httpClient.Do(request)
 	if err != nil {
@@ -188,6 +140,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		logging.LogErrorAsWarnWithContext(err, logCtx, "Error closing response body")
 	}
 
+	// Handle authentication errors
 	if response.StatusCode == 401 {
 		var err graphError
 		if unmarshalErr := json.Unmarshal(body, &err); unmarshalErr != nil {
@@ -217,42 +170,12 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		}
 		request.Header.Set("Authorization", "bearer "+auth.AccessToken)
 		logging.LogDebugWithContext(logCtx, "Reauth process completed")
-	}
-	if response.StatusCode >= 500 || response.StatusCode == 401 {
-		// the onedrive API is having issues, retry once
-		logCtx = logCtx.With("retry", true)
-		logging.LogDebugWithContext(logCtx, "Server error or auth issue, retrying request")
 
-		logging.LogDebugWithContext(logCtx, "Executing retry request")
-		response, err = httpClient.Do(request)
-		if err != nil {
-			retryErr := errors.NewNetworkError("retry request failed", err)
-			logging.LogErrorWithContext(retryErr, logCtx, "Retry request failed")
-			return nil, retryErr
-		}
-
-		// Update log context with new status code
-		logCtx = logCtx.With("status_code", response.StatusCode)
-		logging.LogDebugWithContext(logCtx, "Retry request completed")
-
-		logging.LogDebugWithContext(logCtx, "Reading retry response body")
-		body, err = io.ReadAll(response.Body)
-		if err != nil {
-			readErr := errors.Wrap(err, "error reading retry response body")
-			logging.LogErrorWithContext(readErr, logCtx, "Error reading retry response body")
-			return nil, readErr
-		}
-
-		// Update log context with body size
-		logCtx = logCtx.With("body_size", len(body))
-		logging.LogDebugWithContext(logCtx, "Successfully read retry response body")
-
-		if err := response.Body.Close(); err != nil {
-			// Add context to error message for better troubleshooting
-			logging.LogErrorAsWarnWithContext(err, logCtx, "Error closing retry response body")
-		}
+		// Return an auth error to trigger a retry
+		return nil, errors.NewAuthError("authentication token refreshed, retry needed", nil)
 	}
 
+	// Handle error responses
 	if response.StatusCode >= 400 {
 		// something was wrong with the request
 		logging.LogDebugWithContext(logCtx, "Request failed with error status code")
@@ -280,7 +203,12 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		case response.StatusCode == 400:
 			apiErr = errors.NewValidationError(errorMsg, nil)
 		case response.StatusCode == 429:
+			// Create a resource busy error for rate limiting
 			apiErr = errors.NewResourceBusyError(errorMsg, nil)
+			// Extract retry-after header if present
+			if retryAfter := response.Header.Get("Retry-After"); retryAfter != "" {
+				logging.LogInfoWithContext(logCtx, "Rate limit detected with Retry-After header: "+retryAfter)
+			}
 		case response.StatusCode >= 500:
 			apiErr = errors.NewOperationError(errorMsg, nil)
 		default:
@@ -290,8 +218,130 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		logging.LogErrorWithContext(apiErr, logCtx, "Returning API error")
 		return nil, apiErr
 	}
+
 	logging.LogDebugWithContext(logCtx, "Request completed successfully")
 	return body, nil
+}
+
+// RequestWithContextAndCallback performs an authenticated request to Microsoft Graph with context
+// and calls the provided callback when the request completes
+func RequestWithContextAndCallback(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, callback func([]byte, error), headers ...Header) {
+	// Create a log context for this request
+	logCtx := logging.NewLogContext("graph_request").
+		WithMethod("RequestWithContextAndCallback").
+		WithPath(resource).
+		With("http_method", method)
+
+	// Check if we're in operational offline mode
+	isMockClientMutex.RLock()
+	mockClient := isMockClient
+	isMockClientMutex.RUnlock()
+
+	if GetOperationalOffline() && !mockClient {
+		logging.LogDebugWithContext(logCtx, "In operational offline mode, returning network error")
+		callback(nil, errors.NewNetworkError("operational offline mode is enabled", nil))
+		return
+	}
+
+	if auth == nil || auth.AccessToken == "" {
+		// a catch all condition to avoid wiping our auth by accident
+		authErr := errors.NewAuthError("cannot make a request with empty auth", nil)
+		logging.LogErrorWithContext(authErr, logCtx, "Auth was empty and we attempted to make a request with it!")
+		callback(nil, authErr)
+		return
+	}
+
+	logging.LogDebugWithContext(logCtx, "Starting auth refresh")
+	if err := auth.Refresh(ctx); err != nil {
+		// Add context to error message for better troubleshooting
+		logging.LogErrorAsWarnWithContext(err, logCtx, "Auth refresh failed, continuing with current token")
+	}
+	logging.LogDebugWithContext(logCtx, "Auth refresh completed")
+
+	logging.LogDebugWithContext(logCtx, "Using HTTP client")
+	request, _ := http.NewRequestWithContext(ctx, method, GraphURL+resource, content)
+	request.Header.Add("Authorization", "bearer "+auth.AccessToken)
+	switch method { // request type-specific code here
+	case "PATCH":
+		request.Header.Add("If-Match", "*")
+		request.Header.Add("Content-Type", "application/json")
+	case "POST":
+		request.Header.Add("Content-Type", "application/json")
+	case "PUT":
+		request.Header.Add("Content-Type", "text/plain")
+	}
+	for _, header := range headers {
+		request.Header.Add(header.key, header.value)
+	}
+
+	// Update log context with URL
+	logCtx = logCtx.With("url", GraphURL+resource)
+
+	logging.LogDebugWithContext(logCtx, "Starting network request with context")
+
+	// Create a retry config with appropriate settings for Graph API
+	retryConfig := retry.Config{
+		MaxRetries:   5,                // Increase from default 3 to 5 for better handling of rate limits
+		InitialDelay: 1 * time.Second,  // Start with a 1-second delay
+		MaxDelay:     60 * time.Second, // Allow up to 60-second delays for severe rate limiting
+		Multiplier:   2.0,              // Double the delay after each retry
+		Jitter:       0.2,              // Add up to 20% random jitter to avoid thundering herd
+		RetryableErrors: []retry.RetryableError{
+			retry.IsRetryableNetworkError,
+			retry.IsRetryableServerError,
+			retry.IsRetryableRateLimitError,
+		},
+	}
+
+	// Create a retryable function that captures the request and auth
+	retryableFunc := func() ([]byte, error) {
+		return executeRequest(ctx, request, auth, logCtx)
+	}
+
+	// Execute the request with retries
+	body, err := retry.DoWithResult(ctx, retryableFunc, retryConfig)
+
+	// If we got a rate limit error after all retries, queue the request for later execution
+	if err != nil && IsRateLimited(err) {
+		logging.Warn().
+			Str("resource", resource).
+			Str("method", method).
+			Msg("Request rate limited after multiple retries, queuing for later execution")
+
+		QueueRequestWithCallback(ctx, resource, auth, method, content, callback, headers...)
+		return
+	}
+
+	// Call the callback with the result
+	callback(body, err)
+}
+
+// RequestWithContext performs an authenticated request to Microsoft Graph with context
+func RequestWithContext(ctx context.Context, resource string, auth *Auth, method string, content io.Reader, headers ...Header) ([]byte, error) {
+	// Create a channel to receive the result
+	resultChan := make(chan struct {
+		data []byte
+		err  error
+	}, 1)
+
+	// Create a callback that sends the result to the channel
+	callback := func(data []byte, err error) {
+		resultChan <- struct {
+			data []byte
+			err  error
+		}{data, err}
+	}
+
+	// Execute the request with the callback
+	RequestWithContextAndCallback(ctx, resource, auth, method, content, callback, headers...)
+
+	// Wait for the result or context cancellation
+	select {
+	case result := <-resultChan:
+		return result.data, result.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // Get is a convenience wrapper around Request

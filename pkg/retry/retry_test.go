@@ -6,7 +6,7 @@ import (
 	"time"
 
 	stderrors "errors"
-	"github.com/auriora/onemount/pkg/err
+	"github.com/auriora/onemount/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 

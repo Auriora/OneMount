@@ -494,23 +494,27 @@ func main() {
 
 	st, err := os.Stat(mountpoint)
 	if err != nil || !st.IsDir() {
-		logging.Fatal().
-			Str("mountpoint", mountpoint).
-			Msg("Mountpoint did not exist or was not a directory.")
+		common.HandleErrorAndExit(
+			fmt.Errorf("mountpoint '%s' did not exist or was not a directory", mountpoint),
+			1)
 	}
 	if res, _ := os.ReadDir(mountpoint); len(res) > 0 {
-		logging.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint must be empty.")
+		common.HandleErrorAndExit(
+			fmt.Errorf("mountpoint '%s' must be empty", mountpoint),
+			1)
 	}
 
 	// Check if the mountpoint is already mounted
 	if isMounted := checkIfMounted(mountpoint); isMounted {
-		logging.Fatal().Str("mountpoint", mountpoint).Msg("Mountpoint is already mounted. Unmount it first or choose a different mountpoint.")
+		common.HandleErrorAndExit(
+			fmt.Errorf("mountpoint '%s' is already mounted. Unmount it first or choose a different mountpoint", mountpoint),
+			1)
 	}
 
 	// Initialize the filesystem
 	filesystem, _, server, cachePath, absMountPath, err := initializeFilesystem(ctx, config, mountpoint, authOnly, headless, debugOn)
 	if err != nil {
-		logging.Fatal().Err(err).Msg("Failed to initialize filesystem")
+		common.HandleErrorAndExit(err, 1)
 	}
 
 	// setup signal handler for graceful unmount on signals like sigint
