@@ -56,7 +56,15 @@ def open_jetbrains_task(issue_number):
     # This command will vary depending on your JetBrains IDE and setup
     # For GoLand, you might use something like:
     try:
-        # TODO Fix this
+        # TODO: Fix JetBrains task opening functionality
+        # Current implementation is commented out and non-functional
+        # Need to implement proper IDE integration for task management
+        # Options to consider:
+        # 1. Use JetBrains Gateway API if available
+        # 2. Use command-line tools specific to the IDE (goland, idea, etc.)
+        # 3. Use Flora plugins for better integration
+        # Target: Deferred to post-v1.0 (Python tooling enhancement)
+        # Priority: Low (development tooling, not core functionality)
         # subprocess.run(['goland', f'--task={issue_number}'], check=True)
         print(f"JetBrains task for issue #{issue_number} opened successfully")
         return True

@@ -63,8 +63,11 @@ Users on Fedora/CentOS/RHEL systems are recommended to install OneMount from [CO
 
 If you previously installed onemount via PPA, you can purge the old PPA from your system via:
 
-TODO invalid 
 ```bash
+# TODO: Fix PPA removal instructions - current command may be invalid
+# Need to verify correct PPA name and removal procedure
+# Target: v1.1 release
+# Alternative: Provide manual removal steps for /etc/apt/sources.list.d/
 sudo add-apt-repository --remove ppa:auriora/onemount
 ```
 

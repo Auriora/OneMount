@@ -1,5 +1,27 @@
 package main
 
+// TODO: Refactor main.go into discrete services (Issue #54)
+// This file has grown quite large (~677 lines) and contains multiple responsibilities:
+// - Command-line argument parsing and validation
+// - Configuration management
+// - Authentication handling
+// - Filesystem initialization and mounting
+// - Statistics display
+// - Logging setup
+// - Daemon mode handling
+// - Signal handling and cleanup
+//
+// Proposed refactoring for v1.1:
+// 1. Extract CLI handling into cmd/onemount/cli/
+// 2. Extract filesystem service into cmd/onemount/service/
+// 3. Extract statistics service into cmd/onemount/stats/
+// 4. Extract daemon handling into cmd/onemount/daemon/
+// 5. Keep main.go as a thin coordinator
+//
+// Target: v1.1 release
+// Priority: Medium (architectural improvement, not blocking core functionality)
+// Dependencies: None (can be done incrementally)
+
 import (
 	"context"
 	"fmt"

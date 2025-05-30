@@ -105,6 +105,20 @@ func (m *ErrorMetrics) RecordError(err error) {
 
 // monitorErrorRates periodically calculates and logs error rates
 func (m *ErrorMetrics) monitorErrorRates() {
+	// TODO: Enhance error monitoring with advanced features (Issue #75, #74, #73, #72, #71, #65)
+	// Current implementation provides basic error rate monitoring and logging.
+	// Advanced features to implement in v1.2:
+	// 1. Error aggregation across multiple time windows (hourly, daily, weekly)
+	// 2. Error pattern detection and alerting
+	// 3. Integration with external monitoring systems (Prometheus, Grafana)
+	// 4. Error correlation analysis (e.g., network errors leading to auth errors)
+	// 5. Automatic error recovery suggestions
+	// 6. Error trend analysis and prediction
+	// 7. Centralized error monitoring dashboard
+	// 8. Error severity classification and escalation
+	// Target: v1.2 release
+	// Priority: Low (basic monitoring is sufficient for initial release)
+
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 

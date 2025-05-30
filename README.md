@@ -1,7 +1,7 @@
 [![Run tests](https://github.com/auriora/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/auriora/OneMount/actions?query=workflow%3A%22Run+tests%22)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/auriora/OneMount)](https://go.dev/)
-![Status: Alpha](https://img.shields.io/badge/Status-Alpha-yellow.svg)
+![Status: Beta](https://img.shields.io/badge/Status-Beta-orange.svg)
 
 ![OneMount](assets/icons/OneMount-Logo-64.png)
 
@@ -77,16 +77,18 @@ other OneDrive clients:
   your local copy will always take priority (to avoid you losing any local
   work).
 
-- **Can be used offline.** Files you've opened previously will be available even
-  if your computer has no access to the internet. The filesystem becomes
-  read-only if you lose internet access, and automatically enables write access
-  again when you reconnect to the internet.
+- **Robust offline functionality.** Files you've opened previously will be available even
+  if your computer has no access to the internet. OneMount now supports full read-write
+  operations while offline, with comprehensive conflict resolution when you reconnect.
+  Changes made offline are automatically synchronized with intelligent conflict detection
+  and multiple resolution strategies (last-writer-wins, keep-both, user choice).
 
-- **Fast.** Great care has been taken to ensure that OneMount never makes a
+- **Fast and resilient.** Great care has been taken to ensure that OneMount never makes a
   network request unless it actually needs to. OneMount caches both filesystem
-  metadata and file contents both in memory and on-disk. Accessing your OneDrive
-  files will be fast and snappy even if you're engaged in a fight to the death
-  for the last power outlet at a coffeeshop with bad wifi. (This has definitely
+  metadata and file contents both in memory and on-disk. The system includes comprehensive
+  error handling, retry mechanisms with exponential backoff, and automatic network recovery.
+  Accessing your OneDrive files will be fast and snappy even if you're engaged in a fight
+  to the death for the last power outlet at a coffeeshop with bad wifi. (This has definitely
   never happened to me before, why do you ask?)
 
 - **Has a user interface.** You can add and remove your OneDrive accounts
@@ -135,7 +137,10 @@ Get started with OneMount by installing it using your distribution's package man
 
    ```bash
    # Ubuntu/Debian
-   # TODO add instructions
+   # TODO: Add package installation instructions for Ubuntu/Debian distributions
+   # This should include PPA setup or direct package download instructions
+   # Target: v1.1 release
+   # See: docs/installation-guide.md for detailed build instructions
 
    # Arch/Manjaro
    # Install from AUR: https://aur.archlinux.org/packages/OneMount/

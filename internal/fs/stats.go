@@ -76,6 +76,20 @@ type Stats struct {
 
 // GetStats returns statistics about the filesystem
 func (f *Filesystem) GetStats() (*Stats, error) {
+	// TODO: Optimize statistics collection for large filesystems (Issue #11, #10, #9, #8, #7)
+	// Current implementation performs full traversal of metadata and content directories
+	// which can be slow for large filesystems (>100k files).
+	// Performance optimizations to implement in v1.1:
+	// 1. Implement incremental statistics updates instead of full recalculation
+	// 2. Cache frequently accessed statistics with TTL
+	// 3. Use background goroutines for expensive calculations
+	// 4. Implement sampling for very large datasets
+	// 5. Add pagination support for statistics display
+	// 6. Optimize database queries with better indexing
+	// 7. Consider using separate statistics database/table
+	// Target: v1.1 release
+	// Priority: Medium (acceptable performance for typical use cases)
+
 	stats := &Stats{
 		Expiration:     f.cacheExpirationDays,
 		IsOffline:      f.IsOffline(),
