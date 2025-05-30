@@ -225,7 +225,7 @@ func ProcessRequest(req *Request) error {
     result, err := processRequestInternal(req)
     if err != nil {
         // Log and return the error with context
-        return errors.WrapAndLogWithContext(err, ctx, "failed to process request")
+        return errors.WrapAndLogErrorWithContext(err, ctx, "failed to process request")
     }
 
     // Log the successful completion
