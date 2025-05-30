@@ -127,7 +127,8 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 
 	logging.LogDebugWithContext(logCtx, "Starting auth refresh")
 	if err := auth.Refresh(ctx); err != nil {
-		logging.LogWarnWithContext(err, logCtx, "Auth refresh failed, continuing with current token")
+		// Add context to error message for better troubleshooting
+		logging.LogErrorAsWarnWithContext(err, logCtx, "Auth refresh failed, continuing with current token")
 	}
 	logging.LogDebugWithContext(logCtx, "Auth refresh completed")
 
@@ -160,6 +161,7 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 			return nil, ctx.Err()
 		}
 		// the actual request failed for other reasons
+		// Add context to error message for better troubleshooting
 		networkErr := errors.NewNetworkError("network request failed", err)
 		logging.LogErrorWithContext(networkErr, logCtx, "Network request failed")
 		return nil, networkErr
@@ -182,13 +184,15 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 	logging.LogDebugWithContext(logCtx, "Successfully read response body")
 
 	if err := response.Body.Close(); err != nil {
-		logging.LogWarnWithContext(err, logCtx, "Error closing response body")
+		// Add context to error message for better troubleshooting
+		logging.LogErrorAsWarnWithContext(err, logCtx, "Error closing response body")
 	}
 
 	if response.StatusCode == 401 {
 		var err graphError
 		if unmarshalErr := json.Unmarshal(body, &err); unmarshalErr != nil {
-			logging.LogWarnWithContext(unmarshalErr, logCtx, "Failed to unmarshal error response, using default error message")
+			// Add context to error message for better troubleshooting
+			logging.LogErrorAsWarnWithContext(unmarshalErr, logCtx, "Failed to unmarshal error response, using default error message")
 			err.Error.Code = "UnknownError"
 			err.Error.Message = "Failed to parse error response"
 		}
@@ -196,7 +200,8 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		// Update log context with error details
 		logCtx = logCtx.With("error_code", err.Error.Code).With("error_message", err.Error.Message)
 
-		logging.LogWarnWithContext(nil, logCtx, "Authentication token invalid or new app permissions required, forcing reauth before retrying")
+		// Add context to error message for better troubleshooting
+		logging.LogErrorAsWarnWithContext(nil, logCtx, "Authentication token invalid or new app permissions required, forcing reauth before retrying")
 
 		logging.LogDebugWithContext(logCtx, "Starting reauth process")
 		reauth, authErr := newAuth(ctx, auth.AuthConfig, auth.Path, false)
@@ -243,7 +248,8 @@ func RequestWithContext(ctx context.Context, resource string, auth *Auth, method
 		logging.LogDebugWithContext(logCtx, "Successfully read retry response body")
 
 		if err := response.Body.Close(); err != nil {
-			logging.LogWarnWithContext(err, logCtx, "Error closing retry response body")
+			// Add context to error message for better troubleshooting
+			logging.LogErrorAsWarnWithContext(err, logCtx, "Error closing retry response body")
 		}
 	}
 
