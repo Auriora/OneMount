@@ -42,12 +42,6 @@ func LogErrorAsWarnWithContext(err error, ctx LogContext, msg string) {
 	event.Msg(msg)
 }
 
-// LogWarnWithContext logs a warning with the given context
-// Deprecated: Use LogErrorAsWarnWithContext instead, which has a more consistent naming convention.
-func LogWarnWithContext(err error, ctx LogContext, msg string) {
-	LogErrorAsWarnWithContext(err, ctx, msg)
-}
-
 // LogInfoWithContext logs an info message with the given context
 func LogInfoWithContext(ctx LogContext, msg string) {
 	// Check if info level is enabled before performing operations
@@ -88,23 +82,6 @@ func LogTraceWithContext(ctx LogContext, msg string) {
 
 	// Log the message
 	logger.Trace().Msg(msg)
-}
-
-// WrapAndLogWithContext wraps an error, logs it with context, and returns the wrapped error
-// Deprecated: Use WrapAndLogErrorWithContext instead, which has a more consistent naming convention.
-func WrapAndLogWithContext(err error, ctx LogContext, msg string) error {
-	return WrapAndLogErrorWithContext(err, ctx, msg)
-}
-
-// LogAndReturnWithContext logs an error with context and returns it
-// Deprecated: Use LogErrorWithContext and return the error separately for clarity.
-func LogAndReturnWithContext(err error, ctx LogContext, msg string) error {
-	if err == nil {
-		return nil
-	}
-
-	LogErrorWithContext(err, ctx, msg)
-	return err
 }
 
 // EnrichErrorWithContext adds context information to an error

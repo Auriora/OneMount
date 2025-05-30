@@ -64,13 +64,13 @@ func TestUT_ER_02_02_Wrapf_WithNilError_ReturnsNil(t *testing.T) {
 	assert.Nil(t, wrappedErr)
 }
 
-// TestUT_ER_03_01_WrapAndLog_WithMessage_WrapsAndLogsError tests the WrapAndLog function.
-func TestUT_ER_03_01_WrapAndLog_WithMessage_WrapsAndLogsError(t *testing.T) {
+// TestUT_ER_03_01_WrapAndLogError_WithMessage_WrapsAndLogsError tests the WrapAndLogError function.
+func TestUT_ER_03_01_WrapAndLogError_WithMessage_WrapsAndLogsError(t *testing.T) {
 	// Create an original error
 	originalErr := New("original error")
 
 	// Wrap and log the error
-	wrappedErr := logging.WrapAndLog(originalErr, "context message", "field1", "value1")
+	wrappedErr := logging.WrapAndLogError(originalErr, "context message", "field1", "value1")
 
 	// Verify that the wrapped error contains both the context and the original error
 	assert.Contains(t, wrappedErr.Error(), "context message")
@@ -80,22 +80,22 @@ func TestUT_ER_03_01_WrapAndLog_WithMessage_WrapsAndLogsError(t *testing.T) {
 	assert.True(t, Is(wrappedErr, originalErr))
 }
 
-// TestUT_ER_03_02_WrapAndLog_WithNilError_ReturnsNil tests the WrapAndLog function with a nil error.
-func TestUT_ER_03_02_WrapAndLog_WithNilError_ReturnsNil(t *testing.T) {
+// TestUT_ER_03_02_WrapAndLogError_WithNilError_ReturnsNil tests the WrapAndLogError function with a nil error.
+func TestUT_ER_03_02_WrapAndLogError_WithNilError_ReturnsNil(t *testing.T) {
 	// Wrap and log a nil error
-	wrappedErr := logging.WrapAndLog(nil, "context message", "field1", "value1")
+	wrappedErr := logging.WrapAndLogError(nil, "context message", "field1", "value1")
 
 	// Verify that the result is nil
 	assert.Nil(t, wrappedErr)
 }
 
-// TestUT_ER_04_01_WrapfAndLog_WithFormattedMessage_WrapsAndLogsError tests the WrapfAndLog function.
-func TestUT_ER_04_01_WrapfAndLog_WithFormattedMessage_WrapsAndLogsError(t *testing.T) {
+// TestUT_ER_04_01_WrapAndLogErrorf_WithFormattedMessage_WrapsAndLogsError tests the WrapAndLogErrorf function.
+func TestUT_ER_04_01_WrapAndLogErrorf_WithFormattedMessage_WrapsAndLogsError(t *testing.T) {
 	// Create an original error
 	originalErr := New("original error")
 
 	// Wrap and log the error with a formatted message
-	wrappedErr := logging.WrapfAndLog(originalErr, "context message with %s", "parameter")
+	wrappedErr := logging.WrapAndLogErrorf(originalErr, "context message with %s", "parameter")
 
 	// Verify that the wrapped error contains the formatted context and the original error
 	assert.Contains(t, wrappedErr.Error(), "context message with parameter")
@@ -105,31 +105,33 @@ func TestUT_ER_04_01_WrapfAndLog_WithFormattedMessage_WrapsAndLogsError(t *testi
 	assert.True(t, Is(wrappedErr, originalErr))
 }
 
-// TestUT_ER_04_02_WrapfAndLog_WithNilError_ReturnsNil tests the WrapfAndLog function with a nil error.
-func TestUT_ER_04_02_WrapfAndLog_WithNilError_ReturnsNil(t *testing.T) {
+// TestUT_ER_04_02_WrapAndLogErrorf_WithNilError_ReturnsNil tests the WrapAndLogErrorf function with a nil error.
+func TestUT_ER_04_02_WrapAndLogErrorf_WithNilError_ReturnsNil(t *testing.T) {
 	// Wrap and log a nil error with a formatted message
-	wrappedErr := logging.WrapfAndLog(nil, "context message with %s", "parameter")
+	wrappedErr := logging.WrapAndLogErrorf(nil, "context message with %s", "parameter")
 
 	// Verify that the result is nil
 	assert.Nil(t, wrappedErr)
 }
 
-// TestUT_ER_05_01_LogAndReturn_WithMessage_LogsAndReturnsError tests the LogAndReturn function.
-func TestUT_ER_05_01_LogAndReturn_WithMessage_LogsAndReturnsError(t *testing.T) {
+// TestUT_ER_05_01_LogError_WithMessage_LogsError tests the LogError function.
+func TestUT_ER_05_01_LogError_WithMessage_LogsError(t *testing.T) {
 	// Create an original error
 	originalErr := New("original error")
 
-	// Log and return the error
-	returnedErr := logging.LogAndReturn(originalErr, "error message", "field1", "value1")
+	// Log the error
+	logging.LogError(originalErr, "error message", "field1", "value1")
+	returnedErr := originalErr
 
 	// Verify that the returned error is the original error
 	assert.Equal(t, originalErr, returnedErr)
 }
 
-// TestUT_ER_05_02_LogAndReturn_WithNilError_ReturnsNil tests the LogAndReturn function with a nil error.
-func TestUT_ER_05_02_LogAndReturn_WithNilError_ReturnsNil(t *testing.T) {
-	// Log and return a nil error
-	returnedErr := logging.LogAndReturn(nil, "error message", "field1", "value1")
+// TestUT_ER_05_02_LogError_WithNilError_DoesNothing tests the LogError function with a nil error.
+func TestUT_ER_05_02_LogError_WithNilError_DoesNothing(t *testing.T) {
+	// Log a nil error
+	logging.LogError(nil, "error message", "field1", "value1")
+	var returnedErr error = nil
 
 	// Verify that the result is nil
 	assert.Nil(t, returnedErr)

@@ -63,13 +63,6 @@ func LogError(err error, msg string, fields ...interface{}) {
 	event.Msg(msg)
 }
 
-// LogErrorWithFields logs an error with additional fields
-// This is a convenience function for logging errors with additional context
-// Deprecated: Use LogError instead, which now accepts both variadic fields and map fields.
-func LogErrorWithFields(err error, msg string, fields map[string]interface{}) {
-	LogError(err, msg, fields)
-}
-
 // LogErrorAsWarn logs an error as a warning with additional fields.
 // This is useful for logging potential issues that don't prevent the application from working.
 func LogErrorAsWarn(err error, msg string, fields ...interface{}) {
@@ -119,37 +112,6 @@ func LogErrorAsWarnWithFields(err error, msg string, fields map[string]interface
 	event.Msg(msg)
 }
 
-// LogWarnWithError logs a warning with an error
-// This is useful for logging non-critical errors that don't prevent the application from working
-// Deprecated: Use LogErrorAsWarn instead, which has a more consistent naming convention.
-func LogWarnWithError(err error, msg string, fields ...interface{}) {
-	LogErrorAsWarn(err, msg, fields...)
-}
-
-// LogAndReturn logs an error and returns it.
-// This is a convenience function for the common pattern of logging an error and then returning it.
-// Deprecated: Use LogError and return the error separately for clarity.
-func LogAndReturn(err error, msg string, fields ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-
-	LogError(err, msg, fields...)
-	return err
-}
-
-// LogErrorAndReturn logs an error and returns it
-// This is a convenience function for the common pattern of logging an error and then returning it
-// Deprecated: Use LogError and return the error separately for clarity.
-func LogErrorAndReturn(err error, msg string, fields ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-
-	LogError(err, msg, fields...)
-	return err
-}
-
 // LogErrorWithContext logs an error with the given context
 // The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
 func LogErrorWithContext(err error, ctx LogContext, msg string, fields ...interface{}) {
@@ -190,18 +152,6 @@ func LogErrorWithContext(err error, ctx LogContext, msg string, fields ...interf
 	event.Msg(msg)
 }
 
-// LogErrorWithContextAndReturn logs an error with context and returns it
-// This is a convenience function for the common pattern of logging an error with context and then returning it
-// Deprecated: Use LogErrorWithContext and return the error separately for clarity.
-func LogErrorWithContextAndReturn(err error, ctx LogContext, msg string, fields ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-
-	LogErrorWithContext(err, ctx, msg, fields...)
-	return err
-}
-
 // WrapAndLogError wraps an error with a message, logs it, and returns the wrapped error.
 // This is a convenience function for the common pattern of wrapping an error, logging it, and then returning it.
 // The fields parameter can be either a variadic list of key-value pairs or a map[string]interface{}.
@@ -221,12 +171,6 @@ func WrapAndLogError(err error, msg string, fields ...interface{}) error {
 	return wrapped
 }
 
-// WrapAndLog wraps an error with a message, logs it, and returns the wrapped error.
-// Deprecated: Use WrapAndLogError instead, which has a more consistent naming convention.
-func WrapAndLog(err error, msg string, fields ...interface{}) error {
-	return WrapAndLogError(err, msg, fields...)
-}
-
 // WrapAndLogErrorf wraps an error with a formatted message, logs it, and returns the wrapped error.
 func WrapAndLogErrorf(err error, format string, args ...interface{}) error {
 	if err == nil {
@@ -235,12 +179,6 @@ func WrapAndLogErrorf(err error, format string, args ...interface{}) error {
 
 	msg := fmt.Sprintf(format, args...)
 	return WrapAndLogError(err, msg)
-}
-
-// WrapfAndLog wraps an error with a formatted message, logs it, and returns the wrapped error.
-// Deprecated: Use WrapAndLogErrorf instead, which has a more consistent naming convention.
-func WrapfAndLog(err error, format string, args ...interface{}) error {
-	return WrapAndLogErrorf(err, format, args...)
 }
 
 // WrapAndLogErrorWithContext wraps an error with a message, logs it with context, and returns the wrapped error.

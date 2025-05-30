@@ -275,9 +275,9 @@ func TestUT_SL_06_01_WrapAndLogErrorWithContext_WrapsAndLogsError(t *testing.T) 
 	assert.True(t, errors.Is(wrappedErr, originalErr))
 }
 
-// TestUT_SL_07_01_LogAndReturnWithContext_LogsAndReturnsError tests the LogAndReturnWithContext function
-// Note: This tests a deprecated function. The recommended approach is to use LogErrorWithContext and return the error separately.
-func TestUT_SL_07_01_LogAndReturnWithContext_LogsAndReturnsError(t *testing.T) {
+// TestUT_SL_07_01_LogErrorWithContext_LogsError tests the LogErrorWithContext function
+// This demonstrates the recommended approach of using LogErrorWithContext and returning the error separately.
+func TestUT_SL_07_01_LogErrorWithContext_LogsError(t *testing.T) {
 	// Set up a test logger
 	buf, cleanup := setupTestLogger()
 	defer cleanup()
@@ -288,8 +288,9 @@ func TestUT_SL_07_01_LogAndReturnWithContext_LogsAndReturnsError(t *testing.T) {
 	// Create a log context
 	ctx := NewLogContext("test_operation")
 
-	// Log and return the error with context
-	returnedErr := LogAndReturnWithContext(originalErr, ctx, "error message")
+	// Log the error with context and return it separately
+	LogErrorWithContext(originalErr, ctx, "error message")
+	returnedErr := originalErr
 
 	// Parse the log entry
 	entry, err := parseLogEntry(buf)

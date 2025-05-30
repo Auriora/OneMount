@@ -125,7 +125,7 @@ The following helper functions combine common error handling patterns:
 
 ```go
 // Wrap an error, log it with context, and return it
-err = errors.WrapAndLogWithContext(err, ctx, "wrapped error message")
+err = errors.WrapAndLogErrorWithContext(err, ctx, "wrapped error message")
 
 // Log an error with context and return it
 err = errors.LogAndReturnWithContext(err, ctx, "error message")
