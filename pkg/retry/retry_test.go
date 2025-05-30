@@ -2,10 +2,11 @@ package retry
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
+	stderrors "errors"
+	"github.com/auriora/onemount/pkg/err
 	"github.com/stretchr/testify/assert"
 )
 
@@ -273,4 +274,58 @@ func TestUT_RT_03_01_DefaultConfig_ReturnsExpectedValues(t *testing.T) {
 	assert.Equal(t, 2.0, config.Multiplier)
 	assert.Equal(t, 0.2, config.Jitter)
 	assert.Len(t, config.RetryableErrors, 3)
+}
+
+// TestUT_RT_04_01_IsRetryableNetworkError_WithNetworkError_ReturnsTrue tests that IsRetryableNetworkError returns true for network errors
+func TestUT_RT_04_01_IsRetryableNetworkError_WithNetworkError_ReturnsTrue(t *testing.T) {
+	// Create a network error
+	networkErr := errors.NewNetworkError("network error", nil)
+
+	// Verify that IsRetryableNetworkError returns true
+	assert.True(t, IsRetryableNetworkError(networkErr))
+}
+
+// TestUT_RT_04_02_IsRetryableNetworkError_WithOtherError_ReturnsFalse tests that IsRetryableNetworkError returns false for non-network errors
+func TestUT_RT_04_02_IsRetryableNetworkError_WithOtherError_ReturnsFalse(t *testing.T) {
+	// Create a non-network error
+	otherErr := stderrors.New("other error")
+
+	// Verify that IsRetryableNetworkError returns false
+	assert.False(t, IsRetryableNetworkError(otherErr))
+}
+
+// TestUT_RT_05_01_IsRetryableServerError_WithOperationError_ReturnsTrue tests that IsRetryableServerError returns true for operation errors
+func TestUT_RT_05_01_IsRetryableServerError_WithOperationError_ReturnsTrue(t *testing.T) {
+	// Create an operation error
+	operationErr := errors.NewOperationError("operation error", nil)
+
+	// Verify that IsRetryableServerError returns true
+	assert.True(t, IsRetryableServerError(operationErr))
+}
+
+// TestUT_RT_05_02_IsRetryableServerError_WithOtherError_ReturnsFalse tests that IsRetryableServerError returns false for non-operation errors
+func TestUT_RT_05_02_IsRetryableServerError_WithOtherError_ReturnsFalse(t *testing.T) {
+	// Create a non-operation error
+	otherErr := stderrors.New("other error")
+
+	// Verify that IsRetryableServerError returns false
+	assert.False(t, IsRetryableServerError(otherErr))
+}
+
+// TestUT_RT_06_01_IsRetryableRateLimitError_WithResourceBusyError_ReturnsTrue tests that IsRetryableRateLimitError returns true for resource busy errors
+func TestUT_RT_06_01_IsRetryableRateLimitError_WithResourceBusyError_ReturnsTrue(t *testing.T) {
+	// Create a resource busy error
+	resourceBusyErr := errors.NewResourceBusyError("resource busy error", nil)
+
+	// Verify that IsRetryableRateLimitError returns true
+	assert.True(t, IsRetryableRateLimitError(resourceBusyErr))
+}
+
+// TestUT_RT_06_02_IsRetryableRateLimitError_WithOtherError_ReturnsFalse tests that IsRetryableRateLimitError returns false for non-resource busy errors
+func TestUT_RT_06_02_IsRetryableRateLimitError_WithOtherError_ReturnsFalse(t *testing.T) {
+	// Create a non-resource busy error
+	otherErr := stderrors.New("other error")
+
+	// Verify that IsRetryableRateLimitError returns false
+	assert.False(t, IsRetryableRateLimitError(otherErr))
 }
