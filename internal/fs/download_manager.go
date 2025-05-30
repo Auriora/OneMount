@@ -7,6 +7,7 @@ package fs
 // OneDrive cloud file sync in the background, except when waiting for a file or folder to download.
 
 import (
+	"context"
 	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/retry"
 )
 
 const (
@@ -147,16 +149,41 @@ func (dm *DownloadManager) processDownload(id string) {
 		}
 	}()
 
-	// Download the file content
-	size, err := graph.GetItemContentStream(id, dm.auth, temp)
-	if err != nil {
-		dm.setSessionError(session, err)
-		return
-	}
+	// Create a context for the download operation
+	ctx := context.Background()
 
-	// Verify checksum
-	if !inode.VerifyChecksum(graph.QuickXORHashStream(temp)) {
-		err := errors.NewValidationError("checksum verification failed", nil)
+	// Create a retry config for the download operation
+	retryConfig := retry.DefaultConfig()
+
+	// Download the file content with retry
+	var size uint64
+	err = retry.Do(ctx, func() error {
+		// Reset the file position before each attempt
+		if _, err := temp.Seek(0, 0); err != nil {
+			return errors.Wrap(err, "failed to reset file position")
+		}
+
+		// Truncate the file before each attempt
+		if err := temp.Truncate(0); err != nil {
+			return errors.Wrap(err, "failed to truncate temporary file")
+		}
+
+		// Download the file content
+		var downloadErr error
+		size, downloadErr = graph.GetItemContentStream(id, dm.auth, temp)
+		if downloadErr != nil {
+			return errors.Wrap(downloadErr, "failed to download file content")
+		}
+
+		// Verify checksum
+		if !inode.VerifyChecksum(graph.QuickXORHashStream(temp)) {
+			return errors.NewValidationError("checksum verification failed", nil)
+		}
+
+		return nil
+	}, retryConfig)
+
+	if err != nil {
 		dm.setSessionError(session, err)
 		return
 	}
@@ -177,14 +204,36 @@ func (dm *DownloadManager) processDownload(id string) {
 		return
 	}
 
-	// Copy content from temp file to destination
-	if _, err := copyBuffer(fd, temp); err != nil {
-		dm.setSessionError(session, err)
-		return
-	}
+	// Copy content from temp file to destination with retry
+	err = retry.Do(ctx, func() error {
+		// Reset file positions before each attempt
+		if _, err := temp.Seek(0, 0); err != nil {
+			return errors.Wrap(err, "failed to reset temp file position")
+		}
 
-	// Ensure data is flushed to disk
-	if err := fd.Sync(); err != nil {
+		if _, err := fd.Seek(0, 0); err != nil {
+			return errors.Wrap(err, "failed to reset destination file position")
+		}
+
+		if err := fd.Truncate(0); err != nil {
+			return errors.Wrap(err, "failed to truncate destination file")
+		}
+
+		// Copy content
+		_, copyErr := copyBuffer(fd, temp)
+		if copyErr != nil {
+			return errors.Wrap(copyErr, "failed to copy file content")
+		}
+
+		// Ensure data is flushed to disk
+		if syncErr := fd.Sync(); syncErr != nil {
+			return errors.Wrap(syncErr, "failed to sync file to disk")
+		}
+
+		return nil
+	}, retryConfig)
+
+	if err != nil {
 		dm.setSessionError(session, err)
 		return
 	}
