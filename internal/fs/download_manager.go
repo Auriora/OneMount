@@ -394,6 +394,41 @@ func (dm *DownloadManager) Stop() {
 	}
 }
 
+// GetID returns the ID of the item being downloaded
+func (ds *DownloadSession) GetID() string {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	return ds.ID
+}
+
+// GetPath returns the path of the item being downloaded
+func (ds *DownloadSession) GetPath() string {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	return ds.Path
+}
+
+// GetState returns the current state of the download
+func (ds *DownloadSession) GetState() DownloadState {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	return ds.State
+}
+
+// GetError returns any error that occurred during download
+func (ds *DownloadSession) GetError() error {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	return ds.Error
+}
+
+// IsComplete returns true if the download has completed successfully
+func (ds *DownloadSession) IsComplete() bool {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	return ds.State == downloadCompleted
+}
+
 // copyBuffer copies from src to dst using a buffer
 func copyBuffer(dst, src *os.File) (int64, error) {
 	buf := make([]byte, 32*1024)

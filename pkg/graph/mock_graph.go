@@ -231,7 +231,7 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 
 				if exists {
 					// Unmarshal the item
-					var item api.DriveItem
+					var item DriveItem
 					if err := json.Unmarshal(itemResp.Body, &item); err == nil {
 						// If this is a file, update its hash and size
 						if item.File != nil {
@@ -248,7 +248,7 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 							}
 
 							// Try to extract ETag from the response body
-							var responseItem api.DriveItem
+							var responseItem DriveItem
 							if err := json.Unmarshal(mockResponse.Body, &responseItem); err == nil && responseItem.ETag != "" {
 								item.ETag = responseItem.ETag
 							} else {
@@ -464,7 +464,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 						m.mu.Unlock()
 
 						if exists {
-							var children api.DriveChildren
+							var children driveChildren
 							if err := json.Unmarshal(childrenResp.Body, &children); err == nil {
 								for _, child := range children.Children {
 									if child.Name == fileName {
@@ -495,7 +495,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 
 			if exists {
 				// Unmarshal the item
-				var item api.DriveItem
+				var item DriveItem
 				if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
 					// If this is a file, update its hash
 					if item.File != nil {
@@ -513,7 +513,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 						}
 
 						// Try to extract ETag from the response body
-						var responseItem api.DriveItem
+						var responseItem DriveItem
 						if err := json.Unmarshal(body, &responseItem); err == nil && responseItem.ETag != "" {
 							item.ETag = responseItem.ETag
 						}
@@ -545,7 +545,7 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 }
 
 // AddMockItem adds a predefined DriveItem response for a specific resource path
-func (m *MockGraphClient) AddMockItem(resource string, item *api.DriveItem) {
+func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
 	// Create a new item with the same values to ensure it's not modified
 	itemCopy := *item
 
@@ -580,20 +580,20 @@ func (m *MockGraphClient) AddMockItem(resource string, item *api.DriveItem) {
 }
 
 // AddMockItems adds a predefined list of DriveItems for a children request
-func (m *MockGraphClient) AddMockItems(resource string, items []*api.DriveItem) {
+func (m *MockGraphClient) AddMockItems(resource string, items []*DriveItem) {
 	// Default behavior - no pagination
 	m.AddMockItemsWithPagination(resource, items, 0)
 }
 
 // AddMockItemsWithPagination adds a predefined list of DriveItems with pagination support
 // pageSize of 0 means no pagination
-func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*api.DriveItem, pageSize int) {
+func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*DriveItem, pageSize int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if pageSize <= 0 || len(items) <= pageSize {
 		// No pagination needed or requested
-		response := api.DriveChildren{
+		response := driveChildren{
 			Children: items,
 		}
 		body, _ := json.Marshal(response)
@@ -618,7 +618,7 @@ func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*a
 			nextLink = fmt.Sprintf("%s%s?skiptoken=%d", GraphURL, resource, end)
 		}
 
-		response := api.DriveChildren{
+		response := driveChildren{
 			Children: pageItems,
 			NextLink: nextLink,
 		}
@@ -760,7 +760,7 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 		result = nil
 	} else {
 		// For other requests, return a generic DriveItem
-		item := &api.DriveItem{
+		item := &DriveItem{
 			ID:   "mock-id",
 			Name: "mock-item",
 		}
@@ -888,7 +888,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...api
 		if !exists {
 			// Extract the item ID or parent ID and name
 			var itemID string
-			var fileItem *api.DriveItem
+			var fileItem *DriveItem
 
 			if strings.Contains(resource, ":/") {
 				// Format: /me/drive/items/{parentId}:/{name}:/content
@@ -916,7 +916,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...api
 
 							if existingItemExists {
 								// Use the existing item as a base
-								var existingItem api.DriveItem
+								var existingItem DriveItem
 								if err := json.Unmarshal(existingItemResp.Body, &existingItem); err == nil {
 									fileItem = &existingItem
 									// Update the size from the content bytes
@@ -931,7 +931,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...api
 								}
 							} else {
 								// Create a new file item
-								fileItem = &api.DriveItem{
+								fileItem = &DriveItem{
 									ID:   "generated-id-" + fileName,
 									Name: fileName,
 									File: &api.File{
@@ -963,7 +963,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...api
 					m.mu.Unlock()
 
 					if exists {
-						var item api.DriveItem
+						var item DriveItem
 						if err := json.Unmarshal(mockResponse.Body, &item); err == nil {
 							// Update the item with new content
 							if item.File == nil {
@@ -1100,7 +1100,7 @@ func (m *MockGraphClient) GetItemContentStream(id string, output io.Writer) (uin
 }
 
 // GetItem is a mock implementation of the real GetItem function
-func (m *MockGraphClient) GetItem(id string) (*api.DriveItem, error) {
+func (m *MockGraphClient) GetItem(id string) (*DriveItem, error) {
 	call := api.MockCall{
 		Method: "GetItem",
 		Args:   []interface{}{id},
@@ -1122,7 +1122,7 @@ func (m *MockGraphClient) GetItem(id string) (*api.DriveItem, error) {
 		}
 
 		// Unmarshal directly from the stored response
-		item := &api.DriveItem{}
+		item := &DriveItem{}
 		err := json.Unmarshal(response.Body, item)
 		if err != nil {
 			call.Result = err
@@ -1143,7 +1143,7 @@ func (m *MockGraphClient) GetItem(id string) (*api.DriveItem, error) {
 		return nil, err
 	}
 
-	item := &api.DriveItem{}
+	item := &DriveItem{}
 	err = json.Unmarshal(body, item)
 	call.Result = item
 	m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1151,7 +1151,7 @@ func (m *MockGraphClient) GetItem(id string) (*api.DriveItem, error) {
 }
 
 // GetItemPath is a mock implementation of the real GetItemPath function
-func (m *MockGraphClient) GetItemPath(path string) (*api.DriveItem, error) {
+func (m *MockGraphClient) GetItemPath(path string) (*DriveItem, error) {
 	call := api.MockCall{
 		Method: "GetItemPath",
 		Args:   []interface{}{path},
@@ -1166,7 +1166,7 @@ func (m *MockGraphClient) GetItemPath(path string) (*api.DriveItem, error) {
 		return nil, err
 	}
 
-	item := &api.DriveItem{}
+	item := &DriveItem{}
 	err = json.Unmarshal(body, item)
 	call.Result = item
 	m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1174,7 +1174,7 @@ func (m *MockGraphClient) GetItemPath(path string) (*api.DriveItem, error) {
 }
 
 // GetItemChildren is a mock implementation of the real GetItemChildren function
-func (m *MockGraphClient) GetItemChildren(id string) ([]*api.DriveItem, error) {
+func (m *MockGraphClient) GetItemChildren(id string) ([]*DriveItem, error) {
 	call := api.MockCall{
 		Method: "GetItemChildren",
 		Args:   []interface{}{id},
@@ -1183,7 +1183,7 @@ func (m *MockGraphClient) GetItemChildren(id string) ([]*api.DriveItem, error) {
 
 	// Start with the initial resource path
 	resource := childrenPathID(id)
-	allChildren := make([]*api.DriveItem, 0)
+	allChildren := make([]*DriveItem, 0)
 
 	// Loop until we've processed all pages
 	for resource != "" {
@@ -1194,7 +1194,7 @@ func (m *MockGraphClient) GetItemChildren(id string) ([]*api.DriveItem, error) {
 			return nil, err
 		}
 
-		var result api.DriveChildren
+		var result driveChildren
 		err = json.Unmarshal(body, &result)
 		if err != nil {
 			call.Result = err
@@ -1220,7 +1220,7 @@ func (m *MockGraphClient) GetItemChildren(id string) ([]*api.DriveItem, error) {
 }
 
 // GetItemChildrenPath is a mock implementation of the real GetItemChildrenPath function
-func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*api.DriveItem, error) {
+func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*DriveItem, error) {
 	call := api.MockCall{
 		Method: "GetItemChildrenPath",
 		Args:   []interface{}{path},
@@ -1229,7 +1229,7 @@ func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*api.DriveItem, er
 
 	// Start with the initial resource path
 	resource := childrenPath(path)
-	allChildren := make([]*api.DriveItem, 0)
+	allChildren := make([]*DriveItem, 0)
 
 	// Loop until we've processed all pages
 	for resource != "" {
@@ -1240,7 +1240,7 @@ func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*api.DriveItem, er
 			return nil, err
 		}
 
-		var result api.DriveChildren
+		var result driveChildren
 		err = json.Unmarshal(body, &result)
 		if err != nil {
 			call.Result = err
@@ -1266,7 +1266,7 @@ func (m *MockGraphClient) GetItemChildrenPath(path string) ([]*api.DriveItem, er
 }
 
 // Mkdir is a mock implementation of the real Mkdir function
-func (m *MockGraphClient) Mkdir(name string, parentID string) (*api.DriveItem, error) {
+func (m *MockGraphClient) Mkdir(name string, parentID string) (*DriveItem, error) {
 	call := api.MockCall{
 		Method: "Mkdir",
 		Args:   []interface{}{name, parentID},
@@ -1280,7 +1280,7 @@ func (m *MockGraphClient) Mkdir(name string, parentID string) (*api.DriveItem, e
 		return nil, err
 	}
 
-	newFolder := api.DriveItem{
+	newFolder := DriveItem{
 		Name:   name,
 		Folder: &api.Folder{},
 	}
@@ -1313,10 +1313,10 @@ func (m *MockGraphClient) Rename(itemID string, itemName string, parentID string
 		return err
 	}
 
-	patchContent := api.DriveItem{
+	patchContent := DriveItem{
 		ConflictBehavior: "replace",
 		Name:             itemName,
-		Parent: &api.DriveItemParent{
+		Parent: &DriveItemParent{
 			ID: parentID,
 		},
 	}
@@ -1493,7 +1493,7 @@ func (m *MockGraphClient) GetDrive() (api.Drive, error) {
 }
 
 // GetItemChild is a mock implementation of the real GetItemChild function
-func (m *MockGraphClient) GetItemChild(id string, name string) (*api.DriveItem, error) {
+func (m *MockGraphClient) GetItemChild(id string, name string) (*DriveItem, error) {
 	call := api.MockCall{
 		Method: "GetItemChild",
 		Args:   []interface{}{id, name},
@@ -1522,7 +1522,7 @@ func (m *MockGraphClient) GetItemChild(id string, name string) (*api.DriveItem, 
 			return nil, response.Error
 		}
 
-		var item api.DriveItem
+		var item DriveItem
 		err := json.Unmarshal(response.Body, &item)
 		call.Result = &item
 		m.Recorder.RecordCall(call.Method, call.Args...)
@@ -1530,7 +1530,7 @@ func (m *MockGraphClient) GetItemChild(id string, name string) (*api.DriveItem, 
 	}
 
 	// Default mock item
-	item := &api.DriveItem{
+	item := &DriveItem{
 		ID:   "mock-child-id",
 		Name: name,
 	}

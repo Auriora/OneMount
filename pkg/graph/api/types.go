@@ -2,6 +2,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 )
 
@@ -65,6 +66,22 @@ func (d *DriveItem) ModTimeUnix() uint64 {
 		return 0
 	}
 	return uint64(d.ModTime.Unix())
+}
+
+// VerifyChecksum checks to see if a DriveItem's checksum matches what it's
+// supposed to be. This is less of a cryptographic check and more of a file
+// integrity check.
+func (d *DriveItem) VerifyChecksum(checksum string) bool {
+	if len(checksum) == 0 || d.File == nil {
+		return false
+	}
+	// Use case-insensitive comparison for hash values
+	return strings.EqualFold(d.File.Hashes.QuickXorHash, checksum)
+}
+
+// ETagIsMatch returns true if the etag matches the one in the DriveItem
+func (d *DriveItem) ETagIsMatch(etag string) bool {
+	return d.ETag != "" && d.ETag == etag
 }
 
 // DriveChildren represents a collection of DriveItems with pagination support.

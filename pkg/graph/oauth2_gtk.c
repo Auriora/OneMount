@@ -165,3 +165,23 @@ char *webkit_auth_window(char *auth_url, char *account_name) {
 
     return strdup(auth_redirect_value);
 }
+
+/**
+ * Show an authentication failure dialog
+ */
+void show_auth_failure_dialog(char *message) {
+    gtk_init(NULL, NULL);
+
+    GtkWidget *dialog = gtk_message_dialog_new(NULL,
+                                               GTK_DIALOG_MODAL,
+                                               GTK_MESSAGE_ERROR,
+                                               GTK_BUTTONS_OK,
+                                               "Authentication Failed");
+
+    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+                                              "%s", message);
+
+    gtk_window_set_title(GTK_WINDOW(dialog), "OneMount Authentication Error");
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}

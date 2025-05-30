@@ -590,6 +590,7 @@ func IsMockClient() bool {
 // It returns true if either:
 // 1. The operational offline state is set to true, or
 // 2. An error string from Request() is indicative of being offline.
+// Enhanced version with better error detection patterns.
 func IsOffline(err error) bool {
 	// Check operational offline state first
 	if GetOperationalOffline() {
@@ -600,8 +601,246 @@ func IsOffline(err error) bool {
 	if err == nil {
 		return false
 	}
-	// our error messages from Request() will be prefixed with "HTTP ### -" if we actually
-	// got an HTTP response (indicating we are not offline)
-	rexp := regexp.MustCompile("HTTP [0-9]+ - ")
-	return !rexp.MatchString(err.Error())
+
+	// Enhanced error pattern detection for offline conditions
+	errorStr := err.Error()
+
+	// Check for HTTP response patterns (indicates we're online)
+	httpResponsePattern := regexp.MustCompile("HTTP [0-9]+ - ")
+	if httpResponsePattern.MatchString(errorStr) {
+		return false
+	}
+
+	// Check for common network error patterns that indicate offline state
+	offlinePatterns := []string{
+		"no such host",
+		"network is unreachable",
+		"connection refused",
+		"connection timed out",
+		"dial tcp",
+		"context deadline exceeded",
+		"no route to host",
+		"network is down",
+		"temporary failure in name resolution",
+		"operation timed out",
+	}
+
+	errorStrLower := strings.ToLower(errorStr)
+	for _, pattern := range offlinePatterns {
+		if strings.Contains(errorStrLower, pattern) {
+			return true
+		}
+	}
+
+	// Check for specific error types that indicate network issues
+	if errors.IsNetworkError(err) {
+		return true
+	}
+
+	// Default to offline if we can't determine the error type
+	// This is conservative but safer for offline functionality
+	return true
+}
+
+// NetworkConnectivityChecker provides methods for checking network connectivity
+type NetworkConnectivityChecker struct {
+	lastCheckTime   time.Time
+	lastCheckResult bool
+	checkInterval   time.Duration
+	mutex           sync.RWMutex
+}
+
+// NewNetworkConnectivityChecker creates a new network connectivity checker
+func NewNetworkConnectivityChecker() *NetworkConnectivityChecker {
+	return &NetworkConnectivityChecker{
+		checkInterval: 30 * time.Second, // Check every 30 seconds
+	}
+}
+
+// IsConnected performs an active network connectivity check
+// It caches the result for a short period to avoid excessive network calls
+func (ncc *NetworkConnectivityChecker) IsConnected() bool {
+	ncc.mutex.Lock()
+	defer ncc.mutex.Unlock()
+
+	// Check if we have a recent result
+	if time.Since(ncc.lastCheckTime) < ncc.checkInterval {
+		return ncc.lastCheckResult
+	}
+
+	// Perform actual connectivity check
+	connected := ncc.performConnectivityCheck()
+	ncc.lastCheckTime = time.Now()
+	ncc.lastCheckResult = connected
+
+	return connected
+}
+
+// performConnectivityCheck performs the actual network connectivity test
+func (ncc *NetworkConnectivityChecker) performConnectivityCheck() bool {
+	// Try to make a simple HTTP request to Microsoft Graph
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Use a lightweight endpoint that doesn't require authentication
+	resp, err := client.Get("https://graph.microsoft.com/v1.0/$metadata")
+	if err != nil {
+		logging.Debug().Err(err).Msg("Network connectivity check failed")
+		return false
+	}
+	defer resp.Body.Close()
+
+	// Consider any response (even errors) as connectivity
+	connected := resp.StatusCode > 0
+	logging.Debug().Bool("connected", connected).Int("statusCode", resp.StatusCode).Msg("Network connectivity check completed")
+	return connected
+}
+
+// ForceCheck forces an immediate connectivity check, bypassing the cache
+func (ncc *NetworkConnectivityChecker) ForceCheck() bool {
+	ncc.mutex.Lock()
+	defer ncc.mutex.Unlock()
+
+	connected := ncc.performConnectivityCheck()
+	ncc.lastCheckTime = time.Now()
+	ncc.lastCheckResult = connected
+
+	return connected
+}
+
+// NetworkStateCallback is called when network state changes
+type NetworkStateCallback func(connected bool, previousState bool)
+
+// NetworkStateMonitor monitors network connectivity changes and provides callbacks
+type NetworkStateMonitor struct {
+	checker        *NetworkConnectivityChecker
+	callbacks      []NetworkStateCallback
+	monitoring     bool
+	stopCh         chan struct{}
+	lastKnownState bool
+	mutex          sync.RWMutex
+	checkInterval  time.Duration
+}
+
+// NewNetworkStateMonitor creates a new network state monitor
+func NewNetworkStateMonitor() *NetworkStateMonitor {
+	return &NetworkStateMonitor{
+		checker:       NewNetworkConnectivityChecker(),
+		callbacks:     make([]NetworkStateCallback, 0),
+		stopCh:        make(chan struct{}),
+		checkInterval: 15 * time.Second, // Check every 15 seconds for state changes
+	}
+}
+
+// AddCallback adds a callback function to be called when network state changes
+func (nsm *NetworkStateMonitor) AddCallback(callback NetworkStateCallback) {
+	nsm.mutex.Lock()
+	defer nsm.mutex.Unlock()
+	nsm.callbacks = append(nsm.callbacks, callback)
+}
+
+// StartMonitoring begins monitoring network state changes
+func (nsm *NetworkStateMonitor) StartMonitoring() {
+	nsm.mutex.Lock()
+	if nsm.monitoring {
+		nsm.mutex.Unlock()
+		return
+	}
+	nsm.monitoring = true
+	nsm.lastKnownState = nsm.checker.ForceCheck()
+	nsm.mutex.Unlock()
+
+	go nsm.monitorLoop()
+}
+
+// StopMonitoring stops monitoring network state changes
+func (nsm *NetworkStateMonitor) StopMonitoring() {
+	nsm.mutex.Lock()
+	defer nsm.mutex.Unlock()
+
+	if !nsm.monitoring {
+		return
+	}
+
+	nsm.monitoring = false
+	close(nsm.stopCh)
+	nsm.stopCh = make(chan struct{}) // Reset for potential restart
+}
+
+// monitorLoop runs the monitoring loop in a separate goroutine
+func (nsm *NetworkStateMonitor) monitorLoop() {
+	ticker := time.NewTicker(nsm.checkInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-nsm.stopCh:
+			return
+		case <-ticker.C:
+			nsm.checkAndNotify()
+		}
+	}
+}
+
+// checkAndNotify checks the current network state and notifies callbacks if it changed
+func (nsm *NetworkStateMonitor) checkAndNotify() {
+	currentState := nsm.checker.ForceCheck()
+
+	nsm.mutex.RLock()
+	previousState := nsm.lastKnownState
+	callbacks := make([]NetworkStateCallback, len(nsm.callbacks))
+	copy(callbacks, nsm.callbacks)
+	nsm.mutex.RUnlock()
+
+	if currentState != previousState {
+		nsm.mutex.Lock()
+		nsm.lastKnownState = currentState
+		nsm.mutex.Unlock()
+
+		// Notify all callbacks about the state change
+		for _, callback := range callbacks {
+			go func(cb NetworkStateCallback) {
+				defer func() {
+					if r := recover(); r != nil {
+						logging.Error().Interface("panic", r).Msg("Network state callback panicked")
+					}
+				}()
+				cb(currentState, previousState)
+			}(callback)
+		}
+
+		// Notify feedback manager
+		feedbackManager := GetGlobalFeedbackManager()
+		if currentState {
+			feedbackManager.NotifyConnected()
+		} else {
+			feedbackManager.NotifyDisconnected()
+		}
+
+		// Log the state change
+		if currentState {
+			logging.Info().Msg("Network connectivity restored")
+		} else {
+			logging.Warn().Msg("Network connectivity lost")
+		}
+	}
+
+	// Always provide status updates for detailed feedback
+	feedbackManager := GetGlobalFeedbackManager()
+	feedbackManager.NotifyStatusUpdate(currentState, time.Now())
+}
+
+// GetCurrentState returns the last known network state
+func (nsm *NetworkStateMonitor) GetCurrentState() bool {
+	nsm.mutex.RLock()
+	defer nsm.mutex.RUnlock()
+	return nsm.lastKnownState
+}
+
+// IsMonitoring returns whether the monitor is currently active
+func (nsm *NetworkStateMonitor) IsMonitoring() bool {
+	nsm.mutex.RLock()
+	defer nsm.mutex.RUnlock()
+	return nsm.monitoring
 }

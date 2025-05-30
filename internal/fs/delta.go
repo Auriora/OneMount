@@ -255,7 +255,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 
 			// If we were offline and now we're online, process offline changes
 			if wasOffline {
-				logging.Info().Msg("Transitioning from offline to online, processing offline changes")
+				logging.Info().Msg("Transitioning from offline to online, processing offline changes with enhanced sync manager")
 				// Use a goroutine with proper error handling
 				f.Wg.Add(1)
 				go func(ctx context.Context) {
@@ -267,7 +267,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 					}()
 
 					// Create a child context with timeout
-					processCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+					processCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 					defer cancel()
 
 					// Check if context is already cancelled
@@ -279,8 +279,21 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 						// Continue with processing
 					}
 
-					// Process offline changes with context
-					f.ProcessOfflineChangesWithContext(processCtx)
+					// Use the enhanced sync manager for better error handling and conflict resolution
+					result, err := f.ProcessOfflineChangesWithSyncManager(processCtx)
+					if err != nil {
+						logging.Error().Err(err).Msg("Failed to process offline changes with sync manager")
+						// Fall back to the original method
+						f.ProcessOfflineChangesWithContext(processCtx)
+					} else {
+						logging.Info().
+							Int("processed", result.ProcessedChanges).
+							Int("conflicts", result.ConflictsFound).
+							Int("resolved", result.ConflictsResolved).
+							Int("errors", len(result.Errors)).
+							Dur("duration", result.Duration).
+							Msg("Successfully processed offline changes with sync manager")
+					}
 				}(f.ctx)
 			}
 		} else {

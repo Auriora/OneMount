@@ -82,6 +82,22 @@
 
 ### 4. Clean Up Project "Noise"
 - [ ] Remove or complete stub implementations
+  - [ ] **Address TODO/FIXME Comments**:
+    - [ ] `pkg/graph/oauth2_gtk.go:30` - Replace TODO with proper popup for auth failure message
+    - [ ] `internal/fs/upload_manager.go:115` - Investigate and fix buffered channel requirement
+    - [ ] `internal/fs/inode.go:53,69` - Resolve FIXME about MarshalJSON/UnmarshalJSON breaking delta syncs
+    - [ ] `internal/fs/dir_operations.go:213` - Implement proper overflow handling for DirLookupEntry bounds
+    - [ ] `cmd/onemount-launcher/main.go:403` - Fix file writing issue for mount renaming
+    - [ ] `scripts/implement_github_issue.py:59` - Fix JetBrains task opening functionality
+  - [ ] **Remove Deprecated Methods**:
+    - [ ] `internal/fs/method_decorators.go:11,34` - Remove deprecated LogMethodCall and LogMethodReturn functions
+    - [ ] Update all usages to use the new logging.LogMethodEntry/Exit functions
+  - [ ] **Complete Interface Implementations**:
+    - [ ] `internal/fs/upload_manager.go:46-48` - Complete UploadSessionInterface with proper methods
+    - [ ] Review all interface implementations for completeness
+  - [ ] **Clean Up Documentation TODOs**:
+    - [ ] `README.md:138` - Add proper installation instructions for Ubuntu/Debian
+    - [ ] `docs/installation-guide.md:66` - Fix invalid PPA removal instructions
 - [ ] Update documentation to reflect current implementation status
 - [ ] Mark incomplete features with clear TODO comments
 - [ ] Create a "deferred features" document for post-release planning

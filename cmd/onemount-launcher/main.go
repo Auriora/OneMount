@@ -400,14 +400,25 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 		if ui.PollUntilAvail(mount, -1) {
 			xdgVolumeInfo := common.TemplateXDGVolumeInfo(newName)
 			driveName = newName
-			//FIXME why does this not work???
-			err = os.WriteFile(filepath.Join(mount, ".xdg-volume-info"), []byte(xdgVolumeInfo), 0644)
+
+			// Write the XDG volume info file to update the mount display name
+			xdgPath := filepath.Join(mount, ".xdg-volume-info")
+			err = os.WriteFile(xdgPath, []byte(xdgVolumeInfo), 0644)
 			if err != nil {
-				ctx.Error().Err(err).Msg("Failed to write new mount name.")
-				return
+				ctx.Error().
+					Err(err).
+					Str("path", xdgPath).
+					Str("content", xdgVolumeInfo).
+					Msg("Failed to write XDG volume info file - mount may be read-only or not fully ready")
+				// Don't return here - the rename operation can still succeed even if XDG file write fails
+			} else {
+				ctx.Info().
+					Str("path", xdgPath).
+					Str("newName", newName).
+					Msg("Successfully updated XDG volume info file")
 			}
 		} else {
-			ctx.Error().Err(err).Msg("Mount never became ready.")
+			ctx.Error().Msg("Mount never became ready - cannot update display name")
 		}
 		// update label in UI now
 		label.SetMarkup(fmt.Sprintf("%s <span style=\"italic\" weight=\"light\">(%s)</span>    ",

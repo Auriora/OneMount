@@ -7,7 +7,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
@@ -210,14 +209,14 @@ func (f *Filesystem) ReadDirPlus(cancel <-chan struct{}, in *fuse.ReadIn, out *f
 	}
 	entryOut := out.AddDirLookupEntry(entry)
 	if entryOut == nil {
-		//FIXME probably need to handle this better using the "overflow stuff"
-		logging.LogError(errors.New("exceeded DirLookupEntry bounds"), "Failed to add directory lookup entry",
-			logging.FieldOperation, "ReadDirPlus",
-			"nodeID", in.NodeId,
-			"offset", in.Offset,
-			"entryName", entry.Name,
-			"entryNodeID", entry.Ino)
-		return fuse.EIO
+		// Buffer is full, return OK to indicate we've provided as many entries as possible
+		// The kernel will call ReadDirPlus again with a higher offset to get more entries
+		logging.Debug().
+			Uint64("nodeID", in.NodeId).
+			Uint64("offset", in.Offset).
+			Str("entryName", entry.Name).
+			Msg("Directory entry buffer full, returning partial results")
+		return fuse.OK
 	}
 	entryOut.NodeId = entry.Ino
 	entryOut.Attr = inode.makeAttr()

@@ -346,3 +346,29 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 	u.Unlock()
 	return u.setState(uploadComplete, nil)
 }
+
+// GetID returns the ID of the item being uploaded
+func (u *UploadSession) GetID() string {
+	u.Lock()
+	defer u.Unlock()
+	return u.ID
+}
+
+// GetName returns the name of the item being uploaded
+func (u *UploadSession) GetName() string {
+	u.Lock()
+	defer u.Unlock()
+	return u.Name
+}
+
+// GetSize returns the size of the item being uploaded
+func (u *UploadSession) GetSize() uint64 {
+	u.Lock()
+	defer u.Unlock()
+	return u.Size
+}
+
+// GetState returns the current state of the upload
+func (u *UploadSession) GetState() int {
+	return u.getState()
+}

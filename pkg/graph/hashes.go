@@ -54,17 +54,5 @@ func QuickXORHashStream(reader io.ReadSeeker) string {
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
 }
 
-// VerifyChecksum checks to see if a DriveItem's checksum matches what it's
-// supposed to be. This is less of a cryptographic check and more of a file
-// integrity check.
-func (d *DriveItem) VerifyChecksum(checksum string) bool {
-	if len(checksum) == 0 || d.File == nil {
-		return false
-	}
-	return strings.EqualFold(d.File.Hashes.QuickXorHash, checksum)
-}
-
-// ETagIsMatch returns true if the etag matches the one in the DriveItem
-func (d *DriveItem) ETagIsMatch(etag string) bool {
-	return d.ETag != "" && d.ETag == etag
-}
+// Note: VerifyChecksum and ETagIsMatch methods have been moved to api.DriveItem
+// They are available through the type alias DriveItem = api.DriveItem

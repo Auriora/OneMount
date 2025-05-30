@@ -44,7 +44,20 @@ const (
 
 // UploadSessionInterface defines the interface for an upload session
 type UploadSessionInterface interface {
-	// Add methods as needed
+	// Upload starts the upload process for the session
+	Upload(auth *graph.Auth) error
+
+	// GetID returns the ID of the item being uploaded
+	GetID() string
+
+	// GetName returns the name of the item being uploaded
+	GetName() string
+
+	// GetSize returns the size of the item being uploaded
+	GetSize() uint64
+
+	// GetState returns the current state of the upload
+	GetState() int
 }
 
 // UploadManagerInterface defines the interface for the upload manager
@@ -112,7 +125,7 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 		highPriorityQueue:          make(chan *UploadSession),
 		lowPriorityQueue:           make(chan *UploadSession),
 		queue:                      make(chan *UploadSession), // Legacy queue for backward compatibility
-		deletionQueue:              make(chan string, 1000),   // FIXME - why does this chan need to be buffered now???
+		deletionQueue:              make(chan string, 1000),   // Buffered to prevent CancelUpload from blocking when uploadLoop is busy
 		sessions:                   make(map[string]*UploadSession),
 		sessionPriorities:          make(map[string]UploadPriority),
 		pendingHighPriorityUploads: make(map[string]bool),

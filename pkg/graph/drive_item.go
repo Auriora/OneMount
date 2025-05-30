@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/auriora/onemount/pkg/graph/api"
 	"github.com/auriora/onemount/pkg/logging"
 )
 
@@ -18,68 +19,14 @@ const (
 	// Other possible values include "business" and "documentLibrary"
 )
 
-// DriveItemParent describes a DriveItem's parent in the Graph API
-// https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/itemreference
-type DriveItemParent struct {
-	//TODO Path is technically available, but we shouldn't use it
-	Path      string `json:"path,omitempty"`
-	ID        string `json:"id,omitempty"`
-	DriveID   string `json:"driveId,omitempty"`
-	DriveType string `json:"driveType,omitempty"` // personal | business | documentLibrary
-}
-
-// Folder is used for parsing only
-// https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/folder
-type Folder struct {
-	ChildCount uint32 `json:"childCount,omitempty"`
-}
-
-// Hashes are integrity hashes used to determine if file content has changed.
-// https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes
-type Hashes struct {
-	SHA1Hash     string `json:"sha1Hash,omitempty"`
-	QuickXorHash string `json:"quickXorHash,omitempty"`
-}
-
-// File is used for checking for changes in local files (relative to the server).
-// https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/file
-type File struct {
-	Hashes Hashes `json:"hashes,omitempty"`
-}
-
-// Deleted is used for detecting when items get deleted on the server
-// https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/deleted
-type Deleted struct {
-	State string `json:"state,omitempty"`
-}
-
-// DriveItem contains the data fields from the Graph API
-// https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/driveitem
-type DriveItem struct {
-	ID               string           `json:"id,omitempty"`
-	Name             string           `json:"name,omitempty"`
-	Size             uint64           `json:"size,omitempty"`
-	ModTime          *time.Time       `json:"lastModifiedDatetime,omitempty"`
-	Parent           *DriveItemParent `json:"parentReference,omitempty"`
-	Folder           *Folder          `json:"folder,omitempty"`
-	File             *File            `json:"file,omitempty"`
-	Deleted          *Deleted         `json:"deleted,omitempty"`
-	ConflictBehavior string           `json:"@microsoft.graph.conflictBehavior,omitempty"`
-	ETag             string           `json:"eTag,omitempty"`
-}
-
-// IsDir returns if the DriveItem represents a directory or not
-func (d *DriveItem) IsDir() bool {
-	return d.Folder != nil
-}
-
-// ModTimeUnix returns the modification time as a unix uint64 time
-func (d *DriveItem) ModTimeUnix() uint64 {
-	if d.ModTime == nil {
-		return 0
-	}
-	return uint64(d.ModTime.Unix())
-}
+// Type aliases for backward compatibility during migration
+// These will be removed once all code is updated to use api.* types directly
+type DriveItem = api.DriveItem
+type DriveItemParent = api.DriveItemParent
+type Folder = api.Folder
+type File = api.File
+type Hashes = api.Hashes
+type Deleted = api.Deleted
 
 // getItem is the internal method used to lookup items
 func getItem(path string, auth *Auth) (*DriveItem, error) {
@@ -250,10 +197,7 @@ func Rename(itemID string, itemName string, parentID string, auth *Auth) error {
 }
 
 // only used for parsing
-type driveChildren struct {
-	Children []*DriveItem `json:"value"`
-	NextLink string       `json:"@odata.nextLink"`
-}
+type driveChildren = api.DriveChildren
 
 // this is the internal method that actually fetches an item's children
 func getItemChildren(pollURL string, auth *Auth) ([]*DriveItem, error) {

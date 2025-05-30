@@ -27,7 +27,8 @@ func getAuthCode(a AuthConfig, accountName string) (string, error) {
 
 	code, err := parseAuthCode(response)
 	if err != nil {
-		//TODO create a popup with the auth failure message here instead of a log message
+		// Show auth failure popup using C GTK directly to avoid dependency issues
+		showAuthFailureDialog(err.Error())
 		return "", fmt.Errorf("no validation code returned, or code was invalid: %w", err)
 	}
 	return code, nil
@@ -45,4 +46,11 @@ func uriGetHost(uri string) string {
 		return ""
 	}
 	return C.GoString(host)
+}
+
+// showAuthFailureDialog displays an error dialog for authentication failures
+func showAuthFailureDialog(message string) {
+	cMessage := C.CString(message)
+	defer C.free(unsafe.Pointer(cMessage))
+	C.show_auth_failure_dialog(cMessage)
 }

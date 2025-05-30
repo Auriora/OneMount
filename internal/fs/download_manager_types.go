@@ -16,7 +16,20 @@ const (
 
 // DownloadSessionInterface defines the interface for a download session
 type DownloadSessionInterface interface {
-	// Add methods as needed
+	// GetID returns the ID of the item being downloaded
+	GetID() string
+
+	// GetPath returns the path of the item being downloaded
+	GetPath() string
+
+	// GetState returns the current state of the download
+	GetState() DownloadState
+
+	// GetError returns any error that occurred during download
+	GetError() error
+
+	// IsComplete returns true if the download has completed successfully
+	IsComplete() bool
 }
 
 // DownloadManagerInterface defines the interface for the download manager

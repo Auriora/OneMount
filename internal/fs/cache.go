@@ -409,6 +409,60 @@ func (f *Filesystem) ProcessOfflineChanges() {
 	f.ProcessOfflineChangesWithContext(context.Background())
 }
 
+// ProcessOfflineChangesWithSyncManager processes offline changes using the enhanced sync manager
+func (f *Filesystem) ProcessOfflineChangesWithSyncManager(ctx context.Context) (*SyncResult, error) {
+	syncManager := NewSyncManager(f)
+	return syncManager.ProcessOfflineChangesWithRetry(ctx)
+}
+
+// getOfflineChanges retrieves all offline changes from the database
+func (f *Filesystem) getOfflineChanges(ctx context.Context) ([]*OfflineChange, error) {
+	changes := make([]*OfflineChange, 0)
+
+	err := f.db.View(func(tx *bolt.Tx) error {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Continue with normal operation
+		}
+
+		b := tx.Bucket(bucketOfflineChanges)
+		if b == nil {
+			return nil
+		}
+
+		return b.ForEach(func(k, v []byte) error {
+			// Check for context cancellation periodically
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				// Continue with normal operation
+			}
+
+			change := &OfflineChange{}
+			if err := json.Unmarshal(v, change); err != nil {
+				return err
+			}
+			changes = append(changes, change)
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort changes by timestamp
+	sort.Slice(changes, func(i, j int) bool {
+		return changes[i].Timestamp.Before(changes[j].Timestamp)
+	})
+
+	return changes, nil
+}
+
 // ProcessOfflineChangesWithContext processes all changes made while offline with context support
 // This allows the operation to be cancelled if the filesystem is being shut down
 func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {

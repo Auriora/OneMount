@@ -1,11 +1,12 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"testing"
+	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/testutil/framework"
+	"github.com/auriora/onemount/pkg/testutil/helpers"
 )
 
 // TestIT_FS_03_01_Delta_SyncOperations_ChangesAreSynced tests delta operations for syncing changes.
@@ -107,12 +108,70 @@ func TestIT_FS_05_01_Delta_ConflictingChanges_LocalChangesPreserved(t *testing.T
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// TODO: Implement the test case
-		// 1. Create a file with initial content
-		// 2. Change the content both locally and remotely
-		// 3. Verify that local changes are preserved
-		assert.True(true, "Placeholder assertion")
-		t.Skip("Test not implemented yet")
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*Filesystem)
+
+		// Step 1: Create a file with initial content
+		testFileID := "test_conflict_file_123"
+		testFileName := "conflict_test.txt"
+		initialContent := "Initial content"
+
+		// Create local item with changes
+		localItem := &graph.DriveItem{
+			ID:   testFileID,
+			Name: testFileName,
+			Size: uint64(len(initialContent)),
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: "local_hash_123",
+				},
+			},
+			ModTime: &time.Time{},
+			ETag:    "local_etag",
+		}
+		localTime := time.Now().Add(-1 * time.Hour)
+		localItem.ModTime = &localTime
+
+		localInode := NewInodeDriveItem(localItem)
+		localInode.hasChanges = true // Mark as having local changes
+		filesystem.InsertID(testFileID, localInode)
+
+		// Step 2: Simulate remote changes with different content
+		remoteContent := "Different remote content"
+		remoteItem := &graph.DriveItem{
+			ID:   testFileID,
+			Name: testFileName,
+			Size: uint64(len(remoteContent)),
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: "remote_hash_456", // Different hash
+				},
+			},
+			ModTime: &time.Time{},
+			ETag:    "remote_etag", // Different ETag
+			Parent: &graph.DriveItemParent{
+				ID: "parent123",
+			},
+		}
+		remoteTime := time.Now() // More recent than local
+		remoteItem.ModTime = &remoteTime
+
+		// Step 3: Apply delta and verify local changes are preserved
+		err := filesystem.applyDelta(remoteItem)
+		assert.NoError(err, "Should apply delta without error")
+
+		// Verify that local item still exists
+		localItemAfter := filesystem.GetID(testFileID)
+		assert.NotNil(localItemAfter, "Local item should still exist")
+
+		// Verify that local changes are preserved (hasChanges should still be true)
+		assert.True(localItemAfter.HasChanges(), "Local changes should be preserved")
+
+		// Note: In a real conflict scenario, the system should detect the conflict
+		// and handle it according to the configured strategy. For this test,
+		// we're verifying that the delta application doesn't lose local changes.
 	})
 }
 
