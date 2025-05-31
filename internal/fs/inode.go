@@ -319,16 +319,6 @@ func RandString(length int) string {
 	return string(b)
 }
 
-// LocalID generates a local ID for a new Inode.
-func LocalID() string {
-	return "local-" + RandString(16)
-}
-
-// IsLocalID returns true if the ID is a local ID.
-func IsLocalID(id string) bool {
-	return strings.HasPrefix(id, "local-")
-}
-
 // GetID returns the ID of the Inode.
 func (i *Inode) GetID() string {
 	i.RLock()

@@ -579,7 +579,7 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 
 // Poll implements the poll operation for the FUSE filesystem.
 // This method is called when the kernel wants to check if a file descriptor is ready for I/O.
-func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
+func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, _ *fuse.OutHeader) fuse.Status {
 	logging.Trace().
 		Str("op", "Poll").
 		Uint64("nodeID", in.NodeId).
@@ -598,7 +598,7 @@ func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHea
 
 // PollOperationHandler is an alternative implementation of the poll operation.
 // This is provided as a fallback in case the Poll method is not recognized by the go-fuse library.
-func (f *Filesystem) PollOperationHandler(_ <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status {
+func (f *Filesystem) PollOperationHandler(_ <-chan struct{}, in *fuse.InHeader, _ *fuse.OutHeader) fuse.Status {
 	logging.Trace().
 		Str("op", "PollOperationHandler").
 		Uint64("nodeID", in.NodeId).

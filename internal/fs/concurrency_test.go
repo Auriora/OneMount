@@ -302,7 +302,7 @@ func TestDeadlockPrevention(t *testing.T) {
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
-		require := require.New(t)
+		requireAssert := require.New(t)
 		unitTestFixture := fixture.(*framework.UnitTestFixture)
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
@@ -463,7 +463,7 @@ func TestDeadlockPrevention(t *testing.T) {
 		// Verify filesystem is still functional after the test
 		for i, file := range testFiles {
 			cachedFile := fs.GetID(fmt.Sprintf("deadlock_test_file_%d", i))
-			require.NotNil(cachedFile, "File should still be accessible after deadlock test")
+			requireAssert.NotNil(cachedFile, "File should still be accessible after deadlock test")
 			assert.Equal(file.Name(), cachedFile.Name(), "File name should be intact")
 		}
 	})
@@ -858,7 +858,7 @@ func TestConcurrentDirectoryOperations(t *testing.T) {
 
 						// Access some files in the directory
 						if files, exists := testFiles[dir.ID()]; exists {
-							for k := 0; k < min(3, len(files)); k++ {
+							for k := 0; k < minInt(3, len(files)); k++ {
 								file := files[k]
 								file.RLock()
 								_ = file.Name()
@@ -924,8 +924,8 @@ func TestConcurrentDirectoryOperations(t *testing.T) {
 	})
 }
 
-// min returns the minimum of two integers
-func min(a, b int) int {
+// minInt returns the minimum of two integers
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
