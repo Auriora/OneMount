@@ -1,0 +1,232 @@
+name: Coverage Analysis and Reporting
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run coverage analysis daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  coverage:
+    name: Coverage Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for trend analysis
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-3-dev \
+          libwebkit2gtk-4.0-dev \
+          pkg-config
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install matplotlib pandas numpy jinja2
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Create coverage directory
+      run: mkdir -p coverage
+    
+    - name: Run tests with coverage
+      run: |
+        go test -v -coverprofile=coverage/coverage.out ./...
+        go tool cover -func=coverage/coverage.out > coverage/coverage-summary.txt
+    
+    - name: Generate coverage reports
+      run: |
+        chmod +x scripts/coverage-report.sh
+        bash scripts/coverage-report.sh --ci
+    
+    - name: Generate coverage trends
+      run: |
+        if [ -f coverage/coverage_history.json ]; then
+          python3 scripts/coverage-trend-analysis.py \
+            --input coverage/coverage_history.json \
+            --output coverage/trends.html
+        fi
+    
+    - name: Check coverage thresholds
+      run: |
+        # Extract total coverage percentage
+        COVERAGE=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Total coverage: ${COVERAGE}%"
+        
+        # Check against threshold (80%)
+        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          echo "❌ Coverage ${COVERAGE}% is below threshold of 80%"
+          exit 1
+        else
+          echo "✅ Coverage ${COVERAGE}% meets threshold of 80%"
+        fi
+    
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-reports
+        path: |
+          coverage/
+          !coverage/coverage.out
+        retention-days: 30
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: coverage/coverage.out
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+    
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read coverage summary
+          const coverageSummary = fs.readFileSync('coverage/coverage-summary.txt', 'utf8');
+          const lines = coverageSummary.split('\n');
+          const totalLine = lines.find(line => line.includes('total:'));
+          
+          if (totalLine) {
+            const coverage = totalLine.split('\t').pop();
+            
+            const comment = `## 📊 Coverage Report
+            
+            **Total Coverage:** ${coverage}
+            
+            <details>
+            <summary>📋 Coverage by Package</summary>
+            
+            \`\`\`
+            ${coverageSummary}
+            \`\`\`
+            </details>
+            
+            Coverage reports are available in the [workflow artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
+    
+    - name: Update coverage badge
+      if: github.ref == 'refs/heads/main'
+      run: |
+        # Extract coverage percentage for badge
+        COVERAGE=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "COVERAGE_PERCENTAGE=${COVERAGE}" >> $GITHUB_ENV
+        
+        # Determine badge color
+        if (( $(echo "$COVERAGE >= 90" | bc -l) )); then
+          echo "BADGE_COLOR=brightgreen" >> $GITHUB_ENV
+        elif (( $(echo "$COVERAGE >= 80" | bc -l) )); then
+          echo "BADGE_COLOR=green" >> $GITHUB_ENV
+        elif (( $(echo "$COVERAGE >= 70" | bc -l) )); then
+          echo "BADGE_COLOR=yellow" >> $GITHUB_ENV
+        elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
+          echo "BADGE_COLOR=orange" >> $GITHUB_ENV
+        else
+          echo "BADGE_COLOR=red" >> $GITHUB_ENV
+        fi
+    
+    - name: Create coverage summary
+      if: always()
+      run: |
+        echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract coverage data
+        TOTAL_COVERAGE=$(go tool cover -func=coverage/coverage.out | grep total | awk '{print $3}')
+        echo "| Total Coverage | ${TOTAL_COVERAGE} |" >> $GITHUB_STEP_SUMMARY
+        
+        # Count packages
+        PACKAGE_COUNT=$(go tool cover -func=coverage/coverage.out | grep -v total | wc -l)
+        echo "| Packages Tested | ${PACKAGE_COUNT} |" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 [View detailed coverage report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+
+  coverage-gap-analysis:
+    name: Coverage Gap Analysis
+    runs-on: ubuntu-latest
+    needs: coverage
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Download coverage reports
+      uses: actions/download-artifact@v3
+      with:
+        name: coverage-reports
+        path: coverage/
+    
+    - name: Analyze coverage gaps
+      run: |
+        echo "## 🔍 Coverage Gap Analysis" >> gap-analysis.md
+        echo "" >> gap-analysis.md
+        
+        # Find files with low coverage
+        go tool cover -func=coverage/coverage.out | awk '$3 < 80 && $1 != "total:" {print $1 " " $3}' > low-coverage.txt
+        
+        if [ -s low-coverage.txt ]; then
+          echo "### Files with coverage below 80%:" >> gap-analysis.md
+          echo "" >> gap-analysis.md
+          echo "| File | Coverage |" >> gap-analysis.md
+          echo "|------|----------|" >> gap-analysis.md
+          
+          while read -r file coverage; do
+            echo "| \`$file\` | $coverage |" >> gap-analysis.md
+          done < low-coverage.txt
+        else
+          echo "✅ All files meet the 80% coverage threshold!" >> gap-analysis.md
+        fi
+        
+        echo "" >> gap-analysis.md
+        echo "Generated on: $(date)" >> gap-analysis.md
+    
+    - name: Upload gap analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-gap-analysis
+        path: gap-analysis.md
+        retention-days: 30

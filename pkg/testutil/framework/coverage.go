@@ -1226,10 +1226,173 @@ func (cr *CoverageReporterImpl) GenerateCIReports() error {
 		return err
 	}
 
+	// Generate CI summary report
+	if err := cr.GenerateCISummaryReport(); err != nil {
+		return err
+	}
+
+	// Generate coverage gaps report
+	if err := cr.GenerateCoverageGapsReport(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
+// GenerateCISummaryReport generates a summary report for CI/CD systems
+func (cr *CoverageReporterImpl) GenerateCISummaryReport() error {
+	if cr.outputDir == "" {
+		return nil
+	}
+
+	// Calculate overall statistics
+	totalCoverage := cr.calculateOverallCoverage()
+	packageCount := len(cr.packageCoverage)
+
+	// Count packages below threshold
+	belowThreshold := 0
+	for _, pkg := range cr.packageCoverage {
+		if pkg.LineCoverage < cr.thresholds.LineCoverage {
+			belowThreshold++
+		}
+	}
+
+	// Create the summary report file
+	summaryFile := filepath.Join(cr.outputDir, "ci-summary.json")
+	file, err := os.Create(summaryFile)
+	if err != nil {
+		return fmt.Errorf("failed to create CI summary file: %v", err)
+	}
+	defer file.Close()
+
+	// Generate summary data
+	summary := map[string]interface{}{
+		"timestamp":                time.Now().Unix(),
+		"total_coverage":           totalCoverage,
+		"package_count":            packageCount,
+		"packages_below_threshold": belowThreshold,
+		"thresholds": map[string]float64{
+			"line":   cr.thresholds.LineCoverage,
+			"func":   cr.thresholds.FuncCoverage,
+			"branch": cr.thresholds.BranchCoverage,
+		},
+		"status": map[string]interface{}{
+			"passing": totalCoverage >= cr.thresholds.LineCoverage,
+			"message": func() string {
+				if totalCoverage >= cr.thresholds.LineCoverage {
+					return fmt.Sprintf("Coverage %.1f%% meets threshold of %.1f%%", totalCoverage, cr.thresholds.LineCoverage)
+				}
+				return fmt.Sprintf("Coverage %.1f%% below threshold of %.1f%%", totalCoverage, cr.thresholds.LineCoverage)
+			}(),
+		},
+	}
+
+	// Write JSON
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(summary)
+}
+
+// GenerateCoverageGapsReport generates a detailed report of coverage gaps
+func (cr *CoverageReporterImpl) GenerateCoverageGapsReport() error {
+	if cr.outputDir == "" {
+		return nil
+	}
+
+	// Create the gaps report file
+	gapsFile := filepath.Join(cr.outputDir, "coverage-gaps.json")
+	file, err := os.Create(gapsFile)
+	if err != nil {
+		return fmt.Errorf("failed to create coverage gaps file: %v", err)
+	}
+	defer file.Close()
+
+	// Collect gaps data
+	gaps := struct {
+		Timestamp       int64        `json:"timestamp"`
+		ThresholdLine   float64      `json:"threshold_line"`
+		PackagesBelow   []PackageGap `json:"packages_below_threshold"`
+		FilesBelow      []FileGap    `json:"files_below_threshold"`
+		Recommendations []string     `json:"recommendations"`
+	}{
+		Timestamp:       time.Now().Unix(),
+		ThresholdLine:   cr.thresholds.LineCoverage,
+		PackagesBelow:   make([]PackageGap, 0),
+		FilesBelow:      make([]FileGap, 0),
+		Recommendations: make([]string, 0),
+	}
+
+	// Find packages below threshold
+	for pkgPath, pkg := range cr.packageCoverage {
+		if pkg.LineCoverage < cr.thresholds.LineCoverage {
+			gaps.PackagesBelow = append(gaps.PackagesBelow, PackageGap{
+				Package:  pkgPath,
+				Coverage: pkg.LineCoverage,
+				Gap:      cr.thresholds.LineCoverage - pkg.LineCoverage,
+			})
+		}
+
+		// Find files below threshold
+		for filePath, file := range pkg.Files {
+			if file.LineCoverage < cr.thresholds.LineCoverage {
+				gaps.FilesBelow = append(gaps.FilesBelow, FileGap{
+					Package:  pkgPath,
+					File:     filePath,
+					Coverage: file.LineCoverage,
+					Gap:      cr.thresholds.LineCoverage - file.LineCoverage,
+				})
+			}
+		}
+	}
+
+	// Generate recommendations
+	if len(gaps.PackagesBelow) > 0 {
+		gaps.Recommendations = append(gaps.Recommendations,
+			fmt.Sprintf("Focus on %d packages below %.1f%% coverage threshold",
+				len(gaps.PackagesBelow), cr.thresholds.LineCoverage))
+	}
+
+	if len(gaps.FilesBelow) > 0 {
+		gaps.Recommendations = append(gaps.Recommendations,
+			fmt.Sprintf("Add tests for %d files with low coverage", len(gaps.FilesBelow)))
+	}
+
+	// Write JSON
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(gaps)
+}
+
+// PackageGap represents a package with coverage below threshold
+type PackageGap struct {
+	Package  string  `json:"package"`
+	Coverage float64 `json:"coverage"`
+	Gap      float64 `json:"gap"`
+}
+
+// FileGap represents a file with coverage below threshold
+type FileGap struct {
+	Package  string  `json:"package"`
+	File     string  `json:"file"`
+	Coverage float64 `json:"coverage"`
+	Gap      float64 `json:"gap"`
+}
+
 // Helper functions
+
+// calculateOverallCoverage calculates the overall coverage percentage
+func (cr *CoverageReporterImpl) calculateOverallCoverage() float64 {
+	if len(cr.packageCoverage) == 0 {
+		return 0.0
+	}
+
+	totalCoverage := 0.0
+	for _, pkg := range cr.packageCoverage {
+		totalCoverage += pkg.LineCoverage
+	}
+
+	return totalCoverage / float64(len(cr.packageCoverage))
+}
 
 // parseFloat parses a string to a float64
 func parseFloat(s string) (float64, error) {

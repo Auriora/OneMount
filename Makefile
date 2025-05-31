@@ -143,3 +143,26 @@ integration-test:
 # Run system tests
 system-test:
 	go test -v ./pkg/testutil/system_test_env_test.go -timeout $(TEST_TIMEOUT)
+
+# Coverage targets
+coverage:
+	mkdir -p coverage
+	go test -v -coverprofile=coverage/coverage.out ./...
+	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+
+coverage-report:
+	@echo "Generating comprehensive coverage report..."
+	mkdir -p coverage
+	go test -v -coverprofile=coverage/coverage.out ./...
+	bash scripts/coverage-report.sh
+
+coverage-ci:
+	@echo "Running coverage analysis for CI/CD..."
+	mkdir -p coverage
+	go test -v -coverprofile=coverage/coverage.out ./...
+	go tool cover -func=coverage/coverage.out
+	bash scripts/coverage-report.sh --ci
+
+coverage-trend:
+	@echo "Analyzing coverage trends..."
+	python3 scripts/coverage-trend-analysis.py --input coverage/coverage_history.json --output coverage/trends.html
