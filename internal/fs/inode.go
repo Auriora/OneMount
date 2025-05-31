@@ -30,8 +30,10 @@ func NewInode(name string, mode uint32, parent *Inode) *Inode {
 		itemParent.Path = parent.Path()
 		parent.RLock()
 		itemParent.ID = parent.DriveItem.ID
-		itemParent.DriveID = parent.DriveItem.Parent.DriveID
-		itemParent.DriveType = parent.DriveItem.Parent.DriveType
+		if parent.DriveItem.Parent != nil {
+			itemParent.DriveID = parent.DriveItem.Parent.DriveID
+			itemParent.DriveType = parent.DriveItem.Parent.DriveType
+		}
 		parent.RUnlock()
 	}
 

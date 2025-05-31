@@ -287,11 +287,11 @@
 - ✅ **Test Coverage**: 16 new tests added to `pkg/graph/error_handling_test.go` with proper error type validation and message verification
 - ✅ **Test Quality**: All tests follow established naming conventions (TestUT_GR_ERR_XX_XX) and use appropriate error types (NetworkError, TimeoutError)
 - ✅ **Test Results**: All 16 new network error scenario tests pass consistently (verified with `go test -v ./pkg/graph -run "TestUT_GR_ERR_0[4-7]"`)
-- [ ] **File System Error Scenarios**
-  - [ ] Add tests for disk space exhaustion
-  - [ ] Add tests for permission denied errors
-  - [ ] Add tests for file locking conflicts
-  - [ ] Add tests for corrupted file handling
+- [x] **File System Error Scenarios**
+  - [x] Add tests for disk space exhaustion
+  - [x] Add tests for permission denied errors
+  - [x] Add tests for file locking conflicts
+  - [x] Add tests for corrupted file handling
 - [ ] **Concurrency and Race Condition Testing**
   - [ ] Add tests for concurrent file access
   - [ ] Add tests for cache consistency under load

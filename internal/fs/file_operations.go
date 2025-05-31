@@ -409,7 +409,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.EBADF)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EBADF))
 		return 0, fuse.EBADF
 	}
 
@@ -443,7 +443,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 			logging.FieldOperation, "file_write",
 			logging.FieldID, id,
 			logging.FieldPath, path)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.EIO)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EIO))
 		return 0, fuse.EIO
 	}
 
@@ -457,7 +457,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 			logging.FieldPath, path,
 			logging.FieldOffset, offset,
 			logging.FieldSize, nWrite)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), fuse.EIO)
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), int32(fuse.EIO))
 		return uint32(n), fuse.EIO
 	}
 
@@ -479,7 +479,7 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 			Msg("File write completed successfully")
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), fuse.OK)
+	defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), int32(fuse.OK))
 	return uint32(n), fuse.OK
 }
 
