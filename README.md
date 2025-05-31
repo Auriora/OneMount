@@ -256,11 +256,19 @@ make deb
 
 For more information about OneMount:
 
+### User Documentation
 * [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
 * [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
 * [Troubleshooting Guide](docs/troubleshooting-guide.md) - Solutions for common issues and problems
 * [Offline Functionality](docs/offline-functionality.md) - Complete guide to offline features and synchronization
+
+### Developer Documentation
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
+* [OneMount Consolidated Action Plan](docs/OneMount-Consolidated-Action-Plan.md) - **Current project status, priorities, and AI implementation prompts**
+* [Solo Developer AI Process](docs/Solo-Developer-AI-Process.md) - Project-agnostic development methodology
+* [Documentation Consolidation Summary](docs/0-project-management/DOCUMENTATION_CONSOLIDATION_SUMMARY.md) - Overview of recent documentation updates
+
+### Project Resources
 * [GitHub Issues](https://github.com/auriora/OneMount/issues) - Report bugs or request features
 * [GitHub Releases](https://github.com/auriora/OneMount/releases) - Download the latest releases
 
