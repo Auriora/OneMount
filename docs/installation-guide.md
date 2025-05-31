@@ -26,9 +26,21 @@ The installation process involves:
 
 Before installing OneMount, ensure your system meets the following requirements:
 
-* A Linux system with FUSE support
-* A Microsoft OneDrive account
-* Internet connection (for initial setup and downloading files)
+### Minimum Requirements
+* **Operating System**: Linux with FUSE support (kernel 2.6.14 or later)
+* **Architecture**: x86_64 (64-bit)
+* **Memory**: 512 MB RAM minimum, 1 GB recommended
+* **Storage**: 100 MB free disk space for installation, additional space for file cache
+* **Network**: Internet connection (for initial setup and downloading files)
+* **Account**: Microsoft OneDrive account
+
+### Supported Distributions
+* **Fedora**: 35 and later
+* **CentOS/RHEL**: 8 and later
+* **Ubuntu**: 20.04 LTS and later
+* **Debian**: 11 (Bullseye) and later
+* **Arch Linux**: Current rolling release
+* **Other**: Most modern Linux distributions with FUSE support
 
 ## Before you begin
 
@@ -36,10 +48,34 @@ Before installing OneMount, ensure you have:
 
 * Administrative privileges (sudo access) for system-wide installation
 * FUSE filesystem support enabled on your system
-* For building from source:
-  * Go programming language
-  * GCC compiler
-  * webkit2gtk-4.0 and json-glib development headers
+
+### For Building from Source
+
+The following dependencies are required when building OneMount from source:
+
+#### Runtime Dependencies
+* **Go**: Version 1.24.2 or later
+* **GCC**: C compiler for CGO compilation
+* **pkg-config**: For library configuration
+
+#### Development Libraries
+* **webkit2gtk-4.0**: For GUI authentication components
+* **json-glib**: For JSON processing in GUI components
+
+#### Verification Commands
+```bash
+# Check Go version
+go version
+
+# Check GCC availability
+gcc --version
+
+# Check pkg-config
+pkg-config --version
+
+# Verify FUSE support
+modinfo fuse
+```
 
 ## Installation steps
 
@@ -61,15 +97,23 @@ Users on Fedora/CentOS/RHEL systems are recommended to install OneMount from [CO
 
 #### Ubuntu/Pop!\_OS/Debian
 
-If you previously installed onemount via PPA, you can purge the old PPA from your system via:
+**Package installation for Ubuntu/Debian is currently in development.**
+
+For now, please use the [Building from Source](#building-from-source) method below.
+
+If you previously installed onemount via PPA, you can remove the old PPA from your system:
 
 ```bash
-# TODO: Fix PPA removal instructions - current command may be invalid
-# Need to verify correct PPA name and removal procedure
-# Target: v1.1 release
-# Alternative: Provide manual removal steps for /etc/apt/sources.list.d/
+# Remove old PPA if previously added
 sudo add-apt-repository --remove ppa:auriora/onemount
+sudo apt update
+
+# Or manually remove PPA files
+sudo rm -f /etc/apt/sources.list.d/auriora-ubuntu-onemount-*.list
+sudo apt update
 ```
+
+**Note**: Official Ubuntu/Debian packages will be available in a future release.
 
 ### Building from Source
 

@@ -258,6 +258,8 @@ For more information about OneMount:
 
 * [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
 * [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
+* [Troubleshooting Guide](docs/troubleshooting-guide.md) - Solutions for common issues and problems
+* [Offline Functionality](docs/offline-functionality.md) - Complete guide to offline features and synchronization
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
 * [GitHub Issues](https://github.com/auriora/OneMount/issues) - Report bugs or request features
 * [GitHub Releases](https://github.com/auriora/OneMount/releases) - Download the latest releases
@@ -278,12 +280,15 @@ For more information about OneMount:
 
 If you encounter issues with OneMount:
 
-1. Check the [Troubleshooting section in the installation guide](docs/installation-guide.md#troubleshooting)
-2. Search existing [GitHub Issues](https://github.com/auriora/OneMount/issues) to see if your problem has been reported
-3. Open a new issue with:
-   - Log output (`journalctl --user -u $SERVICE_NAME --since today`)
+1. **Check the troubleshooting guide**: [Troubleshooting Guide](docs/troubleshooting-guide.md) - comprehensive solutions for common issues
+2. **Review installation documentation**: [Installation Guide](docs/installation-guide.md) - detailed setup and configuration instructions
+3. **Search existing issues**: [GitHub Issues](https://github.com/auriora/OneMount/issues) to see if your problem has been reported
+4. **Report new issues** with:
+   - System information (Linux distribution, OneMount version)
+   - Debug output (`ONEMOUNT_DEBUG=1 onemount /mount/path`)
+   - Log output (`journalctl --user -u onemount@* --since today`)
    - Steps to reproduce the issue
-   - Your Linux distribution and version
+   - Expected vs. actual behavior
 
 ## Terms of use
 
