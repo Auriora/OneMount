@@ -272,12 +272,21 @@
   - [x] Add tests for concurrent transfer management
   - [x] Add tests for transfer cancellation and cleanup
 
-#### Phase 3: Error Path and Edge Case Testing 🔍 **PLANNED**
-- [ ] **Network Error Scenarios**
-  - [ ] Add tests for network connectivity loss during operations
-  - [ ] Add tests for API timeout handling
-  - [ ] Add tests for DNS resolution failures
-  - [ ] Add tests for SSL/TLS certificate errors
+#### Phase 3: Error Path and Edge Case Testing 🔍 **IN PROGRESS**
+- [x] **Network Error Scenarios** ✅ **COMPLETED**
+  - [x] Add tests for network connectivity loss during operations ✅ **COMPLETED**
+  - [x] Add tests for API timeout handling ✅ **COMPLETED**
+  - [x] Add tests for DNS resolution failures ✅ **COMPLETED**
+  - [x] Add tests for SSL/TLS certificate errors ✅ **COMPLETED**
+
+**Network Error Scenarios Implementation Summary:**
+- ✅ **Network Connectivity Loss Tests**: 3 comprehensive tests covering network unreachable, connection reset, and no route to host scenarios
+- ✅ **API Timeout Handling Tests**: 4 comprehensive tests covering request timeout, context timeout, read timeout, and write timeout scenarios
+- ✅ **DNS Resolution Failure Tests**: 4 comprehensive tests covering host not found, DNS timeout, DNS server unavailable, and temporary DNS failure scenarios
+- ✅ **SSL/TLS Certificate Error Tests**: 5 comprehensive tests covering certificate expired, untrusted certificate, hostname mismatch, SSL handshake failure, and TLS version mismatch scenarios
+- ✅ **Test Coverage**: 16 new tests added to `pkg/graph/error_handling_test.go` with proper error type validation and message verification
+- ✅ **Test Quality**: All tests follow established naming conventions (TestUT_GR_ERR_XX_XX) and use appropriate error types (NetworkError, TimeoutError)
+- ✅ **Test Results**: All 16 new network error scenario tests pass consistently (verified with `go test -v ./pkg/graph -run "TestUT_GR_ERR_0[4-7]"`)
 - [ ] **File System Error Scenarios**
   - [ ] Add tests for disk space exhaustion
   - [ ] Add tests for permission denied errors

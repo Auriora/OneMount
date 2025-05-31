@@ -55,3 +55,4 @@ __pycache__
 .auth_tokens.json
 !README.*.md
 .output.txt
+/coverage.html
