@@ -259,12 +259,12 @@
   - Cache consistency after modifications
 - ✅ **Test Coverage**: All test files use proper fixture patterns and comprehensive error handling
 - ✅ **Test Quality**: Tests include detailed documentation with Test Case IDs, descriptions, and expected results
-- [ ] **Graph API Operations (Target: 60% coverage)**
-  - [ ] Add tests for all HTTP request methods (GET, POST, PUT, DELETE)
-  - [ ] Add tests for authentication token refresh
-  - [ ] Add tests for API error response handling
-  - [ ] Add tests for rate limiting and retry logic
-  - [ ] Add tests for pagination handling
+- [x] **Graph API Operations (Target: 60% coverage)**
+  - [x] Add tests for all HTTP request methods (GET, POST, PUT, DELETE)
+  - [x] Add tests for authentication token refresh
+  - [x] Add tests for API error response handling
+  - [x] Add tests for rate limiting and retry logic
+  - [x] Add tests for pagination handling
 - [ ] **Upload/Download Manager (Target: 70% coverage)**
   - [ ] Add tests for chunk-based upload operations
   - [ ] Add tests for download resume functionality
