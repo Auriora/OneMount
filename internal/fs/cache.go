@@ -318,8 +318,8 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 	fs.uploads = NewUploadManager(2*time.Second, db, fs, auth)
 
-	// Initialize download manager with 4 worker threads
-	fs.downloads = NewDownloadManager(fs, auth, 4)
+	// Initialize download manager with 4 worker threads and database support
+	fs.downloads = NewDownloadManager(fs, auth, 4, db)
 
 	if !fs.IsOffline() {
 		// .Trash-UID is used by "gio trash" for user trash, create it if it

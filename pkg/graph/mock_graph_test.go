@@ -308,7 +308,9 @@ func TestUT_GR_07_02_MockGraphClient_ContextCancellation_FailsRequestsWithCancel
 	calls := recorder.GetCalls()
 	assert.Equal(t, 1, len(calls))
 	assert.Equal(t, "GetWithContext", calls[0].Method)
-	assert.Equal(t, context.Canceled, calls[0].Result)
+
+	// Verify that the call was recorded with the error
+	assert.Equal(t, context.Canceled, calls[0].Error)
 }
 
 // TestUT_GR_08_02_MockGraphClient_APIThrottling_SimulatesThrottling tests that the mock graph client can simulate API throttling.

@@ -52,6 +52,14 @@ type UploadSession struct {
 	ModTime            time.Time `json:"modTime,omitempty"`
 	retries            int
 
+	// Recovery and progress tracking fields
+	LastSuccessfulChunk int       `json:"lastSuccessfulChunk"`
+	TotalChunks         int       `json:"totalChunks"`
+	BytesUploaded       uint64    `json:"bytesUploaded"`
+	LastProgressTime    time.Time `json:"lastProgressTime"`
+	RecoveryAttempts    int       `json:"recoveryAttempts"`
+	CanResume           bool      `json:"canResume"`
+
 	sync.Mutex
 	UploadURL string `json:"uploadUrl"`
 	ETag      string `json:"eTag,omitempty"`
@@ -83,6 +91,41 @@ func (u *UploadSession) getState() int {
 	u.Lock()
 	defer u.Unlock()
 	return u.state
+}
+
+// updateProgress updates the upload progress and persists it
+func (u *UploadSession) updateProgress(chunkIndex int, bytesUploaded uint64) {
+	u.Lock()
+	defer u.Unlock()
+	u.LastSuccessfulChunk = chunkIndex
+	u.BytesUploaded = bytesUploaded
+	u.LastProgressTime = time.Now()
+}
+
+// canResumeUpload checks if the upload can be resumed from the last checkpoint
+func (u *UploadSession) canResumeUpload() bool {
+	u.Lock()
+	defer u.Unlock()
+	return u.CanResume && u.LastSuccessfulChunk >= 0 && u.UploadURL != ""
+}
+
+// getResumeOffset returns the byte offset from which to resume the upload
+func (u *UploadSession) getResumeOffset() uint64 {
+	u.Lock()
+	defer u.Unlock()
+	if u.LastSuccessfulChunk < 0 {
+		return 0
+	}
+	return uint64(u.LastSuccessfulChunk+1) * uploadChunkSize
+}
+
+// markAsResumable marks the session as resumable and calculates total chunks
+func (u *UploadSession) markAsResumable() {
+	u.Lock()
+	defer u.Unlock()
+	u.CanResume = true
+	u.TotalChunks = int(math.Ceil(float64(u.Size) / float64(uploadChunkSize)))
+	u.LastSuccessfulChunk = -1 // No chunks uploaded yet
 }
 
 // setState is just a helper method to set the UploadSession state and make error checking
@@ -121,6 +164,14 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 		Name:     inode.DriveItem.Name,
 		Data:     *data,
 		ModTime:  modTime,
+
+		// Initialize recovery fields
+		LastSuccessfulChunk: -1,
+		TotalChunks:         0,
+		BytesUploaded:       0,
+		LastProgressTime:    time.Now(),
+		RecoveryAttempts:    0,
+		CanResume:           false,
 	}
 	inode.RUnlock()
 
@@ -237,46 +288,68 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 			return u.setState(uploadErrored, errors.Wrap(err, "small upload failed"))
 		}
 	} else {
-		if isLocalID(u.ID) {
-			uploadPath = fmt.Sprintf(
-				"/me/drive/items/%s:/%s:/createUploadSession",
-				url.PathEscape(u.ParentID),
-				url.PathEscape(u.Name),
-			)
+		// Check if we can resume an existing upload session
+		if u.canResumeUpload() {
+			logging.Info().
+				Str("id", u.ID).
+				Str("name", u.Name).
+				Int("lastChunk", u.LastSuccessfulChunk).
+				Uint64("bytesUploaded", u.BytesUploaded).
+				Msg("Resuming upload from last checkpoint")
 		} else {
-			uploadPath = fmt.Sprintf(
-				"/me/drive/items/%s/createUploadSession",
-				url.PathEscape(u.ID),
-			)
-		}
-		sessionPostData, _ := json.Marshal(UploadSessionPost{
-			ConflictBehavior: "replace",
-			FileSystemInfo: FileSystemInfo{
-				LastModifiedDateTime: u.ModTime,
-			},
-		})
-		resp, err := graph.Post(uploadPath, auth, bytes.NewReader(sessionPostData))
-		if err != nil {
-			return u.setState(uploadErrored, errors.Wrap(err, "failed to create upload session"))
-		}
+			// Create new upload session
+			if isLocalID(u.ID) {
+				uploadPath = fmt.Sprintf(
+					"/me/drive/items/%s:/%s:/createUploadSession",
+					url.PathEscape(u.ParentID),
+					url.PathEscape(u.Name),
+				)
+			} else {
+				uploadPath = fmt.Sprintf(
+					"/me/drive/items/%s/createUploadSession",
+					url.PathEscape(u.ID),
+				)
+			}
+			sessionPostData, _ := json.Marshal(UploadSessionPost{
+				ConflictBehavior: "replace",
+				FileSystemInfo: FileSystemInfo{
+					LastModifiedDateTime: u.ModTime,
+				},
+			})
+			resp, err := graph.Post(uploadPath, auth, bytes.NewReader(sessionPostData))
+			if err != nil {
+				return u.setState(uploadErrored, errors.Wrap(err, "failed to create upload session"))
+			}
 
-		// populate UploadURL/expiration - we unmarshal into a fresh session here
-		// just in case the API does something silly at a later date and overwrites
-		// a field it shouldn't.
-		tmp := UploadSession{}
-		if err = json.Unmarshal(resp, &tmp); err != nil {
-			return u.setState(uploadErrored,
-				errors.Wrap(err, "could not unmarshal upload session post response"))
+			// populate UploadURL/expiration - we unmarshal into a fresh session here
+			// just in case the API does something silly at a later date and overwrites
+			// a field it shouldn't.
+			tmp := UploadSession{}
+			if err = json.Unmarshal(resp, &tmp); err != nil {
+				return u.setState(uploadErrored,
+					errors.Wrap(err, "could not unmarshal upload session post response"))
+			}
+			u.Lock()
+			u.UploadURL = tmp.UploadURL
+			u.ExpirationDateTime = tmp.ExpirationDateTime
+			u.Unlock()
+
+			// Mark session as resumable for large files
+			u.markAsResumable()
 		}
-		u.Lock()
-		u.UploadURL = tmp.UploadURL
-		u.ExpirationDateTime = tmp.ExpirationDateTime
-		u.Unlock()
 
 		// api upload session created successfully, now do actual content upload
 		var status int
+		var err error
 		nchunks := int(math.Ceil(float64(u.Size) / float64(uploadChunkSize)))
-		for i := 0; i < nchunks; i++ {
+
+		// Start from the next chunk after the last successful one
+		startChunk := 0
+		if u.canResumeUpload() {
+			startChunk = u.LastSuccessfulChunk + 1
+		}
+
+		for i := startChunk; i < nchunks; i++ {
 			resp, status, err = u.uploadChunk(auth, uint64(i)*uploadChunkSize)
 			if err != nil {
 				return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
@@ -297,6 +370,22 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 				if err != nil { // a serious, non 4xx/5xx error
 					return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
 				}
+			}
+
+			// Update progress after successful chunk upload
+			if status < 400 {
+				bytesUploaded := uint64(i+1) * uploadChunkSize
+				if bytesUploaded > u.Size {
+					bytesUploaded = u.Size
+				}
+				u.updateProgress(i, bytesUploaded)
+
+				logging.Debug().
+					Str("id", u.ID).
+					Int("chunk", i).
+					Int("totalChunks", nchunks).
+					Uint64("bytesUploaded", bytesUploaded).
+					Msg("Chunk uploaded successfully")
 			}
 
 			// handle client-side errors

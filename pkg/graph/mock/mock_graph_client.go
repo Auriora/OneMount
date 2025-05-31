@@ -74,11 +74,15 @@ func newBasicMockRecorder() api.MockRecorder {
 
 // basicMockRecorder is a simple implementation of the api.MockRecorder interface.
 type basicMockRecorder struct {
+	mu    sync.Mutex
 	calls []api.MockCall
 }
 
 // RecordCall records a method call.
 func (r *basicMockRecorder) RecordCall(method string, args ...interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.calls = append(r.calls, api.MockCall{
 		Method: method,
 		Args:   args,
@@ -88,6 +92,9 @@ func (r *basicMockRecorder) RecordCall(method string, args ...interface{}) {
 
 // RecordCallWithResult records a method call with a result and error.
 func (r *basicMockRecorder) RecordCallWithResult(method string, result interface{}, err error, args ...interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.calls = append(r.calls, api.MockCall{
 		Method: method,
 		Args:   args,
@@ -99,11 +106,20 @@ func (r *basicMockRecorder) RecordCallWithResult(method string, result interface
 
 // GetCalls returns all recorded calls.
 func (r *basicMockRecorder) GetCalls() []api.MockCall {
-	return r.calls
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Return a copy to avoid race conditions
+	calls := make([]api.MockCall, len(r.calls))
+	copy(calls, r.calls)
+	return calls
 }
 
 // VerifyCall verifies a method was called a specific number of times.
 func (r *basicMockRecorder) VerifyCall(method string, times int) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	count := 0
 	for _, call := range r.calls {
 		if call.Method == method {
@@ -239,6 +255,15 @@ func (m *MockGraphClient) GetItemPath(path string) (*api.DriveItem, error) {
 	defer m.mu.Unlock()
 
 	m.recorder.RecordCall("GetItemPath", path)
+
+	// Check if we have a mock response (including error responses) for this path
+	if resp, ok := m.responses[path]; ok {
+		if resp.err != nil {
+			return nil, resp.err
+		}
+		// If there's a response but no error, try to unmarshal it as a DriveItem
+		// For now, just return the error if any
+	}
 
 	// Check if we have a mock item for this path
 	if item, ok := m.items[path]; ok {

@@ -76,19 +76,19 @@ func TestUT_GR_07_01_GraphAPI_VariousPaths_ReturnsCorrectItems(t *testing.T) {
 		mockProvider.AddMockItems("root", []*api.DriveItem{documentsItem})
 		mockProvider.AddMockItems("documents", []*api.DriveItem{fileItem})
 
+		// Add error response for non-existent item
+		mockProvider.AddMockResponse("/NonExistent", nil, 404, fmt.Errorf("item not found"))
+
 		fmt.Printf("Created mock graph provider with items: %+v\n", mockProvider)
 		return mockProvider, nil
 	})
 
 	// Use the fixture to run the test
-	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		unitFixture, ok := fixture.(*framework.UnitTestFixture)
+	fixture.Use(t, func(t *testing.T, fixtureObj interface{}) {
+		fixture := fixtureObj.(*framework.UnitTestFixture)
+		provider, ok := fixture.SetupData.(*mock.APIGraphProvider)
 		if !ok {
-			t.Fatalf("Expected fixture to be *framework.UnitTestFixture, got %T", fixture)
-		}
-		provider, ok := unitFixture.SetupData.(*mock.APIGraphProvider)
-		if !ok {
-			t.Fatalf("Expected SetupData to be *mock.APIGraphProvider, got %T", unitFixture.SetupData)
+			t.Fatalf("Expected fixture setup data to be *mock.APIGraphProvider, got %T", fixture.SetupData)
 		}
 
 		// Debug prints to inspect provider and its fields

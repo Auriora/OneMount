@@ -3,6 +3,7 @@ package graph
 import (
 	"github.com/auriora/onemount/pkg/testutil/framework"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -25,13 +26,38 @@ func TestUT_GR_08_01_SHA1Hash_ReaderInput_MatchesDirectCalculation(t *testing.T)
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement the test case
-		// 1. Create a byte array with test content
-		// 2. Calculate the SHA1 hash of the content
-		// 3. Create a reader from the content
-		// 4. Calculate the SHA1 hash using SHA1HashStream
-		// 5. Compare the two hashes
-		t.Skip("Test not implemented yet")
+		// Create test content
+		testContent := []byte("Hello, World! This is a test for SHA1 hash calculation.")
+
+		// Calculate the SHA1 hash of the content using the direct method
+		expectedHash := SHA1Hash(&testContent)
+
+		// Create a reader from the content
+		reader := strings.NewReader(string(testContent))
+
+		// Calculate the SHA1 hash using SHA1HashStream
+		actualHash := SHA1HashStream(reader)
+
+		// Compare the two hashes
+		assert := framework.NewAssert(t)
+		assert.Equal(expectedHash, actualHash, "SHA1HashStream should produce the same hash as SHA1Hash for the same content")
+
+		// Test with empty content
+		emptyContent := []byte("")
+		expectedEmptyHash := SHA1Hash(&emptyContent)
+		emptyReader := strings.NewReader("")
+		actualEmptyHash := SHA1HashStream(emptyReader)
+		assert.Equal(expectedEmptyHash, actualEmptyHash, "SHA1HashStream should handle empty content correctly")
+
+		// Test with larger content
+		largeContent := make([]byte, 1024)
+		for i := range largeContent {
+			largeContent[i] = byte(i % 256)
+		}
+		expectedLargeHash := SHA1Hash(&largeContent)
+		largeReader := strings.NewReader(string(largeContent))
+		actualLargeHash := SHA1HashStream(largeReader)
+		assert.Equal(expectedLargeHash, actualLargeHash, "SHA1HashStream should handle large content correctly")
 	})
 }
 
@@ -54,13 +80,38 @@ func TestUT_GR_09_01_QuickXORHash_ReaderInput_MatchesDirectCalculation(t *testin
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement the test case
-		// 1. Create a byte array with test content
-		// 2. Calculate the QuickXOR hash of the content
-		// 3. Create a reader from the content
-		// 4. Calculate the QuickXOR hash using QuickXORHashStream
-		// 5. Compare the two hashes
-		t.Skip("Test not implemented yet")
+		// Create test content
+		testContent := []byte("Hello, World! This is a test for QuickXOR hash calculation.")
+
+		// Calculate the QuickXOR hash of the content using the direct method
+		expectedHash := QuickXORHash(&testContent)
+
+		// Create a reader from the content
+		reader := strings.NewReader(string(testContent))
+
+		// Calculate the QuickXOR hash using QuickXORHashStream
+		actualHash := QuickXORHashStream(reader)
+
+		// Compare the two hashes
+		assert := framework.NewAssert(t)
+		assert.Equal(expectedHash, actualHash, "QuickXORHashStream should produce the same hash as QuickXORHash for the same content")
+
+		// Test with empty content
+		emptyContent := []byte("")
+		expectedEmptyHash := QuickXORHash(&emptyContent)
+		emptyReader := strings.NewReader("")
+		actualEmptyHash := QuickXORHashStream(emptyReader)
+		assert.Equal(expectedEmptyHash, actualEmptyHash, "QuickXORHashStream should handle empty content correctly")
+
+		// Test with larger content
+		largeContent := make([]byte, 1024)
+		for i := range largeContent {
+			largeContent[i] = byte(i % 256)
+		}
+		expectedLargeHash := QuickXORHash(&largeContent)
+		largeReader := strings.NewReader(string(largeContent))
+		actualLargeHash := QuickXORHashStream(largeReader)
+		assert.Equal(expectedLargeHash, actualLargeHash, "QuickXORHashStream should handle large content correctly")
 	})
 }
 
@@ -118,11 +169,46 @@ func TestUT_GR_10_01_HashFunctions_AfterReading_ResetSeekPosition(t *testing.T) 
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement the test case
-		// 1. Create a temporary file with test content
-		// 2. Read a portion of the file to move the seek position
-		// 3. Calculate hashes using the hash stream functions
-		// 4. Verify that the seek position is reset to the beginning after each hash calculation
-		t.Skip("Test not implemented yet")
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Create test content
+		testContent := "Hello, World! This is a test for hash functions seek position reset."
+		reader := strings.NewReader(testContent)
+
+		// Read a portion of the content to move the seek position
+		buffer := make([]byte, 10)
+		n, err := reader.Read(buffer)
+		assert.NoError(err, "Should be able to read from reader")
+		assert.Equal(10, n, "Should read 10 bytes")
+
+		// Verify the seek position is not at the beginning
+		currentPos, err := reader.Seek(0, 1) // Get current position
+		assert.NoError(err, "Should be able to get current position")
+		assert.Equal(int64(10), currentPos, "Current position should be 10")
+
+		// Calculate SHA1 hash - this should reset the seek position
+		sha1Hash := SHA1HashStream(reader)
+		assert.NotEqual("", sha1Hash, "SHA1 hash should not be empty")
+
+		// Verify the seek position is reset to the beginning
+		currentPos, err = reader.Seek(0, 1) // Get current position
+		assert.NoError(err, "Should be able to get current position")
+		assert.Equal(int64(0), currentPos, "Seek position should be reset to 0 after SHA1HashStream")
+
+		// Move seek position again
+		reader.Seek(15, 0)
+		currentPos, err = reader.Seek(0, 1)
+		assert.NoError(err, "Should be able to get current position")
+		assert.Equal(int64(15), currentPos, "Current position should be 15")
+
+		// Calculate QuickXOR hash - this should also reset the seek position
+		quickXorHash := QuickXORHashStream(reader)
+		assert.NotEqual("", quickXorHash, "QuickXOR hash should not be empty")
+
+		// Verify the seek position is reset to the beginning
+		currentPos, err = reader.Seek(0, 1) // Get current position
+		assert.NoError(err, "Should be able to get current position")
+		assert.Equal(int64(0), currentPos, "Seek position should be reset to 0 after QuickXORHashStream")
 	})
 }

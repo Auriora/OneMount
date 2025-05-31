@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
@@ -220,7 +221,11 @@ func TestUT_FS_07_04_DownloadManager_ProcessDownload_NetworkError(t *testing.T) 
 		fs.InsertNodeID(fileInode)
 		fs.InsertChild(fsFixture.RootID, fileInode)
 
-		// Set up the mock to return a network error
+		// Set up the mock to return the file metadata first (required by GetItemContentStream)
+		fileItemJSON, _ := json.Marshal(fileItem)
+		fsFixture.MockClient.AddMockResponse("/me/drive/items/"+fileID, fileItemJSON, http.StatusOK, nil)
+
+		// Set up the mock to return a network error for content download
 		networkErr := errors.NewNetworkError("network error during download", nil)
 		fsFixture.MockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", nil, http.StatusServiceUnavailable, networkErr)
 
@@ -350,6 +355,10 @@ func TestUT_FS_07_05_DownloadManager_ProcessDownload_ChecksumError(t *testing.T)
 		fileInode := NewInodeDriveItem(fileItem)
 		fs.InsertNodeID(fileInode)
 		fs.InsertChild(fsFixture.RootID, fileInode)
+
+		// Set up the mock to return the file metadata first (required by GetItemContentStream)
+		fileItemJSON, _ := json.Marshal(fileItem)
+		fsFixture.MockClient.AddMockResponse("/me/drive/items/"+fileID, fileItemJSON, http.StatusOK, nil)
 
 		// Set up the mock to return different content (which will cause a checksum mismatch)
 		differentContent := "different content that will cause a checksum mismatch"

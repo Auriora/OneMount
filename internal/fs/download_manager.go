@@ -8,8 +8,10 @@ package fs
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/auriora/onemount/pkg/logging"
 	"io"
+	"math"
 	"os"
 	"sync"
 	"time"
@@ -17,6 +19,7 @@ import (
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/auriora/onemount/pkg/retry"
+	bolt "go.etcd.io/bbolt"
 )
 
 const (
@@ -30,7 +33,14 @@ const (
 	downloadErrored
 )
 
-// DownloadSession represents a file download session
+const (
+	// Default chunk size for downloads (1MB)
+	downloadChunkSize uint64 = 1024 * 1024
+)
+
+var bucketDownloads = []byte("downloads")
+
+// DownloadSession represents a file download session with recovery capabilities
 type DownloadSession struct {
 	ID        string
 	Path      string
@@ -38,7 +48,57 @@ type DownloadSession struct {
 	Error     error
 	StartTime time.Time
 	EndTime   time.Time
-	mutex     sync.RWMutex
+
+	// Recovery and progress tracking fields
+	Size                uint64    `json:"size"`
+	BytesDownloaded     uint64    `json:"bytesDownloaded"`
+	LastSuccessfulChunk int       `json:"lastSuccessfulChunk"`
+	TotalChunks         int       `json:"totalChunks"`
+	ChunkSize           uint64    `json:"chunkSize"`
+	LastProgressTime    time.Time `json:"lastProgressTime"`
+	RecoveryAttempts    int       `json:"recoveryAttempts"`
+	CanResume           bool      `json:"canResume"`
+	DownloadURL         string    `json:"downloadUrl"`
+	ETag                string    `json:"eTag"`
+
+	mutex sync.RWMutex
+}
+
+// updateProgress updates the download progress
+func (ds *DownloadSession) updateProgress(chunkIndex int, bytesDownloaded uint64) {
+	ds.mutex.Lock()
+	defer ds.mutex.Unlock()
+	ds.LastSuccessfulChunk = chunkIndex
+	ds.BytesDownloaded = bytesDownloaded
+	ds.LastProgressTime = time.Now()
+}
+
+// canResumeDownload checks if the download can be resumed from the last checkpoint
+func (ds *DownloadSession) canResumeDownload() bool {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	return ds.CanResume && ds.LastSuccessfulChunk >= 0 && ds.DownloadURL != ""
+}
+
+// getResumeOffset returns the byte offset from which to resume the download
+func (ds *DownloadSession) getResumeOffset() uint64 {
+	ds.mutex.RLock()
+	defer ds.mutex.RUnlock()
+	if ds.LastSuccessfulChunk < 0 {
+		return 0
+	}
+	return uint64(ds.LastSuccessfulChunk+1) * ds.ChunkSize
+}
+
+// markAsResumable marks the session as resumable and calculates total chunks
+func (ds *DownloadSession) markAsResumable(size uint64, chunkSize uint64) {
+	ds.mutex.Lock()
+	defer ds.mutex.Unlock()
+	ds.CanResume = true
+	ds.Size = size
+	ds.ChunkSize = chunkSize
+	ds.TotalChunks = int(math.Ceil(float64(size) / float64(chunkSize)))
+	ds.LastSuccessfulChunk = -1 // No chunks downloaded yet
 }
 
 // DownloadManager handles background file downloads
@@ -51,10 +111,11 @@ type DownloadManager struct {
 	workerWg   sync.WaitGroup
 	numWorkers int
 	stopChan   chan struct{}
+	db         *bolt.DB
 }
 
 // NewDownloadManager creates a new download manager
-func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int) *DownloadManager {
+func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, db *bolt.DB) *DownloadManager {
 	dm := &DownloadManager{
 		fs:         fs,
 		auth:       auth,
@@ -62,12 +123,54 @@ func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int) *Downl
 		queue:      make(chan string, 500), // Buffer for 500 download requests
 		numWorkers: numWorkers,
 		stopChan:   make(chan struct{}),
+		db:         db,
 	}
+
+	// Restore any incomplete download sessions from disk
+	dm.restoreDownloadSessions()
 
 	// Start worker goroutines
 	dm.startWorkers()
 
 	return dm
+}
+
+// restoreDownloadSessions restores incomplete download sessions from the database
+func (dm *DownloadManager) restoreDownloadSessions() {
+	if dm.db == nil {
+		return
+	}
+
+	dm.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketDownloads)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(key []byte, val []byte) error {
+			session := &DownloadSession{}
+			err := json.Unmarshal(val, session)
+			if err != nil {
+				logging.Error().Err(err).Msg("Failed to restore download session from disk")
+				return err
+			}
+
+			// Reset state to queued for recovery
+			session.State = downloadQueued
+			session.RecoveryAttempts++
+
+			dm.mutex.Lock()
+			dm.sessions[session.ID] = session
+			dm.mutex.Unlock()
+
+			logging.Info().
+				Str("id", session.ID).
+				Str("path", session.Path).
+				Int("recoveryAttempts", session.RecoveryAttempts).
+				Msg("Restored download session for recovery")
+
+			return nil
+		})
+	})
 }
 
 // startWorkers starts the download worker goroutines
@@ -259,6 +362,9 @@ func (dm *DownloadManager) processDownload(id string) {
 		Str("id", id).
 		Str("path", session.Path).
 		Msg("File download completed")
+
+	// Clean up completed session
+	dm.finishDownloadSession(id)
 }
 
 // setSessionError updates a session with an error
@@ -267,15 +373,45 @@ func (dm *DownloadManager) setSessionError(session *DownloadSession, err error) 
 	session.State = downloadErrored
 	session.Error = err
 	session.EndTime = time.Now()
+	session.RecoveryAttempts++
 	session.mutex.Unlock()
 
 	// Update file status
 	dm.fs.MarkFileError(session.ID, err)
 
+	// Persist updated session state for potential recovery
+	if dm.db != nil && session.RecoveryAttempts <= 3 {
+		contents, _ := json.Marshal(session)
+		dm.db.Batch(func(tx *bolt.Tx) error {
+			b, _ := tx.CreateBucketIfNotExists(bucketDownloads)
+			return b.Put([]byte(session.ID), contents)
+		})
+	}
+
 	logging.LogError(err, "File download failed",
 		logging.FieldOperation, "setSessionError",
 		logging.FieldID, session.ID,
-		logging.FieldPath, session.Path)
+		logging.FieldPath, session.Path,
+		"recoveryAttempts", session.RecoveryAttempts)
+}
+
+// finishDownloadSession removes a completed download session from memory and database
+func (dm *DownloadManager) finishDownloadSession(id string) {
+	dm.mutex.Lock()
+	defer dm.mutex.Unlock()
+
+	// Remove from memory
+	delete(dm.sessions, id)
+
+	// Remove from database
+	if dm.db != nil {
+		dm.db.Batch(func(tx *bolt.Tx) error {
+			if b := tx.Bucket(bucketDownloads); b != nil {
+				b.Delete([]byte(id))
+			}
+			return nil
+		})
+	}
 }
 
 // QueueDownload adds a file to the download queue
@@ -298,11 +434,29 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 
 	path := inode.Path()
 
-	// Create a new session
+	// Create a new session with recovery capabilities
 	session = &DownloadSession{
-		ID:    id,
-		Path:  path,
-		State: downloadQueued,
+		ID:                  id,
+		Path:                path,
+		State:               downloadQueued,
+		LastSuccessfulChunk: -1,
+		BytesDownloaded:     0,
+		RecoveryAttempts:    0,
+		CanResume:           false,
+	}
+
+	// Initialize session for large files that support resumable downloads
+	if inode.DriveItem.Size > downloadChunkSize {
+		session.markAsResumable(inode.DriveItem.Size, downloadChunkSize)
+	}
+
+	// Persist session to database for recovery
+	if dm.db != nil {
+		contents, _ := json.Marshal(session)
+		dm.db.Batch(func(tx *bolt.Tx) error {
+			b, _ := tx.CreateBucketIfNotExists(bucketDownloads)
+			return b.Put([]byte(session.ID), contents)
+		})
 	}
 
 	// Add to sessions map

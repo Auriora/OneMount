@@ -798,7 +798,7 @@ func (m *MockGraphClient) GetWithContext(ctx context.Context, resource string, h
 
 	result, err := m.RequestWithContext(ctx, resource, "GET", nil, headers...)
 
-	m.Recorder.RecordCallWithResult("GetWithContext", result, nil, args...)
+	m.Recorder.RecordCallWithResult("GetWithContext", result, err, args...)
 	return result, err
 }
 
@@ -1543,10 +1543,14 @@ func (m *MockGraphClient) GetItemChild(id string, name string) (*DriveItem, erro
 // Place this before the NewBasicMockRecorder constructor
 
 type BasicMockRecorder struct {
+	mu    sync.Mutex
 	calls []api.MockCall
 }
 
 func (r *BasicMockRecorder) RecordCall(method string, args ...interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.calls = append(r.calls, api.MockCall{
 		Method: method,
 		Args:   args,
@@ -1555,6 +1559,9 @@ func (r *BasicMockRecorder) RecordCall(method string, args ...interface{}) {
 }
 
 func (r *BasicMockRecorder) RecordCallWithResult(method string, result interface{}, err error, args ...interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.calls = append(r.calls, api.MockCall{
 		Method: method,
 		Args:   args,
@@ -1565,10 +1572,19 @@ func (r *BasicMockRecorder) RecordCallWithResult(method string, result interface
 }
 
 func (r *BasicMockRecorder) GetCalls() []api.MockCall {
-	return r.calls
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Return a copy to avoid race conditions
+	calls := make([]api.MockCall, len(r.calls))
+	copy(calls, r.calls)
+	return calls
 }
 
 func (r *BasicMockRecorder) VerifyCall(method string, times int) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	count := 0
 	for _, call := range r.calls {
 		if call.Method == method {

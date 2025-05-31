@@ -125,13 +125,14 @@ func TestUT_GR_19_01_Auth_LoadFromFile_TokensLoadedSuccessfully(t *testing.T) {
 	})
 
 	// Use the fixture to run the test
-	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+	fixture.Use(t, func(t *testing.T, fixtureObj interface{}) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// Get the test data
-		data, ok := fixture.(map[string]interface{})
-		assert.True(ok, "Expected fixture to be of type map[string]interface{}, but got %T", fixture)
+		// Get the test data from the fixture setup data
+		fixture := fixtureObj.(*framework.UnitTestFixture)
+		data, ok := fixture.SetupData.(map[string]interface{})
+		assert.True(ok, "Expected fixture setup data to be of type map[string]interface{}, but got %T", fixture.SetupData)
 
 		// Get the auth tokens path
 		authTokensPath := data["authTokensPath"].(string)
@@ -206,13 +207,14 @@ func TestUT_GR_20_01_Auth_TokenRefresh_TokensRefreshedSuccessfully(t *testing.T)
 	})
 
 	// Use the fixture to run the test
-	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+	fixture.Use(t, func(t *testing.T, fixtureObj interface{}) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// Get the Auth object from the fixture
-		auth, ok := fixture.(*Auth)
-		assert.True(ok, "Expected fixture to be of type *Auth, but got %T", fixture)
+		// Get the Auth object from the fixture setup data
+		fixture := fixtureObj.(*framework.UnitTestFixture)
+		auth, ok := fixture.SetupData.(*Auth)
+		assert.True(ok, "Expected fixture setup data to be of type *Auth, but got %T", fixture.SetupData)
 
 		// Step 1: Verify the Auth object is valid
 		assert.NotEqual("", auth.AccessToken, "Access token should not be empty")
@@ -321,13 +323,14 @@ func TestUT_GR_22_01_Auth_FailureWithNetwork_ReturnsErrorAndInvalidState(t *test
 	})
 
 	// Use the fixture to run the test
-	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+	fixture.Use(t, func(t *testing.T, fixtureObj interface{}) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// Get the Auth object from the fixture
-		auth, ok := fixture.(*Auth)
-		assert.True(ok, "Expected fixture to be of type *Auth, but got %T", fixture)
+		// Get the Auth object from the fixture setup data
+		fixture := fixtureObj.(*framework.UnitTestFixture)
+		auth, ok := fixture.SetupData.(*Auth)
+		assert.True(ok, "Expected fixture setup data to be of type *Auth, but got %T", fixture.SetupData)
 
 		// Step 1: Verify the Auth object has invalid credentials but valid configuration
 		assert.Equal("invalid-token", auth.AccessToken, "Access token should be 'invalid-token'")

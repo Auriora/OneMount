@@ -294,25 +294,52 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 
 				case uploadErrored:
 					session.retries++
-					if session.retries > 5 {
+					session.RecoveryAttempts++
+
+					// Check if we can attempt recovery instead of full restart
+					if session.CanResume && session.LastSuccessfulChunk >= 0 && session.retries <= 3 {
+						logging.Info().
+							Str("id", session.ID).
+							Str("name", session.Name).
+							Int("lastChunk", session.LastSuccessfulChunk).
+							Int("recoveryAttempts", session.RecoveryAttempts).
+							Msg("Attempting to recover upload from last checkpoint.")
+
+						// Reset state to retry from last checkpoint
+						session.setState(uploadNotStarted, nil)
+
+						// Persist recovery state
+						contents, _ := json.Marshal(session)
+						u.db.Batch(func(tx *bolt.Tx) error {
+							b, _ := tx.CreateBucketIfNotExists(bucketUploads)
+							return b.Put([]byte(session.ID), contents)
+						})
+					} else if session.retries > 5 {
 						logging.Error().
 							Str("id", session.ID).
 							Str("name", session.Name).
 							Err(session).
 							Int("retries", session.retries).
+							Int("recoveryAttempts", session.RecoveryAttempts).
 							Msg("Upload session failed too many times, cancelling session.")
 						// Update status to error
 						u.fs.MarkFileError(session.ID, session.error)
 						u.finishUpload(session.ID)
-					}
+					} else {
+						logging.Warn().
+							Str("id", session.ID).
+							Str("name", session.Name).
+							Err(session).
+							Int("retries", session.retries).
+							Msg("Upload session failed, will retry from beginning.")
+						session.cancel(u.auth) // cancel large sessions
+						session.setState(uploadNotStarted, nil)
 
-					logging.Warn().
-						Str("id", session.ID).
-						Str("name", session.Name).
-						Err(session).
-						Msg("Upload session failed, will retry from beginning.")
-					session.cancel(u.auth) // cancel large sessions
-					session.setState(uploadNotStarted, nil)
+						// Reset recovery state for full restart
+						session.LastSuccessfulChunk = -1
+						session.BytesUploaded = 0
+						session.CanResume = false
+					}
 
 				case uploadComplete:
 					logging.Info().
