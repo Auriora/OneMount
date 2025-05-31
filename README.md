@@ -1,7 +1,14 @@
-[![Run tests](https://github.com/auriora/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/auriora/OneMount/actions?query=workflow%3A%22Run+tests%22)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/auriora/OneMount)](https://go.dev/)
-![Status: Beta](https://img.shields.io/badge/Status-Beta-orange.svg)
+[![Go 1.21+](https://img.shields.io/badge/Go-1.21+-blue.svg?logo=go&logoColor=white)](https://golang.org/dl/)
+[![Status: Development](https://img.shields.io/badge/Status-Development-lightgrey.svg)]()
+[![GitHub release](https://img.shields.io/github/v/release/auriora/OneMount?include_prereleases)](https://github.com/auriora/OneMount/releases)
+
+[//]: # ([![GitHub stars]&#40;https://img.shields.io/github/stars/auriora/OneMount?style=social&#41;]&#40;https://github.com/auriora/OneMount/stargazers&#41;)
+[![GitHub issues](https://img.shields.io/github/issues/auriora/OneMount)](https://github.com/auriora/OneMount/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/auriora/OneMount)](https://github.com/auriora/OneMount/commits/main)
+[![Run tests](https://github.com/auriora/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/auriora/OneMount/actions?query=workflow%3A%22Run+tests%22)
+[![Go Report Card](https://goreportcard.com/badge/github.com/auriora/OneMount)](https://goreportcard.com/report/github.com/auriora/OneMount)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue.svg?logo=linux&logoColor=white)](https://www.linux.org/)
 
 ![OneMount](assets/icons/OneMount-Logo-64.png)
 
