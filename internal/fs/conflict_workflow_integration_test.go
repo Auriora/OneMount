@@ -65,7 +65,8 @@ func TestIT_CRW_01_01_ConflictWorkflow_KeepBothStrategy_WorksCorrectly(t *testin
 		assert.NoError(err, "Should be able to open file for writing")
 		_, err = fd.WriteAt([]byte(baselineContent), 0)
 		assert.NoError(err, "Should be able to write baseline content")
-		fd.Close()
+		err = fd.Close()
+		assert.NoError(err, "Should be able to close file")
 
 		// Step 2: Create local changes (simulate offline modification)
 		localModTime := time.Now().Add(-30 * time.Minute)
@@ -103,7 +104,8 @@ func TestIT_CRW_01_01_ConflictWorkflow_KeepBothStrategy_WorksCorrectly(t *testin
 		assert.NoError(err, "Should be able to open remote content file")
 		_, err = remoteContentFd.WriteAt([]byte(remoteContent), 0)
 		assert.NoError(err, "Should be able to write remote content")
-		remoteContentFd.Close()
+		err = remoteContentFd.Close()
+		assert.NoError(err, "Should be able to close remote content file")
 
 		err = filesystem.TrackOfflineChange(localChange)
 		assert.NoError(err, "Should be able to track local change")
@@ -215,7 +217,8 @@ func TestIT_CRW_02_01_ConflictWorkflow_LastWriterWinsStrategy_WorksCorrectly(t *
 		assert.NoError(err, "Should be able to open file for writing")
 		_, err = fd.WriteAt([]byte(baselineContent), 0)
 		assert.NoError(err, "Should be able to write baseline content")
-		fd.Close()
+		err = fd.Close()
+		assert.NoError(err, "Should be able to close file")
 
 		// Step 2: Create local changes (older)
 		localModTime := time.Now().Add(-45 * time.Minute) // Older
@@ -253,7 +256,8 @@ func TestIT_CRW_02_01_ConflictWorkflow_LastWriterWinsStrategy_WorksCorrectly(t *
 		assert.NoError(err, "Should be able to open remote content file")
 		_, err = remoteContentFd.WriteAt([]byte(remoteContent), 0)
 		assert.NoError(err, "Should be able to write remote content")
-		remoteContentFd.Close()
+		err = remoteContentFd.Close()
+		assert.NoError(err, "Should be able to close remote content file")
 
 		err = filesystem.TrackOfflineChange(localChange)
 		assert.NoError(err, "Should be able to track local change")

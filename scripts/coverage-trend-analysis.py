@@ -12,7 +12,7 @@ Usage:
 import json
 import argparse
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -22,6 +22,10 @@ try:
     import numpy as np
     HAS_PLOTTING = True
 except ImportError:
+    plt = None
+    mdates = None
+    pd = None
+    np = None
     HAS_PLOTTING = False
     print("Warning: matplotlib/pandas not available. Only text reports will be generated.")
 

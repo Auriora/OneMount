@@ -309,16 +309,6 @@ func (i *Inode) GetNodeID() uint64 {
 	return i.nodeID
 }
 
-// RandString generates a random string of the specified length.
-func RandString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
 // GetID returns the ID of the Inode.
 func (i *Inode) GetID() string {
 	i.RLock()

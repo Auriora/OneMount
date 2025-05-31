@@ -215,7 +215,11 @@ func (cr *CoverageReporterImpl) CollectCoverage() error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Create a simple test file
 	testFile := filepath.Join(tempDir, "simple_test.go")
@@ -571,7 +575,11 @@ func (cr *CoverageReporterImpl) generateCustomReport() error {
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Generate the report
 	return cr.writeHTMLReport(file)

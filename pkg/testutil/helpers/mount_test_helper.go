@@ -117,7 +117,7 @@ func (h *MountTestHelper) Remount() error {
 }
 
 // WaitForMount waits for the filesystem to be ready for testing
-func (h *MountTestHelper) WaitForMount(timeout time.Duration) error {
+func (h *MountTestHelper) WaitForMount(_ time.Duration) error {
 	// For testing purposes, the filesystem is immediately ready
 	// In real usage, this would wait for the FUSE mount to be accessible
 	if h.filesystem == nil {
@@ -127,7 +127,7 @@ func (h *MountTestHelper) WaitForMount(timeout time.Duration) error {
 }
 
 // WaitForUnmount waits for the filesystem to be unmounted
-func (h *MountTestHelper) WaitForUnmount(timeout time.Duration) error {
+func (h *MountTestHelper) WaitForUnmount(_ time.Duration) error {
 	// For testing purposes, unmount is immediate
 	// In real usage, this would wait for the FUSE unmount to complete
 	return nil
@@ -201,7 +201,7 @@ func (h *MountTestHelper) Cleanup() error {
 }
 
 // SetupMountTestFixtureWithFactory creates a test fixture for mount/unmount testing with a custom factory
-func SetupMountTestFixtureWithFactory(t *testing.T, fixtureName string, factory FilesystemFactory) *framework.UnitTestFixture {
+func SetupMountTestFixtureWithFactory(_ *testing.T, fixtureName string, factory FilesystemFactory) *framework.UnitTestFixture {
 	return framework.NewUnitTestFixture(fixtureName).
 		WithSetup(func(t *testing.T) (interface{}, error) {
 			helper := NewMountTestHelper(t)
@@ -211,13 +211,16 @@ func SetupMountTestFixtureWithFactory(t *testing.T, fixtureName string, factory 
 
 			// Wait for mount to be ready
 			if err := helper.WaitForMount(10 * time.Second); err != nil {
-				helper.Cleanup()
+				if cleanupErr := helper.Cleanup(); cleanupErr != nil {
+					// Log cleanup error but return the original error
+					t.Logf("Warning: cleanup failed: %v", cleanupErr)
+				}
 				return nil, err
 			}
 
 			return helper, nil
 		}).
-		WithTeardown(func(t *testing.T, fixture interface{}) error {
+		WithTeardown(func(_ *testing.T, fixture interface{}) error {
 			helper := fixture.(*MountTestHelper)
 			return helper.Cleanup()
 		})

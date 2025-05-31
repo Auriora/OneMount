@@ -498,8 +498,16 @@ func simulateLargeFileUpload(ctx context.Context, fileSize, chunkSize int64) err
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Simulate writing data in chunks
 	written := int64(0)
@@ -544,8 +552,16 @@ func simulateLargeFileDownload(ctx context.Context, fileSize, chunkSize int64) e
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Pre-populate the file with data
 	buffer := make([]byte, chunkSize)
@@ -611,7 +627,11 @@ func simulateHighFileCountDirectoryCreation(ctx context.Context, fileCount int, 
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Create files concurrently
 	semaphore := make(chan struct{}, concurrency)
@@ -638,7 +658,11 @@ func simulateHighFileCountDirectoryCreation(ctx context.Context, fileCount int, 
 				errChan <- fmt.Errorf("failed to create file %s: %v", fileName, err)
 				return
 			}
-			defer file.Close()
+			defer func() {
+				if err := file.Close(); err != nil {
+					errChan <- fmt.Errorf("failed to close file %s: %v", fileName, err)
+				}
+			}()
 
 			// Write data to file
 			data := make([]byte, fileSize)
@@ -678,7 +702,11 @@ func simulateDirectoryListing(ctx context.Context, expectedFileCount int) error 
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Create files for listing
 	for i := 0; i < expectedFileCount; i++ {
@@ -693,7 +721,9 @@ func simulateDirectoryListing(ctx context.Context, expectedFileCount int) error 
 		if err != nil {
 			return fmt.Errorf("failed to create file for listing: %v", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("failed to close file for listing: %v", err)
+		}
 
 		// Add small delay every 1000 files to prevent overwhelming the system
 		if i%1000 == 0 {
@@ -739,7 +769,9 @@ func simulateDirectoryCleanup(ctx context.Context, fileCount int, concurrency in
 		if err != nil {
 			return fmt.Errorf("failed to create file for cleanup test: %v", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("failed to close file for cleanup test: %v", err)
+		}
 		fileNames[i] = fileName
 	}
 
@@ -836,14 +868,22 @@ func simulateMemoryLeakTestCycle(ctx context.Context, operationsPerCycle int) er
 }
 
 // simulateFileRead simulates a file read operation
-func simulateFileRead(ctx context.Context) error {
+func simulateFileRead(_ context.Context) error {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "read-test-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Write some data
 	data := make([]byte, 1024) // 1KB
@@ -873,14 +913,22 @@ func simulateFileRead(ctx context.Context) error {
 }
 
 // simulateFileWrite simulates a file write operation
-func simulateFileWrite(ctx context.Context) error {
+func simulateFileWrite(_ context.Context) error {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "write-test-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Write data
 	data := make([]byte, 1024) // 1KB
@@ -904,13 +952,17 @@ func simulateFileWrite(ctx context.Context) error {
 }
 
 // simulateDirectoryList simulates a directory listing operation
-func simulateDirectoryList(ctx context.Context) error {
+func simulateDirectoryList(_ context.Context) error {
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "list-test-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Create some files
 	for i := 0; i < 10; i++ {
@@ -919,7 +971,9 @@ func simulateDirectoryList(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to create file: %v", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("failed to close file: %v", err)
+		}
 	}
 
 	// List the directory
@@ -939,14 +993,22 @@ func simulateDirectoryList(ctx context.Context) error {
 }
 
 // simulateMetadataOperation simulates a metadata operation
-func simulateMetadataOperation(ctx context.Context) error {
+func simulateMetadataOperation(_ context.Context) error {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "metadata-test-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			// Log error but don't fail the function
+		}
+	}()
 
 	// Get file info
 	info, err := tmpFile.Stat()
@@ -968,7 +1030,7 @@ func simulateMetadataOperation(ctx context.Context) error {
 }
 
 // simulateMemoryIntensiveOperation simulates an operation that might cause memory leaks
-func simulateMemoryIntensiveOperation(ctx context.Context, operationIndex int) error {
+func simulateMemoryIntensiveOperation(_ context.Context, operationIndex int) error {
 	// Create temporary data structures that should be garbage collected
 	data := make([]byte, 10*1024) // 10KB
 	if _, err := rand.Read(data); err != nil {

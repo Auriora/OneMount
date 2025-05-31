@@ -426,7 +426,7 @@ func (h *WorkflowTestHelper) CreateStandardWorkflowSteps() {
 }
 
 // SetupWorkflowTestFixtureWithFactory creates a test fixture for workflow testing with a custom factory
-func SetupWorkflowTestFixtureWithFactory(t *testing.T, fixtureName string, factory WorkflowFilesystemFactory) *framework.UnitTestFixture {
+func SetupWorkflowTestFixtureWithFactory(_ *testing.T, fixtureName string, factory WorkflowFilesystemFactory) *framework.UnitTestFixture {
 	return framework.NewUnitTestFixture(fixtureName).
 		WithSetup(func(t *testing.T) (interface{}, error) {
 			helper := NewWorkflowTestHelper(t)
@@ -435,7 +435,7 @@ func SetupWorkflowTestFixtureWithFactory(t *testing.T, fixtureName string, facto
 			}
 			return helper, nil
 		}).
-		WithTeardown(func(t *testing.T, fixture interface{}) error {
+		WithTeardown(func(_ *testing.T, fixture interface{}) error {
 			helper := fixture.(*WorkflowTestHelper)
 			return helper.Cleanup()
 		})
