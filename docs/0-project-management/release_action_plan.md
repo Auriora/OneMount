@@ -226,13 +226,39 @@
   - Mock filesystem issues resolved with proper two-step process simulation
 - ✅ **Phase 1 Complete**: All existing test failures have been resolved
 
-#### Phase 2: Core Functionality Test Expansion 🎯 **READY TO START**
-- [ ] **Filesystem Operations (Target: 80% coverage)**
-  - [ ] Add comprehensive tests for file read/write operations
-  - [ ] Add tests for directory operations (create, delete, list)
-  - [ ] Add tests for file metadata operations (stat, chmod, etc.)
-  - [ ] Add tests for path resolution and validation
-  - [ ] Add tests for cache management and invalidation
+#### Phase 2: Core Functionality Test Expansion ✅ **COMPLETED**
+- [x] **Filesystem Operations (Target: 80% coverage)**
+  - [x] Add comprehensive tests for file read/write operations
+  - [x] Add tests for directory operations (create, delete, list)
+  - [x] Add tests for file metadata operations (stat, chmod, etc.)
+  - [x] Add tests for path resolution and validation
+  - [x] Add tests for cache management and invalidation
+
+**Implementation Summary:**
+- ✅ **File Operations Tests**: Created `internal/fs/file_operations_test.go` with comprehensive tests for:
+  - File creation using Mknod and Create operations
+  - File read/write operations with data integrity verification
+  - File deletion using Unlink operation
+  - File synchronization operations (Fsync, Flush)
+- ✅ **Directory Operations Tests**: Created `internal/fs/dir_operations_test.go` with comprehensive tests for:
+  - Directory creation using Mkdir operation
+  - Directory listing using OpenDir, ReadDir, ReadDirPlus operations
+  - Directory deletion using Rmdir operation
+  - Nested directory structure handling
+- ✅ **Metadata Operations Tests**: Enhanced `internal/fs/metadata_operations_test.go` with additional tests for:
+  - Filesystem statistics (StatFs) operations
+  - Comprehensive file metadata operations including timestamps and permissions
+  - File attribute validation and consistency checks
+- ✅ **Path Operations Tests**: Enhanced existing `internal/fs/path_operations_test.go` with comprehensive tests for:
+  - Path-to-ID and ID-to-path resolution
+  - Path validation and error handling
+  - Path movement and renaming operations
+- ✅ **Cache Management Tests**: Enhanced `internal/fs/cache_management_test.go` with additional tests for:
+  - Comprehensive cache invalidation scenarios
+  - Cache performance characteristics
+  - Cache consistency after modifications
+- ✅ **Test Coverage**: All test files use proper fixture patterns and comprehensive error handling
+- ✅ **Test Quality**: Tests include detailed documentation with Test Case IDs, descriptions, and expected results
 - [ ] **Graph API Operations (Target: 60% coverage)**
   - [ ] Add tests for all HTTP request methods (GET, POST, PUT, DELETE)
   - [ ] Add tests for authentication token refresh

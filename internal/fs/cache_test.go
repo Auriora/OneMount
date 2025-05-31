@@ -36,7 +36,11 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture := fixture.(*helpers.FSTestFixture)
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+		}
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
 		rootID := fsFixture.RootID
 
