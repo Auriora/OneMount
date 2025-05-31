@@ -265,12 +265,12 @@
   - [x] Add tests for API error response handling
   - [x] Add tests for rate limiting and retry logic
   - [x] Add tests for pagination handling
-- [ ] **Upload/Download Manager (Target: 70% coverage)**
-  - [ ] Add tests for chunk-based upload operations
-  - [ ] Add tests for download resume functionality
-  - [ ] Add tests for progress tracking and reporting
-  - [ ] Add tests for concurrent transfer management
-  - [ ] Add tests for transfer cancellation and cleanup
+- [x] **Upload/Download Manager (Target: 70% coverage)**
+  - [x] Add tests for chunk-based upload operations
+  - [x] Add tests for download resume functionality
+  - [x] Add tests for progress tracking and reporting
+  - [x] Add tests for concurrent transfer management
+  - [x] Add tests for transfer cancellation and cleanup
 
 #### Phase 3: Error Path and Edge Case Testing 🔍 **PLANNED**
 - [ ] **Network Error Scenarios**

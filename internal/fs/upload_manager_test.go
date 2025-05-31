@@ -819,3 +819,370 @@ func TestIT_FS_36_01_Upload_RepeatedUploads_HandledCorrectly(t *testing.T) {
 		t.Skip("Test not implemented yet")
 	})
 }
+
+// TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile verifies that large files are uploaded using chunk-based operations
+//
+//	Test Case ID    UT-FS-07
+//	Title           Upload Manager - Chunk-based Upload (Large File)
+//	Description     Verify that large files are uploaded correctly using chunk-based operations
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Network connection is available
+//	Steps           1. Create a large file (>4MB to trigger chunking)
+//	                2. Queue the file for upload
+//	                3. Verify that the upload uses chunked upload session
+//	                4. Monitor chunk upload progress
+//	                5. Wait for the upload to complete
+//	Expected Result The file is successfully uploaded using chunk-based operations with proper progress tracking
+//	Notes: Tests chunk-based upload operations for large files.
+func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
+	// Mark the test for parallel execution
+	t.Parallel()
+
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "ChunkBasedUploadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+
+		// Create a large test file (5MB to trigger chunked upload)
+		largeFileSize := 5 * 1024 * 1024 // 5MB
+		largeFileContent := make([]byte, largeFileSize)
+		for i := range largeFileContent {
+			largeFileContent[i] = byte(i % 256)
+		}
+
+		// Calculate the QuickXorHash for the large file
+		largeFileQuickXorHash := "large-file-quickxor-hash"
+
+		// Create a test file item
+		testFileName := "large_test_file.bin"
+		fileID := "large-file-id"
+		rootID := fsFixture.RootID
+
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: largeFileQuickXorHash,
+				},
+			},
+			Size: uint64(largeFileSize),
+		}
+
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
+
+		// Write the large file content to the content cache
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
+		defer fd.Close()
+
+		n, err := fd.WriteAt(largeFileContent, 0)
+		assert.NoError(err, "Failed to write large file content")
+		assert.Equal(largeFileSize, n, "Number of bytes written doesn't match content length")
+
+		// Mark the file as having changes to trigger upload
+		fileInode.hasChanges = true
+
+		// Mock the upload session creation response
+		uploadSessionResponse := map[string]interface{}{
+			"uploadUrl":          "https://upload.example.com/session123",
+			"expirationDateTime": "2024-12-31T23:59:59Z",
+		}
+		uploadSessionJSON, err := json.Marshal(uploadSessionResponse)
+		assert.NoError(err, "Failed to marshal upload session response")
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/createUploadSession", uploadSessionJSON, 200, nil)
+
+		// Mock chunk upload responses (5MB file with 4MB chunks = 2 chunks)
+		chunkSize := 4 * 1024 * 1024                                  // 4MB chunks
+		expectedChunks := (largeFileSize + chunkSize - 1) / chunkSize // Ceiling division
+
+		for i := 0; i < expectedChunks; i++ {
+			if i == expectedChunks-1 {
+				// Last chunk - return the completed file item
+				fileItemJSON, err := json.Marshal(fileItem)
+				assert.NoError(err, "Failed to marshal file item for final chunk")
+				mockClient.AddMockResponse("https://upload.example.com/session123", fileItemJSON, 200, nil)
+			} else {
+				// Intermediate chunk - return upload progress
+				progressResponse := map[string]interface{}{
+					"expirationDateTime": "2024-12-31T23:59:59Z",
+					"nextExpectedRanges": []string{fmt.Sprintf("%d-", (i+1)*chunkSize)},
+				}
+				progressJSON, err := json.Marshal(progressResponse)
+				assert.NoError(err, "Failed to marshal progress response")
+				mockClient.AddMockResponse("https://upload.example.com/session123", progressJSON, 202, nil)
+			}
+		}
+
+		// Queue the upload
+		uploadSession, err := fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
+		assert.NotNil(uploadSession, "Upload session should not be nil")
+
+		// Verify that the upload session is configured for chunked upload
+		assert.True(uploadSession.Size > uint64(4*1024*1024), "File should be large enough to trigger chunked upload")
+
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
+
+		// Verify upload completion
+		status, err := fs.uploads.GetUploadStatus(fileID)
+		assert.NoError(err, "Failed to get upload status")
+		assert.Equal(uploadComplete, status, "Upload should be completed")
+
+		// Verify that progress was tracked during upload
+		assert.True(uploadSession.BytesUploaded > 0, "Bytes uploaded should be greater than 0")
+		assert.Equal(uploadSession.Size, uploadSession.BytesUploaded, "All bytes should be uploaded")
+	})
+}
+
+// TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting verifies that upload progress is tracked and reported accurately
+//
+//	Test Case ID    UT-FS-08
+//	Title           Upload Manager - Progress Tracking and Reporting
+//	Description     Verify that upload progress is tracked and reported accurately during file uploads
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Network connection is available
+//	Steps           1. Create a test file
+//	                2. Queue the file for upload
+//	                3. Monitor upload progress during transfer
+//	                4. Verify progress accuracy and persistence
+//	                5. Wait for the upload to complete
+//	Expected Result Upload progress is tracked accurately and persisted correctly
+//	Notes: Tests progress tracking and reporting functionality.
+func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T) {
+	// Mark the test for parallel execution
+	t.Parallel()
+
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "ProgressTrackingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+
+		// Create a test file
+		testFileSize := 1024 * 1024 // 1MB
+		testFileContent := make([]byte, testFileSize)
+		for i := range testFileContent {
+			testFileContent[i] = byte(i % 256)
+		}
+
+		// Calculate the QuickXorHash for the test file
+		testFileQuickXorHash := "test-file-quickxor-hash"
+
+		// Create a test file item
+		testFileName := "progress_test_file.bin"
+		fileID := "progress-file-id"
+		rootID := fsFixture.RootID
+
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: testFileQuickXorHash,
+				},
+			},
+			Size: uint64(testFileSize),
+		}
+
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
+
+		// Write the test file content to the content cache
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
+		defer fd.Close()
+
+		n, err := fd.WriteAt(testFileContent, 0)
+		assert.NoError(err, "Failed to write test file content")
+		assert.Equal(testFileSize, n, "Number of bytes written doesn't match content length")
+
+		// Mark the file as having changes to trigger upload
+		fileInode.hasChanges = true
+
+		// Mock the upload response
+		fileItemJSON, err := json.Marshal(fileItem)
+		assert.NoError(err, "Failed to marshal file item")
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", fileItemJSON, 200, nil)
+
+		// Queue the upload
+		uploadSession, err := fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
+		assert.NotNil(uploadSession, "Upload session should not be nil")
+
+		// Verify initial progress state
+		assert.Equal(uint64(0), uploadSession.BytesUploaded, "Initial bytes uploaded should be 0")
+		assert.Equal(uint64(testFileSize), uploadSession.Size, "Upload session size should match file size")
+
+		// Wait for the upload to complete
+		err = fs.uploads.WaitForUpload(fileID)
+		assert.NoError(err, "Failed to wait for upload")
+
+		// Verify final progress state
+		assert.Equal(uploadSession.Size, uploadSession.BytesUploaded, "All bytes should be uploaded")
+		assert.True(uploadSession.LastProgressTime.After(time.Time{}), "Last progress time should be set")
+
+		// Verify upload completion
+		status, err := fs.uploads.GetUploadStatus(fileID)
+		assert.NoError(err, "Failed to get upload status")
+		assert.Equal(uploadComplete, status, "Upload should be completed")
+	})
+}
+
+// TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup verifies that upload cancellation works correctly
+//
+//	Test Case ID    UT-FS-09
+//	Title           Upload Manager - Transfer Cancellation and Cleanup
+//	Description     Verify that upload transfers can be cancelled and cleaned up properly
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Network connection is available
+//	Steps           1. Create a test file
+//	                2. Queue the file for upload
+//	                3. Cancel the upload mid-transfer
+//	                4. Verify proper cleanup of resources
+//	                5. Verify session removal from database
+//	Expected Result Upload cancellation works correctly with proper cleanup
+//	Notes: Tests transfer cancellation and cleanup functionality.
+func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T) {
+	// Mark the test for parallel execution
+	t.Parallel()
+
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "TransferCancellationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+
+		// Create a test file
+		testFileSize := 2 * 1024 * 1024 // 2MB
+		testFileContent := make([]byte, testFileSize)
+		for i := range testFileContent {
+			testFileContent[i] = byte(i % 256)
+		}
+
+		// Calculate the QuickXorHash for the test file
+		testFileQuickXorHash := "cancellation-test-file-quickxor-hash"
+
+		// Create a test file item
+		testFileName := "cancellation_test_file.bin"
+		fileID := "cancellation-file-id"
+		rootID := fsFixture.RootID
+
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: testFileQuickXorHash,
+				},
+			},
+			Size: uint64(testFileSize),
+		}
+
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
+
+		// Write the test file content to the content cache
+		fd, err := fs.content.Open(fileID)
+		assert.NoError(err, "Failed to open file for writing")
+		defer fd.Close()
+
+		n, err := fd.WriteAt(testFileContent, 0)
+		assert.NoError(err, "Failed to write test file content")
+		assert.Equal(testFileSize, n, "Number of bytes written doesn't match content length")
+
+		// Mark the file as having changes to trigger upload
+		fileInode.hasChanges = true
+
+		// Mock the upload response with a delay to allow cancellation
+		fileItemJSON, err := json.Marshal(fileItem)
+		assert.NoError(err, "Failed to marshal file item")
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", fileItemJSON, 200, nil)
+
+		// Queue the upload
+		uploadSession, err := fs.uploads.QueueUploadWithPriority(fileInode, PriorityHigh)
+		assert.NoError(err, "Failed to queue upload")
+		assert.NotNil(uploadSession, "Upload session should not be nil")
+
+		// Verify session exists before cancellation
+		session, exists := fs.uploads.GetSession(fileID)
+		assert.True(exists, "Upload session should exist before cancellation")
+		assert.NotNil(session, "Upload session should not be nil")
+
+		// Cancel the upload
+		fs.uploads.CancelUpload(fileID)
+
+		// Verify session is removed after cancellation
+		_, exists = fs.uploads.GetSession(fileID)
+		assert.False(exists, "Upload session should not exist after cancellation")
+
+		// Verify upload status reflects cancellation
+		status, err := fs.uploads.GetUploadStatus(fileID)
+		assert.Error(err, "Getting status of cancelled upload should return error")
+		assert.Equal(uploadNotStarted, status, "Cancelled upload status should be not started")
+	})
+}

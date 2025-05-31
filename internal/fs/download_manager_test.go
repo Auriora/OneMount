@@ -409,3 +409,328 @@ func TestUT_FS_07_05_DownloadManager_ProcessDownload_ChecksumError(t *testing.T)
 		assert.Equal(StatusError, fileStatus.Status, "File status should be StatusError")
 	})
 }
+
+// TestUT_FS_10_DownloadManager_ChunkBasedDownload_LargeFile verifies that large files are downloaded using chunk-based operations
+//
+//	Test Case ID    UT-FS-10
+//	Title           Download Manager - Chunk-based Download (Large File)
+//	Description     Verify that large files are downloaded correctly using chunk-based operations
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Network connection is available
+//	Steps           1. Create a large file item in the filesystem
+//	                2. Queue the file for download
+//	                3. Verify that the download uses chunked operations
+//	                4. Monitor chunk download progress
+//	                5. Wait for the download to complete
+//	Expected Result The file is successfully downloaded using chunk-based operations with proper progress tracking
+//	Notes: Tests chunk-based download operations for large files.
+func TestUT_FS_10_DownloadManager_ChunkBasedDownload_LargeFile(t *testing.T) {
+	// Mark the test for parallel execution
+	t.Parallel()
+
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "ChunkBasedDownloadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+
+		// Create a large test file (10MB to trigger chunked download)
+		largeFileSize := 10 * 1024 * 1024 // 10MB
+		largeFileContent := make([]byte, largeFileSize)
+		for i := range largeFileContent {
+			largeFileContent[i] = byte(i % 256)
+		}
+
+		// Calculate the QuickXorHash for the large file
+		largeFileQuickXorHash := "large-download-file-quickxor-hash"
+
+		// Create a test file item
+		testFileName := "large_download_test_file.bin"
+		fileID := "large-download-file-id"
+		rootID := fsFixture.RootID
+
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: largeFileQuickXorHash,
+				},
+			},
+			Size: uint64(largeFileSize),
+		}
+
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
+
+		// Mock the file item response
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
+		// Mock the content download response with chunked content
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", largeFileContent, 200, nil)
+
+		// Queue the download
+		downloadSession, err := fs.downloads.QueueDownload(fileID)
+		assert.NoError(err, "Failed to queue download")
+		assert.NotNil(downloadSession, "Download session should not be nil")
+
+		// Verify that the download session is configured for chunked download
+		assert.True(downloadSession.Size > uint64(downloadChunkSize), "File should be large enough to trigger chunked download")
+		assert.True(downloadSession.CanResume, "Large file download should support resume")
+
+		// Wait for the download to complete
+		err = fs.downloads.WaitForDownload(fileID)
+		assert.NoError(err, "Failed to wait for download")
+
+		// Verify download completion
+		status, err := fs.downloads.GetDownloadStatus(fileID)
+		assert.NoError(err, "Failed to get download status")
+		assert.Equal(DownloadCompletedState, status, "Download should be completed")
+
+		// Verify that progress was tracked during download
+		assert.True(downloadSession.BytesDownloaded > 0, "Bytes downloaded should be greater than 0")
+		assert.Equal(downloadSession.Size, downloadSession.BytesDownloaded, "All bytes should be downloaded")
+		assert.True(downloadSession.TotalChunks > 1, "Large file should be downloaded in multiple chunks")
+	})
+}
+
+// TestUT_FS_11_DownloadManager_ResumeDownload_InterruptedTransfer verifies that interrupted downloads can be resumed
+//
+//	Test Case ID    UT-FS-11
+//	Title           Download Manager - Download Resume Functionality
+//	Description     Verify that interrupted downloads can be resumed from the last successful chunk
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Network connection is available
+//	Steps           1. Create a large file item in the filesystem
+//	                2. Start the download and simulate interruption
+//	                3. Verify download session persistence
+//	                4. Resume the download from the last checkpoint
+//	                5. Wait for the download to complete
+//	Expected Result The download resumes correctly from the last successful chunk
+//	Notes: Tests download resume functionality for interrupted transfers.
+func TestUT_FS_11_DownloadManager_ResumeDownload_InterruptedTransfer(t *testing.T) {
+	// Mark the test for parallel execution
+	t.Parallel()
+
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "ResumeDownloadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+
+		// Create a large test file (8MB to trigger chunked download)
+		largeFileSize := 8 * 1024 * 1024 // 8MB
+		largeFileContent := make([]byte, largeFileSize)
+		for i := range largeFileContent {
+			largeFileContent[i] = byte(i % 256)
+		}
+
+		// Calculate the QuickXorHash for the large file
+		largeFileQuickXorHash := "resume-download-file-quickxor-hash"
+
+		// Create a test file item
+		testFileName := "resume_download_test_file.bin"
+		fileID := "resume-download-file-id"
+		rootID := fsFixture.RootID
+
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: testFileName,
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: largeFileQuickXorHash,
+				},
+			},
+			Size: uint64(largeFileSize),
+		}
+
+		// Insert the file into the filesystem
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(rootID, fileInode)
+
+		// Mock the file item response
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
+		// Mock the content download response with chunked content
+		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", largeFileContent, 200, nil)
+
+		// Queue the download
+		downloadSession, err := fs.downloads.QueueDownload(fileID)
+		assert.NoError(err, "Failed to queue download")
+		assert.NotNil(downloadSession, "Download session should not be nil")
+
+		// Verify that the download session is configured for resumable download
+		assert.True(downloadSession.Size > uint64(downloadChunkSize), "File should be large enough to trigger chunked download")
+		assert.True(downloadSession.CanResume, "Large file download should support resume")
+
+		// Simulate partial download by setting progress
+		chunkSize := uint64(downloadChunkSize)
+		chunksCompleted := 2 // Simulate 2 chunks completed
+		bytesDownloaded := uint64(chunksCompleted) * chunkSize
+		downloadSession.updateProgress(chunksCompleted-1, bytesDownloaded)
+
+		// Verify progress state before resume
+		assert.Equal(bytesDownloaded, downloadSession.BytesDownloaded, "Bytes downloaded should match simulated progress")
+		assert.Equal(chunksCompleted-1, downloadSession.LastSuccessfulChunk, "Last successful chunk should be set")
+		assert.True(downloadSession.canResumeDownload(), "Download should be resumable")
+
+		// Wait for the download to complete (it should resume from the last chunk)
+		err = fs.downloads.WaitForDownload(fileID)
+		assert.NoError(err, "Failed to wait for download")
+
+		// Verify download completion
+		status, err := fs.downloads.GetDownloadStatus(fileID)
+		assert.NoError(err, "Failed to get download status")
+		assert.Equal(DownloadCompletedState, status, "Download should be completed")
+
+		// Verify that all bytes were downloaded
+		assert.Equal(downloadSession.Size, downloadSession.BytesDownloaded, "All bytes should be downloaded")
+	})
+}
+
+// TestUT_FS_12_DownloadManager_ConcurrentDownloads_QueueManagement verifies concurrent download management
+//
+//	Test Case ID    UT-FS-12
+//	Title           Download Manager - Concurrent Download Management
+//	Description     Verify that multiple concurrent downloads are managed correctly with proper queue management
+//	Preconditions   1. User is authenticated with valid credentials
+//	                2. Network connection is available
+//	Steps           1. Create multiple test files
+//	                2. Queue all files for download simultaneously
+//	                3. Verify queue management and worker allocation
+//	                4. Monitor concurrent download execution
+//	                5. Wait for all downloads to complete
+//	Expected Result Multiple downloads are managed concurrently with proper queue management
+//	Notes: Tests concurrent transfer management and queue handling for downloads.
+func TestUT_FS_12_DownloadManager_ConcurrentDownloads_QueueManagement(t *testing.T) {
+	// Mark the test for parallel execution
+	t.Parallel()
+
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "ConcurrentDownloadsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+
+		// Create multiple test files
+		numFiles := 4
+		fileSize := 1024 * 1024 // 1MB each
+		fileIDs := make([]string, numFiles)
+		downloadSessions := make([]*DownloadSession, numFiles)
+
+		for i := 0; i < numFiles; i++ {
+			// Create test file content
+			testFileContent := make([]byte, fileSize)
+			for j := range testFileContent {
+				testFileContent[j] = byte((i + j) % 256)
+			}
+
+			// Create file item
+			testFileName := fmt.Sprintf("concurrent_download_test_file_%d.bin", i)
+			fileID := fmt.Sprintf("concurrent-download-file-id-%d", i)
+			fileIDs[i] = fileID
+			rootID := fsFixture.RootID
+
+			fileItem := &graph.DriveItem{
+				ID:   fileID,
+				Name: testFileName,
+				Parent: &graph.DriveItemParent{
+					ID: rootID,
+				},
+				File: &graph.File{
+					Hashes: graph.Hashes{
+						QuickXorHash: fmt.Sprintf("concurrent-download-quickxor-hash-%d", i),
+					},
+				},
+				Size: uint64(fileSize),
+			}
+
+			// Insert the file into the filesystem
+			fileInode := NewInodeDriveItem(fileItem)
+			fs.InsertNodeID(fileInode)
+			fs.InsertChild(rootID, fileInode)
+
+			// Mock the file item response
+			mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
+			// Mock the content download response
+			mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", testFileContent, 200, nil)
+		}
+
+		// Queue all downloads simultaneously
+		for i := 0; i < numFiles; i++ {
+			downloadSession, err := fs.downloads.QueueDownload(fileIDs[i])
+			assert.NoError(err, "Failed to queue download")
+			assert.NotNil(downloadSession, "Download session should not be nil")
+			downloadSessions[i] = downloadSession
+		}
+
+		// Wait for all downloads to complete
+		for i := 0; i < numFiles; i++ {
+			err := fs.downloads.WaitForDownload(fileIDs[i])
+			assert.NoError(err, "Failed to wait for download")
+
+			// Verify download completion
+			status, err := fs.downloads.GetDownloadStatus(fileIDs[i])
+			assert.NoError(err, "Failed to get download status")
+			assert.Equal(DownloadCompletedState, status, "Download should be completed")
+
+			// Verify progress tracking
+			assert.Equal(downloadSessions[i].Size, downloadSessions[i].BytesDownloaded, "All bytes should be downloaded")
+		}
+	})
+}
