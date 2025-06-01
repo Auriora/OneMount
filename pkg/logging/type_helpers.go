@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+
+	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
 // TypeLogger is an interface for type-specific logging helpers
@@ -54,9 +56,10 @@ var (
 
 	// specialTypeLoggers maps reflect.Type to TypeLogger
 	specialTypeLoggers = map[reflect.Type]TypeLogger{
-		reflect.TypeOf(time.Time{}): timeLogger{},
-		reflect.TypeOf([]byte{}):    byteSliceLogger{},
-		reflect.TypeOf([]string{}):  stringSliceLogger{},
+		reflect.TypeOf(time.Time{}):    timeLogger{},
+		reflect.TypeOf([]byte{}):       byteSliceLogger{},
+		reflect.TypeOf([]string{}):     stringSliceLogger{},
+		reflect.TypeOf(fuse.Status(0)): fuseStatusLogger{},
 	}
 )
 
@@ -215,6 +218,14 @@ type stringSliceLogger struct{}
 
 func (l stringSliceLogger) LogValue(event Event, fieldName string, value interface{}) Event {
 	return event.Strs(fieldName, value.([]string))
+}
+
+type fuseStatusLogger struct{}
+
+func (l fuseStatusLogger) LogValue(event Event, fieldName string, value interface{}) Event {
+	status := value.(fuse.Status)
+	// Log both the numeric value and the string representation for better debugging
+	return event.Int(fieldName, int(status)).Str(fieldName+"_name", status.String())
 }
 
 type ptrLogger struct {

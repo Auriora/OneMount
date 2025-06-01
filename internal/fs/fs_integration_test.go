@@ -1,12 +1,13 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/testutil/framework"
+	"github.com/auriora/onemount/pkg/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -973,11 +974,11 @@ func TestIT_FS_27_01_Filename_QuestionMarks_HandledCorrectly(t *testing.T) {
 //	Title           GIO Trash Integration
 //	Description     Tests integration with GIO trash functionality
 //	Preconditions   None
-//	Steps           1. Create files
-//	                2. Move files to trash using GIO
-//	                3. Check if the files are correctly moved to trash
+//	Steps           1. Test rename operations for local-only files
+//	                2. Test rename operations for remote files
+//	                3. Check if the rename operations work correctly
 //	Expected Result GIO trash integration works correctly
-//	Notes: This test verifies that integration with GIO trash functionality works correctly.
+//	Notes: This test verifies that rename operations work correctly for both local and remote files.
 func TestIT_FS_28_01_GIO_TrashIntegration_WorksCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "GIOTrashIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -994,12 +995,86 @@ func TestIT_FS_28_01_GIO_TrashIntegration_WorksCorrectly(t *testing.T) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// TODO: Implement the test case
-		// 1. Create files
-		// 2. Move files to trash using GIO
-		// 3. Check if the files are correctly moved to trash
-		assert.True(true, "Placeholder assertion")
-		t.Skip("Test not implemented yet")
+		// Get the test data from the UnitTestFixture
+		unitFixture, ok := fixture.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+		}
+		fsFixture, ok := unitFixture.SetupData.(*helpers.FSTestFixture)
+		if !ok {
+			t.Fatalf("Expected SetupData to be of type *helpers.FSTestFixture, but got %T", unitFixture.SetupData)
+		}
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		// Step 1: Test rename operations for local-only files (simulating trash temp files)
+		// Create a local-only file (like a temporary .trashinfo file)
+		localFileID := "local-temp-file-id"
+		localFileName := "temp.trashinfo.TEMP123"
+		localInode := NewInode(localFileName, 0644, fs.GetID(rootID))
+		localInode.DriveItem.ID = localFileID // This will be a local ID
+
+		// Insert the local file into the filesystem
+		fs.InsertID(localFileID, localInode)
+		fs.InsertChild(rootID, localInode)
+
+		// Test renaming the local file (this simulates the GIO trash rename operation)
+		renameIn := &fuse.RenameIn{
+			InHeader: fuse.InHeader{NodeId: 1}, // Root node
+			Newdir:   1,                        // Same directory
+		}
+
+		status := fs.Rename(nil, renameIn, localFileName, "temp.trashinfo")
+		assert.Equal(fuse.OK, status, "Rename of local-only file should succeed")
+
+		// Verify the file was renamed locally
+		renamedInode, _ := fs.GetChild(rootID, "temp.trashinfo", fsFixture.Auth)
+		assert.NotNil(renamedInode, "Renamed file should exist")
+		assert.Equal("temp.trashinfo", renamedInode.Name(), "File should have new name")
+
+		// Step 2: Test rename operations for remote files
+		// Create a remote file
+		remoteFileID := "remote-file-id"
+		remoteFileName := "remote_file.txt"
+		remoteFileContent := "Remote file content"
+		remoteFileItem := helpers.CreateMockFile(mockClient, rootID, remoteFileName, remoteFileID, remoteFileContent)
+		assert.NotNil(remoteFileItem, "Failed to create mock remote file")
+
+		// Insert the remote file into the filesystem
+		remoteInode := NewInodeDriveItem(remoteFileItem)
+		fs.InsertID(remoteFileID, remoteInode)
+		fs.InsertChild(rootID, remoteInode)
+
+		// Test renaming the remote file
+		status = fs.Rename(nil, renameIn, remoteFileName, "renamed_remote_file.txt")
+		assert.Equal(fuse.OK, status, "Rename of remote file should succeed")
+
+		// Verify the file was renamed
+		renamedRemoteInode, _ := fs.GetChild(rootID, "renamed_remote_file.txt", fsFixture.Auth)
+		assert.NotNil(renamedRemoteInode, "Renamed remote file should exist")
+		assert.Equal("renamed_remote_file.txt", renamedRemoteInode.Name(), "Remote file should have new name")
+
+		// Step 3: Test multiple rename operations (stress test for local files)
+		for i := 0; i < 3; i++ {
+			tempID := fmt.Sprintf("local-temp-%d", i)
+			tempName := fmt.Sprintf("temp_%d.trashinfo.TEMP%d", i, i)
+			finalName := fmt.Sprintf("temp_%d.trashinfo", i)
+
+			// Create local temp file
+			tempInode := NewInode(tempName, 0644, fs.GetID(rootID))
+			tempInode.DriveItem.ID = tempID
+			fs.InsertID(tempID, tempInode)
+			fs.InsertChild(rootID, tempInode)
+
+			// Rename it
+			status = fs.Rename(nil, renameIn, tempName, finalName)
+			assert.Equal(fuse.OK, status, "Rename of temp file %d should succeed", i)
+
+			// Verify it was renamed
+			finalInode, _ := fs.GetChild(rootID, finalName, fsFixture.Auth)
+			assert.NotNil(finalInode, "Final file %d should exist", i)
+		}
 	})
 }
 

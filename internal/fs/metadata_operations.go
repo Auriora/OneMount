@@ -164,7 +164,11 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 	dest := filepath.Join(newParentItem.Path(), newName)
 
 	inode, _ := f.GetChild(oldParentID, name, f.auth)
-	id, err := f.remoteID(inode)
+	if inode == nil {
+		return fuse.ENOENT
+	}
+
+	id := inode.ID()
 	newParentID := newParentItem.ID()
 
 	ctx := logging.DefaultLogger.With().
@@ -179,9 +183,30 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 		Uint64("dstNodeID", in.Newdir).
 		Msg("")
 
-	if isLocalID(id) || err != nil {
-		// uploads will fail without an id
-		logging.LogError(err, "ID of item to move cannot be local and we failed to obtain an ID",
+	// Handle local-only files (like temporary trash files) differently
+	if isLocalID(id) {
+		ctx.Debug().Msg("Renaming local-only file, skipping remote operations")
+
+		// For local-only files, just perform the local rename
+		if err := f.MovePath(oldParentID, newParentID, name, newName, f.auth); err != nil {
+			logging.LogError(err, "Failed to rename local-only item",
+				logging.FieldOperation, "Rename.localOnly",
+				logging.FieldID, id,
+				logging.FieldPath, path,
+				"dest", dest,
+				"oldParentID", oldParentID,
+				"newParentID", newParentID,
+				"name", name,
+				"newName", newName)
+			return fuse.EIO
+		}
+		return fuse.OK
+	}
+
+	// For remote files, get the remote ID
+	remoteID, err := f.remoteID(inode)
+	if err != nil {
+		logging.LogError(err, "Failed to obtain remote ID for rename operation",
 			logging.FieldOperation, "Rename",
 			logging.FieldPath, path,
 			"dest", dest,
@@ -213,10 +238,10 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 	}
 
 	// perform remote rename
-	if err = graph.Rename(id, newName, newParentID, f.auth); err != nil {
+	if err = graph.Rename(remoteID, newName, newParentID, f.auth); err != nil {
 		logging.LogError(err, "Failed to rename remote item",
 			logging.FieldOperation, "Rename.remoteRename",
-			logging.FieldID, id,
+			logging.FieldID, remoteID,
 			logging.FieldPath, path,
 			"dest", dest,
 			"newName", newName,

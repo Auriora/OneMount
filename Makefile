@@ -44,21 +44,29 @@ onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemo
 
 
 install: onemount onemount-launcher
-	mkdir -p $HOME/.local/bin/
-	mkdir -p $HOME/.local/share/icons/onemount/
-	mkdir -p $HOME/.local/share/applications/
-	mkdir -p $HOME/.config/systemd/user/
-	mkdir -p $HOME/.local/share/man/man1/
-	cp $(OUTPUT_DIR)/onemount $HOME/.local/bin/
-	cp $(OUTPUT_DIR)/onemount-launcher $HOME/.local/bin/
-	cp assets/icons/OneMount-Logo.svg $HOME/.local/share/icons/onemount/
-	cp assets/icons/OneMount.png $HOME/.local/share/icons/onemount/onemount.png
-	cp assets/icons/OneMount-Logo-128.png $HOME/.local/share/icons/onemount/onemount-128.png
-	cp deployments/desktop/onemount-launcher.desktop $HOME/.local/share/applications/
-	cp deployments/systemd/onemount@.service $HOME/.config/systemd/user/
+	mkdir -p $(HOME)/.local/bin/
+	mkdir -p $(HOME)/.local/share/icons/onemount/
+	mkdir -p $(HOME)/.local/share/applications/
+	mkdir -p $(HOME)/.config/systemd/user/
+	mkdir -p $(HOME)/.local/share/man/man1/
+	cp $(OUTPUT_DIR)/onemount $(HOME)/.local/bin/
+	cp $(OUTPUT_DIR)/onemount-launcher $(HOME)/.local/bin/
+	cp assets/icons/OneMount-Logo.svg $(HOME)/.local/share/icons/onemount/
+	cp assets/icons/OneMount-Logo-Icon.svg $(HOME)/.local/share/icons/onemount/
+	cp assets/icons/OneMount.png $(HOME)/.local/share/icons/onemount/onemount.png
+	cp assets/icons/OneMount-Logo-128.png $(HOME)/.local/share/icons/onemount/onemount-128.png
+	sed -e 's|@BIN_PATH@|$(HOME)/.local/bin|g' \
+		-e 's|@ICON_PATH@|$(HOME)/.local/share/icons/onemount|g' \
+		deployments/desktop/onemount-launcher.desktop.template > $(HOME)/.local/share/applications/onemount-launcher.desktop
+	sed -e 's|@BIN_PATH@|$(HOME)/.local/bin|g' \
+		-e 's|@AFTER@||g' \
+		-e 's|@USER@||g' \
+		-e 's|@GROUP@||g' \
+		-e 's|@WANTED_BY@|default.target|g' \
+		deployments/systemd/onemount@.service.template > $(HOME)/.config/systemd/user/onemount@.service
 	systemctl --user daemon-reload 2>/dev/null || true
-	gzip -c docs/man/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
-	mandb
+	gzip -c docs/man/onemount.1 > $(HOME)/.local/share/man/man1/onemount.1.gz
+	mandb --user-db --quiet 2>/dev/null || true
 
 
 install-system: onemount onemount-launcher
@@ -70,10 +78,18 @@ install-system: onemount onemount-launcher
 	sudo cp $(OUTPUT_DIR)/onemount /usr/local/bin/
 	sudo cp $(OUTPUT_DIR)/onemount-launcher /usr/local/bin/
 	sudo cp assets/icons/OneMount-Logo.svg /usr/local/share/icons/onemount/
+	sudo cp assets/icons/OneMount-Logo-Icon.svg /usr/local/share/icons/onemount/
 	sudo cp assets/icons/OneMount.png /usr/local/share/icons/onemount/onemount.png
 	sudo cp assets/icons/OneMount-Logo-128.png /usr/local/share/icons/onemount/onemount-128.png
-	sudo cp deployments/desktop/onemount-launcher-system.desktop /usr/local/share/applications/onemount-launcher.desktop
-	sudo cp deployments/systemd/onemount@-system.service /usr/local/lib/systemd/system/onemount@.service
+	sudo sed -e 's|@BIN_PATH@|/usr/local/bin|g' \
+		-e 's|@ICON_PATH@|/usr/local/share/icons/onemount|g' \
+		deployments/desktop/onemount-launcher.desktop.template > /usr/local/share/applications/onemount-launcher.desktop
+	sudo sed -e 's|@BIN_PATH@|/usr/local/bin|g' \
+		-e 's|@AFTER@|\nAfter=network.target|g' \
+		-e 's|@USER@|\nUser=%i|g' \
+		-e 's|@GROUP@|\nGroup=%i|g' \
+		-e 's|@WANTED_BY@|multi-user.target|g' \
+		deployments/systemd/onemount@.service.template > /usr/local/lib/systemd/system/onemount@.service
 	sudo systemctl daemon-reload
 	sudo gzip -c docs/man/onemount.1 > /usr/local/share/man/man1/onemount.1.gz
 	sudo mandb
@@ -81,14 +97,14 @@ install-system: onemount onemount-launcher
 
 uninstall:
 	rm -f \
-		$HOME/.local/bin/onemount \
-		$HOME/.local/bin/onemount-launcher \
-		$HOME/.config/systemd/user/onemount@.service \
-		$HOME/.local/share/applications/onemount-launcher.desktop \
-		$HOME/.local/share/man/man1/onemount.1.gz
-	rm -rf $HOME/.local/share/icons/onemount
+		$(HOME)/.local/bin/onemount \
+		$(HOME)/.local/bin/onemount-launcher \
+		$(HOME)/.config/systemd/user/onemount@.service \
+		$(HOME)/.local/share/applications/onemount-launcher.desktop \
+		$(HOME)/.local/share/man/man1/onemount.1.gz
+	rm -rf $(HOME)/.local/share/icons/onemount
 	systemctl --user daemon-reload 2>/dev/null || true
-	mandb
+	mandb --user-db --quiet 2>/dev/null || true
 
 
 uninstall-system:
@@ -110,10 +126,8 @@ validate-packaging:
 	@test -f assets/icons/OneMount.png || (echo "Error: assets/icons/OneMount.png not found" && exit 1)
 	@test -f assets/icons/OneMount-Logo-128.png || (echo "Error: assets/icons/OneMount-Logo-128.png not found" && exit 1)
 	@test -f assets/icons/OneMount-Logo.svg || (echo "Error: assets/icons/OneMount-Logo.svg not found" && exit 1)
-	@test -f deployments/desktop/onemount-launcher.desktop || (echo "Error: user desktop file not found" && exit 1)
-	@test -f deployments/desktop/onemount-launcher-system.desktop || (echo "Error: system desktop file not found" && exit 1)
-	@test -f deployments/systemd/onemount@.service || (echo "Error: user systemd service file not found" && exit 1)
-	@test -f deployments/systemd/onemount@-system.service || (echo "Error: system systemd service file not found" && exit 1)
+	@test -f deployments/desktop/onemount-launcher.desktop.template || (echo "Error: desktop file template not found" && exit 1)
+	@test -f deployments/systemd/onemount@.service.template || (echo "Error: systemd service file template not found" && exit 1)
 	@test -f scripts/cgo-helper.sh || (echo "Error: cgo-helper.sh script not found" && exit 1)
 	@echo "All packaging requirements validated successfully"
 

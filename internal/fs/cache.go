@@ -332,7 +332,34 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 					Msg("Could not create the trash folder. " +
 						"Trashing items through the file browser may result in errors.")
 			} else {
-				fs.InsertID(item.ID, NewInodeDriveItem(item))
+				trashInode := NewInodeDriveItem(item)
+				fs.InsertID(item.ID, trashInode)
+
+				// Create the required subdirectories for GIO trash
+				infoDir := "info"
+				filesDir := "files"
+
+				// Create info directory
+				if infoChild, _ := fs.GetChild(item.ID, infoDir, auth); infoChild == nil {
+					infoItem, err := graph.Mkdir(infoDir, item.ID, auth)
+					if err != nil {
+						logging.Error().Err(err).Str("dir", infoDir).
+							Msg("Could not create trash info directory")
+					} else {
+						fs.InsertID(infoItem.ID, NewInodeDriveItem(infoItem))
+					}
+				}
+
+				// Create files directory
+				if filesChild, _ := fs.GetChild(item.ID, filesDir, auth); filesChild == nil {
+					filesItem, err := graph.Mkdir(filesDir, item.ID, auth)
+					if err != nil {
+						logging.Error().Err(err).Str("dir", filesDir).
+							Msg("Could not create trash files directory")
+					} else {
+						fs.InsertID(filesItem.ID, NewInodeDriveItem(filesItem))
+					}
+				}
 			}
 		}
 

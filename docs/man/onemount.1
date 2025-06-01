@@ -1,6 +1,6 @@
 .\" Manpage for OneMount
 
-.TH man 1 "May 2023" "1.0.0" "onemount man page"
+.TH man 1 "December 2024" "0.14.1" "onemount man page"
 
 .SH NAME
 onemount \- A native Linux client for Microsoft OneDrive.
@@ -20,19 +20,69 @@ Key features include:
 .IP \(bu 2
 On-demand file downloading with local caching
 .IP \(bu 2
-Offline mode with read access to previously cached files
+Offline mode with full read/write access to cached files
 .IP \(bu 2
-Background synchronization of changes
+Background synchronization of changes with conflict resolution
+.IP \(bu 2
+Automatic conflict detection and resolution strategies
 .IP \(bu 2
 File status indicators in file managers
 .IP \(bu 2
 Support for multiple OneDrive accounts
 .IP \(bu 2
 Low memory footprint and efficient operation
+.IP \(bu 2
+GUI launcher for easy configuration and management
+.IP \(bu 2
+Comprehensive retry mechanisms and network recovery
 
-While offline, the filesystem will be read-only until
-connectivity is re-established. Changes made while online are automatically
-uploaded to OneDrive in the background.
+While offline, the filesystem supports full read/write operations on cached files.
+Changes made while offline are automatically synchronized when connectivity is
+re-established, with intelligent conflict resolution for any conflicting changes.
+
+
+.SH INSTALLATION AND SETUP
+
+OneMount can be installed using several methods:
+
+.TP
+.B Package Installation
+Install using your distribution's package manager (RPM for RHEL/CentOS/Fedora,
+DEB for Ubuntu/Debian) or build from source using the provided Makefile.
+
+.TP
+.B User Installation
+.nf
+\fB
+make install
+\fR
+.fi
+Installs OneMount to ~/.local/bin/ with user systemd service files.
+
+.TP
+.B System-wide Installation
+.nf
+\fB
+sudo make install-system
+\fR
+.fi
+Installs OneMount system-wide to /usr/local/bin/ with system systemd service files.
+
+.TP
+.B GUI Launcher
+After installation, OneMount includes a graphical launcher application
+(\fBonemount-launcher\fR) that provides an easy-to-use interface for:
+.IP \(bu 2
+Adding and managing OneDrive accounts
+.IP \(bu 2
+Configuring mount points
+.IP \(bu 2
+Setting up automatic startup via systemd
+.IP \(bu 2
+Monitoring mount status and logs
+
+The GUI launcher can be found in your application menu under "Utilities" or
+launched directly from the command line with \fBonemount-launcher\fR.
 
 
 .SH OPTIONS
@@ -110,8 +160,18 @@ Run onemount in daemon mode (detached from terminal).
 
 .SH SYSTEM INTEGRATION
 To start onemount automatically and ensure you always have access to your
-files, you can start onemount as a systemd user service. In this example,
-\fImountpoint\fR refers to where we want OneDrive to be mounted at (for
+files, you can use either the GUI launcher or configure systemd services manually.
+
+.TP
+.B Using the GUI Launcher (Recommended)
+The \fBonemount-launcher\fR application provides the easiest way to configure
+automatic startup. It handles systemd service configuration automatically and
+provides a user-friendly interface for managing multiple OneDrive accounts.
+
+.TP
+.B Manual systemd Configuration
+For advanced users or automated setups, you can configure systemd services manually.
+In this example, \fImountpoint\fR refers to where we want OneDrive to be mounted at (for
 instance, ~/OneDrive). Mounting OneDrive via systemd allows multiple drives to
 be mounted at the same time (as long as they use different mountpoints).
 
@@ -191,6 +251,18 @@ to check the current status of files.
 .TP
 .B Offline mode issues
 If you're having problems with offline mode, ensure you've accessed the files while online first so they can be cached.
+OneMount now supports full read/write operations in offline mode with automatic synchronization when connectivity returns.
+
+.TP
+.B Synchronization conflicts
+OneMount automatically detects and resolves conflicts when files are modified both locally and remotely.
+The default strategy keeps both versions, creating conflict copies with descriptive names.
+Check the logs for conflict resolution details.
+
+.TP
+.B Network recovery issues
+If synchronization fails after network interruption, OneMount includes automatic retry mechanisms
+with exponential backoff. Check logs for retry attempts and any persistent errors.
 
 .TP
 .B Complete reset
@@ -206,12 +278,30 @@ To view detailed logs for troubleshooting:
 .br
 Or set a more verbose logging level with \fB-l debug\fR or \fB-l trace\fR
 
+.TP
+.B Using the GUI for troubleshooting
+The \fBonemount-launcher\fR GUI provides status information and can help diagnose
+common issues. It shows mount status, account information, and provides easy access
+to logs and configuration.
+
 
 .SH KNOWN ISSUES AND LIMITATIONS
 
 .TP
+.B Conflict Resolution
+OneMount automatically handles most file conflicts using a "keep both" strategy by default.
+In rare cases where automatic resolution fails, manual intervention may be required.
+Conflict copies are created with descriptive names to help identify the source of conflicts.
+
+.TP
+.B Offline Synchronization
+While OneMount supports full read/write operations in offline mode, very large files
+or complex directory operations may experience delays during synchronization when
+connectivity is restored. The system includes retry mechanisms to handle temporary failures.
+
+.TP
 .B Thumbnail Generation
-Many file browsers (like GNOME's Nautilus) will attempt to automatically 
+Many file browsers (like GNOME's Nautilus) will attempt to automatically
 download all files within a directory in order to create thumbnail images.
 This can cause increased network activity when browsing new directories.
 After the initial thumbnail images have been created, they will persist between
@@ -254,6 +344,36 @@ backups of important data. The developers are not responsible for any data loss
 or damage that may occur through the use of this software.
 
 
+.SH UNINSTALLATION
+
+To uninstall OneMount:
+
+.TP
+.B User Installation
+.nf
+\fB
+make uninstall
+\fR
+.fi
+Removes OneMount from ~/.local/bin/ and associated user files.
+
+.TP
+.B System-wide Installation
+.nf
+\fB
+sudo make uninstall-system
+\fR
+.fi
+Removes OneMount from /usr/local/bin/ and associated system files.
+
+Before uninstalling, make sure to unmount any active OneMount filesystems:
+.nf
+\fB
+fusermount3 -uz /path/to/mountpoint
+\fR
+.fi
+
+
 .SH SEE ALSO
 .TP
 .B Project Website:
@@ -266,6 +386,7 @@ https://github.com/auriora/OneMount/tree/main/docs
 https://github.com/auriora/OneMount/issues
 .TP
 .B Related Commands:
+.BR onemount-launcher (1),
 .BR fusermount3 (1),
 .BR systemctl (1),
 .BR journalctl (1)
