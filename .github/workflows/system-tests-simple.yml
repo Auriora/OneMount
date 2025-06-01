@@ -11,9 +11,6 @@ jobs:
   system-tests:
     runs-on: ubuntu-latest
     
-    # Only run if we have the personal OneDrive tokens
-    if: ${{ secrets.ONEDRIVE_PERSONAL_TOKENS != null && secrets.ONEDRIVE_PERSONAL_TOKENS != '' }}
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -33,6 +30,21 @@ jobs:
       env:
         ONEDRIVE_PERSONAL_TOKENS: ${{ secrets.ONEDRIVE_PERSONAL_TOKENS }}
       run: |
+        # Check if the secret is available
+        if [ -z "$ONEDRIVE_PERSONAL_TOKENS" ]; then
+          echo "🔧 Personal OneDrive system tests are not configured"
+          echo ""
+          echo "To enable system tests with your personal OneDrive:"
+          echo "1. Run locally: base64 -w 0 ~/.cache/onemount/auth_tokens.json"
+          echo "2. Go to Settings → Secrets and variables → Actions"
+          echo "3. Add secret: ONEDRIVE_PERSONAL_TOKENS with the base64 output"
+          echo ""
+          echo "See docs/testing/personal-onedrive-ci-setup.md for detailed instructions"
+          echo ""
+          echo "⏭️  Skipping system tests due to missing credentials"
+          exit 0
+        fi
+
         # Create test directories
         mkdir -p ~/.onemount-tests/logs
         chmod 700 ~/.onemount-tests
