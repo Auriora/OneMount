@@ -227,6 +227,12 @@ make test-python
 
 # run only the Go tests for the D-Bus interface
 go test -v ./fs -run TestDBus
+
+# run comprehensive system tests with real OneDrive account
+make system-test-real
+
+# run all system test categories
+make system-test-all
 ```
 
 The test suite includes:
@@ -234,6 +240,7 @@ The test suite includes:
 - Go tests for the D-Bus interface that provides file status updates
 - Python pytest tests for the nemo-OneMount.py extension that uses the D-Bus interface
 - Offline tests that simulate network disconnection
+- **System tests with real OneDrive account** for comprehensive end-to-end testing
 
 ### Installation from source
 

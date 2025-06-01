@@ -40,3 +40,21 @@ var GraphTestDir = filepath.Join(TestSandboxDir, "graph_test_dir")
 func GetDefaultArtifactsDir() string {
 	return TestSandboxDir
 }
+
+// System test specific constants
+var (
+	// SystemTestMountPoint is the mount point for system tests
+	SystemTestMountPoint = filepath.Join(TestSandboxTmpDir, "system-test-mount")
+
+	// SystemTestDataDir is the directory for system test data
+	SystemTestDataDir = filepath.Join(TestSandboxDir, "system-test-data")
+
+	// SystemTestConfigPath is the path to the system test configuration
+	SystemTestConfigPath = filepath.Join(TestSandboxDir, "system-test-config.yml")
+
+	// SystemTestLogPath is the path to the system test log file
+	SystemTestLogPath = filepath.Join(TestSandboxDir, "logs", "system_tests.log")
+
+	// OneDriveTestPath is the path on OneDrive where system tests will create files
+	OneDriveTestPath = "/onemount_system_tests"
+)

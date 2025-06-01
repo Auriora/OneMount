@@ -208,6 +208,40 @@ integration-test:
 system-test:
 	go test -v ./pkg/testutil/system_test_env_test.go -timeout $(TEST_TIMEOUT)
 
+# Run comprehensive system tests with real OneDrive account
+system-test-real:
+	@echo "Running comprehensive system tests with real OneDrive account..."
+	./scripts/run-system-tests.sh --comprehensive
+
+# Run all system test categories with real OneDrive account
+system-test-all:
+	@echo "Running all system test categories with real OneDrive account..."
+	./scripts/run-system-tests.sh --all
+
+# Run performance system tests
+system-test-performance:
+	@echo "Running performance system tests..."
+	./scripts/run-system-tests.sh --performance
+
+# Run reliability system tests
+system-test-reliability:
+	@echo "Running reliability system tests..."
+	./scripts/run-system-tests.sh --reliability
+
+# Run integration system tests
+system-test-integration:
+	@echo "Running integration system tests..."
+	./scripts/run-system-tests.sh --integration
+
+# Run stress system tests
+system-test-stress:
+	@echo "Running stress system tests..."
+	./scripts/run-system-tests.sh --stress
+
+# Run system tests directly with Go (alternative to script)
+system-test-go:
+	go test -v -timeout 30m ./tests/system -run "TestSystemST_.*"
+
 # Coverage targets
 coverage:
 	mkdir -p coverage

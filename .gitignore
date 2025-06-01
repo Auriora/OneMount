@@ -49,8 +49,8 @@ debian/files
 *.tar.xz
 
 .idea/
-/.cache/
-/.config/
+.cache/
+.config/
 __pycache__
 .auth_tokens.json
 !README.*.md
@@ -64,3 +64,5 @@ __pycache__
 /coverage/package-analysis.txt
 /coverage/summary.txt
 /coverage/trends.html
+onemount-test
+onemount-fixed
