@@ -44,92 +44,25 @@ onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemo
 
 
 install: onemount onemount-launcher
-	mkdir -p $(HOME)/.local/bin/
-	mkdir -p $(HOME)/.local/share/icons/onemount/
-	mkdir -p $(HOME)/.local/share/applications/
-	mkdir -p $(HOME)/.config/systemd/user/
-	mkdir -p $(HOME)/.local/share/man/man1/
-	cp $(OUTPUT_DIR)/onemount $(HOME)/.local/bin/
-	cp $(OUTPUT_DIR)/onemount-launcher $(HOME)/.local/bin/
-	cp assets/icons/OneMount-Logo.svg $(HOME)/.local/share/icons/onemount/
-	cp assets/icons/OneMount-Logo-Icon.svg $(HOME)/.local/share/icons/onemount/
-	cp assets/icons/OneMount.png $(HOME)/.local/share/icons/onemount/onemount.png
-	cp assets/icons/OneMount-Logo-128.png $(HOME)/.local/share/icons/onemount/onemount-128.png
-	sed -e 's|@BIN_PATH@|$(HOME)/.local/bin|g' \
-		-e 's|@ICON_PATH@|$(HOME)/.local/share/icons/onemount|g' \
-		deployments/desktop/onemount-launcher.desktop.template > $(HOME)/.local/share/applications/onemount-launcher.desktop
-	sed -e 's|@BIN_PATH@|$(HOME)/.local/bin|g' \
-		-e 's|@AFTER@||g' \
-		-e 's|@USER@||g' \
-		-e 's|@GROUP@||g' \
-		-e 's|@WANTED_BY@|default.target|g' \
-		deployments/systemd/onemount@.service.template > $(HOME)/.config/systemd/user/onemount@.service
-	systemctl --user daemon-reload 2>/dev/null || true
-	gzip -c docs/man/onemount.1 > $(HOME)/.local/share/man/man1/onemount.1.gz
-	mandb --user-db --quiet 2>/dev/null || true
+	@python3 scripts/install-manifest.py --target makefile --type user --action install | bash
 
 
 install-system: onemount onemount-launcher
-	sudo mkdir -p /usr/local/bin/
-	sudo mkdir -p /usr/local/share/icons/onemount/
-	sudo mkdir -p /usr/local/share/applications/
-	sudo mkdir -p /usr/local/lib/systemd/system/
-	sudo mkdir -p /usr/local/share/man/man1/
-	sudo cp $(OUTPUT_DIR)/onemount /usr/local/bin/
-	sudo cp $(OUTPUT_DIR)/onemount-launcher /usr/local/bin/
-	sudo cp assets/icons/OneMount-Logo.svg /usr/local/share/icons/onemount/
-	sudo cp assets/icons/OneMount-Logo-Icon.svg /usr/local/share/icons/onemount/
-	sudo cp assets/icons/OneMount.png /usr/local/share/icons/onemount/onemount.png
-	sudo cp assets/icons/OneMount-Logo-128.png /usr/local/share/icons/onemount/onemount-128.png
-	sudo sed -e 's|@BIN_PATH@|/usr/local/bin|g' \
-		-e 's|@ICON_PATH@|/usr/local/share/icons/onemount|g' \
-		deployments/desktop/onemount-launcher.desktop.template > /usr/local/share/applications/onemount-launcher.desktop
-	sudo sed -e 's|@BIN_PATH@|/usr/local/bin|g' \
-		-e 's|@AFTER@|\nAfter=network.target|g' \
-		-e 's|@USER@|\nUser=%i|g' \
-		-e 's|@GROUP@|\nGroup=%i|g' \
-		-e 's|@WANTED_BY@|multi-user.target|g' \
-		deployments/systemd/onemount@.service.template > /usr/local/lib/systemd/system/onemount@.service
-	sudo systemctl daemon-reload
-	sudo gzip -c docs/man/onemount.1 > /usr/local/share/man/man1/onemount.1.gz
-	sudo mandb
+	@python3 scripts/install-manifest.py --target makefile --type system --action install | bash
 
 
 uninstall:
-	rm -f \
-		$(HOME)/.local/bin/onemount \
-		$(HOME)/.local/bin/onemount-launcher \
-		$(HOME)/.config/systemd/user/onemount@.service \
-		$(HOME)/.local/share/applications/onemount-launcher.desktop \
-		$(HOME)/.local/share/man/man1/onemount.1.gz
-	rm -rf $(HOME)/.local/share/icons/onemount
-	systemctl --user daemon-reload 2>/dev/null || true
-	mandb --user-db --quiet 2>/dev/null || true
+	@python3 scripts/install-manifest.py --target makefile --type user --action uninstall | bash
 
 
 uninstall-system:
-	sudo rm -f \
-		/usr/local/bin/onemount \
-		/usr/local/bin/onemount-launcher \
-		/usr/local/lib/systemd/system/onemount@.service \
-		/usr/local/share/applications/onemount-launcher.desktop \
-		/usr/local/share/man/man1/onemount.1.gz
-	sudo rm -rf /usr/local/share/icons/onemount
-	sudo systemctl daemon-reload
-	sudo mandb
+	@python3 scripts/install-manifest.py --target makefile --type system --action uninstall | bash
 
 
 # Validate packaging requirements
 validate-packaging:
-	@echo "Validating packaging requirements..."
-	@test -f docs/man/onemount.1 || (echo "Error: docs/man/onemount.1 not found" && exit 1)
-	@test -f assets/icons/OneMount.png || (echo "Error: assets/icons/OneMount.png not found" && exit 1)
-	@test -f assets/icons/OneMount-Logo-128.png || (echo "Error: assets/icons/OneMount-Logo-128.png not found" && exit 1)
-	@test -f assets/icons/OneMount-Logo.svg || (echo "Error: assets/icons/OneMount-Logo.svg not found" && exit 1)
-	@test -f deployments/desktop/onemount-launcher.desktop.template || (echo "Error: desktop file template not found" && exit 1)
-	@test -f deployments/systemd/onemount@.service.template || (echo "Error: systemd service file template not found" && exit 1)
+	@python3 scripts/install-manifest.py --target makefile --action validate | bash
 	@test -f scripts/cgo-helper.sh || (echo "Error: cgo-helper.sh script not found" && exit 1)
-	@echo "All packaging requirements validated successfully"
 
 # used to create release tarball for rpmbuild
 v$(VERSION).tar.gz: validate-packaging $(shell git ls-files)

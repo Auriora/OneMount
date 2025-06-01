@@ -1,0 +1,144 @@
+{
+  "_comment": "OneMount Installation Manifest - defines all files to be installed and their destinations",
+  "binaries": [
+    {
+      "source": "$(OUTPUT_DIR)/onemount",
+      "dest_user": "$(HOME)/.local/bin/onemount",
+      "dest_system": "/usr/local/bin/onemount",
+      "dest_package": "usr/bin/onemount",
+      "mode": "0755"
+    },
+    {
+      "source": "$(OUTPUT_DIR)/onemount-launcher",
+      "dest_user": "$(HOME)/.local/bin/onemount-launcher",
+      "dest_system": "/usr/local/bin/onemount-launcher",
+      "dest_package": "usr/bin/onemount-launcher",
+      "mode": "0755"
+    }
+  ],
+  "icons": [
+    {
+      "source": "assets/icons/onemount.svg",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount.svg",
+      "dest_system": "/usr/local/share/icons/onemount/onemount.svg",
+      "dest_package": "usr/share/icons/onemount/onemount.svg",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon.svg",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon.svg",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon.svg",
+      "dest_package": "usr/share/icons/onemount/onemount-icon.svg",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount.png",
+      "dest_package": "usr/share/icons/onemount/onemount.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-128.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-128.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-128.png",
+      "dest_package": "usr/share/icons/onemount/onemount-128.png",
+      "mode": "0644"
+    }
+  ],
+  "desktop": [
+    {
+      "source_template": "deployments/desktop/onemount-launcher.desktop.template",
+      "dest_user": "$(HOME)/.local/share/applications/onemount-launcher.desktop",
+      "dest_system": "/usr/local/share/applications/onemount-launcher.desktop",
+      "dest_package": "usr/share/applications/onemount-launcher.desktop",
+      "mode": "0644",
+      "substitutions_user": {
+        "@BIN_PATH@": "$(HOME)/.local/bin",
+        "@ICON_PATH@": "$(HOME)/.local/share/icons/onemount"
+      },
+      "substitutions_system": {
+        "@BIN_PATH@": "/usr/local/bin",
+        "@ICON_PATH@": "/usr/local/share/icons/onemount"
+      },
+      "source_package": "deployments/desktop/onemount-launcher-system.desktop"
+    }
+  ],
+  "systemd": [
+    {
+      "source_template": "deployments/systemd/onemount@.service.template",
+      "dest_user": "$(HOME)/.config/systemd/user/onemount@.service",
+      "dest_system": "/usr/local/lib/systemd/system/onemount@.service",
+      "dest_package": "usr/lib/systemd/system/onemount@.service",
+      "mode": "0644",
+      "substitutions_user": {
+        "@BIN_PATH@": "$(HOME)/.local/bin",
+        "@AFTER@": "",
+        "@USER@": "",
+        "@GROUP@": "",
+        "@WANTED_BY@": "default.target"
+      },
+      "substitutions_system": {
+        "@BIN_PATH@": "/usr/local/bin",
+        "@AFTER@": "\\nAfter=network.target",
+        "@USER@": "\\nUser=%i",
+        "@GROUP@": "\\nGroup=%i",
+        "@WANTED_BY@": "multi-user.target"
+      },
+      "source_package": "deployments/systemd/onemount@-system.service"
+    }
+  ],
+  "documentation": [
+    {
+      "source": "docs/man/onemount.1",
+      "dest_user": "$(HOME)/.local/share/man/man1/onemount.1.gz",
+      "dest_system": "/usr/local/share/man/man1/onemount.1.gz",
+      "dest_package": "usr/share/man/man1/onemount.1.gz",
+      "mode": "0644",
+      "process": "gzip"
+    }
+  ],
+  "directories": {
+    "user": [
+      "$(HOME)/.local/bin",
+      "$(HOME)/.local/share/icons/onemount",
+      "$(HOME)/.local/share/applications",
+      "$(HOME)/.config/systemd/user",
+      "$(HOME)/.local/share/man/man1"
+    ],
+    "system": [
+      "/usr/local/bin",
+      "/usr/local/share/icons/onemount",
+      "/usr/local/share/applications",
+      "/usr/local/lib/systemd/system",
+      "/usr/local/share/man/man1"
+    ],
+    "package": [
+      "usr/bin",
+      "usr/share/icons/onemount",
+      "usr/share/applications",
+      "usr/lib/systemd/system",
+      "usr/share/man/man1"
+    ]
+  },
+  "post_install": {
+    "user": [
+      "systemctl --user daemon-reload 2>/dev/null || true",
+      "mandb --user-db --quiet 2>/dev/null || true"
+    ],
+    "system": [
+      "sudo systemctl daemon-reload",
+      "sudo mandb"
+    ]
+  },
+  "post_uninstall": {
+    "user": [
+      "systemctl --user daemon-reload 2>/dev/null || true",
+      "mandb --user-db --quiet 2>/dev/null || true"
+    ],
+    "system": [
+      "sudo systemctl daemon-reload",
+      "sudo mandb"
+    ]
+  }
+}

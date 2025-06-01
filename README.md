@@ -10,7 +10,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/auriora/OneMount)](https://goreportcard.com/report/github.com/auriora/OneMount)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue.svg?logo=linux&logoColor=white)](https://www.linux.org/)
 
-![OneMount](assets/icons/OneMount-Logo-64.png)
+![OneMount](assets/icons/onemount-64.png)
 
 # OneMount
 
