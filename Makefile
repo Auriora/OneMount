@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, install-system, uninstall, uninstall-system, validate-packaging, update-imports
+.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, update-imports
 
 # auto-calculate software/package versions
 VERSION := $(shell grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
@@ -57,6 +57,26 @@ uninstall:
 
 uninstall-system:
 	@python3 scripts/install-manifest.py --target makefile --type system --action uninstall | bash
+
+
+# Show what would be installed for user installation (dry run)
+install-dry-run: onemount onemount-launcher
+	@python3 scripts/install-manifest.py --target makefile --type user --action install --dry-run
+
+
+# Show what would be installed for system installation (dry run)
+install-system-dry-run: onemount onemount-launcher
+	@python3 scripts/install-manifest.py --target makefile --type system --action install --dry-run
+
+
+# Show what would be uninstalled for user installation (dry run)
+uninstall-dry-run:
+	@python3 scripts/install-manifest.py --target makefile --type user --action uninstall --dry-run
+
+
+# Show what would be uninstalled for system installation (dry run)
+uninstall-system-dry-run:
+	@python3 scripts/install-manifest.py --target makefile --type system --action uninstall --dry-run
 
 
 # Validate packaging requirements

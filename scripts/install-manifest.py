@@ -7,9 +7,11 @@ commands for different packaging systems (Makefile, RPM, Debian, etc.).
 
 Usage:
     python3 scripts/install-manifest.py --target makefile --type user --action install
+    python3 scripts/install-manifest.py --target makefile --type user --action install --dry-run
     python3 scripts/install-manifest.py --target rpm --action install
     python3 scripts/install-manifest.py --target debian --action install
     python3 scripts/install-manifest.py --target makefile --type user --action uninstall
+    python3 scripts/install-manifest.py --target makefile --type user --action uninstall --dry-run
     python3 scripts/install-manifest.py --target makefile --action validate
 """
 
@@ -110,13 +112,48 @@ class InstallManifestParser:
         
         return files
     
-    def generate_makefile_install(self, install_type):
+    def generate_makefile_install(self, install_type, dry_run=False):
         """Generate Makefile install commands"""
         commands = []
 
         # Add header message
         install_desc = "system-wide" if install_type == "system" else "user"
-        commands.append(colored_echo(f"Installing OneMount ({install_desc})...", Colors.BOLD + Colors.GREEN))
+        if dry_run:
+            commands.append(f"{Colors.BOLD}{Colors.BLUE}Would install OneMount ({install_desc}):{Colors.END}")
+        else:
+            commands.append(colored_echo(f"Installing OneMount ({install_desc})...", Colors.BOLD + Colors.GREEN))
+
+        # Show file list (only for dry run, otherwise integrate into installation steps)
+        if dry_run:
+            commands.append("")
+            files = self.get_all_files(install_type)
+            files_by_type = {}
+            for file_info in files:
+                file_type = file_info['type']
+                if file_type not in files_by_type:
+                    files_by_type[file_type] = []
+                files_by_type[file_type].append(file_info)
+
+            type_descriptions = {
+                'binary': 'Binaries',
+                'icon': 'Icons',
+                'desktop': 'Desktop Files',
+                'systemd': 'Systemd Service Files',
+                'documentation': 'Documentation'
+            }
+
+            for file_type in ['binary', 'icon', 'desktop', 'systemd', 'documentation']:
+                if file_type in files_by_type:
+                    type_files = files_by_type[file_type]
+                    commands.append(f"{Colors.YELLOW}  {type_descriptions[file_type]}:{Colors.END}")
+                    for file_info in type_files:
+                        source = file_info['source']
+                        dest = file_info['dest']
+                        commands.append(f"    {source} → {dest}")
+                    commands.append("")
+
+        if dry_run:
+            return commands
 
         # Create directories
         directories = self.manifest['directories'][install_type]
@@ -125,12 +162,11 @@ class InstallManifestParser:
         commands.append(colored_echo("Creating directories...", Colors.BLUE))
         for directory in directories:
             expanded_dir = self.expand_variables(directory)
+            commands.append(colored_echo(f"{sudo_prefix}mkdir -p {expanded_dir}", Colors.YELLOW))
             commands.append(f"{sudo_prefix}mkdir -p {expanded_dir}")
-        
-        # Install files by type
-        files = self.get_all_files(install_type)
 
-        # Group files by type for better progress messages
+        # Get files and group by type for installation
+        files = self.get_all_files(install_type)
         files_by_type = {}
         for file_info in files:
             file_type = file_info['type']
@@ -139,7 +175,7 @@ class InstallManifestParser:
             files_by_type[file_type].append(file_info)
 
         # Install each type with progress messages
-        type_descriptions = {
+        install_type_descriptions = {
             'binary': 'Installing binaries...',
             'icon': 'Installing icons...',
             'desktop': 'Installing desktop files...',
@@ -149,7 +185,7 @@ class InstallManifestParser:
 
         for file_type, type_files in files_by_type.items():
             if type_files:
-                commands.append(colored_echo(type_descriptions.get(file_type, f"Installing {file_type} files..."), Colors.BLUE))
+                commands.append(colored_echo(install_type_descriptions.get(file_type, f"Installing {file_type} files..."), Colors.BLUE))
 
                 for file_info in type_files:
                     source = file_info['source']
@@ -163,6 +199,7 @@ class InstallManifestParser:
                             expanded_value = self.expand_variables(value)
                             sed_args.append(f"-e 's|{key}|{expanded_value}|g'")
                         sed_cmd = " ".join(sed_args)
+                        commands.append(colored_echo(f"{sudo_prefix}sed {sed_cmd} {source} → {dest}", Colors.YELLOW))
                         commands.append(f"{sudo_prefix}sed {sed_cmd} {source} > {dest}")
 
                     elif file_info['type'] == 'systemd' and file_info.get('template'):
@@ -173,14 +210,17 @@ class InstallManifestParser:
                             expanded_value = self.expand_variables(value)
                             sed_args.append(f"-e 's|{key}|{expanded_value}|g'")
                         sed_cmd = " ".join(sed_args)
+                        commands.append(colored_echo(f"{sudo_prefix}sed: {sed_cmd} {source} → {dest}", Colors.YELLOW))
                         commands.append(f"{sudo_prefix}sed {sed_cmd} {source} > {dest}")
 
                     elif file_info['type'] == 'documentation' and file_info.get('process') == 'gzip':
                         # Handle gzipped documentation
+                        commands.append(colored_echo(f"{sudo_prefix}gzip -c {source} → {dest}", Colors.YELLOW))
                         commands.append(f"{sudo_prefix}gzip -c {source} > {dest}")
 
                     else:
                         # Regular file copy
+                        commands.append(colored_echo(f"{sudo_prefix}cp {source} → {dest}", Colors.YELLOW))
                         commands.append(f"{sudo_prefix}cp {source} {dest}")
         
         # Post-install commands
@@ -188,6 +228,7 @@ class InstallManifestParser:
         if post_install:
             commands.append(colored_echo("Running post-install tasks...", Colors.BLUE))
             for cmd in post_install:
+                commands.append(colored_echo(f"{cmd}", Colors.YELLOW))
                 commands.append(f"{cmd}")
 
         # Completion message
@@ -195,17 +236,31 @@ class InstallManifestParser:
 
         return commands
     
-    def generate_makefile_uninstall(self, install_type):
+    def generate_makefile_uninstall(self, install_type, dry_run=False):
         """Generate Makefile uninstall commands"""
         commands = []
 
         # Add header message
         install_desc = "system-wide" if install_type == "system" else "user"
-        commands.append(colored_echo(f"Uninstalling OneMount ({install_desc})...", Colors.BOLD + Colors.YELLOW))
+        if dry_run:
+            commands.append(f"{Colors.BOLD}{Colors.BLUE}Would uninstall OneMount ({install_desc}):{Colors.END}")
+        else:
+            commands.append(colored_echo(f"Uninstalling OneMount ({install_desc})...", Colors.BOLD + Colors.YELLOW))
+
+        # Show files that would be removed (only for dry run)
+        if dry_run:
+            commands.append("")
+            files = self.get_all_files(install_type)
+            commands.append(f"{Colors.YELLOW}  Files to be removed:{Colors.END}")
+            for file_info in files:
+                dest = file_info['dest']
+                commands.append(f"    {dest}")
+            commands.append("")
+            return commands
 
         # Remove files
-        files = self.get_all_files(install_type)
         sudo_prefix = "sudo " if install_type == "system" else ""
+        files = self.get_all_files(install_type)
 
         file_paths = []
         icon_dirs = set()
@@ -222,12 +277,14 @@ class InstallManifestParser:
         if file_paths:
             commands.append(colored_echo("Removing installed files...", Colors.BLUE))
             file_list = " ".join(file_paths)
+            commands.append(colored_echo(f"{sudo_prefix}rm -f {file_list}", Colors.YELLOW))
             commands.append(f"{sudo_prefix}rm -f {file_list}")
 
         # Remove icon directories
         if icon_dirs:
             commands.append(colored_echo("Removing icon directories...", Colors.BLUE))
             for icon_dir in icon_dirs:
+                commands.append(colored_echo(f"{sudo_prefix}rm -rf {icon_dir}", Colors.YELLOW))
                 commands.append(f"{sudo_prefix}rm -rf {icon_dir}")
 
         # Post-uninstall commands
@@ -235,6 +292,7 @@ class InstallManifestParser:
         if post_uninstall:
             commands.append(colored_echo("Running post-uninstall tasks...", Colors.BLUE))
             for cmd in post_uninstall:
+                commands.append(colored_echo(f"{cmd}", Colors.YELLOW))
                 commands.append(f"{cmd}")
 
         # Completion message
@@ -349,6 +407,8 @@ def main():
                        help='Installation type (required for makefile target)')
     parser.add_argument('--action', choices=['install', 'uninstall', 'validate', 'files'], required=True,
                        help='Action to generate')
+    parser.add_argument('--dry-run', action='store_true',
+                       help='Show what would be done without actually doing it')
     
     args = parser.parse_args()
     
@@ -371,9 +431,9 @@ def main():
     try:
         if args.target == 'makefile':
             if args.action == 'install':
-                commands = parser_obj.generate_makefile_install(args.type)
+                commands = parser_obj.generate_makefile_install(args.type, args.dry_run)
             elif args.action == 'uninstall':
-                commands = parser_obj.generate_makefile_uninstall(args.type)
+                commands = parser_obj.generate_makefile_uninstall(args.type, args.dry_run)
             elif args.action == 'validate':
                 commands = parser_obj.generate_validation()
         
@@ -386,10 +446,15 @@ def main():
         elif args.target == 'debian':
             if args.action == 'install':
                 commands = parser_obj.generate_debian_install()
-        
-        # Output commands
-        for command in commands:
-            print(command)
+
+        # Handle dry-run differently - print directly instead of generating shell commands
+        if args.dry_run:
+            for line in commands:
+                print(line)
+        else:
+            # Output commands for other actions
+            for command in commands:
+                print(command)
     
     except Exception as e:
         print(f"Error generating commands: {e}", file=sys.stderr)
