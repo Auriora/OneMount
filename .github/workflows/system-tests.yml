@@ -1,0 +1,225 @@
+name: System Tests
+
+on:
+  # Run on pull requests to main
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/system/**'
+      - 'go.mod'
+      - 'go.sum'
+  
+  # Run on pushes to main
+  push:
+    branches: [ main ]
+    paths:
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/system/**'
+      - 'go.mod'
+      - 'go.sum'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      test_category:
+        description: 'Test category to run'
+        required: false
+        default: 'comprehensive'
+        type: choice
+        options:
+          - comprehensive
+          - performance
+          - reliability
+          - integration
+          - stress
+          - all
+
+jobs:
+  system-tests:
+    runs-on: ubuntu-latest
+    
+    # Only run if we have the required secrets
+    if: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TENANT_ID != '' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        cache: true
+    
+    - name: Install FUSE
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y fuse3 libfuse3-dev
+    
+    - name: Set up test environment
+      run: |
+        # Create test directories
+        mkdir -p ~/.onemount-tests/logs
+        mkdir -p ~/.onemount-tests/tmp
+        
+        # Set permissions
+        chmod 700 ~/.onemount-tests
+    
+    - name: Authenticate with Azure
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      run: |
+        # Get access token using service principal
+        TOKEN_RESPONSE=$(curl -s -X POST \
+          "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token" \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -d "grant_type=client_credentials" \
+          -d "client_id=$AZURE_CLIENT_ID" \
+          -d "client_secret=$AZURE_CLIENT_SECRET" \
+          -d "scope=https://graph.microsoft.com/.default")
+        
+        # Extract access token
+        ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
+        EXPIRES_IN=$(echo "$TOKEN_RESPONSE" | jq -r '.expires_in')
+        
+        if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+          echo "Failed to get access token"
+          echo "Response: $TOKEN_RESPONSE"
+          exit 1
+        fi
+        
+        # Calculate expiration time
+        EXPIRES_AT=$(($(date +%s) + $EXPIRES_IN))
+        
+        # Create auth tokens file
+        cat > ~/.onemount-tests/.auth_tokens.json << EOF
+        {
+          "access_token": "$ACCESS_TOKEN",
+          "refresh_token": "",
+          "expires_at": $EXPIRES_AT,
+          "token_type": "Bearer",
+          "scope": "https://graph.microsoft.com/.default",
+          "account": "ci-service-principal"
+        }
+        EOF
+        
+        # Set secure permissions
+        chmod 600 ~/.onemount-tests/.auth_tokens.json
+        
+        echo "✅ Authentication tokens created successfully"
+    
+    - name: Verify OneDrive access
+      run: |
+        # Test that we can access OneDrive with the token
+        ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json)
+        
+        RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+          "https://graph.microsoft.com/v1.0/me/drive/root")
+        
+        if echo "$RESPONSE" | jq -e '.id' > /dev/null; then
+          echo "✅ OneDrive access verified"
+          echo "Drive ID: $(echo "$RESPONSE" | jq -r '.id')"
+        else
+          echo "❌ Failed to access OneDrive"
+          echo "Response: $RESPONSE"
+          exit 1
+        fi
+    
+    - name: Build OneMount
+      run: |
+        make build
+        
+    - name: Run system tests
+      env:
+        TEST_CATEGORY: ${{ github.event.inputs.test_category || 'comprehensive' }}
+      run: |
+        # Make script executable
+        chmod +x scripts/run-system-tests.sh
+        
+        # Run tests with appropriate timeout
+        case "$TEST_CATEGORY" in
+          "comprehensive")
+            timeout 15m ./scripts/run-system-tests.sh --comprehensive --verbose
+            ;;
+          "performance")
+            timeout 20m ./scripts/run-system-tests.sh --performance --verbose
+            ;;
+          "reliability")
+            timeout 10m ./scripts/run-system-tests.sh --reliability --verbose
+            ;;
+          "integration")
+            timeout 10m ./scripts/run-system-tests.sh --integration --verbose
+            ;;
+          "stress")
+            timeout 25m ./scripts/run-system-tests.sh --stress --verbose
+            ;;
+          "all")
+            timeout 45m ./scripts/run-system-tests.sh --all --verbose
+            ;;
+          *)
+            echo "Unknown test category: $TEST_CATEGORY"
+            exit 1
+            ;;
+        esac
+    
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: system-test-logs
+        path: |
+          ~/.onemount-tests/logs/
+          ~/.onemount-tests/system-test-data/
+        retention-days: 7
+    
+    - name: Cleanup test data
+      if: always()
+      run: |
+        # Clean up any remaining test files on OneDrive
+        ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json 2>/dev/null || echo "")
+        
+        if [ -n "$ACCESS_TOKEN" ] && [ "$ACCESS_TOKEN" != "null" ]; then
+          # Try to delete the test directory
+          curl -s -X DELETE \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://graph.microsoft.com/v1.0/me/drive/root:/onemount_system_tests" || true
+        fi
+        
+        # Clean up local test files
+        rm -rf ~/.onemount-tests/ || true
+        
+        # Unmount any remaining FUSE mounts
+        fusermount3 -uz ~/.onemount-tests/tmp/system-test-mount 2>/dev/null || true
+
+  # Job to check if system tests should run
+  check-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    steps:
+    - name: Check for required secrets
+      id: check
+      run: |
+        if [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && \
+           [ -n "${{ secrets.AZURE_CLIENT_SECRET }}" ] && \
+           [ -n "${{ secrets.AZURE_TENANT_ID }}" ]; then
+          echo "has-secrets=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-secrets=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Report missing secrets
+      if: steps.check.outputs.has-secrets == 'false'
+      run: |
+        echo "⚠️  System tests skipped: Required Azure secrets not configured"
+        echo "To enable system tests, add these secrets to your repository:"
+        echo "  - AZURE_CLIENT_ID"
+        echo "  - AZURE_CLIENT_SECRET" 
+        echo "  - AZURE_TENANT_ID"
+        echo ""
+        echo "See docs/testing/system-tests-guide.md for setup instructions"

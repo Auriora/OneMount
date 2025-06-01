@@ -49,6 +49,9 @@ usage() {
     echo "  $0 --verify-setup       # Test the complete setup"
 }
 
+# Global variable to store the selected auth file path
+SELECTED_AUTH_FILE=""
+
 # Function to check if OneMount authentication exists
 check_auth() {
     print_status "Checking OneMount authentication..."
@@ -158,21 +161,60 @@ verify_setup() {
     
     # Test OneDrive access
     print_status "Testing OneDrive access..."
-    
-    AUTH_FILE="$HOME/.cache/onemount/auth_tokens.json"
-    ACCESS_TOKEN=$(jq -r '.access_token' "$AUTH_FILE")
-    
+
+    # Use the selected auth file from check_auth function
+    if [[ -z "$SELECTED_AUTH_FILE" ]]; then
+        # Fallback to checking auth again if SELECTED_AUTH_FILE is not set
+        AUTH_FILE="$HOME/.cache/onemount/auth_tokens.json"
+        TEST_AUTH_FILE="$HOME/.onemount-tests/.auth_tokens.json"
+
+        if [[ -f "$AUTH_FILE" ]]; then
+            SELECTED_AUTH_FILE="$AUTH_FILE"
+        elif [[ -f "$TEST_AUTH_FILE" ]]; then
+            SELECTED_AUTH_FILE="$TEST_AUTH_FILE"
+        else
+            print_error "Authentication file not found"
+            return 1
+        fi
+    fi
+
+    # Check if jq is available, if not use python as fallback
+    if command -v jq >/dev/null 2>&1; then
+        ACCESS_TOKEN=$(jq -r '.access_token' "$SELECTED_AUTH_FILE")
+    else
+        ACCESS_TOKEN=$(python3 -c "import json; data=json.load(open('$SELECTED_AUTH_FILE')); print(data.get('access_token', ''))")
+    fi
+
+    if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
+        print_error "Could not extract access token from authentication file"
+        return 1
+    fi
+
     RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
         "https://graph.microsoft.com/v1.0/me/drive/root" 2>/dev/null || echo "")
-    
-    if echo "$RESPONSE" | jq -e '.id' > /dev/null 2>&1; then
-        DRIVE_NAME=$(echo "$RESPONSE" | jq -r '.name // "Unknown"')
-        print_success "OneDrive access verified successfully"
-        print_status "Drive Name: $DRIVE_NAME"
+
+    # Check if response contains an ID field (indicates success)
+    if command -v jq >/dev/null 2>&1; then
+        if echo "$RESPONSE" | jq -e '.id' > /dev/null 2>&1; then
+            DRIVE_NAME=$(echo "$RESPONSE" | jq -r '.name // "Unknown"')
+            print_success "OneDrive access verified successfully"
+            print_status "Drive Name: $DRIVE_NAME"
+        else
+            print_error "Failed to access OneDrive"
+            print_error "Please check your internet connection and re-authenticate"
+            return 1
+        fi
     else
-        print_error "Failed to access OneDrive"
-        print_error "Please check your internet connection and re-authenticate"
-        return 1
+        # Use python as fallback for JSON parsing
+        if echo "$RESPONSE" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('id', ''))" 2>/dev/null | grep -q .; then
+            DRIVE_NAME=$(echo "$RESPONSE" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('name', 'Unknown'))" 2>/dev/null)
+            print_success "OneDrive access verified successfully"
+            print_status "Drive Name: $DRIVE_NAME"
+        else
+            print_error "Failed to access OneDrive"
+            print_error "Please check your internet connection and re-authenticate"
+            return 1
+        fi
     fi
     
     # Check if we can run tests locally
@@ -183,11 +225,17 @@ verify_setup() {
         return 1
     fi
     
-    # Copy auth tokens to test location
+    # Copy auth tokens to test location (if not already there)
     mkdir -p ~/.onemount-tests
-    cp "$AUTH_FILE" ~/.onemount-tests/.auth_tokens.json
-    chmod 600 ~/.onemount-tests/.auth_tokens.json
-    
+    COPIED_AUTH_FILE=false
+    if [[ "$SELECTED_AUTH_FILE" != "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
+        cp "$SELECTED_AUTH_FILE" ~/.onemount-tests/.auth_tokens.json
+        chmod 600 ~/.onemount-tests/.auth_tokens.json
+        COPIED_AUTH_FILE=true
+    else
+        print_status "Auth tokens already in test location"
+    fi
+
     # Test the script (dry run)
     if ./scripts/run-system-tests.sh --help > /dev/null 2>&1; then
         print_success "System test script is executable and ready"
@@ -195,9 +243,12 @@ verify_setup() {
         print_error "System test script has issues"
         return 1
     fi
-    
-    # Clean up test auth file
-    rm -f ~/.onemount-tests/.auth_tokens.json
+
+    # Clean up test auth file only if we copied it
+    if [[ "$COPIED_AUTH_FILE" == "true" ]]; then
+        rm -f ~/.onemount-tests/.auth_tokens.json
+        print_status "Cleaned up temporary auth file"
+    fi
     
     print_success "✅ CI setup verification completed successfully!"
     print_status ""

@@ -1,0 +1,64 @@
+name: System Tests (Self-Hosted)
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  system-tests:
+    # Use self-hosted runner with pre-configured credentials
+    runs-on: [self-hosted, linux, onemount-testing]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        cache: true
+    
+    - name: Verify test credentials
+      run: |
+        # Check if credentials exist on the runner
+        if [ ! -f "/opt/onemount-ci/.auth_tokens.json" ]; then
+          echo "❌ Test credentials not found on self-hosted runner"
+          echo "Expected: /opt/onemount-ci/.auth_tokens.json"
+          exit 1
+        fi
+        
+        # Copy to expected location
+        mkdir -p ~/.onemount-tests
+        cp /opt/onemount-ci/.auth_tokens.json ~/.onemount-tests/.auth_tokens.json
+        chmod 600 ~/.onemount-tests/.auth_tokens.json
+        
+        echo "✅ Test credentials loaded from runner"
+    
+    - name: Build OneMount
+      run: make build
+    
+    - name: Run all system tests
+      run: |
+        chmod +x scripts/run-system-tests.sh
+        ./scripts/run-system-tests.sh --all --verbose
+    
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: system-test-logs-self-hosted
+        path: ~/.onemount-tests/logs/
+        retention-days: 30
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -rf ~/.onemount-tests/ || true
+        # Unmount any remaining FUSE mounts
+        for mount in $(mount | grep onemount | awk '{print $3}'); do
+          fusermount3 -uz "$mount" 2>/dev/null || true
+        done
