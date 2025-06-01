@@ -135,7 +135,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	header.SetTitle("OneMount")
 	window.SetTitlebar(header)
 
-	err := window.SetIconFromFile("/usr/share/icons/onemount/OneMount-Logo.svg")
+	err := window.SetIconFromFile("/usr/share/icons/onemount/onemount.svg")
 	if err != nil {
 		logging.Warn().Err(err).Msg("Could not find logo.")
 	}
