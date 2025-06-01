@@ -14,9 +14,6 @@ var TestSandboxDir = filepath.Join(os.Getenv("HOME"), ".onemount-tests")
 // Note: This uses a different file name format (with a leading dot) than the main application.
 var AuthTokensPath = filepath.Join(TestSandboxDir, ".auth_tokens.json")
 
-// DmelfaDir is the path to the dmel.fa test file.
-var DmelfaDir = filepath.Join(TestSandboxDir, "dmel.fa")
-
 // TestLogPath is the path to the test log file.
 var TestLogPath = filepath.Join(TestSandboxDir, "logs", "fusefs_tests.log")
 
@@ -28,9 +25,6 @@ var TestMountPoint = filepath.Join(TestSandboxTmpDir, "mount")
 
 // TestDir is the path to the test directory within the mount point.
 var TestDir = filepath.Join(TestMountPoint, "onemount_tests")
-
-// DeltaDir is the path to the delta directory within the test directory.
-var DeltaDir = filepath.Join(TestDir, "delta")
 
 // GraphTestDir is the path to the directory for graph API tests.
 var GraphTestDir = filepath.Join(TestSandboxDir, "graph_test_dir")
@@ -48,9 +42,6 @@ var (
 
 	// SystemTestDataDir is the directory for system test data
 	SystemTestDataDir = filepath.Join(TestSandboxDir, "system-test-data")
-
-	// SystemTestConfigPath is the path to the system test configuration
-	SystemTestConfigPath = filepath.Join(TestSandboxDir, "system-test-config.yml")
 
 	// SystemTestLogPath is the path to the system test log file
 	SystemTestLogPath = filepath.Join(TestSandboxDir, "logs", "system_tests.log")

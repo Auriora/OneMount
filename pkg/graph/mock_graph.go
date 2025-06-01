@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -138,7 +137,9 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		reqBody, err := io.ReadAll(req.Body)
 		if err == nil {
 			// Close the original body and replace it with a new one
-			req.Body.Close()
+			if err := req.Body.Close(); err != nil {
+				logging.Debug().Err(err).Msg("Failed to close request body")
+			}
 			req.Body = io.NopCloser(bytes.NewReader(reqBody))
 
 			logging.Debug().
@@ -255,7 +256,9 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 			reqBody, err := io.ReadAll(req.Body)
 			if err == nil {
 				// Close the original body and replace it with a new one
-				req.Body.Close()
+				if err := req.Body.Close(); err != nil {
+					logging.Debug().Err(err).Msg("Failed to close request body")
+				}
 				req.Body = io.NopCloser(bytes.NewReader(reqBody))
 
 				logging.Debug().
@@ -334,7 +337,9 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 			reqBody, err := io.ReadAll(req.Body)
 			if err == nil {
 				// Close the original body and replace it with a new one
-				req.Body.Close()
+				if err := req.Body.Close(); err != nil {
+					logging.Debug().Err(err).Msg("Failed to close request body")
+				}
 				req.Body = io.NopCloser(bytes.NewReader(reqBody))
 
 				// Check if we have a mock item for this ID
@@ -764,7 +769,7 @@ func (m *MockGraphClient) RequestWithContext(ctx context.Context, resource strin
 	var contentBytes []byte
 	if content != nil {
 		var err error
-		contentBytes, err = ioutil.ReadAll(content)
+		contentBytes, err = io.ReadAll(content)
 		if err != nil {
 			return nil, fmt.Errorf("error reading content: %v", err)
 		}
@@ -921,7 +926,7 @@ func (m *MockGraphClient) Patch(resource string, content io.Reader, headers ...a
 	var contentBytes []byte
 	if content != nil {
 		var err error
-		contentBytes, err = ioutil.ReadAll(content)
+		contentBytes, err = io.ReadAll(content)
 		if err != nil {
 			return nil, fmt.Errorf("error reading content: %v", err)
 		}
@@ -950,7 +955,7 @@ func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...ap
 	var contentBytes []byte
 	if content != nil {
 		var err error
-		contentBytes, err = ioutil.ReadAll(content)
+		contentBytes, err = io.ReadAll(content)
 		if err != nil {
 			return nil, fmt.Errorf("error reading content: %v", err)
 		}
@@ -1019,7 +1024,7 @@ func (m *MockGraphClient) Put(resource string, content io.Reader, headers ...api
 	var contentBytes []byte
 	if content != nil {
 		var err error
-		contentBytes, err = ioutil.ReadAll(content)
+		contentBytes, err = io.ReadAll(content)
 		if err != nil {
 			return nil, fmt.Errorf("error reading content: %v", err)
 		}

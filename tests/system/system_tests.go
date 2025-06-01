@@ -78,9 +78,13 @@ func (s *SystemTestSuite) Setup() error {
 	// Try to unmount if it's still mounted
 	if _, err := os.Stat(s.mountPoint); err == nil {
 		// Try to unmount using fusermount3
-		exec.Command("fusermount3", "-uz", s.mountPoint).Run()
+		if err := exec.Command("fusermount3", "-uz", s.mountPoint).Run(); err != nil {
+			logging.Debug().Err(err).Msg("fusermount3 unmount failed, trying fusermount")
+		}
 		// Also try fusermount (older systems)
-		exec.Command("fusermount", "-uz", s.mountPoint).Run()
+		if err := exec.Command("fusermount", "-uz", s.mountPoint).Run(); err != nil {
+			logging.Debug().Err(err).Msg("fusermount unmount failed")
+		}
 		// Wait a moment for unmount to complete
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -184,7 +188,9 @@ func (s *SystemTestSuite) TestBasicFileOperations() error {
 	testContent := "Hello, OneMount System Test!"
 
 	// Clean up any existing file first to avoid conflicts
-	os.Remove(testFile)
+	if err := os.Remove(testFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean up existing test file: %w", err)
+	}
 	time.Sleep(1 * time.Second)
 
 	// Test file creation and writing
@@ -300,7 +306,9 @@ func (s *SystemTestSuite) TestLargeFileOperations() error {
 	testFile := filepath.Join(s.testDir, "large_file_test.bin")
 
 	// Clean up any existing file first to avoid conflicts
-	os.Remove(testFile)
+	if err := os.Remove(testFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean up existing large test file: %w", err)
+	}
 	time.Sleep(1 * time.Second)
 
 	// Create a 10MB test file
@@ -368,7 +376,9 @@ func (s *SystemTestSuite) TestSpecialCharacterFiles() error {
 	// Clean up any existing files first to avoid conflicts
 	for _, name := range specialNames {
 		testFile := filepath.Join(s.testDir, name)
-		os.Remove(testFile)
+		if err := os.Remove(testFile); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to clean up existing special character file %q: %w", name, err)
+		}
 	}
 	time.Sleep(2 * time.Second)
 
@@ -409,7 +419,6 @@ func (s *SystemTestSuite) TestSpecialCharacterFiles() error {
 // TestConcurrentOperations tests concurrent file operations
 func (s *SystemTestSuite) TestConcurrentOperations() error {
 	const numFiles = 10
-	const numWorkers = 5
 
 	var wg sync.WaitGroup
 	errors := make(chan error, numFiles)
@@ -481,7 +490,9 @@ func (s *SystemTestSuite) TestFilePermissions() error {
 	testContent := "Permission test content"
 
 	// Clean up any existing file first to avoid conflicts
-	os.Remove(testFile)
+	if err := os.Remove(testFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean up existing permissions test file: %w", err)
+	}
 	time.Sleep(1 * time.Second)
 
 	// Create file with specific permissions
@@ -529,7 +540,9 @@ func (s *SystemTestSuite) TestStreamingOperations() error {
 	testFile := filepath.Join(s.testDir, "streaming_test.txt")
 
 	// Clean up any existing file first to avoid conflicts
-	os.Remove(testFile)
+	if err := os.Remove(testFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean up existing streaming test file: %w", err)
+	}
 	time.Sleep(1 * time.Second)
 
 	// Test streaming write
@@ -559,8 +572,13 @@ func (s *SystemTestSuite) TestStreamingOperations() error {
 	}
 
 	// Sync only once at the end to trigger upload
-	file.Sync()
-	file.Close()
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return fmt.Errorf("failed to sync streaming test file: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to close streaming test file: %w", err)
+	}
 
 	// Wait for upload to complete
 	time.Sleep(8 * time.Second)
@@ -705,7 +723,9 @@ func (s *SystemTestSuite) TestInvalidFileNames() error {
 		} else {
 			// If it succeeded, clean up
 			s.t.Logf("Invalid file name %q was accepted (may be normalized)", name)
-			os.Remove(testFile)
+			if err := os.Remove(testFile); err != nil {
+				s.t.Logf("Warning: failed to clean up invalid filename test file %q: %v", name, err)
+			}
 		}
 	}
 
@@ -792,11 +812,15 @@ func (s *SystemTestSuite) TestDiskSpaceHandling() error {
 
 		// Sync periodically
 		if bytesWritten%(10*1024*1024) == 0 {
-			file.Sync()
+			if err := file.Sync(); err != nil {
+				s.t.Logf("Warning: failed to sync disk space test file: %v", err)
+			}
 		}
 	}
 
-	file.Close()
+	if err := file.Close(); err != nil {
+		s.t.Logf("Warning: failed to close disk space test file: %v", err)
+	}
 
 	// Wait for upload (or partial upload)
 	time.Sleep(10 * time.Second)
@@ -886,7 +910,6 @@ func (s *SystemTestSuite) TestMountUnmountCycle() error {
 // TestHighLoadOperations tests system behavior under high load
 func (s *SystemTestSuite) TestHighLoadOperations() error {
 	const numFiles = 50
-	const numWorkers = 10
 
 	var wg sync.WaitGroup
 	errors := make(chan error, numFiles)

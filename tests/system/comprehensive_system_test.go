@@ -275,9 +275,3 @@ func TestSystemST_STRESS_01_HighLoad(t *testing.T) {
 	err = suite.TestHighLoadOperations()
 	assert.NoError(t, err, "High load test failed")
 }
-
-// Helper function to create a simple test logger (placeholder)
-// In a real implementation, this would create a proper logger
-func createTestLogger() {
-	// This is a placeholder - the actual logging is handled by the test framework
-}
