@@ -1,41 +1,52 @@
 ---
 name: Bug report
-about: Report a bug or issue with OneMount
-title: "[Bug] Issue with [Component/Feature]"
-labels: bug
-assignees: ''
+about: Create a report to help us improve
+title: '[BUG] '
+labels: 'bug'
+assignees: 'bcherrington'
+
 ---
 
-## Description
-[Provide a clear and concise description of the bug. What happened? What did you expect to happen?]
+## Bug Description
+
+A clear and concise description of what the bug is.
 
 ## Steps to Reproduce
-1. [First step]
-2. [Second step]
-3. [And so on...]
+
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
 
 ## Expected Behavior
-[Describe what you expected to happen]
+
+A clear and concise description of what you expected to happen.
 
 ## Actual Behavior
-[Describe what actually happened]
+
+A clear and concise description of what actually happened.
 
 ## Environment
-- OS: [e.g., Ubuntu 22.04]
-- OneMount Version: [e.g., 1.2.0]
-- Installation Method: [e.g., deb package, from source]
-- Other relevant environment details
 
-## Logs and Error Messages
+- OS: [e.g. Ubuntu 22.04, Windows 11, macOS 13]
+- Python Version: [e.g. 3.12.3]
+- Admin Assistant Version: [e.g. 0.1.0]
+- Virtual Environment: [Yes/No]
+
+## Error Messages
+
 ```
-[If applicable, paste any logs or error messages here]
+Paste any error messages here
 ```
 
-## Impact
-[Describe the impact of this bug. Is it blocking your work? Are there any workarounds?]
+## Screenshots
+
+If applicable, add screenshots to help explain your problem.
+
+## Additional Context
+
+Add any other context about the problem here.
 
 ## Possible Solution
-[If you have any ideas on how to fix the issue, please share them here]
 
-## Additional Information
-[Any other information that might be helpful, such as screenshots or related issues]
+If you have ideas on how to fix this, please describe them here.

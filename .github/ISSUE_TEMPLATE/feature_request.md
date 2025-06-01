@@ -1,25 +1,54 @@
 ---
 name: Feature request
-about: Suggest a new feature or enhancement for OneMount
-title: "[Action] [Feature/Component] for [Purpose/Benefit]"
-labels: enhancement
-assignees: ''
+about: Suggest an idea for this project
+title: '[FEATURE] '
+labels: 'enhancement'
+assignees: 'bcherrington'
+
 ---
 
-## Description
-[Provide a clear and concise description of the issue or feature request. What needs to be done and why?]
+## Feature Description
 
-## Rationale
-[Explain the reasoning behind this issue. Why is this change necessary? What problem does it solve?]
+A clear and concise description of what you want to happen.
 
-## Impact
-[Describe the impact of this change. Which components will be affected? Are there any potential side effects?]
+## Problem Statement
 
-## Relevant Documentation
-[List any relevant documentation, specifications, or references that provide context for this issue.]
+Is your feature request related to a problem? Please describe.
+A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
-## Implementation Notes
-[Provide any specific implementation details, suggestions, or requirements that should be considered.]
+## Proposed Solution
 
-## Additional Information
-[Any other information that might be helpful, such as screenshots, diagrams, or examples.]
+Describe the solution you'd like.
+A clear and concise description of what you want to happen.
+
+## Alternative Solutions
+
+Describe alternatives you've considered.
+A clear and concise description of any alternative solutions or features you've considered.
+
+## Use Cases
+
+Describe specific use cases for this feature:
+- Use case 1: ...
+- Use case 2: ...
+
+## Implementation Considerations
+
+- [ ] This would be a breaking change
+- [ ] This requires database migrations
+- [ ] This affects the CLI interface
+- [ ] This affects the web interface
+- [ ] This requires new dependencies
+- [ ] This affects Microsoft Graph integration
+- [ ] This affects other external APIs
+
+## Additional Context
+
+Add any other context or screenshots about the feature request here.
+
+## Priority
+
+- [ ] Low - Nice to have
+- [ ] Medium - Would improve workflow
+- [ ] High - Critical for productivity
+- [ ] Urgent - Blocking current work
