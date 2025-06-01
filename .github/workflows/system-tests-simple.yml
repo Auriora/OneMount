@@ -92,7 +92,7 @@ jobs:
         fi
 
     - name: Build OneMount
-      run: make build
+      run: make onemount
 
     - name: Run comprehensive system tests
       run: |

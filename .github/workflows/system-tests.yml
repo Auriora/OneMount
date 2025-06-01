@@ -124,7 +124,7 @@ jobs:
     
     - name: Build OneMount
       run: |
-        make build
+        make onemount
         
     - name: Run system tests
       env:
