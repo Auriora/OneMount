@@ -2,7 +2,7 @@ Source: onemount
 Section: utils
 Priority: optional
 Maintainer: Bruce Cherrington <aurioraproject@gmail.com>
-Build-Depends: golang (>= 1.24), gcc, pkg-config, libwebkit2gtk-4.0-dev, git, debhelper
+Build-Depends: golang (>= 1.21), gcc, pkg-config, libwebkit2gtk-4.0-dev | libwebkit2gtk-4.1-dev, git, debhelper
 Standards-Version: 4.4.1
 Homepage: https://github.com/auriora/onemount
 #Vcs-Browser: https://github.com/auriora/onemount
@@ -10,9 +10,11 @@ Homepage: https://github.com/auriora/onemount
 
 Package: onemount
 Architecture: any
-Depends: libwebkit2gtk-4.0-37, fuse3
+Depends: libwebkit2gtk-4.0-37 | libwebkit2gtk-4.1-0, fuse3
 Suggests: systemd
-Description:
-  A native Linux filesystem for Microsoft Onedrive OneMount is a native Linux
-  filesystem for Microsoft Onedrive. Files and metadata are downloaded on-demand
-  instead of requiring you to sync your entire account to disk.
+Description: A native Linux filesystem for Microsoft OneDrive
+ OneMount is a network filesystem that gives your computer direct access to your
+ files on Microsoft OneDrive. This is not a sync client. Instead of syncing
+ files, OneMount performs an on-demand download of files when your computer
+ attempts to use them. OneMount allows you to use files on OneDrive as if they
+ were files on your local computer.

@@ -13,7 +13,7 @@ override_dh_auto_clean:
 
 
 override_dh_auto_build:
-	bash cgo-helper.sh
+	bash scripts/cgo-helper.sh
 	# GOCACHE will be for a nonexistent user in pbuilder otherwise
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
@@ -21,15 +21,15 @@ override_dh_auto_build:
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
 		./cmd/onemount-launcher
-	gzip docs/man/onemount.1
+	test -f docs/man/onemount.1 && gzip -c docs/man/onemount.1 > docs/man/onemount.1.gz
 
 
 override_dh_auto_install:
 	install -D -m 0755 onemount $$(pwd)/debian/onemount/usr/bin/onemount
 	install -D -m 0755 onemount-launcher $$(pwd)/debian/onemount/usr/bin/onemount-launcher
-	install -D -m 0644 assets/icons/onemount.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount.png
-	install -D -m 0644 assets/icons/onemount-128.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount-128.png
+	install -D -m 0644 assets/icons/OneMount.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount.png
+	install -D -m 0644 assets/icons/OneMount-Logo-128.png $$(pwd)/debian/onemount/usr/share/icons/onemount/onemount-128.png
 	install -D -m 0644 assets/icons/OneMount-Logo.svg $$(pwd)/debian/onemount/usr/share/icons/onemount/OneMount-Logo.svg
-	install -D -m 0644 deployments/desktop/onemount-launcher.desktop $$(pwd)/debian/onemount/usr/share/applications/onemount-launcher.desktop
-	install -D -m 0644 deployments/systemd/onemount@.service $$(pwd)/debian/onemount/usr/lib/systemd/user/onemount@.service
+	install -D -m 0644 deployments/desktop/onemount-launcher-system.desktop $$(pwd)/debian/onemount/usr/share/applications/onemount-launcher.desktop
+	install -D -m 0644 deployments/systemd/onemount@-system.service $$(pwd)/debian/onemount/usr/lib/systemd/system/onemount@.service
 	install -D -m 0644 docs/man/onemount.1.gz $$(pwd)/debian/onemount/usr/share/man/man1/onemount.1.gz

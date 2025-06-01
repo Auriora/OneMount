@@ -1,0 +1,8 @@
+onemount (0.14.1-1) unstable; urgency=medium
+
+  * Beta release with enhanced conflict resolution and synchronization
+  * Comprehensive offline-to-online transition support
+  * Improved error handling and recovery mechanisms
+  * Full test coverage for filesystem operations
+
+ -- Bruce Cherrington <aurioraproject@gmail.com>  Sun, 01 Jun 2025 09:49:39 +0200

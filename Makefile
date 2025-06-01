@@ -1,8 +1,8 @@
-.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, uninstall, update-imports
+.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, install-system, uninstall, uninstall-system, validate-packaging, update-imports
 
 # auto-calculate software/package versions
-VERSION := $(shell grep Version build/package/rpm/onemount.spec | sed 's/Version: *//g')
-RELEASE := $(shell grep -oP "Release: *[0-9]+" build/package/rpm/onemount.spec | sed 's/Release: *//g')
+VERSION := $(shell grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
+RELEASE := $(shell grep -oP "Release: *[0-9]+" packaging/rpm/onemount.spec | sed 's/Release: *//g')
 DIST := $(shell rpm --eval "%{?dist}" 2> /dev/null || echo 1)
 RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 
@@ -10,11 +10,9 @@ RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 # glib compatibility: https://github.com/gotk3/gotk3/issues/762#issuecomment-919035313
 CGO_CFLAGS := CGO_CFLAGS=-Wno-deprecated-declarations
 
-# Add this near the top with other variables
 OUTPUT_DIR := build
 
 # test-specific variables
-TEST_UID := $(shell whoami)
 GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
 TEST_TIMEOUT := 5m
 
@@ -31,8 +29,9 @@ onemount: $(shell find internal/fs/ pkg/ -type f) cmd/onemount/main.go
 
 
 onemount-headless: $(shell find internal/fs/ cmd/common/ pkg/ -type f) cmd/onemount/main.go
+	mkdir -p $(OUTPUT_DIR)
 	CGO_ENABLED=0 go build -v \
-		-o $(OUTPUT_DIR)/onemount/onemount-headless \
+		-o $(OUTPUT_DIR)/onemount-headless \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
 
@@ -45,16 +44,39 @@ onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemo
 
 
 install: onemount onemount-launcher
+	mkdir -p $HOME/.local/bin/
+	mkdir -p $HOME/.local/share/icons/onemount/
+	mkdir -p $HOME/.local/share/applications/
+	mkdir -p $HOME/.config/systemd/user/
+	mkdir -p $HOME/.local/share/man/man1/
 	cp $(OUTPUT_DIR)/onemount $HOME/.local/bin/
 	cp $(OUTPUT_DIR)/onemount-launcher $HOME/.local/bin/
-	mkdir -p $HOME/.local/share/icons/onemount/
 	cp assets/icons/OneMount-Logo.svg $HOME/.local/share/icons/onemount/
-	cp assets/icons/onemount.png $HOME/.local/share/icons/onemount/
-	cp assets/icons/onemount-128.png $HOME/.local/share/icons/onemount/
-	cp deplopyments/desktop/onemount-launcher.desktop $HOME/.local/share/applications/
+	cp assets/icons/OneMount.png $HOME/.local/share/icons/onemount/onemount.png
+	cp assets/icons/OneMount-Logo-128.png $HOME/.local/share/icons/onemount/onemount-128.png
+	cp deployments/desktop/onemount-launcher.desktop $HOME/.local/share/applications/
 	cp deployments/systemd/onemount@.service $HOME/.config/systemd/user/
-	gzip -c doc/man/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
+	systemctl --user daemon-reload 2>/dev/null || true
+	gzip -c docs/man/onemount.1 > $HOME/.local/share/man/man1/onemount.1.gz
 	mandb
+
+
+install-system: onemount onemount-launcher
+	sudo mkdir -p /usr/local/bin/
+	sudo mkdir -p /usr/local/share/icons/onemount/
+	sudo mkdir -p /usr/local/share/applications/
+	sudo mkdir -p /usr/local/lib/systemd/system/
+	sudo mkdir -p /usr/local/share/man/man1/
+	sudo cp $(OUTPUT_DIR)/onemount /usr/local/bin/
+	sudo cp $(OUTPUT_DIR)/onemount-launcher /usr/local/bin/
+	sudo cp assets/icons/OneMount-Logo.svg /usr/local/share/icons/onemount/
+	sudo cp assets/icons/OneMount.png /usr/local/share/icons/onemount/onemount.png
+	sudo cp assets/icons/OneMount-Logo-128.png /usr/local/share/icons/onemount/onemount-128.png
+	sudo cp deployments/desktop/onemount-launcher-system.desktop /usr/local/share/applications/onemount-launcher.desktop
+	sudo cp deployments/systemd/onemount@-system.service /usr/local/lib/systemd/system/onemount@.service
+	sudo systemctl daemon-reload
+	sudo gzip -c docs/man/onemount.1 > /usr/local/share/man/man1/onemount.1.gz
+	sudo mandb
 
 
 uninstall:
@@ -65,25 +87,52 @@ uninstall:
 		$HOME/.local/share/applications/onemount-launcher.desktop \
 		$HOME/.local/share/man/man1/onemount.1.gz
 	rm -rf $HOME/.local/share/icons/onemount
+	systemctl --user daemon-reload 2>/dev/null || true
 	mandb
 
 
+uninstall-system:
+	sudo rm -f \
+		/usr/local/bin/onemount \
+		/usr/local/bin/onemount-launcher \
+		/usr/local/lib/systemd/system/onemount@.service \
+		/usr/local/share/applications/onemount-launcher.desktop \
+		/usr/local/share/man/man1/onemount.1.gz
+	sudo rm -rf /usr/local/share/icons/onemount
+	sudo systemctl daemon-reload
+	sudo mandb
+
+
+# Validate packaging requirements
+validate-packaging:
+	@echo "Validating packaging requirements..."
+	@test -f docs/man/onemount.1 || (echo "Error: docs/man/onemount.1 not found" && exit 1)
+	@test -f assets/icons/OneMount.png || (echo "Error: assets/icons/OneMount.png not found" && exit 1)
+	@test -f assets/icons/OneMount-Logo-128.png || (echo "Error: assets/icons/OneMount-Logo-128.png not found" && exit 1)
+	@test -f assets/icons/OneMount-Logo.svg || (echo "Error: assets/icons/OneMount-Logo.svg not found" && exit 1)
+	@test -f deployments/desktop/onemount-launcher.desktop || (echo "Error: user desktop file not found" && exit 1)
+	@test -f deployments/desktop/onemount-launcher-system.desktop || (echo "Error: system desktop file not found" && exit 1)
+	@test -f deployments/systemd/onemount@.service || (echo "Error: user systemd service file not found" && exit 1)
+	@test -f deployments/systemd/onemount@-system.service || (echo "Error: system systemd service file not found" && exit 1)
+	@test -f scripts/cgo-helper.sh || (echo "Error: cgo-helper.sh script not found" && exit 1)
+	@echo "All packaging requirements validated successfully"
+
 # used to create release tarball for rpmbuild
-v$(VERSION).tar.gz: $(shell git ls-files)
+v$(VERSION).tar.gz: validate-packaging $(shell git ls-files)
 	rm -rf onemount-$(VERSION)
 	mkdir -p onemount-$(VERSION)
 	git ls-files > filelist.txt
 	git rev-parse HEAD > .commit
 	echo .commit >> filelist.txt
 	rsync -a --files-from=filelist.txt . onemount-$(VERSION)
-	mv onemount-$(VERSION)/pkg/debian onemount-$(VERSION)
+	mv onemount-$(VERSION)/packaging/deb onemount-$(VERSION)/debian
 	go mod vendor
 	cp -R vendor/ onemount-$(VERSION)
 	tar -czf $@ onemount-$(VERSION)
 
 
 # build srpm package used for rpm build with mock
-srpm: onemount-$(RPM_FULL_VERSION).src.rpm 
+srpm: onemount-$(RPM_FULL_VERSION).src.rpm
 onemount-$(RPM_FULL_VERSION).src.rpm: v$(VERSION).tar.gz
 	rpmbuild -ts $<
 	cp $$(rpm --eval '%{_topdir}')/SRPMS/$@ .
@@ -124,8 +173,9 @@ onemount_$(VERSION)-$(RELEASE)_amd64.deb: onemount_$(VERSION)-$(RELEASE).dsc
 
 clean:
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit
-	rm -f *.log *.fa *.gz *.test vgcore.* onemount onemount-headless onemount-launcher .auth_tokens.json
-	rm -rf util-linux-*/ onemount-*/ vendor/
+	rm -f *.log *.fa *.gz *.test vgcore.* .auth_tokens.json
+	rm -f $(OUTPUT_DIR)/onemount $(OUTPUT_DIR)/onemount-headless $(OUTPUT_DIR)/onemount-launcher
+	rm -rf util-linux-*/ onemount-*/ vendor/ $(OUTPUT_DIR)/
 
 
 # Run all tests

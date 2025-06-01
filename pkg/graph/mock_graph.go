@@ -132,6 +132,63 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	// Special handling for directory creation (POST to children endpoint) - check this FIRST
+	if req.Method == "POST" && strings.Contains(resource, "/children") {
+		// Read the request body
+		reqBody, err := io.ReadAll(req.Body)
+		if err == nil {
+			// Close the original body and replace it with a new one
+			req.Body.Close()
+			req.Body = io.NopCloser(bytes.NewReader(reqBody))
+
+			logging.Debug().
+				Str("resource", resource).
+				Str("requestBody", string(reqBody)).
+				Msg("Mock: Processing POST to children endpoint in RoundTrip")
+
+			// Parse the request body to get the directory name
+			var requestItem DriveItem
+			err := json.Unmarshal(reqBody, &requestItem)
+			if err == nil && requestItem.Folder != nil {
+				// Generate a unique ID for the new directory
+				newID := fmt.Sprintf("mock-dir-%d", time.Now().UnixNano())
+
+				// Create the response with the ID assigned
+				responseItem := DriveItem{
+					ID:     newID,
+					Name:   requestItem.Name,
+					Folder: requestItem.Folder,
+				}
+
+				responseBytes, err := json.Marshal(responseItem)
+				if err == nil {
+					logging.Debug().
+						Str("resource", resource).
+						Str("newID", newID).
+						Str("name", requestItem.Name).
+						Int("responseSize", len(responseBytes)).
+						Msg("Mock: Created directory with ID in RoundTrip")
+
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(responseBytes)),
+						Header:     make(http.Header),
+					}, nil
+				} else {
+					logging.Error().Err(err).Msg("Mock: Failed to marshal directory response in RoundTrip")
+				}
+			} else {
+				logging.Debug().
+					Str("resource", resource).
+					Str("requestBody", string(reqBody)).
+					Err(err).
+					Bool("hasFolder", requestItem.Folder != nil).
+					Str("requestName", requestItem.Name).
+					Msg("Mock: Failed to parse directory creation request in RoundTrip")
+			}
+		}
+	}
+
 	// Check if we have a mock response for this resource
 	m.mu.Lock()
 	mockResponse, ok := m.RequestResponses[resource]
@@ -192,6 +249,63 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	m.mu.Unlock()
 
 	if !ok {
+		// Special handling for directory creation (POST to children endpoint)
+		if req.Method == "POST" && strings.Contains(resource, "/children") {
+			// Read the request body
+			reqBody, err := io.ReadAll(req.Body)
+			if err == nil {
+				// Close the original body and replace it with a new one
+				req.Body.Close()
+				req.Body = io.NopCloser(bytes.NewReader(reqBody))
+
+				logging.Debug().
+					Str("resource", resource).
+					Str("requestBody", string(reqBody)).
+					Msg("Mock: Processing POST to children endpoint in RoundTrip")
+
+				// Parse the request body to get the directory name
+				var requestItem DriveItem
+				err := json.Unmarshal(reqBody, &requestItem)
+				if err == nil && requestItem.Folder != nil {
+					// Generate a unique ID for the new directory
+					newID := fmt.Sprintf("mock-dir-%d", time.Now().UnixNano())
+
+					// Create the response with the ID assigned
+					responseItem := DriveItem{
+						ID:     newID,
+						Name:   requestItem.Name,
+						Folder: requestItem.Folder,
+					}
+
+					responseBytes, err := json.Marshal(responseItem)
+					if err == nil {
+						logging.Debug().
+							Str("resource", resource).
+							Str("newID", newID).
+							Str("name", requestItem.Name).
+							Int("responseSize", len(responseBytes)).
+							Msg("Mock: Created directory with ID in RoundTrip")
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewReader(responseBytes)),
+							Header:     make(http.Header),
+						}, nil
+					} else {
+						logging.Error().Err(err).Msg("Mock: Failed to marshal directory response in RoundTrip")
+					}
+				} else {
+					logging.Debug().
+						Str("resource", resource).
+						Str("requestBody", string(reqBody)).
+						Err(err).
+						Bool("hasFolder", requestItem.Folder != nil).
+						Str("requestName", requestItem.Name).
+						Msg("Mock: Failed to parse directory creation request in RoundTrip")
+				}
+			}
+		}
+
 		// No mock response found, return a 404
 		return &http.Response{
 			StatusCode: http.StatusNotFound,
@@ -847,6 +961,51 @@ func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...ap
 	args := []interface{}{resource, contentBytes}
 	for _, h := range headers {
 		args = append(args, h)
+	}
+
+	// Special handling for directory creation (POST to children endpoint)
+	if strings.Contains(resource, "/children") && contentBytes != nil {
+		logging.Debug().
+			Str("resource", resource).
+			Str("requestBody", string(contentBytes)).
+			Msg("Mock: Processing POST to children endpoint")
+
+		// Parse the request body to get the directory name
+		var requestItem DriveItem
+		err := json.Unmarshal(contentBytes, &requestItem)
+		if err == nil && requestItem.Folder != nil {
+			// Generate a unique ID for the new directory
+			newID := fmt.Sprintf("mock-dir-%d", time.Now().UnixNano())
+
+			// Create the response with the ID assigned
+			responseItem := DriveItem{
+				ID:     newID,
+				Name:   requestItem.Name,
+				Folder: requestItem.Folder,
+			}
+
+			responseBytes, err := json.Marshal(responseItem)
+			if err == nil {
+				logging.Debug().
+					Str("resource", resource).
+					Str("newID", newID).
+					Str("name", requestItem.Name).
+					Int("responseSize", len(responseBytes)).
+					Msg("Mock: Created directory with ID")
+				m.Recorder.RecordCall("Post", append(args, responseBytes)...)
+				return responseBytes, nil
+			} else {
+				logging.Error().Err(err).Msg("Mock: Failed to marshal directory response")
+			}
+		} else {
+			logging.Debug().
+				Str("resource", resource).
+				Str("requestBody", string(contentBytes)).
+				Err(err).
+				Bool("hasFolder", requestItem.Folder != nil).
+				Str("requestName", requestItem.Name).
+				Msg("Mock: Failed to parse directory creation request")
+		}
 	}
 
 	result, err := m.RequestWithContext(context.Background(), resource, "POST", content, headers...)
