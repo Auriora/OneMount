@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, update-imports
+.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports
 
 # auto-calculate software/package versions
 VERSION := $(shell grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
@@ -84,8 +84,35 @@ validate-packaging:
 	@python3 scripts/install-manifest.py --target makefile --action validate | bash
 	@test -f scripts/cgo-helper.sh || (echo "Error: cgo-helper.sh script not found" && exit 1)
 
+# Setup pbuilder environment for building packages (legacy)
+setup-pbuilder:
+	@echo "Setting up pbuilder environment..."
+	@if [ ! -f /var/cache/pbuilder/base.tgz ]; then \
+		echo "Creating pbuilder base environment..."; \
+		sudo pbuilder create --distribution noble; \
+	else \
+		echo "Pbuilder base environment already exists."; \
+	fi
+	@echo "Pbuilder setup complete!"
+
+# Update pbuilder environment (legacy)
+update-pbuilder:
+	@echo "Updating pbuilder environment..."
+	sudo pbuilder update --override-config
+
+# Build Docker image for Debian package building
+docker-build-image:
+	@echo "Building Docker image for Debian package building..."
+	docker build -f packaging/docker/Dockerfile.deb-builder -t onemount-deb-builder .
+	@echo "Docker image built successfully!"
+
+# Build Debian packages using Docker
+deb-docker: validate-packaging
+	@echo "Building Debian packages using Docker..."
+	./scripts/docker-build-deb.sh
+
 # used to create release tarball for rpmbuild
-v$(VERSION).tar.gz: validate-packaging $(shell git ls-files)
+v$(VERSION).tar.gz: validate-packaging
 	rm -rf onemount-$(VERSION)
 	mkdir -p onemount-$(VERSION)
 	git ls-files > filelist.txt
@@ -130,8 +157,11 @@ onemount_$(VERSION)-$(RELEASE).dsc: onemount_$(VERSION).orig.tar.gz
 	dpkg-source --build onemount-$(VERSION)
 
 
-# create the debian package in a chroot via pbuilder
-deb: onemount_$(VERSION)-$(RELEASE)_amd64.deb
+# create the debian package using Docker (default)
+deb: deb-docker
+
+# create the debian package in a chroot via pbuilder (legacy)
+deb-pbuilder: onemount_$(VERSION)-$(RELEASE)_amd64.deb
 onemount_$(VERSION)-$(RELEASE)_amd64.deb: onemount_$(VERSION)-$(RELEASE).dsc
 	sudo mkdir -p /var/cache/pbuilder/aptcache
 	sudo pbuilder --build $<

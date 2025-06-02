@@ -1,0 +1,45 @@
+# Build artifacts
+build/
+*.deb
+*.rpm
+*.tar.gz
+*.tar.xz
+*.dsc
+*.changes
+*.build*
+*.upload
+*.log
+*.fa
+*.test
+vgcore.*
+.auth_tokens.json
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go
+vendor/
+*.mod
+go.sum
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# Test files
+*_test.go
