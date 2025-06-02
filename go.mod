@@ -27,3 +27,5 @@ require (
 go 1.23.0
 
 toolchain go1.24.2
+
+replace github.com/golang/glog => github.com/golang/glog v1.2.4
