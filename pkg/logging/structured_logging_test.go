@@ -409,3 +409,32 @@ func TestUT_SL_09_03_WrapAndLogErrorf_WrapsAndLogsError(t *testing.T) {
 	assert.Contains(t, wrappedErr.Error(), "original error")
 	assert.True(t, errors.Is(wrappedErr, originalErr))
 }
+
+// TestUT_SL_10_01_Logger_New_IncludesTimestamp tests that the New function creates a logger with timestamp
+func TestUT_SL_10_01_Logger_New_IncludesTimestamp(t *testing.T) {
+	// Create a buffer to capture log output
+	var buf bytes.Buffer
+
+	// Create a new logger using the New function
+	logger := New(&buf)
+
+	// Log a message
+	logger.Info().Msg("test message")
+
+	// Parse the log entry
+	var entry map[string]interface{}
+	err := json.Unmarshal(buf.Bytes(), &entry)
+	assert.NoError(t, err)
+
+	// Verify that the log entry includes a timestamp
+	assert.Equal(t, "info", entry["level"])
+	assert.Equal(t, "test message", entry["message"])
+	assert.Contains(t, entry, "time")
+	assert.NotNil(t, entry["time"])
+	assert.NotEqual(t, "<nil>", entry["time"])
+
+	// Verify that the timestamp is a valid string (not nil)
+	timestamp, ok := entry["time"].(string)
+	assert.True(t, ok, "timestamp should be a string")
+	assert.NotEmpty(t, timestamp, "timestamp should not be empty")
+}

@@ -105,7 +105,7 @@ func IsTraceEnabled() bool {
 
 // New creates a new Logger with the given writer.
 func New(w io.Writer) Logger {
-	return Logger{zl: zerolog.New(w)}
+	return Logger{zl: zerolog.New(w).With().Timestamp().Logger()}
 }
 
 // NewConsoleWriter creates a new console writer.
