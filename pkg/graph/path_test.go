@@ -21,17 +21,47 @@ func TestUT_GR_26_01_IDPath_VariousItemIDs_FormatsCorrectly(t *testing.T) {
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement IDPath function testing
-		// Test cases needed:
-		// 1. Test with valid OneDrive item IDs (e.g., "01BYE5RZ6QN3ZWBTUQOJFZXVGS7DSFGHI")
-		// 2. Test with root item ID ("root")
-		// 3. Test with empty string (should handle gracefully)
-		// 4. Test with special characters in ID
-		// 5. Verify correct API path format: "/me/drive/items/{id}"
-		// Expected behavior: IDPath should format item IDs for Microsoft Graph API requests
-		// Target: v1.1 release (test coverage improvement)
-		// Priority: Medium (testing infrastructure)
-		t.Skip("Test not implemented yet")
+		// Test case 1: Valid OneDrive item ID
+		validID := "01BYE5RZ6QN3ZWBTUQOJFZXVGS7DSFGHI"
+		result := IDPath(validID)
+		expected := "/me/drive/items/01BYE5RZ6QN3ZWBTUQOJFZXVGS7DSFGHI"
+		if result != expected {
+			t.Errorf("IDPath(%q) = %q, expected %q", validID, result, expected)
+		}
+
+		// Test case 2: Root item ID
+		rootID := "root"
+		result = IDPath(rootID)
+		expected = "/me/drive/root"
+		if result != expected {
+			t.Errorf("IDPath(%q) = %q, expected %q", rootID, result, expected)
+		}
+
+		// Test case 3: Empty string (should handle gracefully)
+		emptyID := ""
+		result = IDPath(emptyID)
+		expected = "/me/drive/items/"
+		if result != expected {
+			t.Errorf("IDPath(%q) = %q, expected %q", emptyID, result, expected)
+		}
+
+		// Test case 4: ID with special characters that need URL encoding
+		specialID := "test/id with spaces&special=chars"
+		result = IDPath(specialID)
+		expected = "/me/drive/items/test%2Fid%20with%20spaces&special=chars"
+		if result != expected {
+			t.Errorf("IDPath(%q) = %q, expected %q", specialID, result, expected)
+		}
+
+		// Test case 5: Very long ID (realistic OneDrive ID length)
+		longID := "01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		result = IDPath(longID)
+		expected = "/me/drive/items/01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		if result != expected {
+			t.Errorf("IDPath(%q) = %q, expected %q", longID, result, expected)
+		}
+
+		t.Log("All IDPath test cases passed successfully")
 	})
 }
 
@@ -51,18 +81,55 @@ func TestUT_GR_27_01_ChildrenPath_VariousPaths_FormatsCorrectly(t *testing.T) {
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement childrenPath function testing
-		// Test cases needed:
-		// 1. Test with root path ("/")
-		// 2. Test with nested paths ("/Documents/Folder")
-		// 3. Test with paths containing spaces ("/My Documents/New Folder")
-		// 4. Test with paths containing special characters
-		// 5. Test with very long paths (near API limits)
-		// 6. Verify correct API path format: "/me/drive/root:/{path}:/children"
-		// Expected behavior: childrenPath should format filesystem paths for Graph API children requests
-		// Target: v1.1 release (test coverage improvement)
-		// Priority: Medium (testing infrastructure)
-		t.Skip("Test not implemented yet")
+		// Test case 1: Root path
+		rootPath := "/"
+		result := childrenPath(rootPath)
+		expected := "/me/drive/root/children"
+		if result != expected {
+			t.Errorf("childrenPath(%q) = %q, expected %q", rootPath, result, expected)
+		}
+
+		// Test case 2: Simple nested path
+		simplePath := "/Documents"
+		result = childrenPath(simplePath)
+		expected = "/me/drive/root:%2FDocuments:/children"
+		if result != expected {
+			t.Errorf("childrenPath(%q) = %q, expected %q", simplePath, result, expected)
+		}
+
+		// Test case 3: Nested folder path
+		nestedPath := "/Documents/Folder"
+		result = childrenPath(nestedPath)
+		expected = "/me/drive/root:%2FDocuments%2FFolder:/children"
+		if result != expected {
+			t.Errorf("childrenPath(%q) = %q, expected %q", nestedPath, result, expected)
+		}
+
+		// Test case 4: Path with spaces
+		spacePath := "/My Documents/New Folder"
+		result = childrenPath(spacePath)
+		expected = "/me/drive/root:%2FMy%20Documents%2FNew%20Folder:/children"
+		if result != expected {
+			t.Errorf("childrenPath(%q) = %q, expected %q", spacePath, result, expected)
+		}
+
+		// Test case 5: Path with special characters
+		specialPath := "/Files & Folders/Test (1)/Data+Info"
+		result = childrenPath(specialPath)
+		expected = "/me/drive/root:%2FFiles%20&%20Folders%2FTest%20%281%29%2FData+Info:/children"
+		if result != expected {
+			t.Errorf("childrenPath(%q) = %q, expected %q", specialPath, result, expected)
+		}
+
+		// Test case 6: Very long path (testing near API limits)
+		longPath := "/Very/Long/Path/With/Many/Nested/Folders/That/Goes/Deep/Into/The/Directory/Structure/To/Test/API/Limits"
+		result = childrenPath(longPath)
+		expectedLong := "/me/drive/root:%2FVery%2FLong%2FPath%2FWith%2FMany%2FNested%2FFolders%2FThat%2FGoes%2FDeep%2FInto%2FThe%2FDirectory%2FStructure%2FTo%2FTest%2FAPI%2FLimits:/children"
+		if result != expectedLong {
+			t.Errorf("childrenPath(%q) = %q, expected %q", longPath, result, expectedLong)
+		}
+
+		t.Log("All childrenPath test cases passed successfully")
 	})
 }
 
@@ -82,16 +149,54 @@ func TestUT_GR_28_01_ChildrenPathID_VariousItemIDs_FormatsCorrectly(t *testing.T
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement childrenPathID function testing
-		// Test cases needed:
-		// 1. Test with valid OneDrive item IDs
-		// 2. Test with root item ID ("root")
-		// 3. Test with folder IDs vs file IDs (should handle appropriately)
-		// 4. Test with empty/invalid IDs (error handling)
-		// 5. Verify correct API path format: "/me/drive/items/{id}/children"
-		// Expected behavior: childrenPathID should format item IDs for Graph API children requests
-		// Target: v1.1 release (test coverage improvement)
-		// Priority: Medium (testing infrastructure)
-		t.Skip("Test not implemented yet")
+		// Test case 1: Valid OneDrive item ID
+		validID := "01BYE5RZ6QN3ZWBTUQOJFZXVGS7DSFGHI"
+		result := childrenPathID(validID)
+		expected := "/me/drive/items/01BYE5RZ6QN3ZWBTUQOJFZXVGS7DSFGHI/children"
+		if result != expected {
+			t.Errorf("childrenPathID(%q) = %q, expected %q", validID, result, expected)
+		}
+
+		// Test case 2: Root item ID
+		rootID := "root"
+		result = childrenPathID(rootID)
+		expected = "/me/drive/items/root/children"
+		if result != expected {
+			t.Errorf("childrenPathID(%q) = %q, expected %q", rootID, result, expected)
+		}
+
+		// Test case 3: Folder ID (typical OneDrive folder ID format)
+		folderID := "01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+		result = childrenPathID(folderID)
+		expected = "/me/drive/items/01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567/children"
+		if result != expected {
+			t.Errorf("childrenPathID(%q) = %q, expected %q", folderID, result, expected)
+		}
+
+		// Test case 4: Empty ID (should handle gracefully)
+		emptyID := ""
+		result = childrenPathID(emptyID)
+		expected = "/me/drive/items//children"
+		if result != expected {
+			t.Errorf("childrenPathID(%q) = %q, expected %q", emptyID, result, expected)
+		}
+
+		// Test case 5: ID with special characters that need URL encoding
+		specialID := "test/id with spaces&special=chars"
+		result = childrenPathID(specialID)
+		expected = "/me/drive/items/test%2Fid%20with%20spaces&special=chars/children"
+		if result != expected {
+			t.Errorf("childrenPathID(%q) = %q, expected %q", specialID, result, expected)
+		}
+
+		// Test case 6: Very long ID (realistic OneDrive ID length)
+		longID := "01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		result = childrenPathID(longID)
+		expected = "/me/drive/items/01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ/children"
+		if result != expected {
+			t.Errorf("childrenPathID(%q) = %q, expected %q", longID, result, expected)
+		}
+
+		t.Log("All childrenPathID test cases passed successfully")
 	})
 }

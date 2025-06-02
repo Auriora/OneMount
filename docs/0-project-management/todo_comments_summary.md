@@ -126,3 +126,8 @@ This document should be updated whenever new TODO comments are added or existing
 - **Fixed**: Database persistence hanging issue in `internal/fs/upload_signal_basic_test.go:162`
   - Issue was resolved and test now passes with proper persistence verification
   - TODO comment removed and test enhanced with data verification
+- **Implemented**: Path function tests in `pkg/graph/path_test.go` (Issue #117)
+  - `TestUT_GR_26_01_IDPath_VariousItemIDs_FormatsCorrectly` - ✅ COMPLETE
+  - `TestUT_GR_27_01_ChildrenPath_VariousPaths_FormatsCorrectly` - ✅ COMPLETE
+  - `TestUT_GR_28_01_ChildrenPathID_VariousItemIDs_FormatsCorrectly` - ✅ COMPLETE
+  - All tests include comprehensive coverage of edge cases, special characters, and URL encoding
