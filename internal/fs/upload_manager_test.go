@@ -867,7 +867,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 		}
 
 		// Calculate the QuickXorHash for the large file
-		largeFileQuickXorHash := "large-file-quickxor-hash"
+		largeFileQuickXorHash := graph.QuickXORHash(&largeFileContent)
 
 		// Create a test file item
 		testFileName := "large_test_file.bin"
@@ -907,7 +907,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 
 		// Mock the upload session creation response
 		uploadSessionResponse := map[string]interface{}{
-			"uploadUrl":          "https://upload.example.com/session123",
+			"uploadUrl":          "https://mock-upload.example.com/session123",
 			"expirationDateTime": "2024-12-31T23:59:59Z",
 		}
 		uploadSessionJSON, err := json.Marshal(uploadSessionResponse)
@@ -923,7 +923,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 				// Last chunk - return the completed file item
 				fileItemJSON, err := json.Marshal(fileItem)
 				assert.NoError(err, "Failed to marshal file item for final chunk")
-				mockClient.AddMockResponse("https://upload.example.com/session123", fileItemJSON, 200, nil)
+				mockClient.AddMockResponse("https://mock-upload.example.com/session123", fileItemJSON, 200, nil)
 			} else {
 				// Intermediate chunk - return upload progress
 				progressResponse := map[string]interface{}{
@@ -932,7 +932,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 				}
 				progressJSON, err := json.Marshal(progressResponse)
 				assert.NoError(err, "Failed to marshal progress response")
-				mockClient.AddMockResponse("https://upload.example.com/session123", progressJSON, 202, nil)
+				mockClient.AddMockResponse("https://mock-upload.example.com/session123", progressJSON, 202, nil)
 			}
 		}
 
@@ -951,7 +951,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 		// Verify upload completion
 		status, err := fs.uploads.GetUploadStatus(fileID)
 		assert.NoError(err, "Failed to get upload status")
-		assert.Equal(uploadComplete, status, "Upload should be completed")
+		assert.Equal(UploadCompletedState, status, "Upload should be completed")
 
 		// Verify that progress was tracked during upload
 		assert.True(uploadSession.BytesUploaded > 0, "Bytes uploaded should be greater than 0")
@@ -1006,7 +1006,7 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 		}
 
 		// Calculate the QuickXorHash for the test file
-		testFileQuickXorHash := "test-file-quickxor-hash"
+		testFileQuickXorHash := graph.QuickXORHash(&testFileContent)
 
 		// Create a test file item
 		testFileName := "progress_test_file.bin"
@@ -1069,7 +1069,7 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 		// Verify upload completion
 		status, err := fs.uploads.GetUploadStatus(fileID)
 		assert.NoError(err, "Failed to get upload status")
-		assert.Equal(uploadComplete, status, "Upload should be completed")
+		assert.Equal(UploadCompletedState, status, "Upload should be completed")
 	})
 }
 
@@ -1120,7 +1120,7 @@ func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T)
 		}
 
 		// Calculate the QuickXorHash for the test file
-		testFileQuickXorHash := "cancellation-test-file-quickxor-hash"
+		testFileQuickXorHash := graph.QuickXORHash(&testFileContent)
 
 		// Create a test file item
 		testFileName := "cancellation_test_file.bin"
@@ -1183,6 +1183,6 @@ func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T)
 		// Verify upload status reflects cancellation
 		status, err := fs.uploads.GetUploadStatus(fileID)
 		assert.Error(err, "Getting status of cancelled upload should return error")
-		assert.Equal(uploadNotStarted, status, "Cancelled upload status should be not started")
+		assert.Equal(UploadNotStartedState, status, "Cancelled upload status should be not started")
 	})
 }

@@ -131,6 +131,46 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	// Special handling for createUploadSession requests
+	if strings.Contains(resource, "/createUploadSession") && req.Method == "POST" {
+		// Return a mock upload session response
+		uploadSession := map[string]interface{}{
+			"uploadUrl":          "https://mock-upload.example.com/session123",
+			"expirationDateTime": time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+		}
+		responseBody, _ := json.Marshal(uploadSession)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(string(responseBody))),
+			Header:     make(http.Header),
+		}, nil
+	}
+
+	// Special handling for upload session URLs (PUT requests to mock upload URLs)
+	if req.Method == "PUT" && strings.Contains(req.URL.Host, "mock-upload.example.com") {
+		// Check if we have a mock response for this upload URL
+		m.mu.Lock()
+		mockResponse, exists := m.RequestResponses[req.URL.String()]
+		m.mu.Unlock()
+
+		if exists {
+			// Return the configured mock response (could be progress or final file item)
+			return &http.Response{
+				StatusCode: mockResponse.StatusCode,
+				Body:       io.NopCloser(bytes.NewReader(mockResponse.Body)),
+				Header:     make(http.Header),
+			}, nil
+		}
+
+		// Default: simulate successful chunk upload with progress response
+		return &http.Response{
+			StatusCode: http.StatusAccepted, // 202 for intermediate chunks
+			Body:       io.NopCloser(strings.NewReader(`{"uploadUrl":"https://mock-upload.example.com/session123","expirationDateTime":"` + time.Now().Add(24*time.Hour).Format(time.RFC3339) + `"}`)),
+			Header:     make(http.Header),
+		}, nil
+	}
+
 	// Special handling for directory creation (POST to children endpoint) - check this FIRST
 	if req.Method == "POST" && strings.Contains(resource, "/children") {
 		// Read the request body

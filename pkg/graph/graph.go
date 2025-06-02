@@ -72,6 +72,11 @@ func getHTTPClient() HTTPClient {
 	return httpClient
 }
 
+// GetHTTPClient returns the configured HTTP client (public version for external use)
+func GetHTTPClient() HTTPClient {
+	return httpClient
+}
+
 // Graph represents a client for interacting with the Microsoft Graph API.
 // getResponseCache returns the shared response cache
 func getResponseCache() *ResponseCache {

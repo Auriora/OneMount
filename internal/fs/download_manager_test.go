@@ -457,7 +457,7 @@ func TestUT_FS_10_DownloadManager_ChunkBasedDownload_LargeFile(t *testing.T) {
 		}
 
 		// Calculate the QuickXorHash for the large file
-		largeFileQuickXorHash := "large-download-file-quickxor-hash"
+		largeFileQuickXorHash := graph.QuickXORHash(&largeFileContent)
 
 		// Create a test file item
 		testFileName := "large_download_test_file.bin"
@@ -561,7 +561,7 @@ func TestUT_FS_11_DownloadManager_ResumeDownload_InterruptedTransfer(t *testing.
 		}
 
 		// Calculate the QuickXorHash for the large file
-		largeFileQuickXorHash := "resume-download-file-quickxor-hash"
+		largeFileQuickXorHash := graph.QuickXORHash(&largeFileContent)
 
 		// Create a test file item
 		testFileName := "resume_download_test_file.bin"
@@ -679,6 +679,9 @@ func TestUT_FS_12_DownloadManager_ConcurrentDownloads_QueueManagement(t *testing
 				testFileContent[j] = byte((i + j) % 256)
 			}
 
+			// Calculate the QuickXorHash for the test file content
+			testFileQuickXorHash := graph.QuickXORHash(&testFileContent)
+
 			// Create file item
 			testFileName := fmt.Sprintf("concurrent_download_test_file_%d.bin", i)
 			fileID := fmt.Sprintf("concurrent-download-file-id-%d", i)
@@ -693,7 +696,7 @@ func TestUT_FS_12_DownloadManager_ConcurrentDownloads_QueueManagement(t *testing
 				},
 				File: &graph.File{
 					Hashes: graph.Hashes{
-						QuickXorHash: fmt.Sprintf("concurrent-download-quickxor-hash-%d", i),
+						QuickXorHash: testFileQuickXorHash,
 					},
 				},
 				Size: uint64(fileSize),

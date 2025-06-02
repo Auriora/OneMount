@@ -352,10 +352,15 @@ func (dm *DownloadManager) processDownload(id string) {
 		Timestamp: time.Now(),
 	})
 
-	// Update session state
+	// Update session state and progress tracking
 	session.mutex.Lock()
 	session.State = downloadCompleted
 	session.EndTime = time.Now()
+	// Update progress tracking to reflect completed download
+	session.BytesDownloaded = size
+	if session.CanResume && session.TotalChunks > 0 {
+		session.LastSuccessfulChunk = session.TotalChunks - 1 // All chunks completed
+	}
 	session.mutex.Unlock()
 
 	logging.Info().
@@ -363,8 +368,8 @@ func (dm *DownloadManager) processDownload(id string) {
 		Str("path", session.Path).
 		Msg("File download completed")
 
-	// Clean up completed session
-	dm.finishDownloadSession(id)
+	// Note: Session cleanup is deferred to allow status checking after completion
+	// The session will be cleaned up when a new download is queued or during shutdown
 }
 
 // setSessionError updates a session with an error
@@ -495,6 +500,12 @@ func (dm *DownloadManager) GetDownloadStatus(id string) (DownloadState, error) {
 	session.mutex.RLock()
 	state := session.State
 	session.mutex.RUnlock()
+
+	// Clean up completed sessions after returning their status
+	if state == downloadCompleted {
+		// Use a goroutine to avoid blocking the caller
+		go dm.finishDownloadSession(id)
+	}
 
 	return state, nil
 }

@@ -225,6 +225,13 @@ system-test-stress:
 system-test-go:
 	go test -v -timeout 30m ./tests/system -run "TestSystemST_.*"
 
+# Run large file system tests (2.5GB+ files)
+system-test-large-files:
+	@echo "Running large file system tests (requires significant disk space and time)..."
+	@echo "WARNING: This test will create files up to 5GB in size and may take 1+ hours to complete"
+	@read -p "Continue? [y/N] " -n 1 -r; echo; if [[ ! $$REPLY =~ ^[Yy]$$ ]]; then exit 1; fi
+	go test -v -timeout 2h ./tests/system -run "TestSystemST_LARGE_FILES_.*"
+
 # Coverage targets
 coverage:
 	mkdir -p coverage

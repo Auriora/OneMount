@@ -228,7 +228,8 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 
 	auth.Refresh(nil) // nil context will use context.Background() internally
 
-	client := &http.Client{}
+	// Use the configured HTTP client (which may be a mock client for testing)
+	client := graph.GetHTTPClient()
 	request, _ := http.NewRequest(
 		"PUT",
 		uploadURL,
