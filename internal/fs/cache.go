@@ -238,7 +238,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		deltaLoopCancel:     deltaCancel,
 	}
 
-	// Initialize with our custom RawFileSystem implementation that supports the POLL opcode
+	// Initialize with our custom RawFileSystem implementation
 	fs.RawFileSystem = NewCustomRawFileSystem(fs)
 
 	rootItem, err := graph.GetItem("root", auth)

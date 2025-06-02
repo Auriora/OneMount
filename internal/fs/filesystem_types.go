@@ -29,9 +29,6 @@ type FilesystemInterface interface {
 
 	// IsOffline Filesystem state methods
 	IsOffline() bool
-
-	// Poll FUSE operations
-	Poll(cancel <-chan struct{}, in *fuse.InHeader, out *fuse.OutHeader) fuse.Status
 }
 
 // FileStatusDBusServerInterface defines the interface for the D-Bus server

@@ -320,8 +320,18 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 //   - fuse.OK if the read was successful
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error opening the cache file
-func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
+func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
 	methodName, startTime := logging.LogMethodEntry("Read", in.NodeId, len(buf))
+
+	// Check for cancellation before starting the read operation
+	select {
+	case <-cancel:
+		logging.Debug().Msg("Read operation cancelled")
+		emptyResult := fuse.ReadResultData(make([]byte, 0))
+		defer logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EINTR)
+		return emptyResult, fuse.EINTR
+	default:
+	}
 
 	// Check if this is a thumbnail file handle
 	if in.Fh != 0 {
@@ -403,7 +413,7 @@ func (f *Filesystem) Read(_ <-chan struct{}, in *fuse.ReadIn, buf []byte) (fuse.
 //   - fuse.OK if the write was successful
 //   - fuse.EBADF if the inode doesn't exist
 //   - fuse.EIO if there was an error writing to the cache file
-func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
+func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
 	methodName, startTime := logging.LogMethodEntry("Write", in.NodeId, len(data), in.Offset)
 
 	id := f.TranslateID(in.NodeId)
@@ -423,6 +433,15 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 
 	logger := logging.WithLogContext(logCtx)
 
+	// Check for cancellation before starting the write operation
+	select {
+	case <-cancel:
+		logger.Debug().Msg("Write operation cancelled")
+		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EINTR))
+		return 0, fuse.EINTR
+	default:
+	}
+
 	if logging.IsTraceEnabled() {
 		logger.Trace().
 			Uint64("nodeID", in.NodeId).
@@ -435,6 +454,14 @@ func (f *Filesystem) Write(_ <-chan struct{}, in *fuse.WriteIn, data []byte) (ui
 	// In offline mode, we allow writes but they will be cached locally
 	if f.IsOffline() {
 		logger.Info().Msg("Write operations in offline mode will be cached locally")
+	}
+
+	// Check for large file operations and log warnings
+	const largeFileThreshold = 1024 * 1024 * 1024 // 1GB
+	if nWrite > largeFileThreshold {
+		logger.Warn().
+			Int("writeSize", nWrite).
+			Msg("Large write operation detected - this may take some time")
 	}
 
 	fd, err := f.content.Open(id)
@@ -575,42 +602,4 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	// Update file status attributes after releasing the lock
 	f.updateFileStatus(inode)
 	return 0
-}
-
-// Poll implements the poll operation for the FUSE filesystem.
-// This method is called when the kernel wants to check if a file descriptor is ready for I/O.
-func (f *Filesystem) Poll(_ <-chan struct{}, in *fuse.InHeader, _ *fuse.OutHeader) fuse.Status {
-	logging.Trace().
-		Str("op", "Poll").
-		Uint64("nodeID", in.NodeId).
-		Msg("Poll operation")
-
-	// Get the inode for the node ID
-	inode := f.GetNodeID(in.NodeId)
-	if inode == nil {
-		return fuse.EBADF
-	}
-
-	// We don't need to do any special handling for polling
-	// Just return OK to indicate that the file is ready for I/O
-	return fuse.OK
-}
-
-// PollOperationHandler is an alternative implementation of the poll operation.
-// This is provided as a fallback in case the Poll method is not recognized by the go-fuse library.
-func (f *Filesystem) PollOperationHandler(_ <-chan struct{}, in *fuse.InHeader, _ *fuse.OutHeader) fuse.Status {
-	logging.Trace().
-		Str("op", "PollOperationHandler").
-		Uint64("nodeID", in.NodeId).
-		Msg("Poll operation (alternative handler)")
-
-	// Get the inode for the node ID
-	inode := f.GetNodeID(in.NodeId)
-	if inode == nil {
-		return fuse.EBADF
-	}
-
-	// We don't need to do any special handling for polling
-	// Just return OK to indicate that the file is ready for I/O
-	return fuse.OK
 }
