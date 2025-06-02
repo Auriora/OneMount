@@ -23,11 +23,30 @@ type SyncProgress struct {
 	mutex                sync.RWMutex
 }
 
-// GetProgress returns a copy of the current sync progress
-func (sp *SyncProgress) GetProgress() SyncProgress {
+// SyncProgressSnapshot represents a snapshot of sync progress without mutex
+type SyncProgressSnapshot struct {
+	TotalDirectories     int64     // Total directories discovered
+	ProcessedDirectories int64     // Directories processed so far
+	TotalFiles           int64     // Total files discovered
+	ProcessedFiles       int64     // Files processed so far
+	StartTime            time.Time // When sync started
+	LastUpdateTime       time.Time // Last progress update
+	IsComplete           bool      // Whether sync is complete
+}
+
+// GetProgress returns a copy of the current sync progress without the mutex
+func (sp *SyncProgress) GetProgress() SyncProgressSnapshot {
 	sp.mutex.RLock()
 	defer sp.mutex.RUnlock()
-	return *sp
+	return SyncProgressSnapshot{
+		TotalDirectories:     atomic.LoadInt64(&sp.TotalDirectories),
+		ProcessedDirectories: atomic.LoadInt64(&sp.ProcessedDirectories),
+		TotalFiles:           atomic.LoadInt64(&sp.TotalFiles),
+		ProcessedFiles:       atomic.LoadInt64(&sp.ProcessedFiles),
+		StartTime:            sp.StartTime,
+		LastUpdateTime:       sp.LastUpdateTime,
+		IsComplete:           sp.IsComplete,
+	}
 }
 
 // UpdateProgress atomically updates the progress counters

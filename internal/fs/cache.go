@@ -399,7 +399,9 @@ func (f *Filesystem) IsOffline() bool {
 	defer f.RUnlock()
 
 	result := f.offline
-	defer logging.LogMethodExit(methodName, time.Since(startTime), result)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), result)
+	}()
 	return result
 }
 
@@ -658,7 +660,9 @@ func (f *Filesystem) TranslateID(nodeID uint64) string {
 		result = f.inodes[nodeID-1]
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), result)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), result)
+	}()
 	return result
 }
 
@@ -669,13 +673,17 @@ func (f *Filesystem) GetNodeID(nodeID uint64) *Inode {
 	id := f.TranslateID(nodeID)
 	if id == "" {
 		// Log the return value (nil) and return
-		defer logging.LogMethodExit(methodName, time.Since(startTime), nil)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), nil)
+		}()
 		return nil
 	}
 
 	result := f.GetID(id)
 	// Log the return value (could be nil or a pointer)
-	defer logging.LogMethodExit(methodName, time.Since(startTime), result)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), result)
+	}()
 	return result
 }
 
@@ -699,7 +707,9 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 		inode.Unlock()
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+	}()
 	return nodeID
 }
 
@@ -730,19 +740,25 @@ func (f *Filesystem) GetID(id string) *Inode {
 			return err
 		}); err != nil {
 			logging.Error().Err(err).Str("id", id).Msg("Failed to read inode from database")
-			defer logging.LogMethodExit(methodName, time.Since(startTime), nil)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), nil)
+			}()
 			return nil
 		}
 		if found != nil {
 			f.InsertNodeID(found)
 			f.metadata.Store(id, found) // move to memory for next time
 		}
-		defer logging.LogMethodExit(methodName, time.Since(startTime), found)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), found)
+		}()
 		return found
 	}
 
 	result := entry.(*Inode)
-	defer logging.LogMethodExit(methodName, time.Since(startTime), result)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), result)
+	}()
 	return result
 }
 
@@ -807,7 +823,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	parentID := inode.ParentID()
 	if parentID == "" {
 		// root item, or parent not set
-		defer logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+		}()
 		return nodeID
 	}
 	parent := f.GetID(parentID)
@@ -840,7 +858,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 				Str("childID", id).
 				Str("childName", inode.Name()).
 				Msg("Parent item could not be found when setting parent.")
-			defer logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+			}()
 			return nodeID
 		}
 	}
@@ -853,7 +873,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	for _, child := range parent.children {
 		if child == id {
 			// exit early, child cannot be added twice
-			defer logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+			}()
 			return nodeID
 		}
 	}
@@ -864,7 +886,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 	parent.children = append(parent.children, id)
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+	}()
 	return nodeID
 }
 
@@ -946,7 +970,9 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 	children := make(map[string]*Inode)
 	if inode == nil {
 		logger.Error().Str(logging.FieldID, id).Msg("Inode not found in cache")
-		defer logging.LogMethodExit(methodName, time.Since(startTime), children, errors.New(id+" not found in cache"))
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), children, errors.New(id+" not found in cache"))
+		}()
 		return children, errors.New(id + " not found in cache")
 	} else if !inode.IsDir() {
 		// Normal files are treated as empty folders. This only gets called if
@@ -955,7 +981,9 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			Str(logging.FieldID, id).
 			Str(logging.FieldPath, inode.Path()).
 			Msg("Attempted to get children of ordinary file")
-		defer logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+		}()
 		return children, nil
 	}
 
@@ -1002,7 +1030,9 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 				Msg("Successfully retrieved children from cache")
 		}
 
-		defer logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+		}()
 		return children, nil
 	}
 	// Update path before unlocking to avoid potential deadlocks
@@ -1086,14 +1116,18 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 				Str(logging.FieldID, id).
 				Msg("We are offline, and no children found in cache. " +
 					"Pretending there are no children.")
-			defer logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+			}()
 			return children, nil
 		}
 		// something else happened besides being offline
 		logging.LogErrorWithContext(err, ctx, "Error fetching children from server",
 			logging.FieldID, id,
 			logging.FieldPath, pathForLogs)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		}()
 		return nil, err
 	}
 
@@ -1154,7 +1188,9 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			Msg("GetChildrenID completed successfully")
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+	}()
 	return children, nil
 }
 
@@ -1179,7 +1215,9 @@ func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]
 	if err != nil {
 		logging.LogErrorWithContext(err, ctx, "Error getting path",
 			logging.FieldPath, path)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		}()
 		return make(map[string]*Inode), err
 	}
 
@@ -1196,7 +1234,9 @@ func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]
 		logging.LogErrorWithContext(err, ctx, "Error getting children for path",
 			logging.FieldPath, path,
 			logging.FieldID, inode.ID())
-		defer logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		}()
 		return make(map[string]*Inode), err
 	}
 
@@ -1208,7 +1248,9 @@ func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]
 			Msg("Successfully got children for path")
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+	}()
 	return children, nil
 }
 
@@ -1226,7 +1268,9 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 	lastID := f.root
 	if path == "/" {
 		result := f.GetID(lastID)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), result, nil)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), result, nil)
+		}()
 		return result, nil
 	}
 
@@ -1260,7 +1304,9 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 				logging.FieldPath, path,
 				"component", split[i],
 				"componentIndex", i)
-			defer logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+			}()
 			return nil, err
 		}
 
@@ -1275,7 +1321,9 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 				logging.FieldPath, path,
 				"component", split[i],
 				"componentIndex", i)
-			defer logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+			}()
 			return nil, err
 		}
 
@@ -1299,7 +1347,9 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 			Msg("Successfully found path")
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), inode, nil)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), inode, nil)
+	}()
 	return inode, nil
 }
 

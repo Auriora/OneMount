@@ -120,7 +120,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
+		}()
 		return fuse.ENOENT
 	}
 
@@ -132,7 +134,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		if status == fuse.OK {
 			out.Fh = handleID
 		}
-		defer logging.LogMethodExit(methodName, time.Since(startTime), status)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), status)
+		}()
 		return status
 	}
 
@@ -169,7 +173,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		logging.LogErrorWithContext(err, logCtx, "Could not create cache file",
 			logging.FieldID, id,
 			logging.FieldPath, path)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+		}()
 		return fuse.EIO
 	}
 
@@ -190,12 +196,16 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 			logging.LogErrorWithContext(err, logCtx, "Could not fetch file stats",
 				logging.FieldID, id,
 				logging.FieldPath, path)
-			defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+			}()
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
 		inode.Unlock()
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		}()
 		return fuse.OK
 	}
 
@@ -210,12 +220,16 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 			logging.LogErrorWithContext(err, logCtx, "Could not fetch file stats",
 				logging.FieldID, id,
 				logging.FieldPath, path)
-			defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+			}()
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
 		inode.Unlock()
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		}()
 		return fuse.OK
 	}
 
@@ -230,7 +244,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 			logging.FieldID, id,
 			logging.FieldPath, path)
 		f.MarkFileError(id, err)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.EIO)
+		}()
 		return fuse.EIO
 	}
 
@@ -243,7 +259,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		}
 		// Update file status attributes but don't wait for download
 		f.updateFileStatus(inode)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		}()
 		return fuse.OK
 	}
 
@@ -253,14 +271,18 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		logging.LogErrorWithContext(err, logCtx, "Download failed",
 			logging.FieldID, id,
 			logging.FieldPath, path)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.EREMOTEIO)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.EREMOTEIO)
+		}()
 		return fuse.EREMOTEIO
 	}
 
 	// Update file status attributes
 	f.updateFileStatus(inode)
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+	}()
 	return fuse.OK
 }
 
@@ -328,7 +350,9 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 	case <-cancel:
 		logging.Debug().Msg("Read operation cancelled")
 		emptyResult := fuse.ReadResultData(make([]byte, 0))
-		defer logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EINTR)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EINTR)
+		}()
 		return emptyResult, fuse.EINTR
 	default:
 	}
@@ -342,10 +366,14 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 			ctx := context.Background()
 			result, errno := fh.Read(ctx, buf, int64(in.Offset))
 			if errno != 0 {
-				defer logging.LogMethodExit(methodName, time.Since(startTime), nil, fuse.Status(errno))
+				defer func() {
+					logging.LogMethodExit(methodName, time.Since(startTime), nil, fuse.Status(errno))
+				}()
 				return nil, fuse.Status(errno)
 			}
-			defer logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+			}()
 			return result, fuse.OK
 		}
 	}
@@ -354,7 +382,9 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		emptyResult := fuse.ReadResultData(make([]byte, 0))
-		defer logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EBADF)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EBADF)
+		}()
 		return emptyResult, fuse.EBADF
 	}
 
@@ -383,7 +413,9 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 			logging.FieldID, id,
 			logging.FieldPath, path)
 		emptyResult := fuse.ReadResultData(make([]byte, 0))
-		defer logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EIO)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), emptyResult, fuse.EIO)
+		}()
 		return emptyResult, fuse.EIO
 	}
 
@@ -392,7 +424,9 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 	defer inode.RUnlock()
 
 	result := fuse.ReadResultFd(fd.Fd(), int64(in.Offset), int(in.Size))
-	defer logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+	}()
 	return result, fuse.OK
 }
 
@@ -419,7 +453,9 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	id := f.TranslateID(in.NodeId)
 	inode := f.GetID(id)
 	if inode == nil {
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EBADF))
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EBADF))
+		}()
 		return 0, fuse.EBADF
 	}
 
@@ -437,7 +473,9 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	select {
 	case <-cancel:
 		logger.Debug().Msg("Write operation cancelled")
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EINTR))
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EINTR))
+		}()
 		return 0, fuse.EINTR
 	default:
 	}
@@ -470,7 +508,9 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 			logging.FieldOperation, "file_write",
 			logging.FieldID, id,
 			logging.FieldPath, path)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EIO))
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EIO))
+		}()
 		return 0, fuse.EIO
 	}
 
@@ -484,7 +524,9 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 			logging.FieldPath, path,
 			logging.FieldOffset, offset,
 			logging.FieldSize, nWrite)
-		defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), int32(fuse.EIO))
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), int32(fuse.EIO))
+		}()
 		return uint32(n), fuse.EIO
 	}
 
@@ -506,7 +548,9 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 			Msg("File write completed successfully")
 	}
 
-	defer logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), int32(fuse.OK))
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), uint32(n), int32(fuse.OK))
+	}()
 	return uint32(n), fuse.OK
 }
 
