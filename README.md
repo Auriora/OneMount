@@ -165,9 +165,9 @@ Get started with OneMount by installing it using your distribution's package man
 
 3. **Authenticate** with your Microsoft account when prompted.
 
-For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to the [complete installation guide](docs/installation-guide.md).
+For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to the [complete installation guide](docs/guides/installation-guide.md).
 
-For a step-by-step guide to get started quickly, check out our [quickstart guide](docs/quickstart-guide.md).
+For a step-by-step guide to get started quickly, check out our [quickstart guide](docs/guides/quickstart-guide.md).
 
 ## Contributing guidelines
 
@@ -271,9 +271,9 @@ make deb
 For more information about OneMount:
 
 ### User Documentation
-* [Quickstart Guide](docs/quickstart-guide.md) - Step-by-step guide to get started quickly
-* [Installation Guide](docs/installation-guide.md) - Detailed installation and configuration instructions
-* [Troubleshooting Guide](docs/troubleshooting-guide.md) - Solutions for common issues and problems
+* [Quickstart Guide](docs/guides/quickstart-guide.md) - Step-by-step guide to get started quickly
+* [Installation Guide](docs/guides/installation-guide.md) - Detailed installation and configuration instructions
+* [Troubleshooting Guide](docs/guides/troubleshooting-guide.md) - Solutions for common issues and problems
 * [Offline Functionality](docs/offline-functionality.md) - Complete guide to offline features and synchronization
 
 ### Developer Documentation
@@ -302,8 +302,8 @@ For more information about OneMount:
 
 If you encounter issues with OneMount:
 
-1. **Check the troubleshooting guide**: [Troubleshooting Guide](docs/troubleshooting-guide.md) - comprehensive solutions for common issues
-2. **Review installation documentation**: [Installation Guide](docs/installation-guide.md) - detailed setup and configuration instructions
+1. **Check the troubleshooting guide**: [Troubleshooting Guide](docs/guides/troubleshooting-guide.md) - comprehensive solutions for common issues
+2. **Review installation documentation**: [Installation Guide](docs/guides/installation-guide.md) - detailed setup and configuration instructions
 3. **Search existing issues**: [GitHub Issues](https://github.com/auriora/OneMount/issues) to see if your problem has been reported
 4. **Report new issues** with:
    - System information (Linux distribution, OneMount version)

@@ -92,5 +92,5 @@ mount | grep onemount
 
 - [Complete Installation Guide](installation-guide.md) - Detailed installation and configuration instructions
 - [Troubleshooting Guide](troubleshooting-guide.md) - Solutions for common issues and problems
-- [Offline Functionality](offline-functionality.md) - Complete guide to offline features and synchronization
-- [Development Guidelines](DEVELOPMENT.md) - Information for contributors and developers
+- [Offline Functionality](../offline-functionality.md) - Complete guide to offline features and synchronization
+- [Development Guidelines](../DEVELOPMENT.md) - Information for contributors and developers
