@@ -12,8 +12,12 @@ import (
 
 // TestUT_FS_Signal_Simple_01_UploadSession_PersistProgress tests basic progress persistence
 func TestUT_FS_Signal_Simple_01_UploadSession_PersistProgress(t *testing.T) {
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := t.TempDir() + "/test.db"
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -44,23 +48,114 @@ func TestUT_FS_Signal_Simple_01_UploadSession_PersistProgress(t *testing.T) {
 	session.updateProgress(2, 512)
 	session.markAsResumable()
 
-	// Skip database testing for now since it's hanging
-	// TODO: Fix database persistence issue
-	t.Log("Skipping persistProgress method test due to hanging issue")
+	// Test basic database operations first
+	t.Log("Testing basic database operations...")
+	err = db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("test"))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Failed basic database operation: %v", err)
+	}
+	t.Log("Basic database operations work")
 
-	// Test JSON marshaling instead
-	_, err = json.Marshal(session)
+	// Test JSON marshaling first
+	t.Log("Testing JSON marshaling...")
+	contents, err := json.Marshal(session)
 	if err != nil {
 		t.Fatalf("Failed to marshal session: %v", err)
 	}
+	t.Logf("JSON marshaling successful, size: %d bytes", len(contents))
 
-	t.Log("Successfully tested upload session progress tracking and JSON marshaling")
+	// Test db.Batch directly with the same operation
+	t.Log("Testing db.Batch directly...")
+	done := make(chan error, 1)
+	go func() {
+		done <- db.Batch(func(tx *bolt.Tx) error {
+			b, err := tx.CreateBucketIfNotExists([]byte("uploads"))
+			if err != nil {
+				return err
+			}
+			return b.Put([]byte(session.ID), contents)
+		})
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Failed db.Batch operation: %v", err)
+		}
+		t.Log("db.Batch operation successful")
+	case <-time.After(5 * time.Second):
+		t.Fatal("db.Batch operation hung - timeout after 5 seconds")
+	}
+
+	// Now test the actual persistProgress method
+	t.Log("Testing persistProgress method...")
+	done2 := make(chan error, 1)
+	go func() {
+		done2 <- session.persistProgress(db)
+	}()
+
+	select {
+	case err := <-done2:
+		if err != nil {
+			t.Fatalf("Failed to persist progress: %v", err)
+		}
+		t.Log("Successfully persisted upload session progress")
+	case <-time.After(5 * time.Second):
+		t.Fatal("persistProgress method hung - timeout after 5 seconds")
+	}
+
+	// Verify persistence by reading from database
+	var persistedData []byte
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("uploads"))
+		if b != nil {
+			persistedData = b.Get([]byte(session.ID))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Failed to read from database: %v", err)
+	}
+
+	if persistedData == nil {
+		t.Fatal("No data was persisted to database")
+	}
+
+	// Verify the persisted data can be unmarshaled
+	var restoredSession UploadSession
+	err = json.Unmarshal(persistedData, &restoredSession)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal persisted session: %v", err)
+	}
+
+	// Verify key fields were persisted correctly
+	if restoredSession.ID != session.ID {
+		t.Errorf("Expected ID %s, got %s", session.ID, restoredSession.ID)
+	}
+	if restoredSession.LastSuccessfulChunk != session.LastSuccessfulChunk {
+		t.Errorf("Expected LastSuccessfulChunk %d, got %d", session.LastSuccessfulChunk, restoredSession.LastSuccessfulChunk)
+	}
+	if restoredSession.BytesUploaded != session.BytesUploaded {
+		t.Errorf("Expected BytesUploaded %d, got %d", session.BytesUploaded, restoredSession.BytesUploaded)
+	}
+	if !restoredSession.CanResume {
+		t.Error("Expected CanResume to be true")
+	}
+
+	t.Log("Successfully tested upload session progress tracking and database persistence")
 }
 
 // TestUT_FS_Signal_Simple_02_UploadManager_SignalHandling tests basic signal handling setup
 func TestUT_FS_Signal_Simple_02_UploadManager_SignalHandling(t *testing.T) {
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := t.TempDir() + "/test.db"
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -128,8 +223,12 @@ func TestUT_FS_Signal_Simple_03_UploadSession_ContextCancellation(t *testing.T) 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := t.TempDir() + "/test.db"
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}

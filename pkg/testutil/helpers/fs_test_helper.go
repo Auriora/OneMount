@@ -88,6 +88,11 @@ func CleanupFSTest(t *testing.T, fixture *FSTestFixture) error {
 	// Ensure we reset to online mode after the test
 	graph.SetOperationalOffline(false)
 
+	// Clean up the mock client to prevent test interference
+	if fixture.MockClient != nil {
+		fixture.MockClient.Cleanup()
+	}
+
 	// Clean up the temporary directory
 	if err := os.RemoveAll(fixture.TempDir); err != nil {
 		t.Logf("Warning: Failed to clean up temporary directory %s: %v", fixture.TempDir, err)

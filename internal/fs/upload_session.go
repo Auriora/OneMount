@@ -151,16 +151,15 @@ func (u *UploadSession) updateProgress(chunkIndex int, bytesUploaded uint64) {
 
 // persistProgress saves the current upload progress to disk for recovery
 func (u *UploadSession) persistProgress(db *bolt.DB) error {
-	// Update recovery fields and serialize while holding the lock
+	// Update recovery fields first
 	u.Lock()
 	u.CanResume = true
 	u.LastProgressTime = time.Now()
-
-	// Serialize while holding the lock, then release it before database operations
-	contents, err := json.Marshal(u)
 	sessionID := u.ID // Copy ID while we have the lock
 	u.Unlock()
 
+	// Serialize without holding the lock to avoid deadlock with MarshalJSON
+	contents, err := json.Marshal(u)
 	if err != nil {
 		return err
 	}
@@ -365,6 +364,9 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 		if err != nil {
 			return u.setState(uploadErrored, errors.Wrap(err, "small upload failed"))
 		}
+
+		// Update progress for small file uploads
+		u.updateProgress(0, u.Size)
 	} else {
 		// Check if we can resume an existing upload session
 		if u.canResumeUpload() {

@@ -371,17 +371,15 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 			itemID = parts[len(parts)-2]
 		}
 
-		// If we found an item ID, update the item in the mock client
-		if itemID != "" {
-			// Read the request body
-			reqBody, err := io.ReadAll(req.Body)
-			if err == nil {
-				// Close the original body and replace it with a new one
-				if err := req.Body.Close(); err != nil {
-					logging.Debug().Err(err).Msg("Failed to close request body")
-				}
-				req.Body = io.NopCloser(bytes.NewReader(reqBody))
+		// Read the request body to get the content
+		reqBody, err := io.ReadAll(req.Body)
+		if err == nil {
+			// Close the original body and replace it with a new one
+			req.Body.Close()
+			req.Body = io.NopCloser(bytes.NewReader(reqBody))
 
+			// If we found an item ID, update the item in the mock client
+			if itemID != "" {
 				// Check if we have a mock item for this ID
 				itemResource := "/me/drive/items/" + itemID
 				m.mu.Lock()
@@ -428,12 +426,26 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 									StatusCode: http.StatusOK,
 									Error:      nil,
 								}
+								// Also update the content upload response to return the updated item
+								m.RequestResponses[resource] = MockResponse{
+									Body:       updatedBody,
+									StatusCode: http.StatusOK,
+									Error:      nil,
+								}
 								m.mu.Unlock()
 							}
 						}
 					}
 				}
 			}
+
+			// Create a successful upload response with the mock response body
+			// The response should be the updated DriveItem
+			return &http.Response{
+				StatusCode: mockResponse.StatusCode,
+				Body:       io.NopCloser(bytes.NewReader(mockResponse.Body)),
+				Header:     make(http.Header),
+			}, nil
 		}
 	}
 
@@ -511,6 +523,12 @@ func (m *MockGraphClient) GetRecorder() api.MockRecorder {
 // This ensures that tests don't interfere with each other
 func (m *MockGraphClient) Cleanup() {
 	logging.Debug().Msg("Cleaning up MockGraphClient, resetting HTTP client to default")
+
+	// Clear all mock responses to prevent test interference
+	m.mu.Lock()
+	m.RequestResponses = make(map[string]MockResponse)
+	m.mu.Unlock()
+
 	// Reset the test HTTP client
 	SetHTTPClient(nil)
 }

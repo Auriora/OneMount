@@ -205,7 +205,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		// Step 4: Wait for upload to complete
 		logging.Info().Msg("Step 4: Waiting for modified content upload to complete")
 
-		// Mock the upload response
+		// Mock the item response first
 		mockClient.AddMockItem("/me/drive/items/"+fileID, modifiedFileItem)
 
 		// Mock the content upload response
@@ -271,7 +271,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		// Mark the file as having changes
 		fileInode.hasChanges = true
 
-		// Mock the upload response
+		// Mock the item response first
 		mockClient.AddMockItem("/me/drive/items/"+fileID, finalFileItem)
 
 		// Mock the content upload response
@@ -453,10 +453,8 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		// Step 2: Queue the file for upload (will be stored for later upload when online)
 		logging.Info().Msg("Step 2: Queuing initial content for upload")
 
-		// Mock the upload response for when we go back online
+		// Mock the item and content upload responses for when we go back online
 		mockClient.AddMockItem("/me/drive/items/"+fileID, initialFileItem)
-
-		// Mock the content upload response for when we go back online
 		initialFileItemJSON, err := json.Marshal(initialFileItem)
 		assert.NoError(err, "Failed to marshal file item")
 		mockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", initialFileItemJSON, 200, nil)
@@ -905,6 +903,9 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 		// Mark the file as having changes to trigger upload
 		fileInode.hasChanges = true
 
+		// Mock the item response first
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
 		// Mock the upload session creation response
 		uploadSessionResponse := map[string]interface{}{
 			"uploadUrl":          "https://mock-upload.example.com/session123",
@@ -920,8 +921,20 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 
 		for i := 0; i < expectedChunks; i++ {
 			if i == expectedChunks-1 {
-				// Last chunk - return the completed file item
-				fileItemJSON, err := json.Marshal(fileItem)
+				// Last chunk - return the completed file item with correct size and file metadata
+				completedFileItem := *fileItem
+				completedFileItem.Size = uint64(largeFileSize)
+				// Ensure the File field is present for validation
+				if completedFileItem.File == nil {
+					completedFileItem.File = &graph.File{
+						Hashes: graph.Hashes{
+							QuickXorHash: largeFileQuickXorHash,
+						},
+					}
+				} else {
+					completedFileItem.File.Hashes.QuickXorHash = largeFileQuickXorHash
+				}
+				fileItemJSON, err := json.Marshal(completedFileItem)
 				assert.NoError(err, "Failed to marshal file item for final chunk")
 				mockClient.AddMockResponse("https://mock-upload.example.com/session123", fileItemJSON, 200, nil)
 			} else {
@@ -1041,6 +1054,9 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 		assert.NoError(err, "Failed to write test file content")
 		assert.Equal(testFileSize, n, "Number of bytes written doesn't match content length")
 
+		// Mock the item response first
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
 		// Mark the file as having changes to trigger upload
 		fileInode.hasChanges = true
 
@@ -1158,6 +1174,9 @@ func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T)
 		// Mark the file as having changes to trigger upload
 		fileInode.hasChanges = true
 
+		// Mock the item response first
+		mockClient.AddMockItem("/me/drive/items/"+fileID, fileItem)
+
 		// Mock the upload response with a delay to allow cancellation
 		fileItemJSON, err := json.Marshal(fileItem)
 		assert.NoError(err, "Failed to marshal file item")
@@ -1168,6 +1187,9 @@ func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T)
 		assert.NoError(err, "Failed to queue upload")
 		assert.NotNil(uploadSession, "Upload session should not be nil")
 
+		// Give the upload manager time to process the session
+		time.Sleep(100 * time.Millisecond)
+
 		// Verify session exists before cancellation
 		session, exists := fs.uploads.GetSession(fileID)
 		assert.True(exists, "Upload session should exist before cancellation")
@@ -1175,6 +1197,9 @@ func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T)
 
 		// Cancel the upload
 		fs.uploads.CancelUpload(fileID)
+
+		// Give the upload manager time to process the cancellation
+		time.Sleep(100 * time.Millisecond)
 
 		// Verify session is removed after cancellation
 		_, exists = fs.uploads.GetSession(fileID)
