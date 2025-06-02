@@ -12,43 +12,55 @@ This directory contains JetBrains IDE run configurations for running different t
 - **Equivalent Make target**: `make unit-test`
 - **Description**: Runs all tests marked with the `-short` flag, focusing on unit tests that don't require external dependencies
 
-#### 2. Integration Tests (`Integration_Tests.xml`)
+#### 2. Unit Tests Sequential (`Unit_Tests_Sequential.xml`)
+- **Purpose**: Run unit tests sequentially (no parallel execution)
+- **Command**: `go test -short -p 1 -parallel 1 ./...`
+- **Equivalent Make target**: `make unit-test-sequential`
+- **Description**: Runs unit tests without parallel execution to avoid race conditions in tests that share global state
+
+#### 3. Integration Tests (`Integration_Tests.xml`)
 - **Purpose**: Run integration tests that test component interactions
 - **Command**: `go test -timeout 5m ./pkg/testutil/integration_test_env_test.go`
 - **Equivalent Make target**: `make integration-test`
 - **Description**: Tests the integration test environment and framework
 
-#### 3. System Tests (`System_Tests.xml`)
+#### 4. System Tests (`System_Tests.xml`)
 - **Purpose**: Run basic system tests
 - **Command**: `go test -timeout 5m ./pkg/testutil/system_test_env_test.go`
 - **Equivalent Make target**: `make system-test`
 - **Description**: Tests the system test environment and framework
 
-#### 4. System Tests (Real OneDrive) (`System_Tests_Real_OneDrive.xml`)
+#### 5. System Tests (Real OneDrive) (`System_Tests_Real_OneDrive.xml`)
 - **Purpose**: Run comprehensive system tests with real OneDrive account
 - **Command**: `go test -timeout 30m -run TestSystemST_.* ./tests/system`
 - **Equivalent Make target**: `make system-test-go`
 - **Description**: Runs all system tests that use a real OneDrive account for end-to-end testing
 
-#### 5. System Tests (Performance) (`System_Tests_Performance.xml`)
+#### 6. System Tests (Performance) (`System_Tests_Performance.xml`)
 - **Purpose**: Run performance-focused system tests
 - **Command**: `go test -timeout 30m -run TestSystemST_PERFORMANCE_.* ./tests/system`
 - **Equivalent Make target**: `make system-test-performance`
 - **Description**: Runs system tests focused on performance measurements
 
-#### 6. System Tests (Reliability) (`System_Tests_Reliability.xml`)
+#### 7. System Tests (Reliability) (`System_Tests_Reliability.xml`)
 - **Purpose**: Run reliability-focused system tests
 - **Command**: `go test -timeout 30m -run TestSystemST_RELIABILITY_.* ./tests/system`
 - **Equivalent Make target**: `make system-test-reliability`
 - **Description**: Runs system tests focused on reliability and error recovery
 
-#### 7. All Tests (`All_Tests.xml`)
+#### 8. All Tests (`All_Tests.xml`)
 - **Purpose**: Run all tests in the project
 - **Command**: `go test ./...`
 - **Equivalent Make target**: `make test`
 - **Description**: Runs all tests including unit, integration, and system tests
 
-#### 8. Tests with Coverage (`Tests_with_Coverage.xml`)
+#### 9. All Tests Sequential (`All_Tests_Sequential.xml`)
+- **Purpose**: Run all tests sequentially (no parallel execution)
+- **Command**: `go test -p 1 -parallel 1 ./...`
+- **Equivalent Make target**: `make test-sequential`
+- **Description**: Runs all tests without parallel execution to avoid race conditions in tests that share global state
+
+#### 10. Tests with Coverage (`Tests_with_Coverage.xml`)
 - **Purpose**: Run all tests and generate coverage report
 - **Command**: `go test -coverprofile=coverage/coverage.out ./...`
 - **Equivalent Make target**: `make coverage`
@@ -56,17 +68,17 @@ This directory contains JetBrains IDE run configurations for running different t
 
 ### Make Configurations
 
-#### 9. Make: System Tests (Real) (`Make_System_Tests_Real.xml`)
+#### 11. Make: System Tests (Real) (`Make_System_Tests_Real.xml`)
 - **Purpose**: Run comprehensive system tests using the Make script
 - **Command**: `make system-test-real`
 - **Description**: Uses the shell script for more comprehensive output and logging
 
-#### 10. Make: System Tests (All Categories) (`Make_System_Tests_All.xml`)
+#### 12. Make: System Tests (All Categories) (`Make_System_Tests_All.xml`)
 - **Purpose**: Run all system test categories
 - **Command**: `make system-test-all`
 - **Description**: Runs comprehensive, performance, reliability, integration, and stress tests
 
-#### 11. Make: Coverage Report (`Make_Coverage_Report.xml`)
+#### 13. Make: Coverage Report (`Make_Coverage_Report.xml`)
 - **Purpose**: Generate comprehensive coverage report with analysis
 - **Command**: `make coverage-report`
 - **Description**: Generates detailed coverage reports with gap analysis and trends
@@ -100,6 +112,7 @@ This directory contains JetBrains IDE run configurations for running different t
 4. **End-to-End Testing**: Use `System Tests (Real OneDrive)` for comprehensive validation
 5. **Performance Analysis**: Use `System Tests (Performance)` when optimizing
 6. **Coverage Analysis**: Use `Tests with Coverage` or `Make: Coverage Report`
+7. **Race Condition Debugging**: Use `Unit Tests Sequential` or `All Tests Sequential` when investigating test failures that may be caused by parallel execution
 
 ## Prerequisites
 
