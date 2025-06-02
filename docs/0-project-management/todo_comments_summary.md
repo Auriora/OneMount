@@ -119,3 +119,10 @@ All TODO comments follow this format:
 - Add new TODO comments for newly identified incomplete features
 
 This document should be updated whenever new TODO comments are added or existing ones are resolved.
+
+## Recent Updates
+
+### June 2025
+- **Fixed**: Database persistence hanging issue in `internal/fs/upload_signal_basic_test.go:162`
+  - Issue was resolved and test now passes with proper persistence verification
+  - TODO comment removed and test enhanced with data verification

@@ -158,9 +158,32 @@ func TestUT_FS_Signal_Basic_03_UploadSession_PersistProgress(t *testing.T) {
 	}
 	t.Log("JSON marshaling successful")
 
-	// Skip database testing for now since it's hanging
-	// TODO: Fix database persistence issue
-	t.Log("Skipping persistProgress method test due to hanging issue")
+	// Test persistProgress method - previously had hanging issues but now resolved
+	t.Log("Testing persistProgress method")
+
+	err = session.persistProgress(db)
+	if err != nil {
+		t.Fatalf("persistProgress failed: %v", err)
+	}
+	t.Log("persistProgress completed successfully")
+
+	// Verify the data was actually persisted
+	var persistedData []byte
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("uploads"))
+		if b != nil {
+			persistedData = b.Get([]byte(session.ID))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Failed to read persisted data: %v", err)
+	}
+
+	if persistedData == nil {
+		t.Fatal("No data was persisted to database")
+	}
+	t.Log("Data persistence verified successfully")
 
 	t.Log("All basic upload session methods work correctly")
 }
