@@ -25,6 +25,34 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+// findLogoPath returns the path to the logo file based on installation type
+// It checks user, system, and package installation paths in order
+func findLogoPath(filename string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		logging.Debug().Err(err).Msg("Could not determine home directory")
+	}
+
+	// Define possible logo paths in order of preference
+	logoPaths := []string{
+		filepath.Join(homeDir, ".local/share/icons/onemount", filename), // User install
+		filepath.Join("/usr/local/share/icons/onemount", filename),      // System install
+		filepath.Join("/usr/share/icons/onemount", filename),            // Package install
+	}
+
+	// Check each path and return the first one that exists
+	for _, path := range logoPaths {
+		if _, err := os.Stat(path); err == nil {
+			logging.Debug().Str("path", path).Str("filename", filename).Msg("Found logo file")
+			return path
+		}
+	}
+
+	// If no logo found, log warning and return empty string
+	logging.Warn().Str("filename", filename).Msg("Could not find logo file in any installation path")
+	return ""
+}
+
 // setupLogging configures the logger based on the configuration
 func setupLogging(config *common.Config) error {
 	// Set the global log level
@@ -135,9 +163,12 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	header.SetTitle("OneMount")
 	window.SetTitlebar(header)
 
-	err := window.SetIconFromFile("/usr/share/icons/onemount/onemount.svg")
-	if err != nil {
-		logging.Warn().Err(err).Msg("Could not find logo.")
+	logoPath := findLogoPath("onemount.svg")
+	if logoPath != "" {
+		err := window.SetIconFromFile(logoPath)
+		if err != nil {
+			logging.Warn().Err(err).Str("path", logoPath).Msg("Could not load logo.")
+		}
 	}
 
 	listbox, _ := gtk.ListBoxNew()
@@ -209,11 +240,14 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 		aboutDialog.SetWebsiteLabel("github.com/auriora/onemount")
 		aboutDialog.SetVersion(fmt.Sprintf("onemount %s", common.Version()))
 		aboutDialog.SetLicenseType(gtk.LICENSE_GPL_3_0)
-		logo, err := gtk.ImageNewFromFile("/usr/share/icons/onemount/onemount-128.png")
-		if err != nil {
-			logging.Warn().Err(err).Msg("Could not find logo.")
-		} else {
-			aboutDialog.SetLogo(logo.GetPixbuf())
+		logoPath := findLogoPath("onemount-128.png")
+		if logoPath != "" {
+			logo, err := gtk.ImageNewFromFile(logoPath)
+			if err != nil {
+				logging.Warn().Err(err).Str("path", logoPath).Msg("Could not load logo.")
+			} else {
+				aboutDialog.SetLogo(logo.GetPixbuf())
+			}
 		}
 		aboutDialog.SetTransientFor(window)
 		aboutDialog.Connect("response", aboutDialog.Destroy)
@@ -294,12 +328,17 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	escapedMount := unit.UnitNamePathEscape(mount)
 	unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate, escapedMount)
 
-	driveName, err := common.GetXDGVolumeInfoName(filepath.Join(mount, ".xdg-volume-info"))
-	if err != nil {
-		logging.Error().
-			Err(err).
-			Str("mountpoint", mount).
-			Msg("Could not determine user-specified acccount name.")
+	// Only try to read .xdg-volume-info if the mount is active
+	var driveName string
+	active, err := systemd.UnitIsActive(unitName)
+	if err == nil && active {
+		driveName, err = common.GetXDGVolumeInfoName(filepath.Join(mount, ".xdg-volume-info"))
+		if err != nil {
+			logging.Debug().
+				Err(err).
+				Str("mountpoint", mount).
+				Msg("Could not read .xdg-volume-info from active mount (mount may still be starting up).")
+		}
 	}
 
 	tildePath := ui.EscapeHome(mount)
@@ -328,7 +367,7 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 
 	// a switch to start/stop the mountpoint
 	mountToggle, _ := gtk.SwitchNew()
-	active, err := systemd.UnitIsActive(unitName)
+	// We already checked the active state above, so reuse that result
 	if err == nil {
 		mountToggle.SetActive(active)
 	} else {
