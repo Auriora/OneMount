@@ -4,6 +4,7 @@ import (
 	"github.com/auriora/onemount/pkg/logging"
 	"math"
 	"path/filepath"
+	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -19,9 +20,27 @@ func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.Statf
 		return fuse.EREMOTEIO
 	}
 
+	// Estimate file count from cached metadata
+	estimatedFileCount := f.getEstimatedFileCount()
+
 	if drive.DriveType == graph.DriveTypePersonal {
-		ctx.Warn().Msg("Personal OneDrive accounts do not show number of files, " +
-			"inode counts reported by onemount will be bogus.")
+		// Throttle the warning to show only once every 5 minutes
+		f.statfsWarningM.RLock()
+		lastWarning := f.statfsWarningTime
+		f.statfsWarningM.RUnlock()
+
+		if time.Since(lastWarning) > 5*time.Minute {
+			f.statfsWarningM.Lock()
+			// Double-check in case another goroutine updated it
+			if time.Since(f.statfsWarningTime) > 5*time.Minute {
+				ctx.Warn().
+					Uint64("estimatedFiles", estimatedFileCount).
+					Msg("Personal OneDrive accounts do not show number of files, " +
+						"using estimated count from local cache.")
+				f.statfsWarningTime = time.Now()
+			}
+			f.statfsWarningM.Unlock()
+		}
 	} else if drive.Quota.Total == 0 { // <-- check for if microsoft ever fixes their API
 		ctx.Warn().Msg("OneDrive for Business accounts do not report quotas, " +
 			"pretending the quota is 5TB and it's all unused.")
@@ -36,10 +55,45 @@ func (f *Filesystem) StatFs(_ <-chan struct{}, _ *fuse.InHeader, out *fuse.Statf
 	out.Blocks = drive.Quota.Total / blkSize
 	out.Bfree = drive.Quota.Remaining / blkSize
 	out.Bavail = drive.Quota.Remaining / blkSize
-	out.Files = 100000
-	out.Ffree = 100000 - drive.Quota.FileCount
+
+	// Use estimated file count for Personal OneDrive, actual count for Business
+	if drive.DriveType == graph.DriveTypePersonal {
+		out.Files = estimatedFileCount
+		// Reserve some inodes for new files (10% or minimum 1000)
+		reserved := estimatedFileCount / 10
+		if reserved < 1000 {
+			reserved = 1000
+		}
+		out.Ffree = reserved
+	} else {
+		out.Files = 100000
+		out.Ffree = 100000 - drive.Quota.FileCount
+	}
+
 	out.NameLen = 260
 	return fuse.OK
+}
+
+// getEstimatedFileCount estimates the total number of files and directories
+// in the filesystem based on cached metadata. This provides a reasonable
+// approximation for Personal OneDrive accounts where the API doesn't provide
+// file counts.
+func (f *Filesystem) getEstimatedFileCount() uint64 {
+	var count uint64
+
+	// Count items in the in-memory metadata cache
+	f.metadata.Range(func(_, value interface{}) bool {
+		count++
+		return true
+	})
+
+	// If we have very few items in memory cache, fall back to a reasonable default
+	// This can happen during startup or with limited cache
+	if count < 10 {
+		count = 1000 // Conservative default
+	}
+
+	return count
 }
 
 // GetAttr Getattr returns a the Inode as a UNIX stat. Holds the read mutex for all of

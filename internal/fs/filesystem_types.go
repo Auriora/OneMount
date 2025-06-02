@@ -6,6 +6,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	bolt "go.etcd.io/bbolt"
 	"sync"
+	"time"
 )
 
 // FilesystemInterface defines the interface for the filesystem operations
@@ -97,4 +98,8 @@ type Filesystem struct {
 
 	// D-Bus server for file status updates
 	dbusServer *FileStatusDBusServer
+
+	// StatFs warning throttling
+	statfsWarningM    sync.RWMutex // Mutex for StatFs warning state
+	statfsWarningTime time.Time    // Last time StatFs warning was shown
 }

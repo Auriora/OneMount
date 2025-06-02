@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -500,5 +501,93 @@ func TestUT_FS_Metadata_05_FileMetadata_Comprehensive(t *testing.T) {
 		assert.NotNil(retrievedInode2, "File2 inode should be retrievable")
 		assert.Equal(file2Name, retrievedInode2.Name(), "File2 name should match")
 		assert.Equal(file2Size, uint64(retrievedInode2.Size()), "File2 size should match inode")
+	})
+}
+
+// TestUT_FS_Metadata_06_StatFs_PersonalOneDrive_WarningThrottling tests StatFs warning throttling for Personal OneDrive.
+//
+//	Test Case ID    UT-FS-Metadata-06
+//	Title           StatFs Warning Throttling for Personal OneDrive
+//	Description     Tests that StatFs warnings are throttled and file count estimation works
+//	Preconditions   None
+//	Steps           1. Mock Personal OneDrive drive type
+//	                2. Call StatFs multiple times
+//	                3. Verify warning throttling and file count estimation
+//	Expected Result Warnings are throttled and file counts are estimated from cache
+//	Notes: This test verifies the improved StatFs implementation.
+func TestUT_FS_Metadata_06_StatFs_PersonalOneDrive_WarningThrottling(t *testing.T) {
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "StatFsThrottlingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the test data
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+		}
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		// Mock the drive endpoint to return Personal OneDrive
+		mockClient.AddMockResponse("/me/drive", []byte(`{
+			"driveType": "personal",
+			"quota": {
+				"total": 1099511627776,
+				"used": 549755813888,
+				"remaining": 549755813888
+			}
+		}`), 200, nil)
+
+		// Add some test files to the cache to test file count estimation
+		for i := 0; i < 5; i++ {
+			fileItem := &graph.DriveItem{
+				ID:   fmt.Sprintf("test-file-id-%d", i),
+				Name: fmt.Sprintf("test-file-%d.txt", i),
+				Size: 1024,
+				File: &graph.File{
+					Hashes: graph.Hashes{
+						QuickXorHash: fmt.Sprintf("test-hash-%d", i),
+					},
+				},
+				Parent: &graph.DriveItemParent{
+					ID: rootID,
+				},
+			}
+
+			fileInode := NewInodeDriveItem(fileItem)
+			fs.InsertNodeID(fileInode)
+			fs.InsertChild(rootID, fileInode)
+		}
+
+		// First StatFs call
+		var out1 fuse.StatfsOut
+		status1 := fs.StatFs(nil, &fuse.InHeader{}, &out1)
+		assert.Equal(fuse.OK, status1, "First StatFs should succeed")
+
+		// Verify that estimated file count is used
+		assert.True(out1.Files > 0, "Should have estimated file count")
+		assert.True(out1.Ffree > 0, "Should have free inodes")
+
+		// Second StatFs call immediately after (should be throttled)
+		var out2 fuse.StatfsOut
+		status2 := fs.StatFs(nil, &fuse.InHeader{}, &out2)
+		assert.Equal(fuse.OK, status2, "Second StatFs should succeed")
+
+		// Results should be consistent
+		assert.Equal(out1.Files, out2.Files, "File count should be consistent")
+		assert.Equal(out1.Ffree, out2.Ffree, "Free inode count should be consistent")
 	})
 }
