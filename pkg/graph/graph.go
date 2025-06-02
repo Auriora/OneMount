@@ -457,9 +457,6 @@ func Put(resource string, auth *Auth, content io.Reader, headers ...Header) ([]b
 }
 
 // PutWithContext is a convenience wrapper around RequestWithContext
-// This function is intentionally kept for API completeness and potential future use.
-// It is currently unused but maintained for API consistency.
-// nolint:unused,deadcode
 func PutWithContext(ctx context.Context, resource string, auth *Auth, content io.Reader, headers ...Header) ([]byte, error) {
 	data, err := RequestWithContext(ctx, resource, auth, "PUT", content, headers...)
 	if err == nil {

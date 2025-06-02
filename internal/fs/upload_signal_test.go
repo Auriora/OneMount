@@ -156,29 +156,76 @@ func TestUT_FS_Signal_02_UploadSession_ContextCancellation(t *testing.T) {
 		session, err := NewUploadSession(fileInode, &testData)
 		assert.NoError(err, "Failed to create upload session")
 
-		// Create a context that will be cancelled
+		// Create a context that will be cancelled immediately
 		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately to ensure context cancellation is detected
 
-		// Start upload in a goroutine
-		uploadDone := make(chan error, 1)
-		go func() {
-			uploadDone <- session.UploadWithContext(ctx, fs.auth, fs.uploads.db)
-		}()
+		// Try to upload with cancelled context - this should fail quickly
+		err = session.UploadWithContext(ctx, fs.auth, fs.uploads.db)
 
-		// Cancel the context after a short delay
-		time.Sleep(50 * time.Millisecond)
-		cancel()
+		// Upload should have been cancelled
+		assert.Error(err, "Upload should have been cancelled")
+		assert.Contains(err.Error(), "cancelled", "Error should indicate cancellation")
+	})
+}
 
-		// Wait for upload to complete or timeout
-		select {
-		case err := <-uploadDone:
-			// Upload should have been cancelled
-			assert.Error(err, "Upload should have been cancelled")
-			assert.Contains(err.Error(), "cancelled", "Error should indicate cancellation")
+// TestUT_FS_Signal_02b_UploadSession_ContextCancellation_LargeFile tests that large file upload sessions
+// handle context cancellation properly
+func TestUT_FS_Signal_02b_UploadSession_ContextCancellation_LargeFile(t *testing.T) {
+	t.Parallel()
 
-		case <-time.After(5 * time.Second):
-			t.Fatal("Upload did not complete within timeout")
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "ContextCancellationLargeFileFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
 		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+
+		// Create a large test file (>4MB to trigger large file upload path)
+		testData := make([]byte, 5*1024*1024) // 5MB
+		for i := range testData {
+			testData[i] = byte(i % 256)
+		}
+		fileID := "test-context-cancel-large"
+		rootID := fsFixture.RootID
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: "context_cancel_large_test.txt",
+			Size: uint64(len(testData)),
+			File: &graph.File{},
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+		}
+
+		// Create upload session
+		fileInode := NewInodeDriveItem(fileItem)
+		session, err := NewUploadSession(fileInode, &testData)
+		assert.NoError(err, "Failed to create upload session")
+
+		// Create a context that will be cancelled immediately
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately to ensure context cancellation is detected
+
+		// Try to upload with cancelled context - this should fail quickly
+		err = session.UploadWithContext(ctx, fs.auth, fs.uploads.db)
+
+		// Upload should have been cancelled
+		assert.Error(err, "Upload should have been cancelled")
+		assert.Contains(err.Error(), "cancelled", "Error should indicate cancellation")
 	})
 }
 

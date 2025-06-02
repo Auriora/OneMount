@@ -334,6 +334,18 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 	logging.Info().Str("id", u.ID).Str("name", u.Name).Msg("Uploading file.")
 	u.setState(uploadStarted, nil)
 
+	// Check for context cancellation before starting upload
+	select {
+	case <-ctx.Done():
+		logging.Info().
+			Str("id", u.ID).
+			Str("name", u.Name).
+			Msg("Upload cancelled by context before starting")
+		return u.setState(uploadErrored, errors.New("upload cancelled by context"))
+	default:
+		// Continue with upload
+	}
+
 	var uploadPath string
 	var resp []byte
 	if u.Size < uploadLargeSize {
@@ -353,16 +365,34 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 				url.PathEscape(u.ID),
 			)
 		}
-		// small files handled in this block
+		// small files handled in this block - use context-aware version
 		var err error
-		resp, err = graph.Put(uploadPath, auth, bytes.NewReader(u.Data))
-		if err != nil && strings.Contains(err.Error(), "resourceModified") {
-			// retry the request after a second, likely the server is having issues
-			time.Sleep(time.Second)
-			resp, err = graph.Put(uploadPath, auth, bytes.NewReader(u.Data))
-		}
+		resp, err = graph.PutWithContext(ctx, uploadPath, auth, bytes.NewReader(u.Data))
 		if err != nil {
-			return u.setState(uploadErrored, errors.Wrap(err, "small upload failed"))
+			// Check if the error was due to context cancellation
+			if ctx.Err() != nil {
+				logging.Info().
+					Str("id", u.ID).
+					Str("name", u.Name).
+					Msg("Small file upload cancelled by context")
+				return u.setState(uploadErrored, errors.New("upload cancelled by context"))
+			}
+			if strings.Contains(err.Error(), "resourceModified") {
+				// retry the request after a second, likely the server is having issues
+				time.Sleep(time.Second)
+				resp, err = graph.PutWithContext(ctx, uploadPath, auth, bytes.NewReader(u.Data))
+				// Check for context cancellation after retry
+				if err != nil && ctx.Err() != nil {
+					logging.Info().
+						Str("id", u.ID).
+						Str("name", u.Name).
+						Msg("Small file upload cancelled by context during retry")
+					return u.setState(uploadErrored, errors.New("upload cancelled by context"))
+				}
+			}
+			if err != nil {
+				return u.setState(uploadErrored, errors.Wrap(err, "small upload failed"))
+			}
 		}
 
 		// Update progress for small file uploads
