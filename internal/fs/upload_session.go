@@ -2,9 +2,9 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/pkg/logging"
 	"io"
 	"math"
 	"net/http"
@@ -16,6 +16,8 @@ import (
 
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/pkg/logging"
+	bolt "go.etcd.io/bbolt"
 )
 
 const (
@@ -71,8 +73,53 @@ type UploadSession struct {
 func (u *UploadSession) MarshalJSON() ([]byte, error) {
 	u.Lock()
 	defer u.Unlock()
-	type SerializeableUploadSession UploadSession
-	return json.Marshal((*SerializeableUploadSession)(u))
+
+	// Create a struct with the same fields but without the embedded methods
+	// to avoid infinite recursion
+	type SerializableUploadSession struct {
+		ID                 string    `json:"id"`
+		OldID              string    `json:"oldID"`
+		ParentID           string    `json:"parentID"`
+		NodeID             uint64    `json:"nodeID"`
+		Name               string    `json:"name"`
+		ExpirationDateTime time.Time `json:"expirationDateTime"`
+		Size               uint64    `json:"size,omitempty"`
+		Data               []byte    `json:"data,omitempty"`
+		QuickXORHash       string    `json:"quickxorhash,omitempty"`
+		ModTime            time.Time `json:"modTime,omitempty"`
+
+		// Recovery and progress tracking fields
+		LastSuccessfulChunk int       `json:"lastSuccessfulChunk"`
+		TotalChunks         int       `json:"totalChunks"`
+		BytesUploaded       uint64    `json:"bytesUploaded"`
+		LastProgressTime    time.Time `json:"lastProgressTime"`
+		RecoveryAttempts    int       `json:"recoveryAttempts"`
+		CanResume           bool      `json:"canResume"`
+
+		UploadURL string `json:"uploadUrl"`
+		ETag      string `json:"eTag,omitempty"`
+	}
+
+	return json.Marshal(SerializableUploadSession{
+		ID:                  u.ID,
+		OldID:               u.OldID,
+		ParentID:            u.ParentID,
+		NodeID:              u.NodeID,
+		Name:                u.Name,
+		ExpirationDateTime:  u.ExpirationDateTime,
+		Size:                u.Size,
+		Data:                u.Data,
+		QuickXORHash:        u.QuickXORHash,
+		ModTime:             u.ModTime,
+		LastSuccessfulChunk: u.LastSuccessfulChunk,
+		TotalChunks:         u.TotalChunks,
+		BytesUploaded:       u.BytesUploaded,
+		LastProgressTime:    u.LastProgressTime,
+		RecoveryAttempts:    u.RecoveryAttempts,
+		CanResume:           u.CanResume,
+		UploadURL:           u.UploadURL,
+		ETag:                u.ETag,
+	})
 }
 
 // UploadSessionPost is the initial post used to create an upload session
@@ -100,6 +147,31 @@ func (u *UploadSession) updateProgress(chunkIndex int, bytesUploaded uint64) {
 	u.LastSuccessfulChunk = chunkIndex
 	u.BytesUploaded = bytesUploaded
 	u.LastProgressTime = time.Now()
+}
+
+// persistProgress saves the current upload progress to disk for recovery
+func (u *UploadSession) persistProgress(db *bolt.DB) error {
+	// Update recovery fields and serialize while holding the lock
+	u.Lock()
+	u.CanResume = true
+	u.LastProgressTime = time.Now()
+
+	// Serialize while holding the lock, then release it before database operations
+	contents, err := json.Marshal(u)
+	sessionID := u.ID // Copy ID while we have the lock
+	u.Unlock()
+
+	if err != nil {
+		return err
+	}
+
+	return db.Batch(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte("uploads"))
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(sessionID), contents)
+	})
 }
 
 // canResumeUpload checks if the upload can be resumed from the last checkpoint
@@ -255,6 +327,11 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 // goroutine, or it can potentially block for a very long time. The uploadSession.error
 // field contains errors to be handled if called as a goroutine.
 func (u *UploadSession) Upload(auth *graph.Auth) error {
+	return u.UploadWithContext(context.Background(), auth, nil)
+}
+
+// UploadWithContext uploads with context support and optional database for persistence
+func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth, db *bolt.DB) error {
 	logging.Info().Str("id", u.ID).Str("name", u.Name).Msg("Uploading file.")
 	u.setState(uploadStarted, nil)
 
@@ -351,6 +428,25 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 		}
 
 		for i := startChunk; i < nchunks; i++ {
+			// Check for context cancellation before each chunk
+			select {
+			case <-ctx.Done():
+				logging.Info().
+					Str("id", u.ID).
+					Str("name", u.Name).
+					Int("chunk", i).
+					Int("totalChunks", nchunks).
+					Msg("Upload cancelled by context, persisting progress for recovery")
+
+				// Persist current progress before cancelling
+				if db != nil {
+					u.persistProgress(db)
+				}
+				return u.setState(uploadErrored, errors.New("upload cancelled by context"))
+			default:
+				// Continue with upload
+			}
+
 			resp, status, err = u.uploadChunk(auth, uint64(i)*uploadChunkSize)
 			if err != nil {
 				return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
@@ -359,6 +455,16 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 			// retry server-side failures with an exponential back-off strategy. Will not
 			// exit this loop unless it receives a non 5xx error or serious failure
 			for backoff := 1; status >= 500; backoff *= 2 {
+				// Check for context cancellation during retries
+				select {
+				case <-ctx.Done():
+					if db != nil {
+						u.persistProgress(db)
+					}
+					return u.setState(uploadErrored, errors.New("upload cancelled during retry"))
+				default:
+				}
+
 				logging.Error().
 					Str("id", u.ID).
 					Str("name", u.Name).
@@ -380,6 +486,16 @@ func (u *UploadSession) Upload(auth *graph.Auth) error {
 					bytesUploaded = u.Size
 				}
 				u.updateProgress(i, bytesUploaded)
+
+				// Persist progress every 10 chunks or for large files
+				if db != nil && (i%10 == 0 || u.Size > 100*1024*1024) {
+					if err := u.persistProgress(db); err != nil {
+						logging.Warn().
+							Str("id", u.ID).
+							Err(err).
+							Msg("Failed to persist upload progress")
+					}
+				}
 
 				logging.Debug().
 					Str("id", u.ID).

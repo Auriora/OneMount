@@ -6,11 +6,15 @@ package fs
 // OneDrive cloud file sync in the background.
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/auriora/onemount/pkg/graph"
@@ -117,10 +121,19 @@ type UploadManager struct {
 	workerWg                   sync.WaitGroup
 	// Counter for tracking repeated uploads of the same file (used for testing)
 	uploadCounter map[string]int
+
+	// Signal handling and graceful shutdown
+	signalChan      chan os.Signal
+	shutdownContext context.Context
+	shutdownCancel  context.CancelFunc
+	gracefulTimeout time.Duration
+	isShuttingDown  bool
 }
 
 // NewUploadManager creates a new queue/thread for uploads
 func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterface, auth *graph.Auth) *UploadManager {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	manager := UploadManager{
 		highPriorityQueue:          make(chan *UploadSession),
 		lowPriorityQueue:           make(chan *UploadSession),
@@ -135,6 +148,13 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 		fs:                         fs,
 		stopChan:                   make(chan struct{}),
 		uploadCounter:              make(map[string]int),
+
+		// Signal handling initialization
+		signalChan:      make(chan os.Signal, 1),
+		shutdownContext: ctx,
+		shutdownCancel:  cancel,
+		gracefulTimeout: 30 * time.Second, // 30 seconds for large uploads to complete
+		isShuttingDown:  false,
 	}
 	db.View(func(tx *bolt.Tx) error {
 		// Add any incomplete sessions from disk - any sessions here were never
@@ -161,9 +181,13 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 		})
 	})
 
-	// Add the uploadLoop goroutine to the wait group
-	manager.workerWg.Add(1)
+	// Set up signal handling for graceful shutdown
+	signal.Notify(manager.signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+
+	// Add the uploadLoop and signal handler goroutines to the wait group
+	manager.workerWg.Add(2)
 	go manager.uploadLoop(duration)
+	go manager.signalHandler()
 
 	return &manager
 }
@@ -289,7 +313,9 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 							Status:    StatusSyncing,
 							Timestamp: time.Now(),
 						})
-						go session.Upload(u.auth)
+						go func(s *UploadSession) {
+							s.UploadWithContext(u.shutdownContext, u.auth, u.db)
+						}(session)
 					}
 
 				case uploadErrored:
@@ -392,6 +418,137 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 			// Stop the upload loop
 			return
 		}
+	}
+}
+
+// signalHandler handles OS signals for graceful shutdown
+func (u *UploadManager) signalHandler() {
+	defer u.workerWg.Done()
+
+	for {
+		select {
+		case sig, ok := <-u.signalChan:
+			if !ok {
+				// Channel was closed, exit gracefully
+				return
+			}
+
+			logging.Info().
+				Str("signal", sig.String()).
+				Msg("Upload manager received signal, initiating graceful shutdown")
+
+			u.mutex.Lock()
+			u.isShuttingDown = true
+			u.mutex.Unlock()
+
+			// Persist all active upload sessions before shutdown
+			u.persistActiveUploads()
+
+			// Check for active uploads and wait for them to complete
+			if u.hasActiveUploads() {
+				logging.Info().
+					Dur("timeout", u.gracefulTimeout).
+					Msg("Active uploads detected, waiting for completion before shutdown")
+
+				u.waitForActiveUploads()
+			}
+
+			// Cancel the shutdown context to signal other components
+			u.shutdownCancel()
+			return
+
+		case <-u.shutdownContext.Done():
+			return
+		}
+	}
+}
+
+// persistActiveUploads saves the current state of all active uploads to disk
+func (u *UploadManager) persistActiveUploads() {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	for id, session := range u.sessions {
+		if session.getState() == uploadStarted {
+			logging.Info().
+				Str("id", id).
+				Str("name", session.Name).
+				Int("lastChunk", session.LastSuccessfulChunk).
+				Uint64("bytesUploaded", session.BytesUploaded).
+				Msg("Persisting upload progress for recovery")
+
+			// Update progress tracking fields
+			session.Lock()
+			session.LastProgressTime = time.Now()
+			session.CanResume = true
+			session.Unlock()
+
+			// Save to disk
+			contents, _ := json.Marshal(session)
+			u.db.Batch(func(tx *bolt.Tx) error {
+				b, _ := tx.CreateBucketIfNotExists(bucketUploads)
+				return b.Put([]byte(id), contents)
+			})
+		}
+	}
+}
+
+// hasActiveUploads checks if there are any uploads currently in progress
+func (u *UploadManager) hasActiveUploads() bool {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	for _, session := range u.sessions {
+		if session.getState() == uploadStarted {
+			return true
+		}
+	}
+	return false
+}
+
+// waitForActiveUploads waits for active uploads to complete or timeout
+func (u *UploadManager) waitForActiveUploads() {
+	deadline := time.Now().Add(u.gracefulTimeout)
+
+	for time.Now().Before(deadline) {
+		if !u.hasActiveUploads() {
+			logging.Info().Msg("All active uploads completed successfully")
+			return
+		}
+
+		// Log progress every 5 seconds
+		u.logActiveUploads()
+		time.Sleep(5 * time.Second)
+	}
+
+	logging.Warn().Msg("Timeout reached, forcing shutdown with active uploads")
+	u.persistActiveUploads() // Final persistence before forced shutdown
+}
+
+// logActiveUploads logs the current status of active uploads
+func (u *UploadManager) logActiveUploads() {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	activeCount := 0
+	for _, session := range u.sessions {
+		if session.getState() == uploadStarted {
+			activeCount++
+			progress := float64(session.BytesUploaded) / float64(session.Size) * 100
+			logging.Info().
+				Str("id", session.ID).
+				Str("name", session.Name).
+				Float64("progress", progress).
+				Uint64("bytesUploaded", session.BytesUploaded).
+				Uint64("totalSize", session.Size).
+				Msg("Active upload progress")
+		}
+	}
+
+	if activeCount > 0 {
+		logging.Info().
+			Int("activeUploads", activeCount).
+			Msg("Waiting for uploads to complete")
 	}
 }
 
@@ -685,6 +842,38 @@ func (u *UploadManager) WaitForUpload(id string) error {
 // Stop stops the upload manager and waits for all uploads to finish
 func (u *UploadManager) Stop() {
 	logging.Info().Msg("Stopping upload manager...")
+
+	// Check if we're already shutting down
+	u.mutex.RLock()
+	alreadyShuttingDown := u.isShuttingDown
+	u.mutex.RUnlock()
+
+	if !alreadyShuttingDown {
+		// Trigger graceful shutdown through signal handler
+		u.mutex.Lock()
+		u.isShuttingDown = true
+		u.mutex.Unlock()
+
+		// Persist active uploads before stopping
+		u.persistActiveUploads()
+
+		// Wait for active uploads if any
+		if u.hasActiveUploads() {
+			logging.Info().
+				Dur("timeout", u.gracefulTimeout).
+				Msg("Active uploads detected, waiting for completion before shutdown")
+			u.waitForActiveUploads()
+		}
+	}
+
+	// Stop signal handling
+	signal.Stop(u.signalChan)
+	close(u.signalChan)
+
+	// Cancel shutdown context
+	u.shutdownCancel()
+
+	// Stop the upload loop
 	close(u.stopChan)
 
 	// Wait for all workers to finish with a timeout
@@ -694,11 +883,11 @@ func (u *UploadManager) Stop() {
 		close(done)
 	}()
 
-	// Wait for workers to finish or timeout after 5 seconds
+	// Wait for workers to finish or timeout after 10 seconds (increased for graceful shutdown)
 	select {
 	case <-done:
 		logging.Info().Msg("Upload manager stopped successfully")
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		logging.Warn().Msg("Timed out waiting for upload manager to stop")
 	}
 }
