@@ -137,6 +137,12 @@ Default is STDOUT.
 .BR \-s , " \-\-sync-tree"
 Sync the full directory tree to the local metadata store in the background.
 This improves performance by pre-caching directory structure without blocking startup.
+(Enabled by default, use --no-sync-tree to disable)
+
+.TP
+.BR " \-\-no-sync-tree"
+Disable automatic full directory tree synchronization. This reduces startup
+performance but uses less bandwidth and memory.
 
 .TP
 .BR \-i , " \-\-delta-interval " \fIseconds

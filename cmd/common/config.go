@@ -39,9 +39,9 @@ func createDefaultConfig() Config {
 		CacheDir:        filepath.Join(xdgCacheDir, "onemount"),
 		LogLevel:        "debug",
 		LogOutput:       "STDOUT", // Default to standard output
-		SyncTree:        false,
-		DeltaInterval:   1,  // Default to 1 second
-		CacheExpiration: 30, // Default to 30 days
+		SyncTree:        true,     // Enable tree sync by default for better performance
+		DeltaInterval:   1,        // Default to 1 second
+		CacheExpiration: 30,       // Default to 30 days
 	}
 }
 

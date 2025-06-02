@@ -88,7 +88,11 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		"This logs communication between onemount and the kernel.")
 	syncTree := flag.BoolP("sync-tree", "s", false,
 		"Sync the full directory tree to the local metadata store in the background. "+
-			"This improves performance by pre-caching directory structure without blocking startup.")
+			"This improves performance by pre-caching directory structure without blocking startup. "+
+			"(Enabled by default, use --no-sync-tree to disable)")
+	noSyncTree := flag.Bool("no-sync-tree", false,
+		"Disable automatic full directory tree synchronization. "+
+			"This reduces startup performance but uses less bandwidth and memory.")
 	deltaInterval := flag.IntP("delta-interval", "i", 0,
 		"Set the interval in seconds between delta query checks. "+
 			"Default is 1 seconds. Set to 0 to use the default.")
@@ -144,8 +148,12 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	if *logOutput != "" {
 		config.LogOutput = *logOutput
 	}
+	// Handle sync tree flags - explicit flags override defaults
 	if *syncTree {
 		config.SyncTree = true
+	}
+	if *noSyncTree {
+		config.SyncTree = false
 	}
 	if *deltaInterval > 0 {
 		config.DeltaInterval = *deltaInterval
@@ -234,14 +242,14 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 				// Continue with normal operation
 			}
 
-			if err := filesystem.SyncDirectoryTree(auth); err != nil {
+			if err := filesystem.SyncDirectoryTreeWithContext(ctx, auth); err != nil {
 				// Check if the error is due to context cancellation
 				if ctx.Err() != nil {
 					logging.Debug().Msg("Directory tree synchronization cancelled due to context cancellation")
 					return
 				}
 				logging.LogError(err, "Error syncing directory tree",
-					logging.FieldOperation, "SyncDirectoryTree")
+					logging.FieldOperation, "SyncDirectoryTreeWithContext")
 			} else {
 				logging.Info().Msg("Directory tree sync completed successfully")
 			}
@@ -655,6 +663,9 @@ func setupSignalHandler(filesystem *fs.Filesystem, server *fuse.Server, mountpoi
 
 		// Stop the upload manager
 		filesystem.StopUploadManager()
+
+		// Stop the metadata request manager
+		filesystem.StopMetadataRequestManager()
 
 		// Give the system a moment to release all resources
 		logging.Info().Msg("Waiting for all resources to be released before unmounting...")

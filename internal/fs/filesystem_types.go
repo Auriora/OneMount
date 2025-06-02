@@ -102,4 +102,10 @@ type Filesystem struct {
 	// StatFs warning throttling
 	statfsWarningM    sync.RWMutex // Mutex for StatFs warning state
 	statfsWarningTime time.Time    // Last time StatFs warning was shown
+
+	// Metadata request prioritization
+	metadataRequestManager *MetadataRequestManager // Manager for prioritized metadata requests
+
+	// Sync progress tracking
+	syncProgress *SyncProgress // Progress tracking for directory tree sync
 }

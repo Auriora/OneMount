@@ -47,6 +47,9 @@ func UnmountHandler(signal <-chan os.Signal, server *fuse.Server, filesystem *Fi
 			// Stop the upload manager
 			filesystem.StopUploadManager()
 
+			// Stop the metadata request manager
+			filesystem.StopMetadataRequestManager()
+
 			// Give the system a moment to release all resources
 			logging.Info().Msg("Waiting for all resources to be released before unmounting...")
 			time.Sleep(500 * time.Millisecond)

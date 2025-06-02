@@ -241,6 +241,10 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	// Initialize with our custom RawFileSystem implementation
 	fs.RawFileSystem = NewCustomRawFileSystem(fs)
 
+	// Initialize metadata request manager with 3 workers
+	fs.metadataRequestManager = NewMetadataRequestManager(fs, 3)
+	fs.metadataRequestManager.Start()
+
 	rootItem, err := graph.GetItem("root", auth)
 	root := NewInodeDriveItem(rootItem)
 	if err != nil {
@@ -1013,21 +1017,67 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 	}
 
 	// We haven't fetched the children for this item yet, get them from the server.
-	if logging.IsDebugEnabled() {
-		logger.Debug().
-			Str(logging.FieldID, id).
-			Str(logging.FieldPath, pathForLogs).
-			Msg("About to call graph.GetItemChildren")
-	}
+	// Use prioritized metadata request for foreground operations
+	var fetched []*graph.DriveItem
+	var err error
 
-	fetched, err := graph.GetItemChildren(id, auth)
+	if f.metadataRequestManager != nil {
+		// Create a channel to receive the result
+		resultChan := make(chan struct {
+			items []*graph.DriveItem
+			err   error
+		}, 1)
+
+		// Queue the metadata request with foreground priority
+		reqErr := f.metadataRequestManager.QueueChildrenRequest(id, auth, PriorityForeground, func(items []*graph.DriveItem, reqErr error) {
+			resultChan <- struct {
+				items []*graph.DriveItem
+				err   error
+			}{items, reqErr}
+		})
+
+		if reqErr != nil {
+			// Fallback to direct call if queue is full
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, id).
+					Str(logging.FieldPath, pathForLogs).
+					Msg("Metadata queue full, falling back to direct call")
+			}
+			fetched, err = graph.GetItemChildren(id, auth)
+		} else {
+			// Wait for the result with timeout
+			select {
+			case result := <-resultChan:
+				fetched = result.items
+				err = result.err
+			case <-time.After(30 * time.Second):
+				err = context.DeadlineExceeded
+				logger.Warn().
+					Str(logging.FieldID, id).
+					Str(logging.FieldPath, pathForLogs).
+					Msg("Foreground metadata request timed out, falling back to direct call")
+				fetched, err = graph.GetItemChildren(id, auth)
+			}
+		}
+	} else {
+		// Fallback if metadata request manager is not available
+		if logging.IsDebugEnabled() {
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Msg("About to call graph.GetItemChildren (no metadata manager)")
+		}
+		fetched, err = graph.GetItemChildren(id, auth)
+	}
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
 			Str(logging.FieldID, id).
 			Str(logging.FieldPath, pathForLogs).
 			Err(err).
-			Msg("Returned from graph.GetItemChildren")
+			Int("itemCount", len(fetched)).
+			Msg("Completed metadata request")
 	}
 
 	if err != nil {
@@ -1497,6 +1547,36 @@ func (f *Filesystem) StopUploadManager() {
 			logging.Warn().Msg("Timed out waiting for upload manager to stop")
 		}
 	}
+}
+
+// StopMetadataRequestManager stops the metadata request manager and waits for all workers to finish.
+func (f *Filesystem) StopMetadataRequestManager() {
+	logging.Info().Msg("Stopping metadata request manager...")
+	if f.metadataRequestManager != nil {
+		// Create a channel to signal when the metadata request manager has stopped
+		done := make(chan struct{})
+
+		// Start a goroutine to call Stop and signal when done
+		go func() {
+			f.metadataRequestManager.Stop()
+			close(done)
+		}()
+
+		// Wait for metadata request manager to stop or timeout after 5 seconds
+		select {
+		case <-done:
+			logging.Info().Msg("Metadata request manager stopped successfully")
+		case <-time.After(5 * time.Second):
+			logging.Warn().Msg("Timed out waiting for metadata request manager to stop")
+		}
+	}
+}
+
+// GetSyncProgress returns the current sync progress, if available
+func (f *Filesystem) GetSyncProgress() *SyncProgress {
+	f.RLock()
+	defer f.RUnlock()
+	return f.syncProgress
 }
 
 // SerializeAll dumps all inode metadata currently in the cache to disk. This
