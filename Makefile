@@ -179,9 +179,17 @@ clean:
 test:
 	go test -v ./...
 
+# Run all tests sequentially (no parallel execution)
+test-sequential:
+	go test -v -p 1 -parallel 1 ./...
+
 # Run unit tests
 unit-test:
 	go test -v ./... -short
+
+# Run unit tests sequentially (no parallel execution)
+unit-test-sequential:
+	go test -v -p 1 -parallel 1 ./... -short
 
 # Run integration tests
 integration-test:
