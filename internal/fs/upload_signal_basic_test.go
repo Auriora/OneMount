@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -12,8 +13,12 @@ import (
 
 // TestUT_FS_Signal_Basic_01_UploadManager_Initialization tests basic initialization
 func TestUT_FS_Signal_Basic_01_UploadManager_Initialization(t *testing.T) {
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -85,8 +90,12 @@ func TestUT_FS_Signal_Basic_02_UploadSession_ContextSupport(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -105,8 +114,12 @@ func TestUT_FS_Signal_Basic_02_UploadSession_ContextSupport(t *testing.T) {
 func TestUT_FS_Signal_Basic_03_UploadSession_PersistProgress(t *testing.T) {
 	t.Log("Starting progress persistence test")
 
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -154,8 +167,12 @@ func TestUT_FS_Signal_Basic_03_UploadSession_PersistProgress(t *testing.T) {
 
 // TestUT_FS_Signal_Basic_04_UploadManager_Methods tests that new methods exist
 func TestUT_FS_Signal_Basic_04_UploadManager_Methods(t *testing.T) {
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}

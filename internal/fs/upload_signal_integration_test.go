@@ -3,6 +3,7 @@ package fs
 import (
 	"encoding/json"
 	"math"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -13,8 +14,12 @@ import (
 
 // TestUT_FS_Signal_Integration_01_SignalHandling tests actual signal handling
 func TestUT_FS_Signal_Integration_01_SignalHandling(t *testing.T) {
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -60,8 +65,12 @@ func TestUT_FS_Signal_Integration_01_SignalHandling(t *testing.T) {
 
 // TestUT_FS_Signal_Integration_02_GracefulShutdown tests graceful shutdown behavior
 func TestUT_FS_Signal_Integration_02_GracefulShutdown(t *testing.T) {
-	// Create a temporary database
-	db, err := bolt.Open(":memory:", 0600, nil)
+	// Create a temporary database file
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := bolt.Open(tmpFile, 0600, &bolt.Options{
+		Timeout:        time.Second * 5,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
