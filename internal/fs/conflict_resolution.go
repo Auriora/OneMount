@@ -116,7 +116,11 @@ func (cr *ConflictResolver) DetectConflict(ctx context.Context, localItem *Inode
 		}
 
 		// Check for metadata conflicts (name, parent changes)
-		if localItem.Name() != remoteItem.Name || localItem.ParentID() != remoteItem.Parent.ID {
+		remoteParentID := ""
+		if remoteItem.Parent != nil {
+			remoteParentID = remoteItem.Parent.ID
+		}
+		if localItem.Name() != remoteItem.Name || localItem.ParentID() != remoteParentID {
 			logger.Info().Msg("Metadata conflict detected - name or parent differs")
 			return &ConflictInfo{
 				ID:            localItem.ID(),
@@ -192,10 +196,13 @@ func (cr *ConflictResolver) resolveKeepBoth(ctx context.Context, conflict *Confl
 		conflictItem.Name = conflictName
 
 		// Add the conflict copy to the filesystem
-		parent := cr.fs.GetID(conflict.RemoteItem.Parent.ID)
-		if parent != nil {
-			conflictInode := NewInodeDriveItem(conflictItem)
-			cr.fs.InsertID(conflictItem.ID+"_conflict", conflictInode)
+		// Check if the remote item has a parent before accessing it
+		if conflict.RemoteItem.Parent != nil {
+			parent := cr.fs.GetID(conflict.RemoteItem.Parent.ID)
+			if parent != nil {
+				conflictInode := NewInodeDriveItem(conflictItem)
+				cr.fs.InsertID(conflictItem.ID+"_conflict", conflictInode)
+			}
 		}
 	}
 
