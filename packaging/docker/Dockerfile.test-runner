@@ -1,0 +1,79 @@
+# Dockerfile for running OneMount tests in isolation
+# Provides a clean, reproducible environment for all test types
+FROM ubuntu:24.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV UBUNTU_VERSION=24.04
+ENV UBUNTU_CODENAME=noble
+
+# Configure IPv4-only networking for South African networks
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+
+# Install system dependencies for OneMount testing
+RUN apt-get update && apt-get install -y \
+    # Go and build tools
+    golang-go \
+    build-essential \
+    pkg-config \
+    git \
+    # FUSE support for filesystem testing
+    fuse3 \
+    libfuse3-dev \
+    # GUI dependencies for launcher tests
+    libwebkit2gtk-4.1-dev \
+    libgtk-3-dev \
+    # System utilities
+    rsync \
+    ca-certificates \
+    curl \
+    # Python for test scripts
+    python3 \
+    python3-pip \
+    # Network tools for testing
+    iputils-ping \
+    netcat-openbsd \
+    # Process management
+    psmisc \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify Go version
+RUN go version && echo "Go installation verified for Ubuntu $(lsb_release -rs)"
+
+# Set Go environment
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/go"
+ENV GOCACHE="/tmp/go-cache"
+
+# Configure FUSE for testing
+RUN echo 'user_allow_other' >> /etc/fuse.conf
+
+# Create test user with FUSE access
+RUN useradd -m -s /bin/bash -G fuse tester && \
+    mkdir -p /workspace && \
+    chown tester:tester /workspace
+
+# Set up Go environment for test user
+USER tester
+RUN mkdir -p /home/tester/go && \
+    echo 'export GOPATH=/home/tester/go' >> /home/tester/.bashrc && \
+    echo 'export PATH=/usr/local/go/bin:$GOPATH/bin:$PATH' >> /home/tester/.bashrc
+
+# Create test directories
+RUN mkdir -p /home/tester/.onemount-tests/tmp && \
+    mkdir -p /home/tester/.onemount-tests/logs && \
+    mkdir -p /home/tester/.cache/onemount
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy test entrypoint script
+COPY packaging/docker/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
+USER root
+RUN chmod +x /usr/local/bin/test-entrypoint.sh
+USER tester
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/test-entrypoint.sh"]
+CMD ["help"]

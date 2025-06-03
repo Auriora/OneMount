@@ -1,5 +1,5 @@
 Name:          onemount
-Version:       0.14.1
+Version:       0.1.0rc1
 Release:       1%{?dist}
 Summary:       Linux access to OneDrive made simple.
 
@@ -55,7 +55,7 @@ python3 scripts/install-manifest.py --target rpm --action install | bash
 %(python3 scripts/install-manifest.py --target rpm --action files)
 
 %changelog
-* Sun Jun 01 2025 Bruce Cherrington <aurioraproject@gmail.com> - 0.14.1-1
+* Sun Jun 01 2025 Bruce Cherrington <aurioraproject@gmail.com> - 0.1.0rc1
 - Beta release with enhanced conflict resolution and synchronization
 - Comprehensive offline-to-online transition support
 - Improved error handling and recovery mechanisms

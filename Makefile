@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, ubuntu, ubuntu-docker, ubuntu-docker-image, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports
+.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, ubuntu, ubuntu-docker, ubuntu-docker-image, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports, docker-test-build, docker-test-unit, docker-test-integration, docker-test-system, docker-test-all, docker-test-coverage, docker-test-shell, docker-test-clean
 
 # auto-calculate software/package versions
 VERSION := $(shell grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
@@ -270,3 +270,36 @@ coverage-ci:
 coverage-trend:
 	@echo "Analyzing coverage trends..."
 	python3 scripts/coverage-trend-analysis.py --input coverage/coverage_history.json --output coverage/trends.html
+
+# Docker-based testing targets
+docker-test-build:
+	@echo "Building Docker test image..."
+	./scripts/run-tests-docker.sh build
+
+docker-test-unit:
+	@echo "Running unit tests in Docker..."
+	./scripts/run-tests-docker.sh unit --verbose
+
+docker-test-integration:
+	@echo "Running integration tests in Docker..."
+	./scripts/run-tests-docker.sh integration --verbose
+
+docker-test-system:
+	@echo "Running system tests in Docker..."
+	./scripts/run-tests-docker.sh system --verbose --timeout 30m
+
+docker-test-all:
+	@echo "Running all tests in Docker..."
+	./scripts/run-tests-docker.sh all --verbose
+
+docker-test-coverage:
+	@echo "Running coverage analysis in Docker..."
+	./scripts/run-tests-docker.sh coverage --verbose
+
+docker-test-shell:
+	@echo "Starting interactive Docker test shell..."
+	./scripts/run-tests-docker.sh shell
+
+docker-test-clean:
+	@echo "Cleaning up Docker test resources..."
+	./scripts/run-tests-docker.sh clean

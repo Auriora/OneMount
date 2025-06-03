@@ -1,0 +1,103 @@
+# Docker Compose configuration for OneMount testing
+# Provides easy test execution with proper volume mounts and networking
+
+version: '3.8'
+
+services:
+  # Main test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: packaging/docker/Dockerfile.test-runner
+    image: onemount-test-runner:latest
+    container_name: onemount-test-runner
+    
+    # Mount project source code
+    volumes:
+      - .:/workspace:ro
+      # Mount auth tokens for system tests (if available)
+      - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
+      # Mount test artifacts directory for output
+      - ./test-artifacts:/home/tester/.onemount-tests:rw
+    
+    # Enable FUSE support for filesystem testing
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    
+    # Configure IPv4-only networking
+    network_mode: bridge
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    # Environment variables
+    environment:
+      - ONEMOUNT_TEST_TIMEOUT=5m
+      - ONEMOUNT_TEST_VERBOSE=false
+      - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
+    
+    # Default command
+    command: ["help"]
+    
+    # Interactive mode for shell access
+    stdin_open: true
+    tty: true
+
+  # Unit tests only (lightweight, no FUSE required)
+  unit-tests:
+    extends:
+      service: test-runner
+    container_name: onemount-unit-tests
+    
+    # Remove FUSE requirements for unit tests
+    devices: []
+    cap_add: []
+    security_opt: []
+    
+    command: ["unit", "--verbose"]
+
+  # Integration tests
+  integration-tests:
+    extends:
+      service: test-runner
+    container_name: onemount-integration-tests
+    command: ["integration", "--verbose"]
+
+  # System tests (requires auth tokens)
+  system-tests:
+    extends:
+      service: test-runner
+    container_name: onemount-system-tests
+    
+    # Longer timeout for system tests
+    environment:
+      - ONEMOUNT_TEST_TIMEOUT=30m
+      - ONEMOUNT_TEST_VERBOSE=true
+      - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
+    
+    command: ["system", "--verbose", "--timeout", "30m"]
+
+  # Coverage analysis
+  coverage:
+    extends:
+      service: test-runner
+    container_name: onemount-coverage
+    
+    # Mount coverage output directory
+    volumes:
+      - .:/workspace:ro
+      - ./coverage:/workspace/coverage:rw
+      - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
+    
+    command: ["coverage", "--verbose"]
+
+  # Interactive shell for debugging
+  shell:
+    extends:
+      service: test-runner
+    container_name: onemount-shell
+    command: ["shell"]

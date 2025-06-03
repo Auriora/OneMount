@@ -1,4 +1,4 @@
-onemount (0.14.1-1) unstable; urgency=medium
+onemount (0.1.0rc1) unstable; urgency=medium
 
   * Beta release with enhanced conflict resolution and synchronization
   * Comprehensive offline-to-online transition support
