@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports
+.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, ubuntu, ubuntu-docker, ubuntu-docker-image, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports
 
 # auto-calculate software/package versions
 VERSION := $(shell grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
@@ -106,10 +106,17 @@ docker-build-image:
 	docker build -f packaging/docker/Dockerfile.deb-builder -t onemount-deb-builder .
 	@echo "Docker image built successfully!"
 
-# Build Debian packages using Docker
-deb-docker: validate-packaging
-	@echo "Building Debian packages using Docker..."
-	./scripts/docker-build-deb.sh
+# Build Ubuntu packages using Docker
+deb-docker: ubuntu-docker
+ubuntu-docker: validate-packaging
+	@echo "Building Ubuntu packages using Docker..."
+	./scripts/build-deb-docker.sh
+
+# Build Ubuntu Docker image
+ubuntu-docker-image:
+	@echo "Building Ubuntu Docker image for package building..."
+	docker build -t onemount-ubuntu-builder -f packaging/docker/Dockerfile.deb-builder .
+	@echo "Ubuntu Docker image built successfully!"
 
 # used to create release tarball for rpmbuild
 v$(VERSION).tar.gz: validate-packaging
@@ -157,8 +164,9 @@ onemount_$(VERSION)-$(RELEASE).dsc: onemount_$(VERSION).orig.tar.gz
 	dpkg-source --build onemount-$(VERSION)
 
 
-# create the debian package using Docker (default)
+# create the Ubuntu package using Docker (default)
 deb: deb-docker
+ubuntu: deb-docker
 
 # create the debian package in a chroot via pbuilder (legacy)
 deb-pbuilder: onemount_$(VERSION)-$(RELEASE)_amd64.deb

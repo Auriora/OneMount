@@ -1,0 +1,27 @@
+Source: onemount
+Section: utils
+Priority: optional
+Maintainer: Bruce Cherrington <aurioraproject@gmail.com>
+Build-Depends: golang-go (>= 2:1.22), gcc, pkg-config, libwebkit2gtk-4.1-dev, git, debhelper (>= 12), build-essential
+Standards-Version: 4.6.2
+Homepage: https://github.com/auriora/onemount
+Vcs-Browser: https://github.com/auriora/onemount
+Vcs-Git: https://github.com/auriora/onemount.git
+
+Package: onemount
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libwebkit2gtk-4.1-0, fuse3
+Suggests: systemd
+Description: A native Linux filesystem for Microsoft OneDrive
+ OneMount is a network filesystem that gives your computer direct access to your
+ files on Microsoft OneDrive. This is not a sync client. Instead of syncing
+ files, OneMount performs an on-demand download of files when your computer
+ attempts to use them. OneMount allows you to use files on OneDrive as if they
+ were files on your local computer.
+ .
+ Key features:
+  * On-demand file access without local storage requirements
+  * Native Linux filesystem integration via FUSE
+  * Support for both personal and business OneDrive accounts
+  * Automatic conflict resolution and offline synchronization
+  * Desktop integration with file managers like Nemo and Nautilus

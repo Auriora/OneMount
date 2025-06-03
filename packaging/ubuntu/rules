@@ -1,0 +1,29 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+
+override_dh_auto_test:
+	@echo "skipping tests..."
+
+
+override_dh_auto_clean:
+	rm -f *.db *.rpm *.deb *.dsc *.log *.fa *.xz *.gz *.test onemount onemount-headless unshare .auth_tokens.json filelist.txt
+	rm -rf util-linux-*/ onemount-*/
+
+
+override_dh_auto_build:
+	bash scripts/cgo-helper.sh
+	# GOCACHE will be for a nonexistent user in pbuilder otherwise
+	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
+		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
+		./cmd/onemount
+	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
+		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
+		./cmd/onemount-launcher
+	test -f docs/man/onemount.1 && gzip -c docs/man/onemount.1 > docs/man/onemount.1.gz
+
+
+override_dh_auto_install:
+	# Use centralized installation manifest
+	python3 scripts/install-manifest.py --target debian --action install | bash

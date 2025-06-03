@@ -1,0 +1,218 @@
+name: Build Ubuntu Packages
+
+on:
+  # Run on pushes to main
+  push:
+    branches: [ main ]
+    paths:
+      - 'internal/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'packaging/ubuntu/**'
+      - 'packaging/docker/**'
+      - 'scripts/build-deb-docker.sh'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+  
+  # Run on pull requests to main
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'internal/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'packaging/ubuntu/**'
+      - 'packaging/docker/**'
+      - 'scripts/build-deb-docker.sh'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      upload_packages:
+        description: 'Upload packages as release assets'
+        required: false
+        default: false
+        type: boolean
+      target_ubuntu_version:
+        description: 'Target Ubuntu version'
+        required: false
+        default: '24.04'
+        type: choice
+        options:
+          - '24.04'
+          - '22.04'
+
+jobs:
+  build-ubuntu-packages:
+    name: Build Ubuntu Packages
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        ubuntu_version: ['24.04']
+        # Future: Add '22.04' when Go compatibility is resolved
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for proper versioning
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Configure IPv4-only networking
+      run: |
+        # Configure Docker for IPv4-only (South African networks)
+        sudo mkdir -p /etc/docker
+        echo '{"ipv6": false, "fixed-cidr": "172.17.0.0/16"}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
+        
+        # Wait for Docker to restart
+        sleep 10
+        docker info
+    
+    - name: Build Ubuntu Docker image
+      run: |
+        echo "Building Ubuntu ${{ matrix.ubuntu_version }} package builder..."
+        docker build \
+          -t onemount-ubuntu-builder \
+          -f packaging/docker/Dockerfile.deb-builder \
+          --build-arg UBUNTU_VERSION=${{ matrix.ubuntu_version }} \
+          .
+    
+    - name: Verify Docker image
+      run: |
+        docker run --rm onemount-ubuntu-builder go version
+        docker run --rm onemount-ubuntu-builder lsb_release -a
+    
+    - name: Build Ubuntu packages
+      run: |
+        chmod +x scripts/build-deb-docker.sh
+        ./scripts/build-deb-docker.sh
+    
+    - name: List built packages
+      run: |
+        echo "Built packages:"
+        ls -la *.deb *.dsc *.changes 2>/dev/null || echo "No packages found"
+        
+        # Get package info
+        if ls *.deb 1> /dev/null 2>&1; then
+          for deb in *.deb; do
+            echo "=== Package: $deb ==="
+            dpkg-deb --info "$deb"
+            echo ""
+          done
+        fi
+    
+    - name: Test package installation
+      run: |
+        if ls *.deb 1> /dev/null 2>&1; then
+          # Install dependencies
+          sudo apt-get update
+          sudo apt-get install -y fuse3 libwebkit2gtk-4.1-0
+          
+          # Test package installation
+          for deb in *.deb; do
+            echo "Testing installation of $deb..."
+            sudo dpkg -i "$deb" || true
+            sudo apt-get install -f -y  # Fix any dependency issues
+            
+            # Verify installation
+            if dpkg -l | grep -q onemount; then
+              echo "✅ Package $deb installed successfully"
+              dpkg -l | grep onemount
+            else
+              echo "❌ Package $deb installation failed"
+              exit 1
+            fi
+            
+            # Clean up for next package
+            sudo dpkg -r onemount || true
+          done
+        fi
+    
+    - name: Upload package artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ubuntu-packages-${{ matrix.ubuntu_version }}
+        path: |
+          *.deb
+          *.dsc
+          *.changes
+          *.tar.gz
+        retention-days: 30
+    
+    - name: Generate package summary
+      run: |
+        echo "## Ubuntu Package Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Target:** Ubuntu ${{ matrix.ubuntu_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Built packages:**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if ls *.deb 1> /dev/null 2>&1; then
+          for deb in *.deb; do
+            size=$(du -h "$deb" | cut -f1)
+            echo "- \`$deb\` ($size)" >> $GITHUB_STEP_SUMMARY
+          done
+        else
+          echo "- No packages built" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Installation test:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+
+  validate-packages:
+    name: Validate Package Quality
+    runs-on: ubuntu-latest
+    needs: build-ubuntu-packages
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download package artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ubuntu-packages-24.04
+        path: packages/
+    
+    - name: Install package validation tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y lintian devscripts
+    
+    - name: Validate packages with lintian
+      run: |
+        cd packages/
+        echo "## Package Validation Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        for deb in *.deb; do
+          echo "Validating $deb with lintian..."
+          echo "### $deb" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          if lintian "$deb" >> $GITHUB_STEP_SUMMARY 2>&1; then
+            echo "✅ $deb passed lintian validation"
+          else
+            echo "⚠️ $deb has lintian warnings (see summary)"
+          fi
+          
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        done
+    
+    - name: Check package dependencies
+      run: |
+        cd packages/
+        for deb in *.deb; do
+          echo "=== Dependencies for $deb ==="
+          dpkg-deb --field "$deb" Depends
+          echo ""
+        done

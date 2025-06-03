@@ -1,11 +1,14 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Go 1.21+](https://img.shields.io/badge/Go-1.21+-blue.svg?logo=go&logoColor=white)](https://golang.org/dl/)
+[![Go 1.23+](https://img.shields.io/badge/Go-1.23+-blue.svg?logo=go&logoColor=white)](https://golang.org/dl/)
 [![Status: Development](https://img.shields.io/badge/Status-Development-lightgrey.svg)]()
 [![GitHub release](https://img.shields.io/github/v/release/auriora/OneMount?include_prereleases)](https://github.com/auriora/OneMount/releases)
+[![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![Linux Mint 22](https://img.shields.io/badge/Linux%20Mint-22-87CF3E?logo=linux-mint&logoColor=white)](https://linuxmint.com/)
 
 [//]: # ([![GitHub stars]&#40;https://img.shields.io/github/stars/auriora/OneMount?style=social&#41;]&#40;https://github.com/auriora/OneMount/stargazers&#41;)
 [![GitHub issues](https://img.shields.io/github/issues/auriora/OneMount)](https://github.com/auriora/OneMount/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/auriora/OneMount)](https://github.com/auriora/OneMount/commits/main)
+[![Build Ubuntu Packages](https://github.com/auriora/OneMount/workflows/Build%20Ubuntu%20Packages/badge.svg)](https://github.com/auriora/OneMount/actions?query=workflow%3A%22Build+Ubuntu+Packages%22)
 [![Run tests](https://github.com/auriora/OneMount/workflows/Run%20tests/badge.svg)](https://github.com/auriora/OneMount/actions?query=workflow%3A%22Run+tests%22)
 [![Go Report Card](https://goreportcard.com/badge/github.com/auriora/OneMount)](https://goreportcard.com/report/github.com/auriora/OneMount)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue.svg?logo=linux&logoColor=white)](https://www.linux.org/)
@@ -140,20 +143,48 @@ Get started with OneMount by installing it using your distribution's package man
 
 ### Quick Installation Guide
 
-1. **Install OneMount** using your distribution's package manager:
+#### Ubuntu 24.04 LTS / Linux Mint 22 (Recommended)
+
+1. **Download and install the .deb package:**
 
    ```bash
-   # Ubuntu/Debian
-   # TODO: Add package installation instructions for Ubuntu/Debian distributions
-   # This should include PPA setup or direct package download instructions
-   # Target: v1.1 release
-   # See: docs/installation-guide.md for detailed build instructions
+   # Download the latest release
+   wget https://github.com/auriora/OneMount/releases/latest/download/onemount_*.deb
 
-   # Arch/Manjaro
-   # Install from AUR: https://aur.archlinux.org/packages/OneMount/
+   # Install the package
+   sudo apt update
+   sudo apt install ./onemount_*.deb
    ```
 
-2. **Launch the application** using the GUI launcher or command line:
+2. **Or build from source:**
+
+   ```bash
+   # Install dependencies
+   sudo apt update
+   sudo apt install golang-go build-essential pkg-config libwebkit2gtk-4.1-dev git fuse3
+
+   # Clone and build
+   git clone https://github.com/auriora/OneMount.git
+   cd OneMount
+   make all
+   make install
+   ```
+
+#### Other Distributions
+
+   ```bash
+   # Arch/Manjaro
+   # Install from AUR: https://aur.archlinux.org/packages/OneMount/
+
+   # Fedora/RHEL/CentOS
+   # RPM packages available in releases
+   ```
+
+For detailed installation instructions including Ubuntu 22.04/Linux Mint 21 support, see our [Ubuntu Installation Guide](docs/UBUNTU_INSTALLATION.md).
+
+#### Getting Started
+
+1. **Launch the application** using the GUI launcher or command line:
 
    ```bash
    # Using GUI
@@ -163,11 +194,12 @@ Get started with OneMount by installing it using your distribution's package man
    OneMount /path/to/mount/onedrive/at
    ```
 
-3. **Authenticate** with your Microsoft account when prompted.
+2. **Authenticate** with your Microsoft account when prompted.
 
-For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to the [complete installation guide](docs/guides/installation-guide.md).
-
-For a step-by-step guide to get started quickly, check out our [quickstart guide](docs/guides/quickstart-guide.md).
+For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to:
+- [Ubuntu Installation Guide](docs/UBUNTU_INSTALLATION.md) - Ubuntu/Linux Mint specific instructions
+- [Complete Installation Guide](docs/guides/installation-guide.md) - All distributions
+- [Quickstart Guide](docs/guides/quickstart-guide.md) - Step-by-step getting started
 
 ## Contributing guidelines
 

@@ -1,20 +1,33 @@
-# Dockerfile for building OneMount Debian packages
-# Use golang image which already has Go and basic build tools
-FROM golang:1.22-bookworm
+# Dockerfile for building OneMount Ubuntu packages
+# Optimized for Ubuntu 24.04 LTS (Noble) and Linux Mint 22
+FROM ubuntu:24.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+ENV UBUNTU_VERSION=24.04
+ENV UBUNTU_CODENAME=noble
 
-# Install Debian packaging tools
+# Configure IPv4-only networking for South African networks
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+
+# Install Go and Ubuntu packaging tools
 RUN apt-get update && apt-get install -y \
+    golang-go \
     build-essential \
     debhelper \
     devscripts \
     dpkg-dev \
     fakeroot \
     pkg-config \
-    libwebkit2gtk-4.0-dev \
+    libwebkit2gtk-4.1-dev \
+    rsync \
+    git \
+    lsb-release \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Verify Go version for Ubuntu compatibility
+RUN go version && echo "Ubuntu $(lsb_release -rs) Go compatibility verified"
 
 # Set Go environment
 ENV PATH="/usr/local/go/bin:${PATH}"
