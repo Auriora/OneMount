@@ -1,2 +1,2 @@
 log: warn
-cacheDir: ~/somewhere/else
+cacheDir: ~/.onemount-tests/logs/
