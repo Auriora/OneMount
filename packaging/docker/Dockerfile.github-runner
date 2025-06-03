@@ -1,0 +1,95 @@
+# Dockerfile for OneMount GitHub Actions Self-Hosted Runner
+# Based on the test-runner with GitHub Actions runner capabilities
+FROM ubuntu:24.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV UBUNTU_VERSION=24.04
+ENV UBUNTU_CODENAME=noble
+ENV RUNNER_ALLOW_RUNASROOT=1
+
+# Configure IPv4-only networking for South African networks
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Go and build tools
+    golang-go \
+    build-essential \
+    pkg-config \
+    git \
+    # FUSE support
+    fuse3 \
+    libfuse3-dev \
+    # GUI dependencies for launcher testing
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    # GitHub Actions runner dependencies
+    curl \
+    wget \
+    unzip \
+    tar \
+    sudo \
+    jq \
+    # Additional utilities
+    ca-certificates \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify Go version
+RUN go version && echo "Go installation verified for Ubuntu $(lsb_release -rs)"
+
+# Set Go environment
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/home/runner/go"
+ENV GOCACHE="/tmp/go-cache"
+
+# Configure FUSE for testing
+RUN echo 'user_allow_other' >> /etc/fuse.conf
+
+# Create runner user with sudo access
+RUN groupadd -f fuse && \
+    useradd -m -s /bin/bash -G fuse,sudo runner && \
+    echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    mkdir -p /workspace && \
+    chown runner:runner /workspace
+
+# Create GitHub Actions runner directory
+RUN mkdir -p /opt/actions-runner && \
+    chown runner:runner /opt/actions-runner
+
+# Switch to runner user
+USER runner
+WORKDIR /opt/actions-runner
+
+# Download and install GitHub Actions runner
+ARG RUNNER_VERSION=2.311.0
+RUN curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \
+    -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz && \
+    tar xzf actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz && \
+    rm actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+
+# Set up Go environment for runner user
+RUN mkdir -p /home/runner/go && \
+    echo 'export GOPATH=/home/runner/go' >> /home/runner/.bashrc && \
+    echo 'export PATH=/usr/local/go/bin:$GOPATH/bin:$PATH' >> /home/runner/.bashrc
+
+# Create test directories and credentials location
+RUN mkdir -p /home/runner/.onemount-tests/tmp && \
+    mkdir -p /home/runner/.onemount-tests/logs && \
+    mkdir -p /home/runner/.cache/onemount && \
+    sudo mkdir -p /opt/onemount-ci && \
+    sudo chown runner:runner /opt/onemount-ci
+
+# Copy runner entrypoint script
+COPY packaging/docker/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
+USER root
+RUN chmod +x /usr/local/bin/runner-entrypoint.sh
+USER runner
+
+# Set working directory for actions
+WORKDIR /workspace
+
+# Default entrypoint
+ENTRYPOINT ["/usr/local/bin/runner-entrypoint.sh"]
+CMD ["--help"]

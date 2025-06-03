@@ -1,0 +1,66 @@
+# Docker Compose for Remote OneMount GitHub Actions Runner
+# Designed for deployment to remote Docker host via TCP API
+
+version: '3.8'
+
+services:
+  # GitHub Actions Self-Hosted Runner for Remote Deployment
+  github-runner:
+    image: onemount-github-runner:latest
+    container_name: onemount-github-runner
+    
+    # Environment variables for runner configuration
+    environment:
+      # Required: GitHub configuration
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      
+      # Runner settings
+      - RUNNER_NAME=${RUNNER_NAME:-onemount-runner-remote}
+      - RUNNER_LABELS=${RUNNER_LABELS:-self-hosted,linux,onemount-testing,docker-remote}
+      - RUNNER_GROUP=${RUNNER_GROUP:-Default}
+      
+      # Optional: OneDrive authentication
+      - AUTH_TOKENS_B64=${AUTH_TOKENS_B64}
+      
+      # Test environment settings
+      - ONEMOUNT_TEST_TIMEOUT=45m
+      - ONEMOUNT_TEST_VERBOSE=true
+    
+    # Persistent volumes for runner data
+    volumes:
+      - onemount-runner-workspace:/workspace
+      - onemount-runner-work:/opt/actions-runner/_work
+      - onemount-runner-logs:/home/runner/.onemount-tests/logs
+    
+    # Enable FUSE support for filesystem testing
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    
+    # Configure IPv4-only networking for South African networks
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    # Restart policy for reliability
+    restart: unless-stopped
+    
+    # Default command - register and start runner
+    command: ["run"]
+
+volumes:
+  # Persistent storage for runner workspace
+  onemount-runner-workspace:
+    driver: local
+  
+  # Persistent storage for runner work directory
+  onemount-runner-work:
+    driver: local
+    
+  # Persistent storage for test logs
+  onemount-runner-logs:
+    driver: local
