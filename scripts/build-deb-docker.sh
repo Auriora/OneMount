@@ -47,12 +47,21 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
-# Check if the Docker image exists
+# Check if the Docker image exists and rebuild if needed
 if ! docker image inspect onemount-ubuntu-builder >/dev/null 2>&1; then
-    print_error "Docker image 'onemount-ubuntu-builder' not found"
-    print_status "Please build it first with:"
-    echo "docker build -t onemount-ubuntu-builder -f packaging/docker/Dockerfile.deb-builder ."
-    exit 1
+    print_status "Docker image 'onemount-ubuntu-builder' not found, building it..."
+    docker build -t onemount-ubuntu-builder -f packaging/docker/Dockerfile.deb-builder .
+    print_success "Docker image built successfully"
+else
+    # Check if Dockerfile is newer than the image
+    DOCKERFILE_TIME=$(stat -c %Y packaging/docker/Dockerfile.deb-builder 2>/dev/null || echo 0)
+    IMAGE_TIME=$(docker image inspect onemount-ubuntu-builder --format='{{.Created}}' | xargs -I {} date -d {} +%s 2>/dev/null || echo 0)
+
+    if [ "$DOCKERFILE_TIME" -gt "$IMAGE_TIME" ]; then
+        print_status "Dockerfile is newer than image, rebuilding..."
+        docker build -t onemount-ubuntu-builder -f packaging/docker/Dockerfile.deb-builder .
+        print_success "Docker image rebuilt successfully"
+    fi
 fi
 
 # Get version from spec file

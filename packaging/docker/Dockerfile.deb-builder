@@ -29,24 +29,27 @@ RUN apt-get update && apt-get install -y \
 # Verify Go version for Ubuntu compatibility
 RUN go version && echo "Ubuntu $(lsb_release -rs) Go compatibility verified"
 
-# Set Go environment
-ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOPATH="/go"
-ENV GOCACHE="/tmp/go-cache"
-
-# Create working directory
-WORKDIR /build
-
 # Create a non-root user for building
-RUN useradd -m -s /bin/bash builder && \
-    mkdir -p /build && \
-    chown builder:builder /build
+RUN useradd -m -s /bin/bash builder
+
+# Create working directory and Go directories with proper ownership
+RUN mkdir -p /build /home/builder/go /home/builder/.cache/go-build && \
+    chown -R builder:builder /build /home/builder/go /home/builder/.cache
+
+# Set Go environment for builder user
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/home/builder/go"
+ENV GOCACHE="/home/builder/.cache/go-build"
+ENV GOMODCACHE="/home/builder/go/pkg/mod"
+
+WORKDIR /build
 
 USER builder
 
 # Set up Go environment for builder user
-RUN mkdir -p /home/builder/go && \
-    echo 'export GOPATH=/home/builder/go' >> /home/builder/.bashrc && \
+RUN echo 'export GOPATH=/home/builder/go' >> /home/builder/.bashrc && \
+    echo 'export GOCACHE=/home/builder/.cache/go-build' >> /home/builder/.bashrc && \
+    echo 'export GOMODCACHE=/home/builder/go/pkg/mod' >> /home/builder/.bashrc && \
     echo 'export PATH=/usr/local/go/bin:$GOPATH/bin:$PATH' >> /home/builder/.bashrc
 
 # Default command
