@@ -1,7 +1,7 @@
 name: System Tests
 
 on:
-  # Run on pull requests to main
+  # Run on pull requests
   pull_request:
     branches: [ main ]
     paths:
@@ -44,6 +44,9 @@ jobs:
   system-tests:
     runs-on: ubuntu-latest
     
+    # Only run if we have the personal OneDrive tokens
+    if: ${{ secrets.ONEDRIVE_PERSONAL_TOKENS != '' }}
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -63,57 +66,41 @@ jobs:
       env:
         ONEDRIVE_PERSONAL_TOKENS: ${{ secrets.ONEDRIVE_PERSONAL_TOKENS }}
       run: |
-        # Check if the secret is available
-        if [ -z "$ONEDRIVE_PERSONAL_TOKENS" ]; then
-          echo "🔧 Personal OneDrive system tests are not configured"
-          echo ""
-          echo "To enable system tests with your personal OneDrive:"
-          echo "1. Run locally: base64 -w 0 ~/.cache/onemount/auth_tokens.json"
-          echo "2. Go to Settings → Secrets and variables → Actions"
-          echo "3. Add secret: ONEDRIVE_PERSONAL_TOKENS with the base64 output"
-          echo ""
-          echo "See docs/testing/personal-onedrive-ci-setup.md for detailed instructions"
-          echo ""
-          echo "⏭️  Skipping system tests due to missing credentials"
-          exit 0
-        fi
-
         # Create test directories
         mkdir -p ~/.onemount-tests/logs
-        mkdir -p ~/.onemount-tests/tmp
         chmod 700 ~/.onemount-tests
-
+        
         # Decode and save the auth tokens
         echo "$ONEDRIVE_PERSONAL_TOKENS" | base64 -d > ~/.onemount-tests/.auth_tokens.json
         chmod 600 ~/.onemount-tests/.auth_tokens.json
-
+        
         # Verify the tokens file is valid JSON
         if ! jq empty ~/.onemount-tests/.auth_tokens.json; then
           echo "❌ Invalid auth tokens format"
           exit 1
         fi
-
+        
         # Check token expiration
         EXPIRES_AT=$(jq -r '.expires_at // 0' ~/.onemount-tests/.auth_tokens.json)
         CURRENT_TIME=$(date +%s)
-
+        
         if [ "$EXPIRES_AT" -le "$CURRENT_TIME" ]; then
           echo "⚠️  Auth tokens appear to be expired"
           echo "You may need to refresh your local authentication and update the GitHub secret"
         else
           echo "✅ Auth tokens are valid (expires in $((EXPIRES_AT - CURRENT_TIME)) seconds)"
         fi
-
+        
         echo "✅ Personal OneDrive credentials configured"
     
     - name: Verify OneDrive access
       run: |
         # Test that we can access your OneDrive
         ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json)
-
+        
         RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
           "https://graph.microsoft.com/v1.0/me/drive/root")
-
+        
         if echo "$RESPONSE" | jq -e '.id' > /dev/null; then
           echo "✅ OneDrive access verified"
           DRIVE_NAME=$(echo "$RESPONSE" | jq -r '.name // "Unknown"')
@@ -126,9 +113,8 @@ jobs:
         fi
     
     - name: Build OneMount
-      run: |
-        make onemount
-        
+      run: make onemount
+    
     - name: Run system tests
       env:
         TEST_CATEGORY: ${{ github.event.inputs.test_category || 'comprehensive' }}
@@ -169,7 +155,6 @@ jobs:
         name: system-test-logs
         path: |
           ~/.onemount-tests/logs/
-          ~/.onemount-tests/system-test-data/
         retention-days: 7
     
     - name: Cleanup test data
@@ -177,22 +162,36 @@ jobs:
       run: |
         # Clean up test files from your OneDrive
         ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json 2>/dev/null || echo "")
-
+        
         if [ -n "$ACCESS_TOKEN" ] && [ "$ACCESS_TOKEN" != "null" ]; then
           echo "🧹 Cleaning up test data from OneDrive..."
-
+          
           # Delete the test directory
           curl -s -X DELETE \
             -H "Authorization: Bearer $ACCESS_TOKEN" \
             "https://graph.microsoft.com/v1.0/me/drive/root:/onemount_system_tests" || true
-
+          
           echo "✅ Test data cleanup completed"
         fi
-
+        
         # Clean up local test files
         rm -rf ~/.onemount-tests/ || true
-
+        
         # Unmount any remaining FUSE mounts
         fusermount3 -uz ~/.onemount-tests/tmp/system-test-mount 2>/dev/null || true
 
-
+  # Job to provide helpful information if secrets are missing
+  check-setup:
+    runs-on: ubuntu-latest
+    if: ${{ !secrets.ONEDRIVE_PERSONAL_TOKENS }}
+    steps:
+    - name: Setup instructions
+      run: |
+        echo "🔧 Personal OneDrive system tests are not configured"
+        echo ""
+        echo "To enable system tests with your personal OneDrive:"
+        echo "1. Run locally: base64 -w 0 ~/.cache/onemount/auth_tokens.json"
+        echo "2. Go to Settings → Secrets and variables → Actions"
+        echo "3. Add secret: ONEDRIVE_PERSONAL_TOKENS with the base64 output"
+        echo ""
+        echo "See docs/testing/personal-onedrive-ci-setup.md for detailed instructions"
