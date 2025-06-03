@@ -14,7 +14,7 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'Makefile'
-  
+
   # Run on pull requests to main
   pull_request:
     branches: [ main ]
@@ -28,7 +28,7 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'Makefile'
-  
+
   # Allow manual triggering
   workflow_dispatch:
     inputs:
@@ -45,6 +45,9 @@ on:
         options:
           - '24.04'
           - '22.04'
+
+permissions:
+  contents: read
 
 jobs:
   build-ubuntu-packages:

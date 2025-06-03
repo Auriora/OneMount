@@ -10,7 +10,7 @@ on:
       - 'tests/system/**'
       - 'go.mod'
       - 'go.sum'
-  
+
   # Run on pushes to main
   push:
     branches: [ main ]
@@ -20,7 +20,7 @@ on:
       - 'tests/system/**'
       - 'go.mod'
       - 'go.sum'
-  
+
   # Allow manual triggering
   workflow_dispatch:
     inputs:
@@ -36,6 +36,9 @@ on:
           - integration
           - stress
           - all
+
+permissions:
+  contents: read
 
 jobs:
   system-tests:
