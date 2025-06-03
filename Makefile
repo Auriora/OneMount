@@ -1,4 +1,4 @@
-.PHONY: all, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, ubuntu, ubuntu-docker, ubuntu-docker-image, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports, docker-test-build, docker-test-unit, docker-test-integration, docker-test-system, docker-test-all, docker-test-coverage, docker-test-shell, docker-test-clean
+.PHONY: all, build, test, test-init, test-python, unit-test, integration-test, system-test, srpm, rpm, dsc, changes, deb, deb-docker, ubuntu, ubuntu-docker, ubuntu-docker-image, deb-pbuilder, docker-build-image, clean, install, install-system, uninstall, uninstall-system, install-dry-run, install-system-dry-run, uninstall-dry-run, uninstall-system-dry-run, validate-packaging, setup-pbuilder, update-pbuilder, update-imports, docker-test-build, docker-test-unit, docker-test-integration, docker-test-system, docker-test-all, docker-test-coverage, docker-test-shell, docker-test-clean
 
 # auto-calculate software/package versions
 VERSION := $(shell grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
@@ -17,6 +17,8 @@ GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
 TEST_TIMEOUT := 5m
 
 all: onemount onemount-launcher
+
+build: all
 
 
 onemount: $(shell find internal/fs/ pkg/ -type f) cmd/onemount/main.go
