@@ -82,17 +82,62 @@ Always test changes with `--dry-run` first:
 
 ## Git Integration
 
-The configuration is set to:
-- **commit = False** - Manual commits required
-- **tag = False** - Manual tagging required
+The configuration is now set to:
+- **commit = True** - Automatic commits when bumping versions
+- **tag = True** - Automatic git tags when bumping versions
+- **tag_name = v{new_version}** - Tags follow the format `v0.1.0rc1`, `v0.1.0`, etc.
 
-To enable automatic commits and tags, edit `.bumpversion.cfg`:
+When you bump a version, bumpversion will:
+1. Update all configured files with the new version
+2. Create a git commit with the message "Bump version: {old} → {new}"
+3. Create a git tag with the new version (e.g., `v0.1.0rc2`)
 
-```ini
-[bumpversion]
-commit = True
-tag = True
+## Automated Package Building
+
+The project now includes automated package building triggered by version tags:
+
+### How it works:
+1. **Bump the version** using bumpversion (creates a git tag)
+2. **Push the tag** to GitHub: `git push origin --tags`
+3. **GitHub Actions automatically builds** Ubuntu packages
+4. **Creates a GitHub Release** with the built packages attached
+
+### Example workflow:
+```bash
+# Bump to next release candidate
+.venv/bin/bumpversion num  # 0.1.0rc1 → 0.1.0rc2
+
+# Push the new tag to trigger package building
+git push origin --tags
+
+# GitHub will automatically:
+# - Build Ubuntu packages
+# - Run package validation
+# - Create a GitHub release
+# - Upload packages as release assets
 ```
+
+## GitHub Workflows
+
+The project now has separate workflows for different purposes:
+
+### 1. Continuous Integration (`.github/workflows/ci.yml`)
+- **Triggers**: Every push to main (except tags), pull requests
+- **Purpose**: Run tests, linting, and basic builds
+- **Fast feedback** for development
+
+### 2. Package Building (`.github/workflows/build-packages.yml`)
+- **Triggers**: Version tags (e.g., `v0.1.0rc1`, `v0.1.0`)
+- **Purpose**: Build and release Ubuntu packages
+- **Creates GitHub releases** with package assets
+
+### 3. Coverage Analysis (`.github/workflows/coverage.yml`)
+- **Triggers**: Pushes to main
+- **Purpose**: Generate code coverage reports
+
+### 4. System Tests (`.github/workflows/system-tests*.yml`)
+- **Triggers**: Manual or scheduled
+- **Purpose**: End-to-end testing with real OneDrive accounts
 
 ## Current Project Status
 

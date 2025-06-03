@@ -211,6 +211,54 @@ If you're interested in contributing to OneMount or understanding its internals,
 * Running tests
 * Coding standards and best practices
 
+### Release Management
+
+OneMount uses automated release management with version-controlled package building:
+
+#### For Maintainers
+
+**Automated Release Process:**
+```bash
+# Bump version and trigger automated package building
+./scripts/release.sh num          # 0.1.0rc1 → 0.1.0rc2 (release candidate)
+./scripts/release.sh release      # 0.1.0rc1 → 0.1.0 (stable release)
+./scripts/release.sh patch        # 0.1.0 → 0.1.1 (patch release)
+
+# Preview changes without committing
+./scripts/release.sh num --dry-run
+
+# Bump version without triggering package build
+./scripts/release.sh patch --no-push
+```
+
+**What happens automatically:**
+1. **Version bump** - Updates all project files with new version
+2. **Git commit and tag** - Creates commit and version tag (e.g., `v0.1.0rc2`)
+3. **GitHub Actions trigger** - Tag push triggers package building workflow
+4. **Package building** - Builds Ubuntu packages in clean Docker environment
+5. **GitHub Release** - Creates release with packages as downloadable assets
+
+**Manual version management:**
+```bash
+# Using bumpversion directly
+.venv/bin/bumpversion num         # Bump RC number
+.venv/bin/bumpversion release     # Release current RC
+.venv/bin/bumpversion patch       # Bump patch version
+
+# Push tags to trigger package building
+git push origin --tags
+```
+
+#### For Contributors
+
+The project uses separate workflows for different purposes:
+- **CI workflow** (`.github/workflows/ci.yml`) - Runs on every push for testing
+- **Package building** (`.github/workflows/build-packages.yml`) - Runs only on version tags
+- **Coverage analysis** - Tracks code coverage trends
+- **System tests** - End-to-end testing with real OneDrive accounts
+
+See [RELEASE_CANDIDATE_USAGE.md](RELEASE_CANDIDATE_USAGE.md) for detailed version management documentation.
+
 ### Building from source
 
 In addition to the traditional [Go tooling](https://golang.org/dl/), you will
