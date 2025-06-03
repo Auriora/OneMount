@@ -1,8 +1,6 @@
 # Docker Compose configuration for OneMount testing
 # Provides easy test execution with proper volume mounts and networking
 
-version: '3.8'
-
 services:
   # Main test runner service
   test-runner:
@@ -11,10 +9,13 @@ services:
       dockerfile: packaging/docker/Dockerfile.test-runner
     image: onemount-test-runner:latest
     container_name: onemount-test-runner
-    
+
+    # Run as current user to avoid permission issues
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+
     # Mount project source code
     volumes:
-      - .:/workspace:ro
+      - .:/workspace:rw
       # Mount auth tokens for system tests (if available)
       - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
       # Mount test artifacts directory for output
@@ -52,20 +53,32 @@ services:
     extends:
       service: test-runner
     container_name: onemount-unit-tests
-    
+
     # Remove FUSE requirements for unit tests
     devices: []
     cap_add: []
     security_opt: []
-    
-    command: ["unit", "--verbose"]
+
+    # Set verbose mode via environment variable
+    environment:
+      - ONEMOUNT_TEST_TIMEOUT=5m
+      - ONEMOUNT_TEST_VERBOSE=true
+      - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
+
+    command: ["unit"]
 
   # Integration tests
   integration-tests:
     extends:
       service: test-runner
     container_name: onemount-integration-tests
-    command: ["integration", "--verbose"]
+
+    environment:
+      - ONEMOUNT_TEST_TIMEOUT=5m
+      - ONEMOUNT_TEST_VERBOSE=true
+      - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
+
+    command: ["integration"]
 
   # System tests (requires auth tokens)
   system-tests:
@@ -79,7 +92,7 @@ services:
       - ONEMOUNT_TEST_VERBOSE=true
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
     
-    command: ["system", "--verbose", "--timeout", "30m"]
+    command: ["system"]
 
   # Coverage analysis
   coverage:
@@ -89,11 +102,16 @@ services:
     
     # Mount coverage output directory
     volumes:
-      - .:/workspace:ro
+      - .:/workspace:rw
       - ./coverage:/workspace/coverage:rw
       - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
     
-    command: ["coverage", "--verbose"]
+    environment:
+      - ONEMOUNT_TEST_TIMEOUT=5m
+      - ONEMOUNT_TEST_VERBOSE=true
+      - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
+
+    command: ["coverage"]
 
   # Interactive shell for debugging
   shell:

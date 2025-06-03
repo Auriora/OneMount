@@ -43,14 +43,15 @@ RUN go version && echo "Go installation verified for Ubuntu $(lsb_release -rs)"
 
 # Set Go environment
 ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOPATH="/go"
+ENV GOPATH="/home/tester/go"
 ENV GOCACHE="/tmp/go-cache"
 
 # Configure FUSE for testing
 RUN echo 'user_allow_other' >> /etc/fuse.conf
 
-# Create test user with FUSE access
-RUN useradd -m -s /bin/bash -G fuse tester && \
+# Create FUSE group and test user with FUSE access
+RUN groupadd -f fuse && \
+    useradd -m -s /bin/bash -G fuse tester && \
     mkdir -p /workspace && \
     chown tester:tester /workspace
 

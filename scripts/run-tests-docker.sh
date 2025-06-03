@@ -175,33 +175,38 @@ run_tests() {
     local service="$1"
     shift
     local extra_args=("$@")
-    
+
     check_docker_compose
-    
+
     local compose_cmd=$(get_compose_cmd)
     local compose_file="docker-compose.test.yml"
-    
+
     if [[ ! -f "$compose_file" ]]; then
         print_error "Docker Compose file not found: $compose_file"
         exit 1
     fi
-    
+
     # Check if auth tokens exist for system tests
     if [[ "$service" == "system-tests" ]] && [[ ! -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
         print_error "OneDrive auth tokens not found for system tests"
         print_info "Run '$0 setup-auth' for setup instructions"
         exit 1
     fi
-    
+
     print_info "Running $service with Docker Compose..."
-    
+
     # Build image if it doesn't exist or if rebuild requested
     if [[ "$REBUILD" == "true" ]] || ! docker image inspect onemount-test-runner:latest &> /dev/null; then
         build_image
     fi
-    
-    # Run the service
-    if $compose_cmd -f "$compose_file" run --rm "$service" "${extra_args[@]}"; then
+
+    # Set user ID and group ID for permission compatibility
+    export USER_ID=$(id -u)
+    export GROUP_ID=$(id -g)
+
+    # For Docker Compose services, we set environment variables instead of passing args
+    # The services are already configured with the right environment variables
+    if $compose_cmd -f "$compose_file" run --rm "$service"; then
         print_success "$service completed successfully"
     else
         print_error "$service failed"

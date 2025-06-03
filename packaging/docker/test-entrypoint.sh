@@ -78,27 +78,40 @@ EOF
 # Setup function
 setup_environment() {
     print_info "Setting up test environment..."
-    
+
+    # Create home directory if running as different user
+    if [[ ! -d "$HOME" ]]; then
+        print_info "Creating home directory for user $(whoami)..."
+        mkdir -p "$HOME"
+        mkdir -p "$HOME/.cache/go-build"
+        mkdir -p "$HOME/go"
+    fi
+
     # Ensure we're in the workspace
     cd /workspace
-    
+
     # Check if this looks like the OneMount project
     if [[ ! -f "go.mod" ]] || ! grep -q "github.com/auriora/onemount" go.mod; then
         print_error "This doesn't appear to be the OneMount project directory"
         print_error "Please mount the OneMount source code to /workspace"
         exit 1
     fi
-    
+
+    # Set up Go environment for current user
+    export GOPATH="$HOME/go"
+    export GOCACHE="$HOME/.cache/go-build"
+    export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"
+
     # Download dependencies
     print_info "Downloading Go dependencies..."
     go mod download
-    
+
     # Verify FUSE is available
     if [[ ! -e /dev/fuse ]]; then
         print_warning "FUSE device not available - some tests may fail"
         print_warning "Run with --device /dev/fuse --cap-add SYS_ADMIN for full FUSE support"
     fi
-    
+
     print_success "Environment setup complete"
 }
 
