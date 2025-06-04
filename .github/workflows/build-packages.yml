@@ -44,26 +44,49 @@ jobs:
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
-    - name: Configure IPv4-only networking
+
+    - name: Configure Docker for reliability
       run: |
-        # Configure Docker for IPv4-only (South African networks)
+        # Configure Docker daemon for better reliability
         sudo mkdir -p /etc/docker
-        echo '{"ipv6": false, "fixed-cidr": "172.17.0.0/16"}' | sudo tee /etc/docker/daemon.json
+        echo '{
+          "log-driver": "json-file",
+          "log-opts": {
+            "max-size": "10m",
+            "max-file": "3"
+          },
+          "storage-driver": "overlay2"
+        }' | sudo tee /etc/docker/daemon.json
+
+        # Restart Docker daemon
         sudo systemctl restart docker
-        
-        # Wait for Docker to restart
-        sleep 10
+
+        # Wait for Docker to restart and verify
+        sleep 15
         docker info
+        docker version
     
     - name: Build Ubuntu Docker image
       run: |
         echo "Building Ubuntu ${{ matrix.ubuntu_version }} package builder..."
-        docker build \
+
+        # Build with timeout and retry logic
+        timeout 1200 docker build \
           -t onemount-ubuntu-builder \
           -f packaging/docker/Dockerfile.deb-builder \
           --build-arg UBUNTU_VERSION=${{ matrix.ubuntu_version }} \
-          .
+          --progress=plain \
+          --no-cache \
+          . || {
+            echo "First build attempt failed, retrying..."
+            sleep 30
+            timeout 1200 docker build \
+              -t onemount-ubuntu-builder \
+              -f packaging/docker/Dockerfile.deb-builder \
+              --build-arg UBUNTU_VERSION=${{ matrix.ubuntu_version }} \
+              --progress=plain \
+              .
+          }
     
     - name: Verify Docker image
       run: |
@@ -73,7 +96,14 @@ jobs:
     - name: Build Ubuntu packages
       run: |
         chmod +x scripts/build-deb-docker.sh
-        ./scripts/build-deb-docker.sh
+
+        # Run build with timeout
+        timeout 1800 ./scripts/build-deb-docker.sh || {
+          echo "Build failed or timed out"
+          echo "Docker container logs:"
+          docker logs $(docker ps -aq --filter ancestor=onemount-ubuntu-builder) 2>/dev/null || echo "No container logs available"
+          exit 1
+        }
     
     - name: List built packages
       run: |

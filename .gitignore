@@ -44,6 +44,7 @@ debian/*.debhelper
 debian/files
 *.dsc
 *.deb
+*.ddeb
 *.changes
 *.build*
 *.upload
@@ -54,17 +55,10 @@ debian/files
 .config/
 __pycache__
 .auth_tokens.json
-!README.*.md
+!README.*md
 .output.txt
 /coverage.html
-/coverage/coverage.html
-/coverage/coverage.json
-/coverage/coverage-func.txt
-/coverage/coverage-gaps.txt
-/coverage/coverage_history.json
-/coverage/package-analysis.txt
-/coverage/summary.txt
-/coverage/trends.html
+/coverage/
 onemount-test
 onemount-fixed
 /vendor/

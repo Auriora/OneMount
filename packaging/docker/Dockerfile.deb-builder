@@ -7,23 +7,41 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV UBUNTU_VERSION=24.04
 ENV UBUNTU_CODENAME=noble
 
-# Configure IPv4-only networking for South African networks
-RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+# Configure apt for better reliability
+RUN echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80retries && \
+    echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/80retries && \
+    echo 'Acquire::ftp::Timeout "30";' >> /etc/apt/apt.conf.d/80retries
 
-# Install Go and Ubuntu packaging tools
-RUN apt-get update && apt-get install -y \
+# Update package lists with retry logic
+RUN apt-get update --fix-missing || \
+    (sleep 10 && apt-get update --fix-missing) || \
+    (sleep 30 && apt-get update --fix-missing)
+
+# Install Go and Ubuntu packaging tools in stages for better error handling
+RUN apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     golang-go \
     build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     debhelper \
     devscripts \
     dpkg-dev \
     fakeroot \
     pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libwebkit2gtk-4.1-dev \
     rsync \
-    git \
-    lsb-release \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Verify Go version for Ubuntu compatibility

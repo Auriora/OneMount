@@ -101,6 +101,13 @@ print_error() {
 
 cd /build
 
+# Set up environment for build user
+export HOME=/tmp
+export GOPATH=/tmp/go
+export GOCACHE=/tmp/go-cache
+export GOMODCACHE=/tmp/go/pkg/mod
+mkdir -p "$GOPATH" "$GOCACHE" "$GOMODCACHE"
+
 # Get version from spec file
 VERSION=$(grep Version packaging/rpm/onemount.spec | sed 's/Version: *//g')
 RELEASE=$(grep -oP "Release: *[0-9]+" packaging/rpm/onemount.spec | sed 's/Release: *//g')
@@ -161,10 +168,17 @@ chmod +x docker-build-script.sh
 
 # Run the build in Docker
 print_status "Starting Docker build container..."
+# Use host user's UID/GID to avoid permission issues
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
 docker run --rm \
-    --user builder \
+    --user "${HOST_UID}:${HOST_GID}" \
     -v "$(pwd):/build" \
     -w /build \
+    -e HOME=/tmp \
+    -e GOPATH=/tmp/go \
+    -e GOCACHE=/tmp/go-cache \
+    -e GOMODCACHE=/tmp/go/pkg/mod \
     onemount-ubuntu-builder \
     ./docker-build-script.sh
 

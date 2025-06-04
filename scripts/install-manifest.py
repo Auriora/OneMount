@@ -361,9 +361,9 @@ class InstallManifestParser:
             
             if file_info['type'] == 'documentation' and file_info.get('process') == 'gzip':
                 # Documentation is already gzipped in build phase
-                commands.append(f"install -D -m {mode} docs/man/onemount.1.gz $$(pwd)/debian/onemount/{dest}")
+                commands.append(f"install -D -m {mode} docs/man/onemount.1.gz $(pwd)/debian/onemount/{dest}")
             else:
-                commands.append(f"install -D -m {mode} {source} $$(pwd)/debian/onemount/{dest}")
+                commands.append(f"install -D -m {mode} {source} $(pwd)/debian/onemount/{dest}")
         
         return commands
     
