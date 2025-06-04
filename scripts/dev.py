@@ -53,6 +53,7 @@ from commands.github_commands import github_app
 from commands.deploy_commands import deploy_app
 from commands.analyze_commands import analyze_app
 from commands.clean_commands import clean_app
+from commands.ci_commands import ci_app
 
 # Import utilities
 from utils.environment import show_environment_info
@@ -75,6 +76,7 @@ app.add_typer(github_app, name="github", help="🐙 GitHub integration and issue
 app.add_typer(deploy_app, name="deploy", help="🚢 Deployment and CI/CD operations")
 app.add_typer(analyze_app, name="analyze", help="📊 Code and project analysis tools")
 app.add_typer(clean_app, name="clean", help="🧹 Cleanup operations")
+app.add_typer(ci_app, name="ci", help="🔄 CI setup and management")
 
 
 @app.command()

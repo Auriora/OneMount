@@ -19,6 +19,7 @@ from utils.paths import ensure_coverage_directories, get_project_paths
 from utils.shell import run_command, run_command_with_progress, run_script, ensure_executable
 from utils.coverage_reporter import generate_coverage_report
 from utils.system_test_runner import run_system_tests
+from utils.docker_test_runner import run_docker_tests, build_docker_image, clean_docker_resources, show_docker_auth_help
 
 console = Console()
 
@@ -129,63 +130,235 @@ def system(
     console.print("[green]✅ System tests completed successfully![/green]")
 
 
-@test_app.command()
-def docker(
+# Docker test commands
+docker_app = typer.Typer(help="🐳 Docker test orchestration commands")
+test_app.add_typer(docker_app, name="docker")
+
+
+@docker_app.command()
+def unit(
     ctx: typer.Context,
-    command: str = typer.Argument(help="Docker test command (build/unit/integration/system/all/coverage/shell/clean)"),
     rebuild: bool = typer.Option(False, "--rebuild", help="Force rebuild of Docker image"),
-    timeout: Optional[str] = typer.Option(None, help="Test timeout duration"),
+    timeout: Optional[str] = typer.Option(None, "--timeout", help="Test timeout duration"),
+    sequential: bool = typer.Option(False, "--sequential", help="Run tests sequentially"),
+    clean: bool = typer.Option(False, "--clean", help="Clean up Docker resources after tests"),
 ):
     """
-    🐳 Run tests in Docker containers.
-    
-    Provides isolated test environments using Docker containers.
-    Useful for testing in clean environments and CI/CD.
+    🧪 Run unit tests in Docker container.
+
+    Runs unit tests in an isolated Docker environment with all dependencies.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
-    
+
     if not ensure_environment():
         raise typer.Exit(1)
-    
-    valid_commands = ["build", "unit", "integration", "system", "all", "coverage", "shell", "clean"]
-    if command not in valid_commands:
-        console.print(f"[red]Invalid command: {command}. Must be one of: {', '.join(valid_commands)}[/red]")
+
+    console.print("[blue]Running unit tests in Docker...[/blue]")
+
+    success = run_docker_tests(
+        test_type="unit",
+        rebuild=rebuild,
+        timeout=timeout,
+        verbose=verbose,
+        sequential=sequential,
+        clean=clean
+    )
+
+    if not success:
         raise typer.Exit(1)
-    
-    console.print(f"[blue]Running Docker test command: {command}[/blue]")
-    
-    paths = get_project_paths()
-    script_path = paths["legacy_scripts"]["run_tests_docker"]
-    
-    if not script_path.exists():
-        console.print(f"[red]Docker test script not found: {script_path}[/red]")
+
+
+@docker_app.command()
+def integration(
+    ctx: typer.Context,
+    rebuild: bool = typer.Option(False, "--rebuild", help="Force rebuild of Docker image"),
+    timeout: Optional[str] = typer.Option(None, "--timeout", help="Test timeout duration"),
+    sequential: bool = typer.Option(False, "--sequential", help="Run tests sequentially"),
+    clean: bool = typer.Option(False, "--clean", help="Clean up Docker resources after tests"),
+):
+    """
+    🧪 Run integration tests in Docker container.
+
+    Runs integration tests in an isolated Docker environment.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
         raise typer.Exit(1)
-    
-    # Build command arguments
-    args = [command]
-    
-    if verbose:
-        args.append("--verbose")
-    if timeout:
-        args.extend(["--timeout", timeout])
-    if rebuild:
-        args.append("--rebuild")
-    
-    ensure_executable(script_path)
-    
-    try:
-        run_command_with_progress(
-            [str(script_path)] + args,
-            f"Running Docker test: {command}",
-            verbose=verbose,
-            timeout=None,  # Use script's own timeout
-        )
-        
-        console.print("[green]✅ Docker tests completed successfully![/green]")
-    
-    except Exception as e:
-        console.print(f"[red]Docker tests failed: {e}[/red]")
+
+    console.print("[blue]Running integration tests in Docker...[/blue]")
+
+    success = run_docker_tests(
+        test_type="integration",
+        rebuild=rebuild,
+        timeout=timeout,
+        verbose=verbose,
+        sequential=sequential,
+        clean=clean
+    )
+
+    if not success:
         raise typer.Exit(1)
+
+
+@docker_app.command()
+def system(
+    ctx: typer.Context,
+    rebuild: bool = typer.Option(False, "--rebuild", help="Force rebuild of Docker image"),
+    timeout: Optional[str] = typer.Option(None, "--timeout", help="Test timeout duration"),
+    sequential: bool = typer.Option(False, "--sequential", help="Run tests sequentially"),
+    clean: bool = typer.Option(False, "--clean", help="Clean up Docker resources after tests"),
+):
+    """
+    🧪 Run system tests in Docker container.
+
+    Runs system tests with real OneDrive integration in Docker.
+    Requires authentication tokens to be set up.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    console.print("[blue]Running system tests in Docker...[/blue]")
+
+    success = run_docker_tests(
+        test_type="system",
+        rebuild=rebuild,
+        timeout=timeout,
+        verbose=verbose,
+        sequential=sequential,
+        clean=clean
+    )
+
+    if not success:
+        raise typer.Exit(1)
+
+
+@docker_app.command()
+def all(
+    ctx: typer.Context,
+    rebuild: bool = typer.Option(False, "--rebuild", help="Force rebuild of Docker image"),
+    timeout: Optional[str] = typer.Option(None, "--timeout", help="Test timeout duration"),
+    sequential: bool = typer.Option(False, "--sequential", help="Run tests sequentially"),
+    clean: bool = typer.Option(False, "--clean", help="Clean up Docker resources after tests"),
+):
+    """
+    🧪 Run all tests in Docker container.
+
+    Runs unit, integration, and system tests in Docker.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    console.print("[blue]Running all tests in Docker...[/blue]")
+
+    success = run_docker_tests(
+        test_type="all",
+        rebuild=rebuild,
+        timeout=timeout,
+        verbose=verbose,
+        sequential=sequential,
+        clean=clean
+    )
+
+    if not success:
+        raise typer.Exit(1)
+
+
+@docker_app.command()
+def coverage(
+    ctx: typer.Context,
+    rebuild: bool = typer.Option(False, "--rebuild", help="Force rebuild of Docker image"),
+    timeout: Optional[str] = typer.Option(None, "--timeout", help="Test timeout duration"),
+    sequential: bool = typer.Option(False, "--sequential", help="Run tests sequentially"),
+    clean: bool = typer.Option(False, "--clean", help="Clean up Docker resources after tests"),
+):
+    """
+    📊 Run tests with coverage analysis in Docker.
+
+    Runs tests with coverage analysis in Docker and generates reports.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    console.print("[blue]Running coverage analysis in Docker...[/blue]")
+
+    success = run_docker_tests(
+        test_type="coverage",
+        rebuild=rebuild,
+        timeout=timeout,
+        verbose=verbose,
+        sequential=sequential,
+        clean=clean
+    )
+
+    if not success:
+        raise typer.Exit(1)
+
+
+@docker_app.command()
+def build(
+    ctx: typer.Context,
+    no_cache: bool = typer.Option(False, "--no-cache", help="Force rebuild without cache"),
+):
+    """
+    🔨 Build Docker test image.
+
+    Builds the OneMount test Docker image.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    console.print("[blue]Building Docker test image...[/blue]")
+
+    success = build_docker_image(no_cache=no_cache, verbose=verbose)
+
+    if not success:
+        raise typer.Exit(1)
+
+    console.print("[green]✅ Docker image built successfully![/green]")
+
+
+@docker_app.command()
+def clean(
+    ctx: typer.Context,
+):
+    """
+    🧹 Clean up Docker test resources.
+
+    Removes Docker containers, images, and test artifacts.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    console.print("[blue]Cleaning up Docker test resources...[/blue]")
+
+    success = clean_docker_resources(verbose=verbose)
+
+    if not success:
+        raise typer.Exit(1)
+
+    console.print("[green]✅ Docker cleanup completed![/green]")
+
+
+@docker_app.command()
+def setup_auth():
+    """
+    🔐 Show authentication setup help for Docker system tests.
+
+    Displays instructions for setting up OneDrive authentication tokens.
+    """
+    show_docker_auth_help()
+
 
 
 @test_app.command()

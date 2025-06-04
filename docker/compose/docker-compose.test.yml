@@ -15,11 +15,9 @@ services:
 
     # Mount project source code
     volumes:
-      - .:/workspace:rw
-      # Mount auth tokens for system tests (if available)
-      - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
+      - ../..:/workspace:rw
       # Mount test artifacts directory for output
-      - ./test-artifacts:/home/tester/.onemount-tests:rw
+      - ../../test-artifacts:/home/tester/.onemount-tests:rw
     
     # Enable FUSE support for filesystem testing
     devices:
@@ -85,13 +83,19 @@ services:
     extends:
       service: test-runner
     container_name: onemount-system-tests
-    
+
+    # Mount auth tokens for system tests
+    volumes:
+      - ../..:/workspace:rw
+      - ../../test-artifacts:/home/tester/.onemount-tests:rw
+      - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
+
     # Longer timeout for system tests
     environment:
       - ONEMOUNT_TEST_TIMEOUT=30m
       - ONEMOUNT_TEST_VERBOSE=true
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
-    
+
     command: ["system"]
 
   # Coverage analysis
@@ -100,10 +104,11 @@ services:
       service: test-runner
     container_name: onemount-coverage
     
-    # Mount coverage output directory
+    # Mount coverage output directory and auth tokens
     volumes:
-      - .:/workspace:rw
-      - ./coverage:/workspace/coverage:rw
+      - ../..:/workspace:rw
+      - ../../coverage:/workspace/coverage:rw
+      - ../../test-artifacts:/home/tester/.onemount-tests:rw
       - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
     
     environment:
