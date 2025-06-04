@@ -18,6 +18,7 @@ from utils.environment import ensure_environment
 from utils.paths import ensure_coverage_directories, get_project_paths
 from utils.shell import run_command, run_command_with_progress, run_script, ensure_executable
 from utils.coverage_reporter import generate_coverage_report
+from utils.system_test_runner import run_system_tests
 
 console = Console()
 
@@ -98,53 +99,34 @@ def system(
 ):
     """
     🧪 Run system tests with real OneDrive integration.
-    
+
     Runs comprehensive system tests using a real OneDrive account.
     Requires authentication tokens to be set up.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
-    
+
     if not ensure_environment():
         raise typer.Exit(1)
-    
+
     valid_categories = ["comprehensive", "performance", "reliability", "integration", "stress", "all"]
     if category not in valid_categories:
         console.print(f"[red]Invalid category: {category}. Must be one of: {', '.join(valid_categories)}[/red]")
         raise typer.Exit(1)
-    
+
     console.print(f"[blue]Running {category} system tests...[/blue]")
-    
-    paths = get_project_paths()
-    script_path = paths["legacy_scripts"]["run_system_tests"]
-    
-    if not script_path.exists():
-        console.print(f"[red]System test script not found: {script_path}[/red]")
+
+    # Use native Python system test runner
+    success = run_system_tests(
+        category=category,
+        timeout=timeout,
+        verbose=verbose
+    )
+
+    if not success:
+        console.print("[red]System tests failed[/red]")
         raise typer.Exit(1)
-    
-    # Build command arguments
-    args = [
-        "--timeout", timeout,
-        f"--{category}",
-    ]
-    
-    if verbose:
-        args.append("--verbose")
-    
-    ensure_executable(script_path)
-    
-    try:
-        run_command_with_progress(
-            [str(script_path)] + args,
-            f"Running {category} system tests",
-            verbose=verbose,
-            timeout=None,  # Use script's own timeout
-        )
-        
-        console.print("[green]✅ System tests completed successfully![/green]")
-    
-    except Exception as e:
-        console.print(f"[red]System tests failed: {e}[/red]")
-        raise typer.Exit(1)
+
+    console.print("[green]✅ System tests completed successfully![/green]")
 
 
 @test_app.command()

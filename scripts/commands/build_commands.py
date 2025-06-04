@@ -18,6 +18,7 @@ from utils.environment import ensure_environment
 from utils.paths import ensure_build_directories, get_project_paths
 from utils.shell import run_command, run_command_with_progress, run_script, ensure_executable
 from utils.docker_build import build_debian_package_docker
+from utils.native_build import build_debian_package_native
 
 console = Console()
 
@@ -80,34 +81,16 @@ def deb(
         
     elif native:
         console.print("[blue]Building Debian package natively...[/blue]")
-        
-        # Check for required tools
-        required_tools = ["dpkg-buildpackage", "debuild", "go"]
-        missing_tools = []
-        
-        import shutil
-        for tool in required_tools:
-            if not shutil.which(tool):
-                missing_tools.append(tool)
-        
-        if missing_tools:
-            console.print(f"[red]Missing required tools: {', '.join(missing_tools)}[/red]")
-            console.print("Install with: sudo apt-get install build-essential devscripts golang-go")
-            raise typer.Exit(1)
-        
-        script_path = paths["legacy_scripts"]["build_deb_native"]
-        
-        if not script_path.exists():
-            console.print(f"[red]Script not found: {script_path}[/red]")
-            raise typer.Exit(1)
-        
-        ensure_executable(script_path)
-        run_command_with_progress(
-            [str(script_path)],
-            "Building Debian package natively",
+
+        # Use native Python implementation
+        success = build_debian_package_native(
             verbose=verbose,
-            timeout=1800,  # 30 minutes
+            clean=clean
         )
+
+        if not success:
+            console.print("[red]Native build failed[/red]")
+            raise typer.Exit(1)
     
     # Show build results
     console.print("\n[green]✅ Build completed successfully![/green]")
