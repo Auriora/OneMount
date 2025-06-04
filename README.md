@@ -217,9 +217,23 @@ OneMount uses automated release management with version-controlled package build
 
 #### For Maintainers
 
-**Automated Release Process:**
+**Automated Release Process (using CLI tool - recommended):**
 ```bash
 # Bump version and trigger automated package building
+./scripts/onemount-dev.py release bump num          # 0.1.0rc1 → 0.1.0rc2 (release candidate)
+./scripts/onemount-dev.py release bump release      # 0.1.0rc1 → 0.1.0 (stable release)
+./scripts/onemount-dev.py release bump patch        # 0.1.0 → 0.1.1 (patch release)
+
+# Preview changes without committing
+./scripts/onemount-dev.py release bump num --dry-run
+
+# Bump version without triggering package build
+./scripts/onemount-dev.py release bump patch --no-push
+```
+
+**Legacy release process (still supported):**
+```bash
+# Using the original script
 ./scripts/release.sh num          # 0.1.0rc1 → 0.1.0rc2 (release candidate)
 ./scripts/release.sh release      # 0.1.0rc1 → 0.1.0 (stable release)
 ./scripts/release.sh patch        # 0.1.0 → 0.1.1 (patch release)
@@ -289,6 +303,47 @@ fusermount3 -uz mount
 # you can also just "ctrl-c" OneMount to unmount it
 ```
 
+### Development CLI Tool
+
+OneMount includes a unified development CLI tool that consolidates all development, build, testing, and deployment operations:
+
+```bash
+# Install CLI dependencies (first time only)
+pip install -r scripts/requirements-dev-cli.txt
+
+# Check development environment status
+./scripts/dev info
+
+# Build packages
+./scripts/dev build deb --docker
+
+# Run tests with coverage
+./scripts/dev test coverage --threshold-line 85
+./scripts/dev test system --category comprehensive
+
+# Analyze code quality
+./scripts/dev analyze test-suite --mode resolve
+
+# Release management
+./scripts/dev release bump patch --dry-run
+
+# Cleanup operations
+./scripts/dev clean all
+
+# Get help for any command
+./scripts/dev --help
+./scripts/dev build --help
+```
+
+The CLI tool provides:
+- **Unified interface** for all development operations
+- **Rich terminal output** with colors and progress indicators
+- **Built-in help** with examples for every command
+- **Error handling** with prerequisite checking
+- **Organized commands** in logical groups (build, test, release, github, analyze, deploy)
+
+For detailed CLI documentation, see [Development CLI Guide](scripts/README.md).
+
 ### Running the tests
 
 The tests will write and delete files/folders on your onedrive account at the
@@ -313,6 +368,11 @@ make system-test-real
 
 # run all system test categories
 make system-test-all
+
+# Using the new CLI tool (recommended)
+./scripts/dev test coverage --threshold-line 80
+./scripts/dev test system --category comprehensive
+./scripts/dev test docker all --verbose
 ```
 
 The test suite includes:

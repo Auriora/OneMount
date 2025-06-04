@@ -56,7 +56,79 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
 - **zerolog** - Structured logging
 - **testify** - Testing framework
 
+## Development CLI Tool
+
+OneMount includes a unified development CLI tool that consolidates all development, build, testing, and deployment operations. This is the recommended way to perform development tasks.
+
+### Setup
+
+```bash
+# Install CLI dependencies (first time only)
+pip install -r scripts/requirements-dev-cli.txt
+
+# Make the CLI tool executable
+chmod +x scripts/dev.py
+
+# Check development environment status
+./scripts/dev info
+```
+
+### Common Development Tasks
+
+```bash
+# Build packages
+./scripts/dev build deb --docker          # Build Debian packages with Docker
+./scripts/dev build deb --native          # Build Debian packages natively
+
+# Run tests
+./scripts/dev test coverage --threshold-line 85    # Generate coverage reports
+./scripts/dev test system --category comprehensive # Run system tests
+./scripts/dev test docker all --verbose           # Run all tests in Docker
+
+# Code analysis
+./scripts/dev analyze test-suite --mode resolve    # Analyze and fix test issues
+./scripts/dev analyze coverage-trends             # Analyze coverage trends
+
+# Release management
+./scripts/dev release bump patch --dry-run        # Preview version bump
+./scripts/dev release bump num                    # Bump release candidate
+
+# GitHub integration
+./scripts/dev github create-issues --dry-run      # Preview GitHub issue creation
+./scripts/dev github implement 123               # Implement GitHub issue #123
+
+# Cleanup operations
+./scripts/dev clean list                          # List cleanable artifacts
+./scripts/dev clean all                           # Clean all artifacts
+
+# Get help
+./scripts/dev --help                             # General help
+./scripts/dev build --help                       # Build command help
+```
+
+The CLI tool provides:
+- **Unified interface** for all development operations
+- **Rich terminal output** with colors and progress indicators
+- **Built-in help** with examples for every command
+- **Error handling** with prerequisite checking
+- **Organized commands** in logical groups
+
+For detailed CLI documentation, see [Development CLI Guide](../scripts/README.md).
+
 ## Building the Project
+
+### Using the CLI Tool (Recommended)
+
+```bash
+# Build packages using the CLI tool
+./scripts/dev build deb --docker    # Docker-based build (recommended)
+./scripts/dev build deb --native    # Native build
+
+# Install using manifest
+./scripts/dev build manifest --target makefile --type user --action install
+```
+
+### Using Make (Traditional)
 
 ```bash
 # Build the main binaries
@@ -75,6 +147,27 @@ make update-imports
 
 ## Running Tests
 
+### Using the CLI Tool (Recommended)
+
+```bash
+# Run tests with coverage analysis
+./scripts/dev test coverage --threshold-line 80 --threshold-func 90
+
+# Run system tests
+./scripts/dev test system --category comprehensive --verbose
+./scripts/dev test system --category performance --timeout 20m
+
+# Run tests in Docker containers
+./scripts/dev test docker unit --verbose
+./scripts/dev test docker all --rebuild
+
+# Analyze test suite
+./scripts/dev analyze test-suite --mode analyze
+./scripts/dev analyze test-suite --mode resolve
+```
+
+### Using Make (Traditional)
+
 ```bash
 # Setup test environment (first time only)
 make test-init
@@ -86,6 +179,10 @@ make test
 go test ./internal/fs/...
 go test ./cmd/...
 go test ./internal/ui/...
+
+# Run system tests
+make system-test-real
+make system-test-all
 ```
 
 ### JetBrains GoLand Run Configurations

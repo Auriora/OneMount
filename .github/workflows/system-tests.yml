@@ -56,11 +56,21 @@ jobs:
       with:
         go-version: '1.21'
         cache: true
-    
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y fuse3 libfuse3-dev libwebkit2gtk-4.1-dev pkg-config
+
+    - name: Install CLI dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements-dev-cli.txt
     
     - name: Set up personal OneDrive credentials
       env:
@@ -119,28 +129,28 @@ jobs:
       env:
         TEST_CATEGORY: ${{ github.event.inputs.test_category || 'comprehensive' }}
       run: |
-        # Make script executable
-        chmod +x scripts/run-system-tests.sh
-        
-        # Run tests with appropriate timeout
+        # Make CLI tool executable
+        chmod +x scripts/dev
+
+        # Run tests with appropriate timeout using the new CLI tool
         case "$TEST_CATEGORY" in
           "comprehensive")
-            timeout 15m ./scripts/run-system-tests.sh --comprehensive --verbose
+            timeout 15m ./scripts/dev test system --category comprehensive --verbose --timeout 15m
             ;;
           "performance")
-            timeout 20m ./scripts/run-system-tests.sh --performance --verbose
+            timeout 20m ./scripts/dev test system --category performance --verbose --timeout 20m
             ;;
           "reliability")
-            timeout 10m ./scripts/run-system-tests.sh --reliability --verbose
+            timeout 10m ./scripts/dev test system --category reliability --verbose --timeout 10m
             ;;
           "integration")
-            timeout 10m ./scripts/run-system-tests.sh --integration --verbose
+            timeout 10m ./scripts/dev test system --category integration --verbose --timeout 10m
             ;;
           "stress")
-            timeout 25m ./scripts/run-system-tests.sh --stress --verbose
+            timeout 25m ./scripts/dev test system --category stress --verbose --timeout 25m
             ;;
           "all")
-            timeout 45m ./scripts/run-system-tests.sh --all --verbose
+            timeout 45m ./scripts/dev test system --category all --verbose --timeout 45m
             ;;
           *)
             echo "Unknown test category: $TEST_CATEGORY"

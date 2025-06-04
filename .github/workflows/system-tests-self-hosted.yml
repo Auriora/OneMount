@@ -24,6 +24,16 @@ jobs:
       with:
         go-version: '1.21'
         cache: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install CLI dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements-dev-cli.txt
     
     - name: Verify test credentials
       run: |
@@ -46,8 +56,8 @@ jobs:
     
     - name: Run all system tests
       run: |
-        chmod +x scripts/run-system-tests.sh
-        ./scripts/run-system-tests.sh --all --verbose
+        chmod +x scripts/onemount-dev.py
+        ./scripts/onemount-dev.py test system --category all --verbose --timeout 45m
     
     - name: Upload test logs
       if: always()

@@ -42,7 +42,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install matplotlib pandas numpy jinja2
+        pip install -r scripts/requirements-dev-cli.txt
     
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -62,13 +62,13 @@ jobs:
     
     - name: Generate coverage reports
       run: |
-        chmod +x scripts/coverage-report.sh
-        bash scripts/coverage-report.sh --ci
-    
+        chmod +x scripts/dev
+        ./scripts/dev test coverage --ci
+
     - name: Generate coverage trends
       run: |
         if [ -f coverage/coverage_history.json ]; then
-          python3 scripts/coverage-trend-analysis.py \
+          ./scripts/dev analyze coverage-trends \
             --input coverage/coverage_history.json \
             --output coverage/trends.html
         fi

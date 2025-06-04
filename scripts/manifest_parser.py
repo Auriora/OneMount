@@ -2,22 +2,11 @@
 """
 OneMount Installation Manifest Parser
 
-This script parses the installation manifest and generates installation/uninstallation
+This module parses the installation manifest and generates installation/uninstallation
 commands for different packaging systems (Makefile, RPM, Debian, etc.).
-
-Usage:
-    python3 scripts/install-manifest.py --target makefile --type user --action install
-    python3 scripts/install-manifest.py --target makefile --type user --action install --dry-run
-    python3 scripts/install-manifest.py --target rpm --action install
-    python3 scripts/install-manifest.py --target debian --action install
-    python3 scripts/install-manifest.py --target makefile --type user --action uninstall
-    python3 scripts/install-manifest.py --target makefile --type user --action uninstall --dry-run
-    python3 scripts/install-manifest.py --target makefile --action validate
 """
 
-import argparse
 import os
-import sys
 import json
 from pathlib import Path
 
@@ -235,7 +224,7 @@ class InstallManifestParser:
         commands.append(colored_echo(f"OneMount ({install_desc}) installation completed successfully!", Colors.BOLD + Colors.GREEN))
 
         return commands
-    
+
     def generate_makefile_uninstall(self, install_type, dry_run=False):
         """Generate Makefile uninstall commands"""
         commands = []
@@ -299,74 +288,74 @@ class InstallManifestParser:
         commands.append(colored_echo(f"OneMount ({install_desc}) uninstallation completed successfully!", Colors.BOLD + Colors.GREEN))
 
         return commands
-    
+
     def generate_rpm_install(self):
         """Generate RPM spec install commands"""
         commands = []
-        
+
         # Create directories
         directories = self.manifest['directories']['package']
         for directory in directories:
             commands.append(f"mkdir -p %{{buildroot}}/{directory}")
-        
+
         # Install files
         files = self.get_all_files('package')
         for file_info in files:
             source = file_info['source']
             dest = file_info['dest']
-            
+
             if file_info['type'] == 'documentation' and file_info.get('process') == 'gzip':
                 # Documentation is already gzipped in build phase
                 commands.append(f"cp docs/man/%{{name}}.1.gz %{{buildroot}}/{dest}")
             else:
                 commands.append(f"cp {source} %{{buildroot}}/{dest}")
-        
+
         return commands
-    
+
     def generate_rpm_files(self):
         """Generate RPM spec files section"""
         commands = []
         commands.append("%defattr(-,root,root,-)")
-        
+
         files = self.get_all_files('package')
         icon_dirs = set()
-        
+
         for file_info in files:
             dest = file_info['dest']
             mode = file_info['mode']
-            
+
             if file_info['type'] == 'icon':
                 icon_dirs.add(os.path.dirname(dest))
-            
+
             if file_info['type'] in ['binary']:
                 commands.append(f"%attr({mode}, root, root) /{dest}")
             else:
                 commands.append(f"%attr({mode}, root, root) /{dest}")
-        
+
         # Add icon directories
         for icon_dir in sorted(icon_dirs):
             commands.append(f"%dir /{icon_dir}")
-        
+
         return commands
-    
+
     def generate_debian_install(self):
         """Generate Debian rules install commands"""
         commands = []
-        
+
         files = self.get_all_files('package')
         for file_info in files:
             source = file_info['source']
             dest = file_info['dest']
             mode = file_info['mode']
-            
+
             if file_info['type'] == 'documentation' and file_info.get('process') == 'gzip':
                 # Documentation is already gzipped in build phase
                 commands.append(f"install -D -m {mode} docs/man/onemount.1.gz $(pwd)/debian/onemount/{dest}")
             else:
                 commands.append(f"install -D -m {mode} {source} $(pwd)/debian/onemount/{dest}")
-        
+
         return commands
-    
+
     def generate_validation(self):
         """Generate validation commands for required source files"""
         commands = []
@@ -398,67 +387,3 @@ class InstallManifestParser:
         commands.append(colored_echo("All source files validated successfully!", Colors.BOLD + Colors.GREEN))
 
         return commands
-
-def main():
-    parser = argparse.ArgumentParser(description='Parse OneMount installation manifest')
-    parser.add_argument('--target', choices=['makefile', 'rpm', 'debian'], required=True,
-                       help='Target packaging system')
-    parser.add_argument('--type', choices=['user', 'system'], 
-                       help='Installation type (required for makefile target)')
-    parser.add_argument('--action', choices=['install', 'uninstall', 'validate', 'files'], required=True,
-                       help='Action to generate')
-    parser.add_argument('--dry-run', action='store_true',
-                       help='Show what would be done without actually doing it')
-    
-    args = parser.parse_args()
-    
-    # Validate arguments
-    if args.target == 'makefile' and args.action in ['install', 'uninstall'] and not args.type:
-        print("Error: --type is required for makefile install/uninstall actions", file=sys.stderr)
-        sys.exit(1)
-    
-    # Find manifest file
-    script_dir = Path(__file__).parent
-    manifest_path = script_dir.parent / 'packaging' / 'install-manifest.json'
-    
-    if not manifest_path.exists():
-        print(f"Error: Manifest file not found at {manifest_path}", file=sys.stderr)
-        sys.exit(1)
-    
-    # Parse manifest and generate commands
-    parser_obj = InstallManifestParser(manifest_path)
-    
-    try:
-        if args.target == 'makefile':
-            if args.action == 'install':
-                commands = parser_obj.generate_makefile_install(args.type, args.dry_run)
-            elif args.action == 'uninstall':
-                commands = parser_obj.generate_makefile_uninstall(args.type, args.dry_run)
-            elif args.action == 'validate':
-                commands = parser_obj.generate_validation()
-        
-        elif args.target == 'rpm':
-            if args.action == 'install':
-                commands = parser_obj.generate_rpm_install()
-            elif args.action == 'files':
-                commands = parser_obj.generate_rpm_files()
-        
-        elif args.target == 'debian':
-            if args.action == 'install':
-                commands = parser_obj.generate_debian_install()
-
-        # Handle dry-run differently - print directly instead of generating shell commands
-        if args.dry_run:
-            for line in commands:
-                print(line)
-        else:
-            # Output commands for other actions
-            for command in commands:
-                print(command)
-    
-    except Exception as e:
-        print(f"Error generating commands: {e}", file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main()

@@ -93,12 +93,17 @@ jobs:
         docker run --rm onemount-ubuntu-builder go version
         docker run --rm onemount-ubuntu-builder lsb_release -a
     
+    - name: Install CLI dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements-dev-cli.txt
+
     - name: Build Ubuntu packages
       run: |
-        chmod +x scripts/build-deb-docker.sh
+        chmod +x scripts/dev
 
         # Run build with timeout
-        timeout 1800 ./scripts/build-deb-docker.sh || {
+        timeout 1800 ./scripts/dev build deb --docker || {
           echo "Build failed or timed out"
           echo "Docker container logs:"
           docker logs $(docker ps -aq --filter ancestor=onemount-ubuntu-builder) 2>/dev/null || echo "No container logs available"

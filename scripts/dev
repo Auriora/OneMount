@@ -1,0 +1,27 @@
+#!/bin/bash
+# OneMount Development CLI Wrapper
+# This script activates the virtual environment and runs the development CLI
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Virtual environment path
+VENV_PATH="$PROJECT_ROOT/.venv"
+
+# Check if virtual environment exists
+if [ ! -d "$VENV_PATH" ]; then
+    echo "Virtual environment not found at $VENV_PATH"
+    echo "Creating virtual environment..."
+    python3 -m venv "$VENV_PATH"
+    
+    echo "Installing dependencies..."
+    source "$VENV_PATH/bin/activate"
+    pip install -r "$SCRIPT_DIR/requirements-dev-cli.txt"
+fi
+
+# Activate virtual environment and run the CLI
+source "$VENV_PATH/bin/activate"
+exec python "$SCRIPT_DIR/dev.py" "$@"

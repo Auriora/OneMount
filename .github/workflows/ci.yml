@@ -47,7 +47,12 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
-    
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -55,6 +60,11 @@ jobs:
           libgtk-3-dev \
           libwebkit2gtk-4.1-dev \
           pkg-config
+
+    - name: Install CLI dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements-dev-cli.txt
     
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -66,7 +76,13 @@ jobs:
     
     - name: Download dependencies
       run: go mod download
-    
+
+    - name: Validate CLI tool
+      run: |
+        chmod +x scripts/dev
+        ./scripts/dev info
+        python3 scripts/test-dev-cli.py
+
     - name: Run tests
       run: make test
     

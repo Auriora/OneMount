@@ -55,44 +55,44 @@ onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemo
 
 
 install: onemount onemount-launcher
-	@python3 scripts/install-manifest.py --target makefile --type user --action install | bash
+	@./scripts/dev build manifest --target makefile --type user --action install | bash
 
 
 install-system: onemount onemount-launcher
-	@python3 scripts/install-manifest.py --target makefile --type system --action install | bash
+	@./scripts/dev build manifest --target makefile --type system --action install | bash
 
 
 uninstall:
-	@python3 scripts/install-manifest.py --target makefile --type user --action uninstall | bash
+	@./scripts/dev build manifest --target makefile --type user --action uninstall | bash
 
 
 uninstall-system:
-	@python3 scripts/install-manifest.py --target makefile --type system --action uninstall | bash
+	@./scripts/dev build manifest --target makefile --type system --action uninstall | bash
 
 
 # Show what would be installed for user installation (dry run)
 install-dry-run: onemount onemount-launcher
-	@python3 scripts/install-manifest.py --target makefile --type user --action install --dry-run
+	@./scripts/dev build manifest --target makefile --type user --action install --dry-run
 
 
 # Show what would be installed for system installation (dry run)
 install-system-dry-run: onemount onemount-launcher
-	@python3 scripts/install-manifest.py --target makefile --type system --action install --dry-run
+	@./scripts/dev build manifest --target makefile --type system --action install --dry-run
 
 
 # Show what would be uninstalled for user installation (dry run)
 uninstall-dry-run:
-	@python3 scripts/install-manifest.py --target makefile --type user --action uninstall --dry-run
+	@./scripts/dev build manifest --target makefile --type user --action uninstall --dry-run
 
 
 # Show what would be uninstalled for system installation (dry run)
 uninstall-system-dry-run:
-	@python3 scripts/install-manifest.py --target makefile --type system --action uninstall --dry-run
+	@./scripts/dev build manifest --target makefile --type system --action uninstall --dry-run
 
 
 # Validate packaging requirements
 validate-packaging:
-	@python3 scripts/install-manifest.py --target makefile --action validate | bash
+	@./scripts/dev build manifest --target makefile --action validate | bash
 	@test -f scripts/cgo-helper.sh || (echo "Error: cgo-helper.sh script not found" && exit 1)
 
 # Setup pbuilder environment for building packages (legacy)
@@ -121,7 +121,7 @@ docker-build-image:
 deb-docker: ubuntu-docker
 ubuntu-docker: validate-packaging
 	@echo "Building Ubuntu packages using Docker..."
-	./scripts/build-deb-docker.sh
+	./scripts/dev build deb --docker
 
 # Build Ubuntu Docker image
 ubuntu-docker-image:
@@ -232,32 +232,32 @@ system-test:
 # Run comprehensive system tests with real OneDrive account
 system-test-real:
 	@echo "Running comprehensive system tests with real OneDrive account..."
-	./scripts/run-system-tests.sh --comprehensive
+	./scripts/dev test system --category comprehensive
 
 # Run all system test categories with real OneDrive account
 system-test-all:
 	@echo "Running all system test categories with real OneDrive account..."
-	./scripts/run-system-tests.sh --all
+	./scripts/dev test system --category all
 
 # Run performance system tests
 system-test-performance:
 	@echo "Running performance system tests..."
-	./scripts/run-system-tests.sh --performance
+	./scripts/dev test system --category performance
 
 # Run reliability system tests
 system-test-reliability:
 	@echo "Running reliability system tests..."
-	./scripts/run-system-tests.sh --reliability
+	./scripts/dev test system --category reliability
 
 # Run integration system tests
 system-test-integration:
 	@echo "Running integration system tests..."
-	./scripts/run-system-tests.sh --integration
+	./scripts/dev test system --category integration
 
 # Run stress system tests
 system-test-stress:
 	@echo "Running stress system tests..."
-	./scripts/run-system-tests.sh --stress
+	./scripts/dev test system --category stress
 
 # Run system tests directly with Go (alternative to script)
 system-test-go:
@@ -280,48 +280,48 @@ coverage-report:
 	@echo "Generating comprehensive coverage report..."
 	mkdir -p coverage
 	go test -v -coverprofile=coverage/coverage.out ./...
-	bash scripts/coverage-report.sh
+	./scripts/dev test coverage
 
 coverage-ci:
 	@echo "Running coverage analysis for CI/CD..."
 	mkdir -p coverage
 	go test -v -coverprofile=coverage/coverage.out ./...
 	go tool cover -func=coverage/coverage.out
-	bash scripts/coverage-report.sh --ci
+	./scripts/dev test coverage --ci
 
 coverage-trend:
 	@echo "Analyzing coverage trends..."
-	python3 scripts/coverage-trend-analysis.py --input coverage/coverage_history.json --output coverage/trends.html
+	./scripts/dev analyze coverage-trends --input coverage/coverage_history.json --output coverage/trends.html
 
 # Docker-based testing targets
 docker-test-build:
 	@echo "Building Docker test image..."
-	./scripts/run-tests-docker.sh build
+	./scripts/dev test docker build
 
 docker-test-unit:
 	@echo "Running unit tests in Docker..."
-	./scripts/run-tests-docker.sh unit --verbose
+	./scripts/dev test docker unit --verbose
 
 docker-test-integration:
 	@echo "Running integration tests in Docker..."
-	./scripts/run-tests-docker.sh integration --verbose
+	./scripts/dev test docker integration --verbose
 
 docker-test-system:
 	@echo "Running system tests in Docker..."
-	./scripts/run-tests-docker.sh system --verbose --timeout 30m
+	./scripts/dev test docker system --verbose --timeout 30m
 
 docker-test-all:
 	@echo "Running all tests in Docker..."
-	./scripts/run-tests-docker.sh all --verbose
+	./scripts/dev test docker all --verbose
 
 docker-test-coverage:
 	@echo "Running coverage analysis in Docker..."
-	./scripts/run-tests-docker.sh coverage --verbose
+	./scripts/dev test docker coverage --verbose
 
 docker-test-shell:
 	@echo "Starting interactive Docker test shell..."
-	./scripts/run-tests-docker.sh shell
+	./scripts/dev test docker shell
 
 docker-test-clean:
 	@echo "Cleaning up Docker test resources..."
-	./scripts/run-tests-docker.sh clean
+	./scripts/dev test docker clean
