@@ -24,4 +24,4 @@ fi
 
 # Activate virtual environment and run the CLI
 source "$VENV_PATH/bin/activate"
-exec python "$SCRIPT_DIR/dev.py" "$@"
+exec python3 "$SCRIPT_DIR/dev.py" "$@"
