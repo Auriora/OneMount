@@ -57,11 +57,14 @@ def get_project_paths() -> Dict[str, Path]:
         
         # Legacy script locations (for remaining shell scripts)
         "legacy_scripts": {
-            "build_deb_native": scripts_dir / "build-deb-native.sh",
-            "run_system_tests": scripts_dir / "run-system-tests.sh",
-            "run_tests_docker": scripts_dir / "run-tests-docker.sh",
+            # Migrated scripts (archived):
+            # "build_deb_native": scripts_dir / "build-deb-native.sh",  # → scripts/utils/native_build.py
+            # "run_system_tests": scripts_dir / "run-system-tests.sh",  # → scripts/utils/system_test_runner.py
+            # "run_tests_docker": scripts_dir / "run-tests-docker.sh",  # → scripts/utils/docker_test_runner.py
+            # "setup_personal_ci": scripts_dir / "setup-personal-ci.sh",  # → scripts/utils/ci_setup.py
+
+            # Remaining scripts (not yet migrated):
             "deploy_docker_remote": scripts_dir / "deploy-docker-remote.sh",
-            "setup_personal_ci": scripts_dir / "setup-personal-ci.sh",
             "manifest_parser": scripts_dir / "manifest_parser.py",
         }
     }

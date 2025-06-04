@@ -280,8 +280,9 @@ mkdir -p "build/temp/onemount-${{VERSION}}"
 # Copy source files
 git ls-files > build/temp/filelist.txt
 git rev-parse HEAD > build/temp/.commit
-echo .commit >> build/temp/filelist.txt
 rsync -a --files-from=build/temp/filelist.txt . "build/temp/onemount-${{VERSION}}/"
+# Copy the commit file separately since it's generated in build/temp
+cp build/temp/.commit "build/temp/onemount-${{VERSION}}/"
 
 # Move Ubuntu packaging (compatible with Debian)
 mv "build/temp/onemount-${{VERSION}}/packaging/ubuntu" "build/temp/onemount-${{VERSION}}/debian"
@@ -293,7 +294,7 @@ cp -R vendor/ "build/temp/onemount-${{VERSION}}/"
 
 # Create tarballs
 print_status "Creating source tarballs..."
-cd build/temp && tar -czf "../packages/deb/onemount_${{VERSION}}.orig.tar.gz" "onemount-${{VERSION}}"
+cd build/temp && tar -czf "onemount_${{VERSION}}.orig.tar.gz" "onemount-${{VERSION}}"
 cd /build
 
 print_success "Source tarball created"
@@ -320,6 +321,8 @@ cd /build
 mv build/temp/onemount_${{VERSION}}*.deb build/packages/deb/
 mv build/temp/onemount*_${{VERSION}}*.deb build/packages/deb/ 2>/dev/null || true
 mv build/temp/onemount_${{VERSION}}*_amd64.* build/packages/deb/ 2>/dev/null || true
+# Move source tarball to packages directory
+mv build/temp/onemount_${{VERSION}}.orig.tar.gz build/packages/deb/ 2>/dev/null || true
 
 print_success "Binary package built"
 
