@@ -239,8 +239,11 @@ sudo apt-get install -y fuse3 libfuse3-dev
 
 Adjust timeouts in workflow files:
 ```yaml
-# Increase timeout for slow networks
-timeout 30m ./scripts/run-system-tests.sh --comprehensive
+# Increase timeout for slow networks (using new Python CLI)
+timeout 30m python scripts/dev.py test system --category comprehensive
+
+# Or using legacy script (deprecated)
+# timeout 30m ./scripts/run-system-tests.sh --comprehensive
 ```
 
 ## Best Practices

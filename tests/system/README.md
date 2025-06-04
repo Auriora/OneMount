@@ -80,19 +80,28 @@ make system-test-integration
 make system-test-stress
 ```
 
-### Using the Script
+### Using the Development CLI (Recommended)
 ```bash
 # Run comprehensive tests
-./scripts/run-system-tests.sh --comprehensive
+python scripts/dev.py test system --category comprehensive
 
 # Run all tests
-./scripts/run-system-tests.sh --all
+python scripts/dev.py test system --category all
 
 # Run with custom timeout
-./scripts/run-system-tests.sh --comprehensive --timeout 60m
+python scripts/dev.py test system --category comprehensive --timeout 60m
 
 # Run with verbose output
-./scripts/run-system-tests.sh --comprehensive --verbose
+python scripts/dev.py --verbose test system --category comprehensive
+```
+
+### Using the Legacy Script (Deprecated)
+```bash
+# Note: The shell script has been migrated to Python
+# Use the development CLI above for the best experience
+
+# Legacy usage (if needed):
+# ./scripts/run-system-tests.sh --comprehensive
 ```
 
 ### Using Go Test Directly
