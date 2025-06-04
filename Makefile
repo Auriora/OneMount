@@ -10,7 +10,15 @@ RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 # glib compatibility: https://github.com/gotk3/gotk3/issues/762#issuecomment-919035313
 CGO_CFLAGS := CGO_CFLAGS=-Wno-deprecated-declarations
 
-OUTPUT_DIR := build
+# Build directory structure
+BUILD_DIR := build
+OUTPUT_DIR := $(BUILD_DIR)/binaries
+PACKAGE_DIR := $(BUILD_DIR)/packages
+DEB_DIR := $(PACKAGE_DIR)/deb
+RPM_DIR := $(PACKAGE_DIR)/rpm
+SOURCE_DIR := $(PACKAGE_DIR)/source
+DOCKER_DIR := $(BUILD_DIR)/docker
+TEMP_DIR := $(BUILD_DIR)/temp
 
 # test-specific variables
 GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
@@ -39,6 +47,7 @@ onemount-headless: $(shell find internal/fs/ cmd/common/ pkg/ -type f) cmd/onemo
 
 
 onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemount-launcher/main.go
+	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount-launcher \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
@@ -122,48 +131,59 @@ ubuntu-docker-image:
 
 # used to create release tarball for rpmbuild
 v$(VERSION).tar.gz: validate-packaging
-	rm -rf onemount-$(VERSION)
-	mkdir -p onemount-$(VERSION)
-	git ls-files > filelist.txt
-	git rev-parse HEAD > .commit
-	echo .commit >> filelist.txt
-	rsync -a --files-from=filelist.txt . onemount-$(VERSION)
-	mv onemount-$(VERSION)/packaging/deb onemount-$(VERSION)/debian
+	mkdir -p $(SOURCE_DIR) $(TEMP_DIR)
+	rm -rf $(TEMP_DIR)/onemount-$(VERSION)
+	mkdir -p $(TEMP_DIR)/onemount-$(VERSION)
+	git ls-files > $(TEMP_DIR)/filelist.txt
+	git rev-parse HEAD > $(TEMP_DIR)/.commit
+	echo .commit >> $(TEMP_DIR)/filelist.txt
+	rsync -a --files-from=$(TEMP_DIR)/filelist.txt . $(TEMP_DIR)/onemount-$(VERSION)
+	mv $(TEMP_DIR)/onemount-$(VERSION)/packaging/deb $(TEMP_DIR)/onemount-$(VERSION)/debian
 	go mod vendor
-	cp -R vendor/ onemount-$(VERSION)
-	tar -czf $@ onemount-$(VERSION)
+	cp -R vendor/ $(TEMP_DIR)/onemount-$(VERSION)
+	cd $(TEMP_DIR) && tar -czf ../packages/source/$@ onemount-$(VERSION)
+	rm -rf $(TEMP_DIR)/onemount-$(VERSION) vendor/ $(TEMP_DIR)/filelist.txt $(TEMP_DIR)/.commit
 
 
 # build srpm package used for rpm build with mock
 srpm: onemount-$(RPM_FULL_VERSION).src.rpm
 onemount-$(RPM_FULL_VERSION).src.rpm: v$(VERSION).tar.gz
-	rpmbuild -ts $<
-	cp $$(rpm --eval '%{_topdir}')/SRPMS/$@ .
+	mkdir -p $(RPM_DIR)
+	rpmbuild -ts $(SOURCE_DIR)/$<
+	cp $$(rpm --eval '%{_topdir}')/SRPMS/$@ $(RPM_DIR)/
 
 
 # build the rpm for the default mock target
 MOCK_CONFIG=$(shell readlink -f /etc/mock/default.cfg | grep -oP '[a-z0-9-]+x86_64')
 rpm: onemount-$(RPM_FULL_VERSION).x86_64.rpm
 onemount-$(RPM_FULL_VERSION).x86_64.rpm: onemount-$(RPM_FULL_VERSION).src.rpm
-	mock -r /etc/mock/$(MOCK_CONFIG).cfg $<
-	cp /var/lib/mock/$(MOCK_CONFIG)/result/$@ .
+	mkdir -p $(RPM_DIR)
+	mock -r /etc/mock/$(MOCK_CONFIG).cfg $(RPM_DIR)/$<
+	cp /var/lib/mock/$(MOCK_CONFIG)/result/$@ $(RPM_DIR)/
 
 
 # create a release tarball for debian builds
 onemount_$(VERSION).orig.tar.gz: v$(VERSION).tar.gz
-	cp $< $@
+	mkdir -p $(DEB_DIR)
+	cp $(SOURCE_DIR)/$< $(DEB_DIR)/$@
 
 
 # create the debian source package for the current version
 changes: onemount_$(VERSION)-$(RELEASE)_source.changes
 onemount_$(VERSION)-$(RELEASE)_source.changes: onemount_$(VERSION).orig.tar.gz
-	cd onemount-$(VERSION) && debuild -S -sa -d
+	mkdir -p $(TEMP_DIR)
+	cd $(TEMP_DIR) && tar -xzf ../packages/deb/$< && cd onemount-$(VERSION) && debuild -S -sa -d
+	mv $(TEMP_DIR)/onemount_$(VERSION)-$(RELEASE)_source.* $(DEB_DIR)/
+	rm -rf $(TEMP_DIR)/onemount-$(VERSION)
 
 
 # just a helper target to use while building debs
 dsc: onemount_$(VERSION)-$(RELEASE).dsc
 onemount_$(VERSION)-$(RELEASE).dsc: onemount_$(VERSION).orig.tar.gz
-	dpkg-source --build onemount-$(VERSION)
+	mkdir -p $(TEMP_DIR)
+	cd $(TEMP_DIR) && tar -xzf ../packages/deb/$< && dpkg-source --build onemount-$(VERSION)
+	mv $(TEMP_DIR)/onemount_$(VERSION)-$(RELEASE).dsc $(DEB_DIR)/
+	rm -rf $(TEMP_DIR)/onemount-$(VERSION)
 
 
 # create the Ubuntu package using Docker (default)
@@ -174,15 +194,15 @@ ubuntu: deb-docker
 deb-pbuilder: onemount_$(VERSION)-$(RELEASE)_amd64.deb
 onemount_$(VERSION)-$(RELEASE)_amd64.deb: onemount_$(VERSION)-$(RELEASE).dsc
 	sudo mkdir -p /var/cache/pbuilder/aptcache
-	sudo pbuilder --build $<
-	cp /var/cache/pbuilder/result/$@ .
+	sudo pbuilder --build $(DEB_DIR)/$<
+	mkdir -p $(DEB_DIR)
+	cp /var/cache/pbuilder/result/$@ $(DEB_DIR)/
 
 
 clean:
 	rm -f *.db *.rpm *.deb *.dsc *.changes *.build* *.upload *.xz filelist.txt .commit
 	rm -f *.log *.fa *.gz *.test vgcore.* .auth_tokens.json
-	rm -f $(OUTPUT_DIR)/onemount $(OUTPUT_DIR)/onemount-headless $(OUTPUT_DIR)/onemount-launcher
-	rm -rf util-linux-*/ onemount-*/ vendor/ $(OUTPUT_DIR)/
+	rm -rf util-linux-*/ onemount-*/ vendor/ $(BUILD_DIR)/
 
 
 # Run all tests

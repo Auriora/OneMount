@@ -32,13 +32,16 @@ were files on your local computer.
 
 %build
 bash scripts/cgo-helper.sh
+mkdir -p build/binaries
 if rpm -q pango | grep -q 1.42; then
   BUILD_TAGS=-tags=pango_1_42,gtk_3_22
 fi
 go build -v -mod=vendor $BUILD_TAGS \
+  -o build/binaries/onemount \
   -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount
 go build -v -mod=vendor $BUILD_TAGS \
+  -o build/binaries/onemount-launcher \
   -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount-launcher
 gzip docs/man/onemount.1

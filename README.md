@@ -257,7 +257,7 @@ The project uses separate workflows for different purposes:
 - **Coverage analysis** - Tracks code coverage trends
 - **System tests** - End-to-end testing with real OneDrive accounts
 
-See [RELEASE_CANDIDATE_USAGE.md](RELEASE_CANDIDATE_USAGE.md) for detailed version management documentation.
+See [RELEASE_CANDIDATE_USAGE.md](docs/RELEASE_CANDIDATE_USAGE.md) for detailed version management documentation.
 
 ### Building from source
 

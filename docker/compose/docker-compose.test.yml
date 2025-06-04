@@ -5,8 +5,8 @@ services:
   # Main test runner service
   test-runner:
     build:
-      context: .
-      dockerfile: packaging/docker/Dockerfile.test-runner
+      context:    ../..
+      dockerfile: ../../packaging/docker/Dockerfile.test-runner
     image: onemount-test-runner:latest
     container_name: onemount-test-runner
 

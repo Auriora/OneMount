@@ -108,41 +108,45 @@ jobs:
     - name: List built packages
       run: |
         echo "Built packages:"
-        ls -la *.deb *.dsc *.changes 2>/dev/null || echo "No packages found"
-        
+        ls -la build/packages/deb/ 2>/dev/null || echo "No packages found in build/packages/deb/"
+
         # Get package info
-        if ls *.deb 1> /dev/null 2>&1; then
-          for deb in *.deb; do
-            echo "=== Package: $deb ==="
-            dpkg-deb --info "$deb"
-            echo ""
+        if ls build/packages/deb/*.deb 1> /dev/null 2>&1; then
+          for deb in build/packages/deb/*.deb; do
+            if [ -f "$deb" ]; then
+              echo "=== Package: $(basename $deb) ==="
+              dpkg-deb --info "$deb"
+              echo ""
+            fi
           done
         fi
-    
+
     - name: Test package installation
       run: |
-        if ls *.deb 1> /dev/null 2>&1; then
+        if ls build/packages/deb/*.deb 1> /dev/null 2>&1; then
           # Install dependencies
           sudo apt-get update
           sudo apt-get install -y fuse3 libwebkit2gtk-4.1-0
-          
+
           # Test package installation
-          for deb in *.deb; do
-            echo "Testing installation of $deb..."
-            sudo dpkg -i "$deb" || true
-            sudo apt-get install -f -y  # Fix any dependency issues
-            
-            # Verify installation
-            if dpkg -l | grep -q onemount; then
-              echo "✅ Package $deb installed successfully"
-              dpkg -l | grep onemount
-            else
-              echo "❌ Package $deb installation failed"
-              exit 1
+          for deb in build/packages/deb/*.deb; do
+            if [ -f "$deb" ]; then
+              echo "Testing installation of $(basename $deb)..."
+              sudo dpkg -i "$deb" || true
+              sudo apt-get install -f -y  # Fix any dependency issues
+
+              # Verify installation
+              if dpkg -l | grep -q onemount; then
+                echo "✅ Package $(basename $deb) installed successfully"
+                dpkg -l | grep onemount
+              else
+                echo "❌ Package $(basename $deb) installation failed"
+                exit 1
+              fi
+
+              # Clean up for next package
+              sudo dpkg -r onemount || true
             fi
-            
-            # Clean up for next package
-            sudo dpkg -r onemount || true
           done
         fi
     
@@ -151,10 +155,10 @@ jobs:
       with:
         name: ubuntu-packages-${{ matrix.ubuntu_version }}
         path: |
-          *.deb
-          *.dsc
-          *.changes
-          *.tar.gz
+          build/packages/deb/*.deb
+          build/packages/deb/*.dsc
+          build/packages/deb/*.changes
+          build/packages/source/*.tar.gz
         retention-days: 30
     
     - name: Generate package summary
@@ -164,16 +168,18 @@ jobs:
         echo "**Target:** Ubuntu ${{ matrix.ubuntu_version }}" >> $GITHUB_STEP_SUMMARY
         echo "**Built packages:**" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        if ls *.deb 1> /dev/null 2>&1; then
-          for deb in *.deb; do
-            size=$(du -h "$deb" | cut -f1)
-            echo "- \`$deb\` ($size)" >> $GITHUB_STEP_SUMMARY
+
+        if ls build/packages/deb/*.deb 1> /dev/null 2>&1; then
+          for deb in build/packages/deb/*.deb; do
+            if [ -f "$deb" ]; then
+              size=$(du -h "$deb" | cut -f1)
+              echo "- \`$(basename $deb)\` ($size)" >> $GITHUB_STEP_SUMMARY
+            fi
           done
         else
           echo "- No packages built" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Installation test:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
 

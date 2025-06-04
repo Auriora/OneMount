@@ -9,16 +9,19 @@ override_dh_auto_test:
 
 override_dh_auto_clean:
 	rm -f *.db *.rpm *.deb *.dsc *.log *.fa *.xz *.gz *.test onemount onemount-headless unshare .auth_tokens.json filelist.txt
-	rm -rf util-linux-*/ onemount-*/
+	rm -rf util-linux-*/ onemount-*/ build/
 
 
 override_dh_auto_build:
 	bash scripts/cgo-helper.sh
+	mkdir -p build/binaries
 	# GOCACHE will be for a nonexistent user in pbuilder otherwise
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
+		-o build/binaries/onemount \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
 		./cmd/onemount
 	GOCACHE=/tmp/go-cache go build -v -mod=vendor \
+		-o build/binaries/onemount-launcher \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell cat .commit)" \
 		./cmd/onemount-launcher
 	test -f docs/man/onemount.1 && gzip -c docs/man/onemount.1 > docs/man/onemount.1.gz

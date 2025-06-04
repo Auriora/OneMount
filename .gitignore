@@ -22,7 +22,10 @@ tmp/
 vgcore.*
 __debug_bin*
 
-# do not include binaries, but do include sources
+# Build artifacts - now organized in build/ directory
+build/
+
+# Legacy build artifacts in root (should be moved to build/)
 onemount
 onemount-headless
 onemount-launcher
@@ -30,8 +33,15 @@ onemount-*/
 !cmd/onemount-launcher
 !cmd/onemount
 
-# rpm build stuff
+# Package build artifacts (legacy - now in build/packages/)
 *.rpm
+*.dsc
+*.deb
+*.ddeb
+*.changes
+*.build*
+*.upload
+*.tar.xz
 
 # for tests on older linuxes
 util-linux*
@@ -42,13 +52,6 @@ debian/debhelper-build-stamp
 debian/*.substvars
 debian/*.debhelper
 debian/files
-*.dsc
-*.deb
-*.ddeb
-*.changes
-*.build*
-*.upload
-*.tar.xz
 
 .idea/
 .cache/

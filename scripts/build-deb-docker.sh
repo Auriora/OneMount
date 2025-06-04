@@ -70,9 +70,13 @@ RELEASE=$(grep -oP "Release: *[0-9]+" packaging/rpm/onemount.spec | sed 's/Relea
 
 print_status "Building OneMount v${VERSION}-${RELEASE} Ubuntu package using Docker..."
 
+# Create build directory structure
+print_status "Creating build directory structure..."
+mkdir -p build/packages/deb build/temp
+
 # Clean up any previous builds
 print_status "Cleaning up previous builds..."
-rm -rf "onemount-${VERSION}" *.deb *.dsc *.changes *.tar.* *.build* *.upload filelist.txt .commit
+rm -rf build/temp/* build/packages/deb/* "onemount-${VERSION}" *.deb *.dsc *.changes *.tar.* *.build* *.upload filelist.txt .commit
 
 # Create build script for inside Docker
 print_status "Creating Docker build script..."
@@ -116,52 +120,61 @@ print_status "Inside Docker: Building OneMount v${VERSION}-${RELEASE}..."
 
 # Create source tarball
 print_status "Creating source tarball..."
-mkdir -p "onemount-${VERSION}"
+mkdir -p "build/temp/onemount-${VERSION}"
 
 # Copy source files
-git ls-files > filelist.txt
-git rev-parse HEAD > .commit
-echo .commit >> filelist.txt
-rsync -a --files-from=filelist.txt . "onemount-${VERSION}/"
+git ls-files > build/temp/filelist.txt
+git rev-parse HEAD > build/temp/.commit
+echo .commit >> build/temp/filelist.txt
+rsync -a --files-from=build/temp/filelist.txt . "build/temp/onemount-${VERSION}/"
 
 # Move Ubuntu packaging (compatible with Debian)
-mv "onemount-${VERSION}/packaging/ubuntu" "onemount-${VERSION}/debian"
+mv "build/temp/onemount-${VERSION}/packaging/ubuntu" "build/temp/onemount-${VERSION}/debian"
 
 # Create vendor directory
 print_status "Creating Go vendor directory..."
 go mod vendor
-cp -R vendor/ "onemount-${VERSION}/"
+cp -R vendor/ "build/temp/onemount-${VERSION}/"
 
 # Create tarballs
 print_status "Creating source tarballs..."
-tar -czf "onemount_${VERSION}.orig.tar.gz" "onemount-${VERSION}"
+cd build/temp && tar -czf "../packages/deb/onemount_${VERSION}.orig.tar.gz" "onemount-${VERSION}"
+cd /build
 
 print_success "Source tarball created"
 
 # Build source package
 print_status "Building source package..."
-cd "onemount-${VERSION}"
+cd "build/temp/onemount-${VERSION}"
 dpkg-buildpackage -S -sa -d -us -uc
-cd ..
+cd /build
+
+# Move source package files to deb directory
+mv build/temp/onemount_${VERSION}*.dsc build/packages/deb/
+mv build/temp/onemount_${VERSION}*_source.* build/packages/deb/
 
 print_success "Source package built"
 
 # Build binary package
 print_status "Building binary package..."
-cd "onemount-${VERSION}"
+cd "build/temp/onemount-${VERSION}"
 dpkg-buildpackage -b -d -us -uc
-cd ..
+cd /build
+
+# Move binary package files to deb directory
+mv build/temp/onemount_${VERSION}*.deb build/packages/deb/
+mv build/temp/onemount*_${VERSION}*.deb build/packages/deb/ 2>/dev/null || true
+mv build/temp/onemount_${VERSION}*_amd64.* build/packages/deb/ 2>/dev/null || true
 
 print_success "Binary package built"
 
 # Clean up build artifacts but keep packages
 print_status "Cleaning up build artifacts..."
-rm -f filelist.txt .commit
-rm -rf "onemount-${VERSION}" vendor/
+rm -rf build/temp/* vendor/
 
 print_success "Docker build completed!"
 print_status "Built packages:"
-ls -la *.deb *.dsc *.changes 2>/dev/null || echo "No package files found"
+ls -la build/packages/deb/ 2>/dev/null || echo "No package files found"
 EOF
 
 chmod +x docker-build-script.sh
@@ -187,4 +200,4 @@ rm -f docker-build-script.sh
 
 print_success "Docker-based Ubuntu package build completed!"
 print_status "Built packages:"
-ls -la *.deb *.dsc *.changes 2>/dev/null || print_warning "No package files found"
+ls -la build/packages/deb/ 2>/dev/null || print_warning "No package files found in build/packages/deb/"
