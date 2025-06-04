@@ -48,14 +48,14 @@ gzip docs/man/onemount.1
 
 %install
 rm -rf $RPM_BUILD_ROOT
-# Use centralized installation manifest
-python3 scripts/install-manifest.py --target rpm --action install | bash
+# Use centralized installation manifest via dev CLI
+./scripts/dev build manifest --target rpm --action install --plain | bash
 
 # fix for el8 build in mock
 %define _empty_manifest_terminate_build 0
 %files
-# Use centralized installation manifest for files list
-%(python3 scripts/install-manifest.py --target rpm --action files)
+# Use centralized installation manifest for files list via dev CLI
+%(./scripts/dev build manifest --target rpm --action files --plain)
 
 %changelog
 * Sun Jun 01 2025 Bruce Cherrington <aurioraproject@gmail.com> - 0.1.0rc1

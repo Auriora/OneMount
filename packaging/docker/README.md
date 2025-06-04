@@ -9,7 +9,7 @@ The Docker testing setup includes:
 - **Dockerfile.test-runner**: Main test container with all dependencies
 - **test-entrypoint.sh**: Test execution script with unified interface
 - **docker-compose.test.yml**: Docker Compose configuration for easy test execution
-- **run-tests-docker.sh**: Wrapper script for convenient Docker test execution
+- **Development CLI**: Native Python interface for convenient Docker test execution
 
 ## Quick Start
 
@@ -19,8 +19,11 @@ The Docker testing setup includes:
 # Using Make
 make docker-test-build
 
-# Or directly
-./scripts/run-tests-docker.sh build
+# Using Development CLI (Recommended)
+python scripts/dev.py test docker build
+
+# Or directly with legacy script (deprecated)
+# ./scripts/run-tests-docker.sh build
 ```
 
 ### 2. Run Tests
@@ -54,27 +57,38 @@ make docker-test-coverage
 | `make docker-test-shell` | Start interactive shell in test container |
 | `make docker-test-clean` | Clean up Docker test resources |
 
-### Script Interface
+### Development CLI Interface (Recommended)
 
 ```bash
 # Build test image
-./scripts/run-tests-docker.sh build
+python scripts/dev.py test docker build
 
 # Run different test types
-./scripts/run-tests-docker.sh unit
-./scripts/run-tests-docker.sh integration
-./scripts/run-tests-docker.sh system
-./scripts/run-tests-docker.sh all
+python scripts/dev.py test docker unit
+python scripts/dev.py test docker integration
+python scripts/dev.py test docker system
+python scripts/dev.py test docker all
 
 # Run with options
-./scripts/run-tests-docker.sh unit --verbose --sequential
-./scripts/run-tests-docker.sh system --timeout 30m
+python scripts/dev.py --verbose test docker unit --sequential
+python scripts/dev.py test docker system --timeout 30m
 
-# Interactive debugging
-./scripts/run-tests-docker.sh shell
+# Interactive debugging (use Docker Compose directly)
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell
 
 # Cleanup
-./scripts/run-tests-docker.sh clean
+python scripts/dev.py test docker clean
+```
+
+### Legacy Script Interface (Deprecated)
+
+```bash
+# Note: The shell script has been migrated to Python
+# Use the development CLI above for the best experience
+
+# Legacy usage (if needed):
+# ./scripts/run-tests-docker.sh build
+# ./scripts/run-tests-docker.sh unit
 ```
 
 ### Docker Compose
@@ -113,8 +127,11 @@ cp ~/.cache/onemount/auth_tokens.json ~/.onemount-tests/.auth_tokens.json
 # Using Make
 make docker-test-system
 
-# Or directly
-./scripts/run-tests-docker.sh system
+# Using Development CLI (Recommended)
+python scripts/dev.py test docker system
+
+# Or legacy script (deprecated)
+# ./scripts/run-tests-docker.sh system
 ```
 
 ### Authentication Notes
@@ -122,7 +139,7 @@ make docker-test-system
 - Use a dedicated test OneDrive account, not your production account
 - System tests create and delete files in `/onemount_system_tests/` on OneDrive
 - The auth tokens file is automatically mounted into the Docker container
-- Run `./scripts/run-tests-docker.sh setup-auth` for detailed setup instructions
+- Run `python scripts/dev.py test docker setup-auth` for detailed setup instructions
 
 ## Container Features
 
@@ -159,7 +176,7 @@ sudo usermod -aG docker $USER
 newgrp docker
 
 # Or run with sudo
-sudo ./scripts/run-tests-docker.sh unit
+sudo python scripts/dev.py test docker unit
 ```
 
 #### FUSE Not Available
@@ -195,8 +212,11 @@ Start an interactive shell in the test container for debugging:
 # Using Make
 make docker-test-shell
 
-# Or directly
-./scripts/run-tests-docker.sh shell
+# Using Docker Compose directly (Recommended)
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell
+
+# Or legacy script (deprecated)
+# ./scripts/run-tests-docker.sh shell
 
 # Inside the container
 cd /workspace

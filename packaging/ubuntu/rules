@@ -29,5 +29,5 @@ override_dh_auto_build:
 
 
 override_dh_auto_install:
-	# Use centralized installation manifest
-	python3 scripts/install-manifest.py --target debian --action install | bash
+	# Use centralized installation manifest via dev CLI
+	./scripts/dev build manifest --target debian --action install --plain | bash

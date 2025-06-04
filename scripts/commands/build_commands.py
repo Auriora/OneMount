@@ -113,6 +113,7 @@ def manifest(
     type: Optional[str] = typer.Option(None, help="Installation type (user/system) - required for makefile"),
     action: str = typer.Option(..., help="Action to perform (install/uninstall/validate/files)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without executing"),
+    plain: bool = typer.Option(False, "--plain", help="Output plain text without colors (for packaging)"),
 ):
     """
     📋 Generate installation commands from manifest.
@@ -206,10 +207,16 @@ def manifest(
         
         # Output the commands
         if dry_run and action in ["install", "uninstall"]:
-            console.print(f"[yellow]Dry run - showing what would be done for {action}:[/yellow]")
-        
+            if plain:
+                print(f"# Dry run - showing what would be done for {action}:")
+            else:
+                console.print(f"[yellow]Dry run - showing what would be done for {action}:[/yellow]")
+
         for command in commands:
-            console.print(command)
+            if plain:
+                print(command)
+            else:
+                console.print(command)
     
     except Exception as e:
         console.print(f"[red]Error generating commands: {e}[/red]")

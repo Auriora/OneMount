@@ -25,26 +25,26 @@ The system supports three installation types:
 
 ### Command Line
 
-The `install-manifest.py` script can be used directly:
+The dev CLI manifest command can be used directly:
 
 ```bash
 # Generate Makefile install commands for user installation
-python3 scripts/install-manifest.py --target makefile --type user --action install
+./scripts/dev build manifest --target makefile --type user --action install
 
 # Generate Makefile uninstall commands for system installation
-python3 scripts/install-manifest.py --target makefile --type system --action uninstall
+./scripts/dev build manifest --target makefile --type system --action uninstall
 
 # Generate validation commands
-python3 scripts/install-manifest.py --target makefile --action validate
+./scripts/dev build manifest --target makefile --action validate
 
 # Generate RPM install commands
-python3 scripts/install-manifest.py --target rpm --action install
+./scripts/dev build manifest --target rpm --action install
 
 # Generate RPM files list
-python3 scripts/install-manifest.py --target rpm --action files
+./scripts/dev build manifest --target rpm --action files
 
 # Generate Debian install commands
-python3 scripts/install-manifest.py --target debian --action install
+./scripts/dev build manifest --target debian --action install
 ```
 
 ### Makefile Integration
@@ -53,20 +53,20 @@ The Makefile has been updated to use the centralized system:
 
 ```makefile
 install: onemount onemount-launcher
-	@python3 scripts/install-manifest.py --target makefile --type user --action install | bash
+	@./scripts/dev build manifest --target makefile --type user --action install | bash
 
 install-system: onemount onemount-launcher
-	@python3 scripts/install-manifest.py --target makefile --type system --action install | bash
+	@./scripts/dev build manifest --target makefile --type system --action install | bash
 
 uninstall:
-	@python3 scripts/install-manifest.py --target makefile --type user --action uninstall | bash
+	@./scripts/dev build manifest --target makefile --type user --action uninstall | bash
 
 uninstall-system:
-	@python3 scripts/install-manifest.py --target makefile --type system --action uninstall | bash
+	@./scripts/dev build manifest --target makefile --type system --action uninstall | bash
 
 validate-packaging:
 	@echo "Validating packaging requirements..."
-	@python3 scripts/install-manifest.py --target makefile --action validate | bash
+	@./scripts/dev build manifest --target makefile --action validate | bash
 	@echo "All packaging requirements validated successfully"
 ```
 
@@ -77,12 +77,12 @@ The RPM spec file uses the centralized system:
 ```spec
 %install
 rm -rf $RPM_BUILD_ROOT
-# Use centralized installation manifest
-python3 scripts/install-manifest.py --target rpm --action install | bash
+# Use centralized installation manifest via dev CLI
+./scripts/dev build manifest --target rpm --action install | bash
 
 %files
-# Use centralized installation manifest for files list
-%(python3 scripts/install-manifest.py --target rpm --action files)
+# Use centralized installation manifest for files list via dev CLI
+%(./scripts/dev build manifest --target rpm --action files)
 ```
 
 ### Debian Integration
@@ -91,8 +91,8 @@ The Debian rules file uses the centralized system:
 
 ```makefile
 override_dh_auto_install:
-	# Use centralized installation manifest
-	python3 scripts/install-manifest.py --target debian --action install | bash
+	# Use centralized installation manifest via dev CLI
+	./scripts/dev build manifest --target debian --action install | bash
 ```
 
 ## Manifest Structure
