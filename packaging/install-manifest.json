@@ -98,37 +98,52 @@
       "process": "gzip"
     }
   ],
+  "nemo_extensions": [
+    {
+      "source": "internal/nemo/src/nemo-onemount.py",
+      "dest_user": "$(HOME)/.local/share/nemo-python/extensions/nemo-onemount.py",
+      "dest_system": "/usr/local/share/nemo-python/extensions/nemo-onemount.py",
+      "dest_package": "usr/share/nemo-python/extensions/nemo-onemount.py",
+      "mode": "0755"
+    }
+  ],
   "directories": {
     "user": [
       "$(HOME)/.local/bin",
       "$(HOME)/.local/share/icons/onemount",
       "$(HOME)/.local/share/applications",
       "$(HOME)/.config/systemd/user",
-      "$(HOME)/.local/share/man/man1"
+      "$(HOME)/.local/share/man/man1",
+      "$(HOME)/.local/share/nemo-python/extensions"
     ],
     "system": [
       "/usr/local/bin",
       "/usr/local/share/icons/onemount",
       "/usr/local/share/applications",
       "/usr/local/lib/systemd/system",
-      "/usr/local/share/man/man1"
+      "/usr/local/share/man/man1",
+      "/usr/local/share/nemo-python/extensions"
     ],
     "package": [
       "usr/bin",
       "usr/share/icons/onemount",
       "usr/share/applications",
       "usr/lib/systemd/system",
-      "usr/share/man/man1"
+      "usr/share/man/man1",
+      "usr/share/nemo-python/extensions"
     ]
   },
   "post_install": {
     "user": [
       "systemctl --user daemon-reload 2>/dev/null || true",
-      "mandb --user-db --quiet 2>/dev/null || true"
+      "mandb --user-db --quiet 2>/dev/null || true",
+      "# Restart Nemo if it's running to load the OneMount extension",
+      "if pgrep -x nemo >/dev/null 2>&1; then nemo -q 2>/dev/null || true; fi"
     ],
     "system": [
       "sudo systemctl daemon-reload",
-      "sudo mandb"
+      "sudo mandb",
+      "# Note: Nemo extension will be loaded when users restart Nemo"
     ]
   },
   "post_uninstall": {

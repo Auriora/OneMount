@@ -19,6 +19,7 @@ BuildRequires: webkit2gtk3-devel
 BuildRequires: gzip
 Requires: fuse3
 Requires: webkit2gtk3
+Suggests: python3-nemo
 
 %description
 OneMount is a network filesystem that gives your computer direct access to your

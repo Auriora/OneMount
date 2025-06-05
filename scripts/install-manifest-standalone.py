@@ -88,6 +88,15 @@ def get_all_files(manifest, install_type):
             'process': doc.get('process')
         })
 
+    # Add nemo extensions
+    for nemo_ext in manifest.get('nemo_extensions', []):
+        files.append({
+            'type': 'nemo_extension',
+            'source': nemo_ext['source'],
+            'dest': nemo_ext[dest_key],
+            'mode': nemo_ext['mode']
+        })
+
     return files
 
 

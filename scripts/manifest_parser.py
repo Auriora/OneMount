@@ -98,7 +98,16 @@ class InstallManifestParser:
                 'type': 'documentation',
                 'process': doc.get('process')
             })
-        
+
+        # Add nemo extensions
+        for nemo_ext in self.manifest.get('nemo_extensions', []):
+            files.append({
+                'source': self.expand_variables(nemo_ext['source']),
+                'dest': self.expand_variables(nemo_ext[f'dest_{install_type}']),
+                'mode': nemo_ext['mode'],
+                'type': 'nemo_extension'
+            })
+
         return files
     
     def generate_makefile_install(self, install_type, dry_run=False):
@@ -128,10 +137,11 @@ class InstallManifestParser:
                 'icon': 'Icons',
                 'desktop': 'Desktop Files',
                 'systemd': 'Systemd Service Files',
-                'documentation': 'Documentation'
+                'documentation': 'Documentation',
+                'nemo_extension': 'Nemo Extensions'
             }
 
-            for file_type in ['binary', 'icon', 'desktop', 'systemd', 'documentation']:
+            for file_type in ['binary', 'icon', 'desktop', 'systemd', 'documentation', 'nemo_extension']:
                 if file_type in files_by_type:
                     type_files = files_by_type[file_type]
                     commands.append(f"{Colors.YELLOW}  {type_descriptions[file_type]}:{Colors.END}")
@@ -169,7 +179,8 @@ class InstallManifestParser:
             'icon': 'Installing icons...',
             'desktop': 'Installing desktop files...',
             'systemd': 'Installing systemd service files...',
-            'documentation': 'Installing documentation...'
+            'documentation': 'Installing documentation...',
+            'nemo_extension': 'Installing Nemo extensions...'
         }
 
         for file_type, type_files in files_by_type.items():
@@ -380,6 +391,9 @@ class InstallManifestParser:
 
         for doc in self.manifest.get('documentation', []):
             all_sources.add(doc['source'])
+
+        for nemo_ext in self.manifest.get('nemo_extensions', []):
+            all_sources.add(nemo_ext['source'])
 
         for source in sorted(all_sources):
             commands.append(f'test -f {source} || (echo -e "{Colors.RED}Error: {source} not found{Colors.END}" && exit 1)')

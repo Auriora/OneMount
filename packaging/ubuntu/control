@@ -11,7 +11,7 @@ Vcs-Git: https://github.com/auriora/onemount.git
 Package: onemount
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libwebkit2gtk-4.1-0, fuse3
-Suggests: systemd
+Suggests: systemd, python3-nemo
 Description: A native Linux filesystem for Microsoft OneDrive
  OneMount is a network filesystem that gives your computer direct access to your
  files on Microsoft OneDrive. This is not a sync client. Instead of syncing
