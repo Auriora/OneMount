@@ -66,3 +66,4 @@ onemount-test
 onemount-fixed
 /vendor/
 /filelist.txt
+.venv/
