@@ -71,7 +71,7 @@ Environment Variables:
 Notes:
   - System tests require OneDrive authentication tokens
   - Mount the project directory to /workspace
-  - For system tests, mount auth tokens to /home/tester/.onemount-tests/.auth_tokens.json
+  - For system tests, copy auth tokens to workspace root as 'auth_tokens.json'
 EOF
 }
 
@@ -112,7 +112,80 @@ setup_environment() {
         print_warning "Run with --device /dev/fuse --cap-add SYS_ADMIN for full FUSE support"
     fi
 
+    # Setup auth tokens if available
+    setup_auth_tokens
+
     print_success "Environment setup complete"
+}
+
+# Setup auth tokens function
+setup_auth_tokens() {
+    # Check multiple possible locations for auth tokens
+    local auth_tokens_file=""
+
+    # Check if auth tokens exist in the workspace (mounted from host)
+    if [[ -f "/workspace/auth_tokens.json" ]]; then
+        auth_tokens_file="/workspace/auth_tokens.json"
+        print_info "Auth tokens found in workspace root"
+    elif [[ -f "/workspace/test-artifacts/auth_tokens.json" ]]; then
+        auth_tokens_file="/workspace/test-artifacts/auth_tokens.json"
+        print_info "Auth tokens found in test-artifacts directory"
+    elif [[ -f "/home/tester/.onemount-tests/.auth_tokens.json" ]]; then
+        auth_tokens_file="/home/tester/.onemount-tests/.auth_tokens.json"
+        print_info "Auth tokens found in mounted directory"
+    fi
+
+    if [[ -n "$auth_tokens_file" ]]; then
+        # Ensure the target directory exists
+        mkdir -p /home/tester/.onemount-tests
+
+        # Copy auth tokens to the expected location if not already there
+        if [[ "$auth_tokens_file" != "/home/tester/.onemount-tests/.auth_tokens.json" ]]; then
+            cp "$auth_tokens_file" /home/tester/.onemount-tests/.auth_tokens.json
+            chmod 600 /home/tester/.onemount-tests/.auth_tokens.json
+            print_info "Copied auth tokens to expected location"
+        fi
+
+        # Verify the tokens file is valid JSON
+        if command -v jq >/dev/null 2>&1; then
+            if jq empty /home/tester/.onemount-tests/.auth_tokens.json 2>/dev/null; then
+                print_success "Auth tokens are valid JSON"
+
+                # Check token expiration if jq is available
+                EXPIRES_AT=$(jq -r '.expires_at // 0' /home/tester/.onemount-tests/.auth_tokens.json 2>/dev/null || echo "0")
+                CURRENT_TIME=$(date +%s)
+
+                if [[ "$EXPIRES_AT" != "0" ]] && [[ "$EXPIRES_AT" -le "$CURRENT_TIME" ]]; then
+                    print_warning "Auth tokens appear to be expired"
+                    print_warning "You may need to refresh your authentication"
+                else
+                    print_success "Auth tokens are valid"
+                fi
+            else
+                print_error "Invalid auth tokens format"
+                return 1
+            fi
+        else
+            print_success "Auth tokens found (JSON validation skipped - jq not available)"
+        fi
+    elif [[ -n "$ONEMOUNT_AUTH_TOKENS" ]]; then
+        print_info "Setting up auth tokens from environment variable..."
+
+        # Ensure the target directory exists
+        mkdir -p /home/tester/.onemount-tests
+
+        # Write auth tokens from environment variable
+        echo "$ONEMOUNT_AUTH_TOKENS" > /home/tester/.onemount-tests/.auth_tokens.json
+        chmod 600 /home/tester/.onemount-tests/.auth_tokens.json
+
+        print_success "Auth tokens configured from environment"
+    else
+        print_info "No auth tokens found - system tests will be skipped"
+        print_info "To enable system tests:"
+        print_info "  - Copy auth tokens to workspace root as 'auth_tokens.json', or"
+        print_info "  - Copy auth tokens to test-artifacts/auth_tokens.json, or"
+        print_info "  - Set ONEMOUNT_AUTH_TOKENS environment variable"
+    fi
 }
 
 # Build function

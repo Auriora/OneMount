@@ -143,10 +143,13 @@ test_app.add_typer(nemo_app, name="nemo")
 @docker_app.command()
 def unit(
     ctx: typer.Context,
-    rebuild: bool = typer.Option(False, "--rebuild", help="Force rebuild of Docker image"),
+    rebuild_image: bool = typer.Option(False, "--rebuild-image", help="Force rebuild of Docker image"),
+    recreate_container: bool = typer.Option(False, "--recreate-container", help="Force recreation of container"),
+    no_reuse: bool = typer.Option(False, "--no-reuse", help="Don't reuse existing containers"),
     timeout: Optional[str] = typer.Option(None, "--timeout", help="Test timeout duration"),
     sequential: bool = typer.Option(False, "--sequential", help="Run tests sequentially"),
     clean: bool = typer.Option(False, "--clean", help="Clean up Docker resources after tests"),
+    development: bool = typer.Option(False, "--dev", help="Use development mode with persistent containers"),
 ):
     """
     🧪 Run unit tests in Docker container.
@@ -162,15 +165,20 @@ def unit(
 
     success = run_docker_tests(
         test_type="unit",
-        rebuild=rebuild,
+        rebuild_image=rebuild_image,
+        recreate_container=recreate_container,
+        reuse_container=not no_reuse,
         timeout=timeout,
         verbose=verbose,
         sequential=sequential,
-        clean=clean
+        clean=clean,
+        development=development
     )
 
     if not success:
         raise typer.Exit(1)
+
+    console.print("[green]✅ Unit tests completed successfully![/green]")
 
 
 @docker_app.command()
@@ -195,7 +203,7 @@ def integration(
 
     success = run_docker_tests(
         test_type="integration",
-        rebuild=rebuild,
+        rebuild_image=rebuild,
         timeout=timeout,
         verbose=verbose,
         sequential=sequential,
@@ -229,7 +237,7 @@ def system(
 
     success = run_docker_tests(
         test_type="system",
-        rebuild=rebuild,
+        rebuild_image=rebuild,
         timeout=timeout,
         verbose=verbose,
         sequential=sequential,
@@ -262,7 +270,7 @@ def all(
 
     success = run_docker_tests(
         test_type="all",
-        rebuild=rebuild,
+        rebuild_image=rebuild,
         timeout=timeout,
         verbose=verbose,
         sequential=sequential,
@@ -295,7 +303,7 @@ def coverage(
 
     success = run_docker_tests(
         test_type="coverage",
-        rebuild=rebuild,
+        rebuild_image=rebuild,
         timeout=timeout,
         verbose=verbose,
         sequential=sequential,
@@ -310,25 +318,42 @@ def coverage(
 def build(
     ctx: typer.Context,
     no_cache: bool = typer.Option(False, "--no-cache", help="Force rebuild without cache"),
+    tag: Optional[str] = typer.Option(None, "--tag", help="Custom tag for the image"),
+    development: bool = typer.Option(False, "--dev", help="Build development image"),
+    use_compose: bool = typer.Option(False, "--compose", help="Use Docker Compose for building (experimental)"),
 ):
     """
     🔨 Build Docker test image.
 
-    Builds the OneMount test Docker image.
+    Builds the OneMount test Docker image using Docker Compose by default.
+    The image is tagged and ready for use without rebuilding on each test run.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
 
     if not ensure_environment():
         raise typer.Exit(1)
 
-    console.print("[blue]Building Docker test image...[/blue]")
+    image_type = "development" if development else "production"
+    console.print(f"[blue]Building Docker test image ({image_type})...[/blue]")
 
-    success = build_docker_image(no_cache=no_cache, verbose=verbose)
+    success = build_docker_image(
+        no_cache=no_cache,
+        tag=tag,
+        development=development,
+        use_compose=use_compose,
+        verbose=verbose
+    )
 
     if not success:
         raise typer.Exit(1)
 
-    console.print("[green]✅ Docker image built successfully![/green]")
+    final_tag = tag or ("onemount-test-runner:dev" if development else "onemount-test-runner:latest")
+    console.print(f"[green]✅ Docker image built successfully: {final_tag}[/green]")
+
+    if development:
+        console.print("[yellow]💡 Use this image for fast development with container reuse[/yellow]")
+    else:
+        console.print("[yellow]💡 Image is ready for testing. Use 'make docker-test-unit' for fast execution[/yellow]")
 
 
 @docker_app.command()

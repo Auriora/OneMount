@@ -1,14 +1,11 @@
 # Docker Compose configuration for OneMount testing
-# Provides easy test execution with proper volume mounts and networking
+# References pre-built images by tag, builds only when explicitly requested
 
 services:
-  # Main test runner service
+  # Main test runner service - uses pre-built image by default
   test-runner:
-    build:
-      context:    ../..
-      dockerfile: ../../packaging/docker/Dockerfile.test-runner
-    image: onemount-test-runner:latest
-    container_name: onemount-test-runner
+    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:latest}
+    container_name: ${ONEMOUNT_CONTAINER_NAME:-onemount-test-runner}
 
     # Run as current user to avoid permission issues
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
@@ -88,7 +85,6 @@ services:
     volumes:
       - ../..:/workspace:rw
       - ../../test-artifacts:/home/tester/.onemount-tests:rw
-      - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
 
     # Longer timeout for system tests
     environment:
@@ -109,7 +105,6 @@ services:
       - ../..:/workspace:rw
       - ../../coverage:/workspace/coverage:rw
       - ../../test-artifacts:/home/tester/.onemount-tests:rw
-      - ${HOME}/.onemount-tests/.auth_tokens.json:/home/tester/.onemount-tests/.auth_tokens.json:ro
     
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m

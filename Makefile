@@ -293,14 +293,34 @@ coverage-trend:
 	@echo "Analyzing coverage trends..."
 	./scripts/dev analyze coverage-trends --input coverage/coverage_history.json --output coverage/trends.html
 
-# Docker-based testing targets
+# Docker-based testing targets with enhanced container management
 docker-test-build:
-	@echo "Building Docker test image..."
+	@echo "Building Docker test image (uses pre-built image tags)..."
 	./scripts/dev test docker build
 
+docker-test-build-dev:
+	@echo "Building Docker development image..."
+	./scripts/dev test docker build --dev
+
+docker-test-build-no-cache:
+	@echo "Building Docker test image without cache..."
+	./scripts/dev test docker build --no-cache
+
+docker-test-build-direct:
+	@echo "Building Docker test image with direct Docker (no Compose)..."
+	./scripts/dev test docker build --no-compose
+
 docker-test-unit:
-	@echo "Running unit tests in Docker..."
+	@echo "Running unit tests in Docker (with container reuse)..."
 	./scripts/dev --verbose test docker unit
+
+docker-test-unit-fresh:
+	@echo "Running unit tests in Docker (fresh container)..."
+	./scripts/dev --verbose test docker unit --recreate-container
+
+docker-test-unit-no-reuse:
+	@echo "Running unit tests in Docker (no container reuse)..."
+	./scripts/dev --verbose test docker unit --no-reuse
 
 docker-test-integration:
 	@echo "Running integration tests in Docker..."
@@ -325,3 +345,20 @@ docker-test-shell:
 docker-test-clean:
 	@echo "Cleaning up Docker test resources..."
 	./scripts/dev test docker clean
+
+# Development workflow targets
+docker-dev-setup:
+	@echo "Setting up Docker development environment..."
+	@echo "Building tagged image that will be reused for fast testing..."
+	./scripts/dev test docker build --dev
+	@echo ""
+	@echo "✅ Development environment ready!"
+	@echo "💡 Images are now tagged and ready for reuse"
+	@echo "💡 Use 'make docker-test-unit' for fast testing (5-10 seconds)"
+	@echo "💡 Containers will be reused automatically for even faster subsequent runs"
+
+docker-dev-reset:
+	@echo "Resetting Docker development environment..."
+	./scripts/dev test docker clean
+	./scripts/dev test docker build --dev --no-cache
+	@echo "✅ Development environment reset with fresh images"

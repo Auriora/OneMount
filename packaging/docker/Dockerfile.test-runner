@@ -1,6 +1,6 @@
-# Dockerfile for running OneMount tests in isolation
-# Provides a clean, reproducible environment for all test types
-FROM ubuntu:24.04
+# Multi-stage Dockerfile for running OneMount tests in isolation
+# Provides a clean, reproducible environment with optimized caching
+FROM ubuntu:24.04 AS base
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -45,6 +45,7 @@ RUN go version && echo "Go installation verified for Ubuntu $(lsb_release -rs)"
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/home/tester/go"
 ENV GOCACHE="/tmp/go-cache"
+ENV GOMODCACHE="/tmp/go-mod-cache"
 
 # Configure FUSE for testing
 RUN echo 'user_allow_other' >> /etc/fuse.conf
@@ -55,26 +56,61 @@ RUN groupadd -f fuse && \
     mkdir -p /workspace && \
     chown tester:tester /workspace
 
+# Dependency caching stage
+FROM base AS deps
+
 # Set up Go environment for test user
 USER tester
 RUN mkdir -p /home/tester/go && \
+    mkdir -p /tmp/go-cache && \
+    mkdir -p /tmp/go-mod-cache && \
     echo 'export GOPATH=/home/tester/go' >> /home/tester/.bashrc && \
     echo 'export PATH=/usr/local/go/bin:$GOPATH/bin:$PATH' >> /home/tester/.bashrc
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy go.mod and go.sum first for better caching
+COPY --chown=tester:tester go.mod go.sum ./
+
+# Download dependencies (this layer will be cached unless go.mod/go.sum changes)
+RUN go mod download
+
+# Final stage
+FROM deps AS final
+
+# Copy source code (this will invalidate cache when source changes)
+COPY --chown=tester:tester . .
 
 # Create test directories
 RUN mkdir -p /home/tester/.onemount-tests/tmp && \
     mkdir -p /home/tester/.onemount-tests/logs && \
     mkdir -p /home/tester/.cache/onemount
 
-# Set working directory
-WORKDIR /workspace
-
-# Copy test entrypoint script
+# Copy test entrypoint script and make it executable
 COPY packaging/docker/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
 USER root
 RUN chmod +x /usr/local/bin/test-entrypoint.sh
 USER tester
 
+# Pre-build OneMount binaries for faster test execution
+RUN bash scripts/cgo-helper.sh && \
+    mkdir -p build/binaries && \
+    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
+        -o build/binaries/onemount \
+        -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+        ./cmd/onemount && \
+    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
+        -o build/binaries/onemount-launcher \
+        -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+        ./cmd/onemount-launcher
+
 # Default command
 ENTRYPOINT ["/usr/local/bin/test-entrypoint.sh"]
 CMD ["help"]
+
+# Add labels for better image management
+LABEL org.opencontainers.image.title="OneMount Test Runner"
+LABEL org.opencontainers.image.description="Docker image for running OneMount tests in isolation"
+LABEL org.opencontainers.image.vendor="Auriora"
+LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
