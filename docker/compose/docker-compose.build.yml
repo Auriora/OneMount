@@ -1,0 +1,47 @@
+# Docker Compose configuration for building OneMount test images
+# Use this file when you want to build images, not just run tests
+# Run from project root directory
+
+services:
+  # Build service for test runner image
+  test-runner-build:
+    build:
+      context: .
+      dockerfile: packaging/docker/Dockerfile.test-runner
+      cache_from:
+        - onemount-test-runner:latest
+        - onemount-test-runner:dev
+      target: final
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:latest}
+    profiles:
+      - build
+
+  # Development build variant
+  test-runner-dev-build:
+    build:
+      context: .
+      dockerfile: packaging/docker/Dockerfile.test-runner
+      cache_from:
+        - onemount-test-runner:dev
+        - onemount-test-runner:latest
+      target: final
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: onemount-test-runner:dev
+    profiles:
+      - build-dev
+
+  # No-cache build for clean rebuilds
+  test-runner-no-cache-build:
+    build:
+      context: .
+      dockerfile: packaging/docker/Dockerfile.test-runner
+      no_cache: true
+      target: final
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:latest}
+    profiles:
+      - build-no-cache

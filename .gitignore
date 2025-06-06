@@ -39,7 +39,7 @@ onemount-*/
 *.deb
 *.ddeb
 *.changes
-*.build*
+*.buildinfo
 *.upload
 *.tar.xz
 
@@ -67,3 +67,4 @@ onemount-fixed
 /vendor/
 /filelist.txt
 .venv/
+/auth_tokens.json
