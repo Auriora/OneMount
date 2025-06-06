@@ -300,23 +300,23 @@ docker-test-build:
 
 docker-test-unit:
 	@echo "Running unit tests in Docker..."
-	./scripts/dev test docker unit --verbose
+	./scripts/dev --verbose test docker unit
 
 docker-test-integration:
 	@echo "Running integration tests in Docker..."
-	./scripts/dev test docker integration --verbose
+	./scripts/dev --verbose test docker integration
 
 docker-test-system:
 	@echo "Running system tests in Docker..."
-	./scripts/dev test docker system --verbose --timeout 30m
+	./scripts/dev --verbose test docker system --timeout 30m
 
 docker-test-all:
 	@echo "Running all tests in Docker..."
-	./scripts/dev test docker all --verbose
+	./scripts/dev --verbose test docker all
 
 docker-test-coverage:
 	@echo "Running coverage analysis in Docker..."
-	./scripts/dev test docker coverage --verbose
+	./scripts/dev --verbose test docker coverage
 
 docker-test-shell:
 	@echo "Starting interactive Docker test shell..."

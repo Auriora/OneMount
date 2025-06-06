@@ -158,6 +158,7 @@ class DockerTestRunner:
     def run_tests(
         self,
         service: str,
+        test_type: str = "unit",
         rebuild: bool = False,
         timeout: Optional[str] = None,
         verbose: bool = False,
@@ -203,7 +204,20 @@ class DockerTestRunner:
             
             # Run the Docker Compose service
             cmd = compose_cmd + ["-f", str(compose_file_path), "run", "--rm", service]
-            
+
+            # For test-runner service, we need to pass the specific command
+            if service == "test-runner":
+                # Use the test_type as the command (e.g., "all", "coverage")
+                cmd.append(test_type)
+
+                # Add options if specified
+                if verbose:
+                    cmd.append("--verbose")
+                if timeout:
+                    cmd.extend(["--timeout", timeout])
+                if sequential:
+                    cmd.append("--sequential")
+
             run_command(
                 cmd,
                 check=True,
@@ -381,6 +395,7 @@ class DockerTestRunner:
             # Run the tests
             success = self.run_tests(
                 service=service,
+                test_type=test_type,
                 rebuild=rebuild,
                 timeout=timeout,
                 verbose=verbose,
