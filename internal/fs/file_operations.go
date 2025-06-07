@@ -209,7 +209,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		return fuse.OK
 	}
 
-	if inode.VerifyChecksum(graph.QuickXORHashStream(fd)) {
+	if inode.DriveItem.VerifyChecksum(graph.QuickXORHashStream(fd)) {
 		// disk content is only used if the checksums match
 		logger.Info().Msg("Found content in cache")
 

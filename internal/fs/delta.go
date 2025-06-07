@@ -513,11 +513,11 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	logger.Debug().
 		Time("localModTime", *local.DriveItem.ModTime).
 		Time("remoteModTime", *delta.ModTime).
-		Str("localETag", local.ETag).
+		Str("localETag", local.DriveItem.ETag).
 		Str("remoteETag", delta.ETag).
 		Msg("Checking for content changes")
 
-	if delta.ModTimeUnix() > local.ModTime() && !delta.ETagIsMatch(local.ETag) {
+	if delta.ModTimeUnix() > local.ModTime() && !delta.ETagIsMatch(local.DriveItem.ETag) {
 		logger.Debug().Msg("Remote item is newer than local item")
 		sameContent := false
 		if !delta.IsDir() && delta.File != nil {

@@ -1446,7 +1446,7 @@ func (f *Filesystem) MovePath(oldParent, newParent, oldName, newName string, aut
 	// this is the actual move op
 	inode.SetName(newName)
 	parent := f.GetID(newParent)
-	inode.Parent.ID = parent.DriveItem.ID
+	inode.DriveItem.Parent.ID = parent.DriveItem.ID
 	f.InsertID(id, inode)
 	return nil
 }

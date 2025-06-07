@@ -93,7 +93,7 @@ func (cr *ConflictResolver) DetectConflict(ctx context.Context, localItem *Inode
 	if localItem != nil && remoteItem != nil && offlineChange != nil {
 		// Check if both local and remote have changes
 		hasLocalChanges := localItem.HasChanges() || offlineChange.Type == "modify" || offlineChange.Type == "create"
-		hasRemoteChanges := remoteItem.ModTimeUnix() > localItem.ModTime() && !remoteItem.ETagIsMatch(localItem.ETag)
+		hasRemoteChanges := remoteItem.ModTimeUnix() > localItem.ModTime() && !remoteItem.ETagIsMatch(localItem.DriveItem.ETag)
 
 		if hasLocalChanges && hasRemoteChanges {
 			// Check if content is actually different

@@ -279,7 +279,7 @@ func (dm *DownloadManager) processDownload(id string) {
 		}
 
 		// Verify checksum
-		if !inode.VerifyChecksum(graph.QuickXORHashStream(temp)) {
+		if !inode.DriveItem.VerifyChecksum(graph.QuickXORHashStream(temp)) {
 			return errors.NewValidationError("checksum verification failed", nil)
 		}
 
