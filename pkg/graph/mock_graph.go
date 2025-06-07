@@ -1026,6 +1026,21 @@ func (m *MockGraphClient) Post(resource string, content io.Reader, headers ...ap
 		args = append(args, h)
 	}
 
+	// Check if we have a predefined response first
+	m.mu.Lock()
+	response, exists := m.RequestResponses[resource]
+	m.mu.Unlock()
+
+	if exists {
+		// Use the predefined response
+		if response.Error != nil {
+			m.Recorder.RecordCall("Post", append(args, response.Error)...)
+			return nil, response.Error
+		}
+		m.Recorder.RecordCall("Post", append(args, response.Body)...)
+		return response.Body, nil
+	}
+
 	// Special handling for directory creation (POST to children endpoint)
 	if strings.Contains(resource, "/children") && contentBytes != nil {
 		logging.Debug().
