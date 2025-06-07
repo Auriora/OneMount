@@ -5,12 +5,18 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/imdario/mergo"
+	yaml "gopkg.in/yaml.v3"
+
 	"github.com/auriora/onemount/internal/ui"
 	"github.com/auriora/onemount/pkg/errors"
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/auriora/onemount/pkg/logging"
-	"github.com/imdario/mergo"
-	yaml "gopkg.in/yaml.v3"
+)
+
+const (
+	// DefaultLogOutput is the default log output destination
+	DefaultLogOutput = "STDOUT"
 )
 
 type Config struct {
@@ -38,10 +44,10 @@ func createDefaultConfig() Config {
 	return Config{
 		CacheDir:        filepath.Join(xdgCacheDir, "onemount"),
 		LogLevel:        "debug",
-		LogOutput:       "STDOUT", // Default to standard output
-		SyncTree:        true,     // Enable tree sync by default for better performance
-		DeltaInterval:   1,        // Default to 1 second
-		CacheExpiration: 30,       // Default to 30 days
+		LogOutput:       DefaultLogOutput, // Default to standard output
+		SyncTree:        true,             // Enable tree sync by default for better performance
+		DeltaInterval:   1,                // Default to 1 second
+		CacheExpiration: 30,               // Default to 30 days
 	}
 }
 
@@ -84,7 +90,7 @@ func validateConfig(config *Config) error {
 	// Validate LogOutput
 	if config.LogOutput == "" {
 		logging.Warn().Msg("Log output location cannot be empty, using default (STDOUT).")
-		config.LogOutput = "STDOUT"
+		config.LogOutput = DefaultLogOutput
 	} else {
 		// Normalize special values to uppercase
 		switch strings.ToUpper(config.LogOutput) {
@@ -99,7 +105,7 @@ func validateConfig(config *Config) error {
 						Err(err).
 						Str("logOutput", config.LogOutput).
 						Msg("Could not create directory for log file, using STDOUT.")
-					config.LogOutput = "STDOUT"
+					config.LogOutput = DefaultLogOutput
 				}
 			}
 		}

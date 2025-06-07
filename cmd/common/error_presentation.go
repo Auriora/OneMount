@@ -107,21 +107,22 @@ func CategorizeError(err error) UserFriendlyError {
 	}
 
 	// Extract more specific information from the error message if available
-	if strings.Contains(err.Error(), "certificate") || strings.Contains(err.Error(), "TLS") || strings.Contains(err.Error(), "SSL") {
+	errStr := err.Error()
+	if strings.Contains(errStr, "certificate") || strings.Contains(errStr, "TLS") || strings.Contains(errStr, "SSL") {
 		result.Category = ErrorCategoryNetwork
 		result.Title = "SSL/TLS Error"
 		result.Message = "There was a problem with the secure connection to OneDrive."
 		result.Suggestion = "This might be due to network security settings or a proxy. Check your network configuration and security software."
 	}
 
-	if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "timed out") {
+	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "timed out") {
 		result.Category = ErrorCategoryNetwork
 		result.Title = "Connection Timeout"
 		result.Message = "The connection to OneDrive timed out."
 		result.Suggestion = "This might be due to slow internet or OneDrive being temporarily unavailable. Please try again later."
 	}
 
-	if strings.Contains(err.Error(), "quota") || strings.Contains(err.Error(), "storage") {
+	if strings.Contains(errStr, "quota") || strings.Contains(errStr, "storage") {
 		result.Category = ErrorCategoryOperation
 		result.Title = "Storage Quota Exceeded"
 		result.Message = "You have reached your OneDrive storage limit."

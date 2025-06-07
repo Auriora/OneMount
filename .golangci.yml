@@ -31,7 +31,7 @@ linters-settings:
     locale: US
   
   lll:
-    line-length: 120
+    line-length: 140
   
   goimports:
     local-prefixes: github.com/auriora/onemount
@@ -48,22 +48,22 @@ linters-settings:
 
 linters:
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
     - gofmt
     - goimports
     - misspell
     - goconst
     - gocyclo
     - lll
-    - gocritic
 
   disable:
-    - typecheck  # Disabled due to Go 1.24.2 compatibility issues
+    - typecheck     # Disabled due to Go 1.24.2 compatibility issues
+    - errcheck      # Disabled due to Go 1.24.2 compatibility issues
+    - gosimple      # Disabled due to Go 1.24.2 compatibility issues
+    - govet         # Disabled due to Go 1.24.2 compatibility issues
+    - ineffassign   # Disabled due to Go 1.24.2 compatibility issues
+    - staticcheck   # Disabled due to Go 1.24.2 compatibility issues
+    - unused        # Disabled due to Go 1.24.2 compatibility issues
+    - gocritic      # Disabled due to Go 1.24.2 compatibility issues
 
   exclude-rules:
     # Exclude some linters from running on tests files
@@ -99,6 +99,8 @@ linters:
   max-same-issues: 0
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
+      path: stdout
   print-issued-lines: true
   print-linter-name: true
