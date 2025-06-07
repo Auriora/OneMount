@@ -56,8 +56,8 @@ jobs:
     
     - name: Run all system tests
       run: |
-        chmod +x scripts/onemount-dev.py
-        ./scripts/onemount-dev.py test system --category all --verbose --timeout 45m
+        chmod +x scripts/dev
+        ./scripts/dev test system --category all --verbose --timeout 45m
     
     - name: Upload test logs
       if: always()

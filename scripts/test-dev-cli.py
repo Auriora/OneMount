@@ -23,11 +23,11 @@ def run_command(cmd):
 def test_cli_help():
     """Test that the CLI tool shows help correctly."""
     print("Testing CLI help...")
-    
-    cli_path = Path(__file__).parent / "onemount-dev.py"
-    
+
+    cli_path = Path(__file__).parent / "dev.py"
+
     success, stdout, stderr = run_command([sys.executable, str(cli_path), "--help"])
-    
+
     if success and "OneMount Development CLI Tool" in stdout:
         print("✓ CLI help works correctly")
         return True
@@ -38,36 +38,36 @@ def test_cli_help():
 def test_command_groups():
     """Test that all command groups are accessible."""
     print("Testing command groups...")
-    
-    cli_path = Path(__file__).parent / "onemount-dev.py"
+
+    cli_path = Path(__file__).parent / "dev.py"
     groups = ["build", "test", "release", "github", "analyze", "deploy"]
-    
+
     all_passed = True
-    
+
     for group in groups:
         success, stdout, stderr = run_command([sys.executable, str(cli_path), group, "--help"])
-        
+
         if success:
             print(f"✓ {group} command group works")
         else:
             print(f"✗ {group} command group failed: {stderr}")
             all_passed = False
-    
+
     return all_passed
 
 def test_status_command():
     """Test the status command."""
     print("Testing status command...")
-    
-    cli_path = Path(__file__).parent / "onemount-dev.py"
-    
-    success, stdout, stderr = run_command([sys.executable, str(cli_path), "status"])
-    
-    if success and "OneMount Development Environment Status" in stdout:
-        print("✓ Status command works correctly")
+
+    cli_path = Path(__file__).parent / "dev.py"
+
+    success, stdout, stderr = run_command([sys.executable, str(cli_path), "info"])
+
+    if success and ("OneMount Development Environment" in stdout or "Environment Information" in stdout):
+        print("✓ Info command works correctly")
         return True
     else:
-        print(f"✗ Status command failed: {stderr}")
+        print(f"✗ Info command failed: {stderr}")
         return False
 
 def test_imports():

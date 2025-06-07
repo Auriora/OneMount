@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/pkg/logging"
-	"github.com/godbus/dbus/v5"
+	dbus "github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 )
 

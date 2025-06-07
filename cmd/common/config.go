@@ -10,7 +10,7 @@ import (
 	"github.com/auriora/onemount/pkg/graph"
 	"github.com/auriora/onemount/pkg/logging"
 	"github.com/imdario/mergo"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type Config struct {

@@ -1,0 +1,104 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+issues:
+  exclude-dirs:
+    - vendor
+    - build
+    - coverage
+    - test-artifacts
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*_test\\.go$"  # Skip test files for some linters
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # Too noisy for this project
+      - shadow  # Moved to separate linter
+  
+  gocyclo:
+    min-complexity: 15
+  
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  
+  misspell:
+    locale: US
+  
+  lll:
+    line-length: 120
+  
+  goimports:
+    local-prefixes: github.com/auriora/onemount
+  
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+      - rangeValCopy
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - goconst
+    - gocyclo
+    - lll
+    - gocritic
+
+  disable:
+    - typecheck  # Disabled due to Go 1.24.2 compatibility issues
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+
+    # Exclude CGO-related warnings
+    - text: "cgo-gcc-prolog"
+      linters:
+        - errcheck
+
+    # Exclude deprecated warnings from gotk3
+    - text: "deprecated"
+      linters:
+        - staticcheck
+
+    # Exclude some common false positives
+    - text: "G404: Use of weak random number generator"
+      linters:
+        - gosec
+
+    # Allow long lines in generated files
+    - path: ".*\\.pb\\.go"
+      linters:
+        - lll
+
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
