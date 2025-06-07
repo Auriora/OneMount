@@ -193,7 +193,7 @@ jobs:
   # Job to provide helpful information if secrets are missing
   check-setup:
     runs-on: ubuntu-latest
-    if: ${{ !secrets.ONEDRIVE_PERSONAL_TOKENS }}
+    if: ${{ secrets.ONEDRIVE_PERSONAL_TOKENS == '' }}
     steps:
     - name: Setup instructions
       run: |
