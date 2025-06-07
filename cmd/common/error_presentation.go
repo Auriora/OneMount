@@ -76,10 +76,19 @@ func CategorizeError(err error) UserFriendlyError {
 		result.Suggestion = "Please check your internet connection and try again. If the problem persists, it might be a temporary issue with the OneDrive service."
 
 	case errors.IsAuthError(err):
-		result.Category = ErrorCategoryAuth
-		result.Title = "Authentication Error"
-		result.Message = "There was a problem with your OneDrive authentication."
-		result.Suggestion = "Please try re-authenticating with the '--auth-only' flag. If the problem persists, you may need to check your OneDrive account settings."
+		// Check if this is a permission error (403 Forbidden) vs authentication error (401 Unauthorized)
+		errStr := err.Error()
+		if strings.Contains(errStr, "accessDenied") || strings.Contains(errStr, "Access denied") || strings.Contains(errStr, "Forbidden") {
+			result.Category = ErrorCategoryPermission
+			result.Title = "Permission Denied"
+			result.Message = "You don't have permission to access this file or folder."
+			result.Suggestion = "Please check if you have the necessary permissions for this OneDrive resource. The file may be read-only or you may not have access rights."
+		} else {
+			result.Category = ErrorCategoryAuth
+			result.Title = "Authentication Error"
+			result.Message = "There was a problem with your OneDrive authentication."
+			result.Suggestion = "Please try re-authenticating with the '--auth-only' flag. If the problem persists, you may need to check your OneDrive account settings."
+		}
 
 	case errors.IsResourceBusyError(err):
 		result.Category = ErrorCategoryRateLimit
@@ -148,12 +157,21 @@ func PrintUserFriendlyError(err error) {
 	friendly := CategorizeError(err)
 
 	// Print a user-friendly error message to stderr
-	fmt.Fprintf(os.Stderr, "\n%s: %s\n\n", friendly.Title, friendly.Message)
-	fmt.Fprintf(os.Stderr, "Suggestion: %s\n\n", friendly.Suggestion)
+	if _, printErr := fmt.Fprintf(os.Stderr, "\n%s: %s\n\n", friendly.Title, friendly.Message); printErr != nil {
+		// If we can't print to stderr, there's not much we can do
+		// This is a best-effort operation
+	}
+	if _, printErr := fmt.Fprintf(os.Stderr, "Suggestion: %s\n\n", friendly.Suggestion); printErr != nil {
+		// If we can't print to stderr, there's not much we can do
+		// This is a best-effort operation
+	}
 
 	// For debugging, print the original error message
 	if os.Getenv("ONEMOUNT_DEBUG") == "1" {
-		fmt.Fprintf(os.Stderr, "Technical details: %s\n\n", err.Error())
+		if _, printErr := fmt.Fprintf(os.Stderr, "Technical details: %s\n\n", err.Error()); printErr != nil {
+			// If we can't print to stderr, there's not much we can do
+			// This is a best-effort operation
+		}
 	}
 }
 

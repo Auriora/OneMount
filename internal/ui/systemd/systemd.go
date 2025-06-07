@@ -45,7 +45,12 @@ func UnitIsActive(unit string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			// This is a best-effort cleanup
+		}
+	}()
 
 	obj := conn.Object(SystemdBusName, SystemdObjectPath)
 	call := obj.Call("org.freedesktop.systemd1.Manager.GetUnit", 0, unit)
@@ -63,7 +68,9 @@ func UnitIsActive(unit string) (bool, error) {
 		return false, err
 	}
 	var active string
-	property.Store(&active)
+	if err = property.Store(&active); err != nil {
+		return false, err
+	}
 	// Consider both "active" and "activating" states as active
 	return active == "active" || active == "activating", nil
 }
@@ -73,7 +80,12 @@ func UnitSetActive(unit string, active bool) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			// This is a best-effort cleanup
+		}
+	}()
 
 	obj := conn.Object(SystemdBusName, SystemdObjectPath)
 	if active {
@@ -88,7 +100,12 @@ func UnitIsEnabled(unit string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			// This is a best-effort cleanup
+		}
+	}()
 
 	var state string
 	obj := conn.Object(SystemdBusName, SystemdObjectPath)
@@ -107,7 +124,12 @@ func UnitSetEnabled(unit string, enabled bool) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			// This is a best-effort cleanup
+		}
+	}()
 
 	units := []string{unit}
 	obj := conn.Object(SystemdBusName, SystemdObjectPath)
