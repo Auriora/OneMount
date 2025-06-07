@@ -57,7 +57,7 @@ jobs:
     - name: Run all system tests
       run: |
         chmod +x scripts/dev
-        ./scripts/dev test system --category all --verbose --timeout 45m
+        ./scripts/dev test system --category all --timeout 45m
     
     - name: Upload test logs
       if: always()

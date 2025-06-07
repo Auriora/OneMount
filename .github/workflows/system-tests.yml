@@ -135,22 +135,22 @@ jobs:
         # Run tests with appropriate timeout using the new CLI tool
         case "$TEST_CATEGORY" in
           "comprehensive")
-            timeout 15m ./scripts/dev test system --category comprehensive --verbose --timeout 15m
+            timeout 15m ./scripts/dev test system --category comprehensive --timeout 15m
             ;;
           "performance")
-            timeout 20m ./scripts/dev test system --category performance --verbose --timeout 20m
+            timeout 20m ./scripts/dev test system --category performance --timeout 20m
             ;;
           "reliability")
-            timeout 10m ./scripts/dev test system --category reliability --verbose --timeout 10m
+            timeout 10m ./scripts/dev test system --category reliability --timeout 10m
             ;;
           "integration")
-            timeout 10m ./scripts/dev test system --category integration --verbose --timeout 10m
+            timeout 10m ./scripts/dev test system --category integration --timeout 10m
             ;;
           "stress")
-            timeout 25m ./scripts/dev test system --category stress --verbose --timeout 25m
+            timeout 25m ./scripts/dev test system --category stress --timeout 25m
             ;;
           "all")
-            timeout 45m ./scripts/dev test system --category all --verbose --timeout 45m
+            timeout 45m ./scripts/dev test system --category all --timeout 45m
             ;;
           *)
             echo "Unknown test category: $TEST_CATEGORY"
