@@ -177,7 +177,7 @@ For large applications with multiple components:
 
 - Use `gofmt` or `goimports` to format code
 - Follow the style recommendations in [Effective Go](https://golang.org/doc/effective_go.html)
-- Limit line length to 100-120 characters for better readability
+- Limit line length to 140 characters for better readability
 - Group imports into standard library, external packages, and internal packages
 - Use blank lines to separate logical sections of code
 - Align struct field tags for better readability

@@ -10,7 +10,7 @@ This document provides a comprehensive checklist for reviewing code contribution
 - [ ] Variable and function names use camelCase (or PascalCase for exported items)
 - [ ] Packages have meaningful, concise names
 - [ ] Comments are present for exported functions, types, and packages
-- [ ] Line length is reasonable (< 100 characters when possible)
+- [ ] Line length is reasonable (≤ 140 characters)
 - [ ] No unnecessary comments or commented-out code
 
 ### Error Handling
