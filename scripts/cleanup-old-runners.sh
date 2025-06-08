@@ -24,22 +24,14 @@ echo -e "${YELLOW}🧹 Cleaning up old GitHub Actions runners...${NC}"
 
 # List of offline runner IDs to remove (based on current status)
 OFFLINE_RUNNERS=(
-    "29:onemount-runner-fresh-1"
-    "37:onemount-runner-stable-1" 
-    "38:onemount-runner-stable-2"
-    "34:onemount-runner-working-2"
-    "23:onemount-runner-elastic-1"
-    "24:onemount-runner-elastic-2"
-    "25:onemount-runner-elastic-3"
-    "27:onemount-runner-elastic-new-2"
-    "32:onemount-runner-fixed-2"
-    "33:onemount-runner-working-1"
+    "39:onemount-simple-runner"
+    "40:onemount-simple-runner-2"
 )
 
 # Keep these runners (they are online and working)
 KEEP_RUNNERS=(
-    "39:onemount-simple-runner"
-    "40:onemount-simple-runner-2"
+    "41:onemount-elastic-1"
+    "42:onemount-elastic-2"
 )
 
 echo -e "${GREEN}✅ Keeping these working runners:${NC}"
