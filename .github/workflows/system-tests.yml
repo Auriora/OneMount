@@ -114,25 +114,105 @@ jobs:
     - name: Verify OneDrive access
       run: |
         # Test that we can access your OneDrive
-        ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json)
-        
-        RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+        echo "🔍 Verifying OneDrive access..."
+
+        if ! ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json 2>/dev/null); then
+          echo "❌ Failed to read access token from auth file"
+          echo "Auth file contents (first 100 chars):"
+          head -c 100 ~/.onemount-tests/.auth_tokens.json || echo "Could not read auth file"
+          exit 1
+        fi
+
+        if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+          echo "❌ Access token is null or empty"
+          exit 1
+        fi
+
+        echo "🌐 Testing OneDrive API access..."
+        RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" -H "Authorization: Bearer $ACCESS_TOKEN" \
           "https://graph.microsoft.com/v1.0/me/drive/root")
-        
-        if echo "$RESPONSE" | jq -e '.id' > /dev/null; then
+
+        HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+        RESPONSE_BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
+
+        echo "HTTP Status Code: $HTTP_CODE"
+
+        if [ "$HTTP_CODE" = "200" ] && echo "$RESPONSE_BODY" | jq -e '.id' > /dev/null 2>&1; then
           echo "✅ OneDrive access verified"
-          DRIVE_NAME=$(echo "$RESPONSE" | jq -r '.name // "Unknown"')
+          DRIVE_NAME=$(echo "$RESPONSE_BODY" | jq -r '.name // "Unknown"')
           echo "Drive Name: $DRIVE_NAME"
         else
           echo "❌ Failed to access OneDrive"
-          echo "Response: $RESPONSE"
-          echo "You may need to refresh your authentication tokens"
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $RESPONSE_BODY"
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "🔑 Authentication failed - tokens may be expired"
+            echo "You may need to refresh your authentication tokens"
+          fi
           exit 1
         fi
     
     - name: Build OneMount
       run: make onemount
-    
+
+    - name: Ensure test directories exist
+      run: |
+        echo "🏗️ Creating test directories..."
+        mkdir -p ~/.onemount-tests/logs
+        mkdir -p ~/.onemount-tests/tmp/system-test-mount
+        mkdir -p ~/.onemount-tests/system-test-data/cache
+        chmod 755 ~/.onemount-tests
+        chmod 755 ~/.onemount-tests/logs
+        chmod 755 ~/.onemount-tests/tmp
+        chmod 755 ~/.onemount-tests/system-test-data
+        echo "✅ Test directories created"
+
+    - name: Test dev CLI tool
+      run: |
+        echo "🔧 Testing dev CLI tool..."
+        chmod +x scripts/dev
+
+        # Test basic CLI functionality
+        echo "Testing CLI help:"
+        ./scripts/dev --help || echo "CLI help failed with exit code $?"
+
+        echo ""
+        echo "Testing test command help:"
+        ./scripts/dev test --help || echo "Test command help failed with exit code $?"
+
+        echo ""
+        echo "Testing system test command help:"
+        ./scripts/dev test system --help || echo "System test command help failed with exit code $?"
+
+        echo "✅ Dev CLI tool tested"
+
+    - name: Debug environment
+      run: |
+        echo "🔍 Environment Debug Information"
+        echo "================================"
+        echo "Working directory: $(pwd)"
+        echo "User: $(whoami)"
+        echo "Go version: $(go version)"
+        echo "Python version: $(python3 --version)"
+        echo ""
+        echo "📁 Project structure:"
+        ls -la
+        echo ""
+        echo "📁 Scripts directory:"
+        ls -la scripts/
+        echo ""
+        echo "🔧 Dev CLI tool:"
+        ls -la scripts/dev*
+        echo ""
+        echo "📁 Tests directory:"
+        ls -la tests/
+        echo ""
+        echo "📁 System tests:"
+        ls -la tests/system/
+        echo ""
+        echo "🔑 Auth tokens:"
+        ls -la ~/.onemount-tests/ || echo "No auth directory found"
+
     - name: Run system tests
       env:
         TEST_CATEGORY: ${{ github.event.inputs.test_category || 'comprehensive' }}
@@ -143,46 +223,76 @@ jobs:
         # Create test results directory
         mkdir -p system-test-results
 
+        echo "🧪 Running $TEST_CATEGORY system tests..."
+        echo "Test category: $TEST_CATEGORY"
+        echo "Command: ./scripts/dev test system --category $TEST_CATEGORY --json-output system-test-results/system-tests.json"
+        echo ""
+
         # Run tests with appropriate timeout using the new CLI tool
         case "$TEST_CATEGORY" in
           "comprehensive")
-            timeout 15m ./scripts/dev test system --category comprehensive --timeout 15m --json-output system-test-results/system-tests.json || true
+            timeout 15m ./scripts/dev test system --category comprehensive --timeout 15m --json-output system-test-results/system-tests.json || echo "Tests completed with exit code $?"
             ;;
           "performance")
-            timeout 20m ./scripts/dev test system --category performance --timeout 20m --json-output system-test-results/system-tests.json || true
+            timeout 20m ./scripts/dev test system --category performance --timeout 20m --json-output system-test-results/system-tests.json || echo "Tests completed with exit code $?"
             ;;
           "reliability")
-            timeout 10m ./scripts/dev test system --category reliability --timeout 10m --json-output system-test-results/system-tests.json || true
+            timeout 10m ./scripts/dev test system --category reliability --timeout 10m --json-output system-test-results/system-tests.json || echo "Tests completed with exit code $?"
             ;;
           "integration")
-            timeout 10m ./scripts/dev test system --category integration --timeout 10m --json-output system-test-results/system-tests.json || true
+            timeout 10m ./scripts/dev test system --category integration --timeout 10m --json-output system-test-results/system-tests.json || echo "Tests completed with exit code $?"
             ;;
           "stress")
-            timeout 25m ./scripts/dev test system --category stress --timeout 25m --json-output system-test-results/system-tests.json || true
+            timeout 25m ./scripts/dev test system --category stress --timeout 25m --json-output system-test-results/system-tests.json || echo "Tests completed with exit code $?"
             ;;
           "all")
-            timeout 45m ./scripts/dev test system --category all --timeout 45m --json-output system-test-results/system-tests.json || true
+            timeout 45m ./scripts/dev test system --category all --timeout 45m --json-output system-test-results/system-tests.json || echo "Tests completed with exit code $?"
             ;;
           *)
-            echo "Unknown test category: $TEST_CATEGORY"
+            echo "❌ Unknown test category: $TEST_CATEGORY"
             exit 1
             ;;
         esac
+
+        echo ""
+        echo "📊 Test execution completed"
+        echo "Results directory contents:"
+        ls -la system-test-results/ || echo "No results directory found"
+
+        if [ -f system-test-results/system-tests.json ]; then
+          echo "JSON output file size: $(wc -c < system-test-results/system-tests.json) bytes"
+          echo "First 500 characters of JSON output:"
+          head -c 500 system-test-results/system-tests.json || echo "Could not read JSON file"
+        else
+          echo "❌ No JSON output file generated"
+        fi
 
     - name: Generate JUnit XML from system test results
       if: always()
       run: |
         # Install go-junit-report if not available
         go install github.com/jstemmer/go-junit-report/v2@latest
-        # Convert JSON to JUnit XML if JSON file exists
-        if [ -f system-test-results/system-tests.json ]; then
+
+        # Ensure results directory exists
+        mkdir -p system-test-results
+
+        # Convert JSON to JUnit XML if JSON file exists and is not empty
+        if [ -f system-test-results/system-tests.json ] && [ -s system-test-results/system-tests.json ]; then
+          echo "Converting JSON test results to JUnit XML..."
           cat system-test-results/system-tests.json | go-junit-report -set-exit-code > system-test-results/junit.xml
+          echo "JUnit XML generated successfully"
         else
-          echo "No JSON test results found, creating empty JUnit report"
+          echo "No JSON test results found or file is empty, creating minimal JUnit report"
           cat > system-test-results/junit.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="system-tests" tests="0" failures="0" time="0">
+  <testsuite name="system-tests" tests="1" failures="1" time="0">
+    <testcase name="SystemTestExecution" classname="OneMount">
+      <failure message="System tests did not produce valid JSON output">
+        System tests failed to execute properly or did not generate JSON output.
+        Check the test execution logs for more details.
+      </failure>
+    </testcase>
   </testsuite>
 </testsuites>
 EOF

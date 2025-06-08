@@ -367,3 +367,82 @@ def workflows(ctx: typer.Context):
     except Exception as e:
         console.print(f"[red]Failed to get workflow status: {e}[/red]")
         raise typer.Exit(1)
+
+
+@github_app.command()
+def get_test_results(
+    ctx: typer.Context,
+    output_dir: str = typer.Option("./test-results-download", "--output", "-o", help="Output directory for downloaded results"),
+    workflow: Optional[str] = typer.Option(None, "--workflow", help="Filter by workflow name"),
+    run_id: Optional[int] = typer.Option(None, "--run-id", help="Download artifacts from specific run ID"),
+    token: Optional[str] = typer.Option(None, "--token", help="GitHub token (or set GITHUB_TOKEN env var)"),
+):
+    """
+    📊 Download test results and reports from GitHub Actions.
+
+    Downloads test results, coverage reports, and other artifacts from GitHub Actions workflows.
+    Supports downloading from latest runs or specific run IDs.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    try:
+        # Import here to avoid dependency issues if requests is not available
+        from utils.github_test_retriever import GitHubTestRetriever
+
+        console.print("[blue]Retrieving test results from GitHub Actions...[/blue]")
+
+        retriever = GitHubTestRetriever(token=token)
+        output_path = Path(output_dir)
+
+        if run_id:
+            # Download artifacts from specific run
+            console.print(f"Downloading artifacts from run {run_id}")
+            artifacts = retriever.get_run_artifacts(run_id)
+
+            if not artifacts:
+                console.print(f"[yellow]No artifacts found for run {run_id}[/yellow]")
+                return
+
+            downloaded = {}
+            for artifact in artifacts:
+                console.print(f"Downloading: {artifact['name']}")
+                try:
+                    extract_dir = retriever.download_artifact(artifact['id'], output_path / artifact['name'])
+                    downloaded[artifact['name']] = extract_dir
+                    console.print(f"✅ Extracted to: {extract_dir}")
+                except Exception as e:
+                    console.print(f"❌ Failed to download {artifact['name']}: {e}")
+
+            if downloaded:
+                retriever.show_test_summary(output_path)
+        else:
+            # Download latest test results
+            downloaded = retriever.get_latest_test_results(output_path)
+
+            if downloaded:
+                retriever.show_test_summary(output_path)
+                console.print(f"\n[bold green]✅ Test results downloaded to: {output_path}[/bold green]")
+
+                # Show usage examples
+                console.print("\n[bold cyan]📋 Usage Examples:[/bold cyan]")
+                console.print("  • View JUnit XML reports in your IDE or CI tools")
+                console.print("  • Open HTML coverage reports in your browser")
+                console.print("  • Parse JSON reports programmatically")
+                console.print("  • Analyze test trends over time")
+            else:
+                console.print("[yellow]No test artifacts found in recent workflow runs[/yellow]")
+                console.print("Try running workflows first or specify a specific --run-id")
+
+    except ImportError:
+        console.print("[red]Missing dependencies for GitHub test retrieval.[/red]")
+        console.print("Install required packages: pip install requests")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error retrieving test results: {e}[/red]")
+        if verbose:
+            import traceback
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
+        raise typer.Exit(1)

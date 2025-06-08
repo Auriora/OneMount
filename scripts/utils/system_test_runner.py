@@ -153,6 +153,9 @@ class SystemTestRunner:
             # Run the tests
             if json_output:
                 # Capture JSON output to file using subprocess directly
+                self._log_info(f"Running command: {' '.join(cmd)}")
+                self._log_info(f"JSON output will be saved to: {json_output}")
+
                 with open(json_output, 'w') as f:
                     result = subprocess.run(
                         cmd,
@@ -162,9 +165,20 @@ class SystemTestRunner:
                         text=True,
                         check=False
                     )
+
                     if result.returncode != 0:
+                        self._log_error(f"Test command failed with exit code {result.returncode}")
+                        if result.stderr:
+                            self._log_error(f"Error output: {result.stderr}")
+
+                        # Still write a minimal JSON output for reporting
+                        f.write('{"Action":"fail","Test":"SystemTestExecution","Output":"Tests failed to execute properly"}\n')
+
                         raise CommandError(cmd, result.returncode, result.stderr)
+                    else:
+                        self._log_success(f"Tests completed successfully, JSON output saved to {json_output}")
             else:
+                self._log_info(f"Running command: {' '.join(cmd)}")
                 run_command(
                     cmd,
                     check=True,
