@@ -74,14 +74,20 @@ get_queue_length() {
 # Get current runner count
 get_runner_count() {
     local running_containers
-    running_containers=$(DOCKER_HOST="$DOCKER_HOST" docker ps -q --filter "name=onemount-runner-elastic-*" | wc -l)
+    # Use local docker command if DOCKER_HOST is not accessible
+    if command -v docker >/dev/null 2>&1; then
+        running_containers=$(docker ps -q --filter "name=onemount-elastic-*" | wc -l)
+    else
+        # Fallback to GitHub API count
+        running_containers=$(github_api "actions/runners" | jq -r '.runners[] | select(.name | startswith("onemount-elastic")) | select(.status == "online") | .name' | wc -l)
+    fi
     echo "$running_containers"
 }
 
 # Get runner status
 get_runner_status() {
     local runners
-    runners=$(github_api "actions/runners" | jq -r '.runners[] | select(.name | startswith("onemount-runner-elastic")) | "\(.name):\(.status):\(.busy)"')
+    runners=$(github_api "actions/runners" | jq -r '.runners[] | select(.name | startswith("onemount-elastic")) | "\(.name):\(.status):\(.busy)"')
     echo "$runners"
 }
 

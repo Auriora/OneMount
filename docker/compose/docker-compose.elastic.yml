@@ -31,9 +31,9 @@ services:
     # Restart policy
     restart: unless-stopped
     
-    # Run the elastic manager
+    # Run the elastic monitor
     working_dir: /workspace
-    command: ["exec", "/usr/local/bin/elastic-runner-manager.sh", "monitor"]
+    command: ["exec", "bash", "/workspace/scripts/elastic-monitor.sh", "monitor"]
 
     # Override environment variables to ensure they're available
     environment:
