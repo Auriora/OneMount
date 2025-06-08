@@ -12,19 +12,6 @@ services:
     image: onemount-github-runner:latest
     container_name: onemount-elastic-manager
     
-    # Environment configuration
-    environment:
-      - DOCKER_HOST=${DOCKER_HOST:-tcp://172.16.1.104:2376}
-      - MIN_RUNNERS=${MIN_RUNNERS:-1}
-      - MAX_RUNNERS=${MAX_RUNNERS:-5}
-      - SCALE_UP_THRESHOLD=${SCALE_UP_THRESHOLD:-2}
-      - SCALE_DOWN_THRESHOLD=${SCALE_DOWN_THRESHOLD:-0}
-      - CHECK_INTERVAL=${CHECK_INTERVAL:-30}
-      - COOLDOWN_PERIOD=${COOLDOWN_PERIOD:-300}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
-      - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
-    
     # Mount Docker socket for container management
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -43,6 +30,19 @@ services:
     # Run the elastic manager
     working_dir: /workspace
     command: ["exec", "/usr/local/bin/elastic-runner-manager.sh", "monitor"]
+
+    # Override environment variables to ensure they're available
+    environment:
+      - DOCKER_HOST=${DOCKER_HOST:-tcp://172.16.1.104:2376}
+      - MIN_RUNNERS=${MIN_RUNNERS:-1}
+      - MAX_RUNNERS=${MAX_RUNNERS:-5}
+      - SCALE_UP_THRESHOLD=${SCALE_UP_THRESHOLD:-2}
+      - SCALE_DOWN_THRESHOLD=${SCALE_DOWN_THRESHOLD:-0}
+      - CHECK_INTERVAL=${CHECK_INTERVAL:-30}
+      - COOLDOWN_PERIOD=${COOLDOWN_PERIOD:-300}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
     
     # Health check
     healthcheck:

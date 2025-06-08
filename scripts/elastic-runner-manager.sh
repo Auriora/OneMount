@@ -37,11 +37,18 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Load environment variables
 load_env() {
+    # If running in container with environment variables already set, skip file loading
+    if [[ -n "${GITHUB_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]]; then
+        print_info "Using environment variables (container mode)"
+        return 0
+    fi
+
     local env_file="$PROJECT_ROOT/.env"
     if [[ -f "$env_file" ]]; then
         set -a
         source "$env_file"
         set +a
+        print_info "Loaded environment from $env_file"
     else
         print_error "Environment file not found: $env_file"
         print_info "Run './scripts/manage-runner.sh setup' first"
