@@ -66,7 +66,7 @@ Examples:
   docker run -it onemount-runner shell
 
   # Execute a script
-  docker run onemount-runner exec /workspace/scripts/elastic-runner-manager.sh monitor
+  docker run onemount-runner exec /workspace/scripts/manage-runners.sh status
 
 EOF
 }

@@ -30,8 +30,8 @@ OFFLINE_RUNNERS=(
 
 # Keep these runners (they are online and working)
 KEEP_RUNNERS=(
-    "41:onemount-elastic-1"
-    "42:onemount-elastic-2"
+    "41:onemount-runner-1"
+    "42:onemount-runner-2"
 )
 
 echo -e "${GREEN}✅ Keeping these working runners:${NC}"

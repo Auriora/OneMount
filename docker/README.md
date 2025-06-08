@@ -17,10 +17,19 @@ docker/
 ### `compose/docker-compose.runner.yml`
 - **Purpose**: Local GitHub Actions self-hosted runner
 - **Usage**: Used by `scripts/manage-runner.sh` for local development
-- **Features**: 
+- **Features**:
   - Interactive setup and management
   - Development and production modes
   - Persistent volumes for runner data
+  - FUSE support for filesystem testing
+
+### `compose/docker-compose.runners.yml`
+- **Purpose**: Simple 2-runner setup for manual management
+- **Usage**: Used by `scripts/manage-runners.sh` for remote deployment
+- **Features**:
+  - 2 static runners (primary and secondary)
+  - Manual start/stop control
+  - Persistent storage for runner data
   - FUSE support for filesystem testing
 
 ### `compose/docker-compose.remote.yml`
@@ -40,11 +49,13 @@ docker/
 
 ### Scripts
 - `scripts/manage-runner.sh` - Local runner management
+- `scripts/manage-runners.sh` - Simple 2-runner management
 - `scripts/deploy-docker-remote.sh` - Remote deployment management
 - `packaging/docker/runner-entrypoint.sh` - Runner container entrypoint
 
 ### Documentation
 - `docs/docker-self-hosted-runner.md` - Local runner setup guide
+- `docs/github-runners.md` - Simple 2-runner setup guide
 - `docs/docker-remote-api-setup.md` - Remote deployment guide
 
 ## Quick Start
