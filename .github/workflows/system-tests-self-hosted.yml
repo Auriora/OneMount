@@ -294,19 +294,17 @@ jobs:
           echo "JUnit XML generated successfully"
         else
           echo "No JSON test results found or file is empty, creating minimal JUnit report"
-          cat > system-test-results/junit.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="system-tests" tests="1" failures="1" time="0">
-    <testcase name="SystemTestExecution" classname="OneMount">
-      <failure message="System tests did not produce valid JSON output">
-        System tests failed to execute properly or did not generate JSON output.
-        Check the test execution logs for more details.
-      </failure>
-    </testcase>
-  </testsuite>
-</testsuites>
-EOF
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > system-test-results/junit.xml
+          echo '<testsuites>' >> system-test-results/junit.xml
+          echo '  <testsuite name="system-tests" tests="1" failures="1" time="0">' >> system-test-results/junit.xml
+          echo '    <testcase name="SystemTestExecution" classname="OneMount">' >> system-test-results/junit.xml
+          echo '      <failure message="System tests did not produce valid JSON output">' >> system-test-results/junit.xml
+          echo '        System tests failed to execute properly or did not generate JSON output.' >> system-test-results/junit.xml
+          echo '        Check the test execution logs for more details.' >> system-test-results/junit.xml
+          echo '      </failure>' >> system-test-results/junit.xml
+          echo '    </testcase>' >> system-test-results/junit.xml
+          echo '  </testsuite>' >> system-test-results/junit.xml
+          echo '</testsuites>' >> system-test-results/junit.xml
         fi
 
     - name: Upload test results

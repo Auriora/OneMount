@@ -96,7 +96,7 @@ test_onedrive_access() {
     fi
     
     response=$(curl -s -w "HTTP_CODE:%{http_code}" -H "Authorization: Bearer $access_token" \
-        "https://graph.microsoft.com/v1.0/me/drive/root")
+        "https://graph.microsoft.com/v1.0/me/drive")
     
     http_code=$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
     response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
