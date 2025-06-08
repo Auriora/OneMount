@@ -103,18 +103,36 @@ start_elastic() {
 # Stop elastic system
 stop_elastic() {
     print_info "Stopping elastic runner system..."
-    
+
     cd "$PROJECT_ROOT/docker/compose"
-    
+
     # Stop the elastic manager
     DOCKER_HOST="tcp://$DOCKER_HOST" docker compose \
         -f docker-compose.elastic.yml \
         down
-    
+
     # Clean up any running elastic runners
     "$PROJECT_ROOT/scripts/elastic-runner-manager.sh" cleanup
-    
+
     print_success "Elastic runner system stopped"
+}
+
+# Restart elastic system
+restart_elastic() {
+    print_info "Restarting elastic runner system..."
+
+    # Stop the system first
+    stop_elastic
+
+    # Wait a moment for cleanup to complete
+    sleep 2
+
+    # Start the system
+    check_prerequisites
+    setup_manager
+    start_elastic
+
+    print_success "Elastic runner system restarted"
 }
 
 # Show status
@@ -184,6 +202,7 @@ Commands:
   build             Build elastic runner image
   start             Start elastic runner system
   stop              Stop elastic runner system
+  restart           Restart elastic runner system
   status            Show current status
   install-service   Install systemd service
   start-dashboard   Start monitoring dashboard
@@ -194,6 +213,7 @@ Environment Variables:
 
 Examples:
   $0 setup                      # Complete setup
+  $0 restart                    # Restart the system
   $0 status                     # Check status
   DOCKER_HOST=192.168.1.100:2376 $0 setup  # Custom Docker host
 
@@ -227,6 +247,9 @@ main() {
             ;;
         stop)
             stop_elastic
+            ;;
+        restart)
+            restart_elastic
             ;;
         status)
             show_status

@@ -34,7 +34,15 @@ RUN apt-get update && apt-get install -y \
     # Additional utilities
     ca-certificates \
     lsb-release \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Docker CLI for elastic manager
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
 
 # Verify Go version
 RUN go version && echo "Go installation verified for Ubuntu $(lsb_release -rs)"
@@ -81,10 +89,15 @@ RUN mkdir -p /home/runner/.onemount-tests/tmp && \
     sudo mkdir -p /opt/onemount-ci && \
     sudo chown runner:runner /opt/onemount-ci
 
-# Copy runner entrypoint script
+# Copy runner entrypoint script and elastic manager script
 COPY packaging/docker/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
+COPY scripts/elastic-runner-manager.sh /usr/local/bin/elastic-runner-manager.sh
+COPY .env /workspace/.env
 USER root
-RUN chmod +x /usr/local/bin/runner-entrypoint.sh
+RUN chmod +x /usr/local/bin/runner-entrypoint.sh && \
+    chmod +x /usr/local/bin/elastic-runner-manager.sh && \
+    chown runner:runner /workspace/.env && \
+    chmod 644 /workspace/.env
 USER runner
 
 # Set working directory for actions

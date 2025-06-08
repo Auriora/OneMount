@@ -7,8 +7,13 @@ set -euo pipefail
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DOCKER_HOST="${DOCKER_HOST:-172.16.1.104:2376}"
+# Detect if running in container and adjust PROJECT_ROOT accordingly
+if [[ "$SCRIPT_DIR" == "/usr/local/bin" && -f "/workspace/.env" ]]; then
+    PROJECT_ROOT="/workspace"
+else
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+DOCKER_HOST="${DOCKER_HOST:-tcp://172.16.1.104:2376}"
 RUNNER_IMAGE="${RUNNER_IMAGE:-onemount-github-runner:latest}"
 MIN_RUNNERS="${MIN_RUNNERS:-1}"
 MAX_RUNNERS="${MAX_RUNNERS:-5}"
@@ -62,7 +67,7 @@ get_queue_length() {
 # Get current runner count
 get_runner_count() {
     local running_containers
-    running_containers=$(DOCKER_HOST="tcp://$DOCKER_HOST" docker ps -q --filter "name=onemount-runner-elastic-*" | wc -l)
+    running_containers=$(DOCKER_HOST="$DOCKER_HOST" docker ps -q --filter "name=onemount-runner-elastic-*" | wc -l)
     echo "$running_containers"
 }
 
@@ -87,7 +92,7 @@ scale_up() {
         print_info "Starting runner: $runner_name"
         
         # Start new runner container
-        DOCKER_HOST="tcp://$DOCKER_HOST" docker run -d \
+        DOCKER_HOST="$DOCKER_HOST" docker run -d \
             --name "$container_name" \
             --restart unless-stopped \
             --device /dev/fuse \
@@ -142,8 +147,8 @@ scale_down() {
         print_info "Stopping runner: $runner_name"
         
         # Stop and remove container
-        DOCKER_HOST="tcp://$DOCKER_HOST" docker stop "$runner_name" || true
-        DOCKER_HOST="tcp://$DOCKER_HOST" docker rm "$runner_name" || true
+        DOCKER_HOST="$DOCKER_HOST" docker stop "$runner_name" || true
+        DOCKER_HOST="$DOCKER_HOST" docker rm "$runner_name" || true
         
         print_success "Stopped runner: $runner_name"
         ((removed++))
@@ -231,15 +236,25 @@ show_status() {
 # Clean up all elastic runners
 cleanup() {
     print_info "Cleaning up all elastic runners..."
-    
+
     # Stop and remove all elastic runner containers
-    DOCKER_HOST="tcp://$DOCKER_HOST" docker ps -a -q --filter "name=onemount-runner-elastic-*" | \
-        xargs -r DOCKER_HOST="tcp://$DOCKER_HOST" docker rm -f
-    
+    local container_ids
+    container_ids=$(DOCKER_HOST="$DOCKER_HOST" docker ps -a -q --filter "name=onemount-runner-elastic-*")
+    if [[ -n "$container_ids" ]]; then
+        while IFS= read -r container_id; do
+            [[ -n "$container_id" ]] && DOCKER_HOST="$DOCKER_HOST" docker rm -f "$container_id"
+        done <<< "$container_ids"
+    fi
+
     # Remove volumes (optional)
-    DOCKER_HOST="tcp://$DOCKER_HOST" docker volume ls -q --filter "name=onemount-runner-elastic-*" | \
-        xargs -r DOCKER_HOST="tcp://$DOCKER_HOST" docker volume rm
-    
+    local volume_ids
+    volume_ids=$(DOCKER_HOST="$DOCKER_HOST" docker volume ls -q --filter "name=onemount-runner-elastic-*")
+    if [[ -n "$volume_ids" ]]; then
+        while IFS= read -r volume_id; do
+            [[ -n "$volume_id" ]] && DOCKER_HOST="$DOCKER_HOST" docker volume rm "$volume_id"
+        done <<< "$volume_ids"
+    fi
+
     print_success "Cleanup completed"
 }
 
@@ -299,6 +314,7 @@ main() {
             scale_down "$(get_runner_count)" "$target"
             ;;
         cleanup)
+            load_env
             cleanup
             ;;
         help|--help|-h)

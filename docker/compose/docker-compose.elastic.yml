@@ -41,7 +41,8 @@ services:
     restart: unless-stopped
     
     # Run the elastic manager
-    command: ["/workspace/scripts/elastic-runner-manager.sh", "monitor"]
+    working_dir: /workspace
+    command: ["exec", "/usr/local/bin/elastic-runner-manager.sh", "monitor"]
     
     # Health check
     healthcheck:

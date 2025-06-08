@@ -41,6 +41,7 @@ Commands:
   setup-auth        Setup OneDrive authentication
   test              Test the runner environment
   shell             Start interactive shell
+  exec              Execute a script or command
 
 Environment Variables (required for registration):
   GITHUB_TOKEN      GitHub personal access token with repo scope
@@ -63,6 +64,9 @@ Examples:
 
   # Interactive shell for debugging
   docker run -it onemount-runner shell
+
+  # Execute a script
+  docker run onemount-runner exec /workspace/scripts/elastic-runner-manager.sh monitor
 
 EOF
 }
@@ -222,6 +226,16 @@ case "${1:-}" in
     shell)
         print_info "Starting interactive shell..."
         exec /bin/bash
+        ;;
+    exec)
+        if [[ -z "$2" ]]; then
+            print_error "exec command requires a script or command to execute"
+            show_usage
+            exit 1
+        fi
+        shift  # Remove 'exec' from arguments
+        print_info "Executing: $*"
+        exec "$@"
         ;;
     --help|-h|help)
         show_usage
