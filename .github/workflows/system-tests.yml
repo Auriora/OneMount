@@ -140,31 +140,70 @@ jobs:
         # Make CLI tool executable
         chmod +x scripts/dev
 
+        # Create test results directory
+        mkdir -p system-test-results
+
         # Run tests with appropriate timeout using the new CLI tool
         case "$TEST_CATEGORY" in
           "comprehensive")
-            timeout 15m ./scripts/dev test system --category comprehensive --timeout 15m
+            timeout 15m ./scripts/dev test system --category comprehensive --timeout 15m --json-output system-test-results/system-tests.json || true
             ;;
           "performance")
-            timeout 20m ./scripts/dev test system --category performance --timeout 20m
+            timeout 20m ./scripts/dev test system --category performance --timeout 20m --json-output system-test-results/system-tests.json || true
             ;;
           "reliability")
-            timeout 10m ./scripts/dev test system --category reliability --timeout 10m
+            timeout 10m ./scripts/dev test system --category reliability --timeout 10m --json-output system-test-results/system-tests.json || true
             ;;
           "integration")
-            timeout 10m ./scripts/dev test system --category integration --timeout 10m
+            timeout 10m ./scripts/dev test system --category integration --timeout 10m --json-output system-test-results/system-tests.json || true
             ;;
           "stress")
-            timeout 25m ./scripts/dev test system --category stress --timeout 25m
+            timeout 25m ./scripts/dev test system --category stress --timeout 25m --json-output system-test-results/system-tests.json || true
             ;;
           "all")
-            timeout 45m ./scripts/dev test system --category all --timeout 45m
+            timeout 45m ./scripts/dev test system --category all --timeout 45m --json-output system-test-results/system-tests.json || true
             ;;
           *)
             echo "Unknown test category: $TEST_CATEGORY"
             exit 1
             ;;
         esac
+
+    - name: Generate JUnit XML from system test results
+      if: always()
+      run: |
+        # Install go-junit-report if not available
+        go install github.com/jstemmer/go-junit-report/v2@latest
+        # Convert JSON to JUnit XML if JSON file exists
+        if [ -f system-test-results/system-tests.json ]; then
+          cat system-test-results/system-tests.json | go-junit-report -set-exit-code > system-test-results/junit.xml
+        else
+          echo "No JSON test results found, creating empty JUnit report"
+          cat > system-test-results/junit.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="system-tests" tests="0" failures="0" time="0">
+  </testsuite>
+</testsuites>
+EOF
+        fi
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: system-test-results
+        path: system-test-results/
+        retention-days: 30
+
+    - name: Publish system test results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: System Tests
+        path: system-test-results/junit.xml
+        reporter: java-junit
+        fail-on-error: false
     
     - name: Upload test logs
       if: always()

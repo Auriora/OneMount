@@ -133,41 +133,59 @@ class SystemTestRunner:
         self._log_success("Prerequisites check passed")
         return True
     
-    def run_test_category(self, category: str, test_pattern: Optional[str] = None) -> bool:
+    def run_test_category(self, category: str, test_pattern: Optional[str] = None, json_output: Optional[str] = None) -> bool:
         """Run specific test category."""
         try:
             self._log_info(f"Running {category} tests...")
-            
+
             # Build the go test command
             cmd = ["go", "test", "-v", "-timeout", self.timeout]
-            
+
+            # Add JSON output if requested
+            if json_output:
+                cmd.append("-json")
+
             if test_pattern:
                 cmd.extend(["-run", test_pattern])
-            
+
             cmd.append("./tests/system")
-            
+
             # Run the tests
-            run_command(
-                cmd,
-                check=True,
-                verbose=self.verbose,
-                timeout=None,  # Use Go's own timeout
-                cwd=str(self.paths["project_root"])
-            )
-            
+            if json_output:
+                # Capture JSON output to file using subprocess directly
+                with open(json_output, 'w') as f:
+                    result = subprocess.run(
+                        cmd,
+                        cwd=str(self.paths["project_root"]),
+                        stdout=f,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        check=False
+                    )
+                    if result.returncode != 0:
+                        raise CommandError(cmd, result.returncode, result.stderr)
+            else:
+                run_command(
+                    cmd,
+                    check=True,
+                    verbose=self.verbose,
+                    timeout=None,  # Use Go's own timeout
+                    cwd=str(self.paths["project_root"])
+                )
+
             self._log_success(f"{category} tests completed successfully")
             return True
-            
+
         except (CommandError, Exception) as e:
             self._log_error(f"{category} tests failed: {e}")
             return False
     
-    def run_all_tests(self) -> bool:
+    def run_all_tests(self, json_output: Optional[str] = None) -> bool:
         """Run all system test categories."""
         failed_tests = []
-        
+
         self._log_info("Running all system test categories...")
-        
+
         # Define test categories and their patterns
         test_categories = [
             ("Comprehensive", "TestSystemST_COMPREHENSIVE_01_AllOperations"),
@@ -176,9 +194,9 @@ class SystemTestRunner:
             ("Integration", "TestSystemST_INTEGRATION_01_MountUnmount"),
             ("Stress", "TestSystemST_STRESS_01_HighLoad"),
         ]
-        
+
         for category, pattern in test_categories:
-            if not self.run_test_category(category, pattern):
+            if not self.run_test_category(category, pattern, json_output):
                 failed_tests.append(category)
         
         # Report results
@@ -197,7 +215,8 @@ class SystemTestRunner:
         self,
         category: str = "comprehensive",
         timeout: str = "30m",
-        verbose: bool = False
+        verbose: bool = False,
+        json_output: Optional[str] = None
     ) -> bool:
         """
         Main method to run system tests.
@@ -236,9 +255,9 @@ class SystemTestRunner:
             
             # Run tests based on category
             if category == "all":
-                success = self.run_all_tests()
+                success = self.run_all_tests(json_output)
             elif category in test_patterns:
-                success = self.run_test_category(category.title(), test_patterns[category])
+                success = self.run_test_category(category.title(), test_patterns[category], json_output)
             else:
                 self._log_error(f"Unknown test category: {category}")
                 return False
@@ -264,18 +283,20 @@ class SystemTestRunner:
 def run_system_tests(
     category: str = "comprehensive",
     timeout: str = "30m",
-    verbose: bool = False
+    verbose: bool = False,
+    json_output: Optional[str] = None
 ) -> bool:
     """
     Convenience function to run system tests.
-    
+
     Args:
         category: Test category to run
         timeout: Test timeout duration
         verbose: Enable verbose output
-        
+        json_output: Path to save JSON test output
+
     Returns:
         True if tests succeeded, False otherwise
     """
     runner = SystemTestRunner(verbose=verbose)
-    return runner.run_system_tests(category=category, timeout=timeout, verbose=verbose)
+    return runner.run_system_tests(category=category, timeout=timeout, verbose=verbose, json_output=json_output)

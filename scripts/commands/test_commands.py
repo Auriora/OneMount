@@ -98,6 +98,7 @@ def system(
         help="Test category to run (comprehensive/performance/reliability/integration/stress/all)"
     ),
     timeout: str = typer.Option("30m", help="Test timeout duration"),
+    json_output: Optional[str] = typer.Option(None, "--json-output", help="Path to save JSON test output for CI reporting"),
 ):
     """
     🧪 Run system tests with real OneDrive integration.
@@ -121,7 +122,8 @@ def system(
     success = run_system_tests(
         category=category,
         timeout=timeout,
-        verbose=verbose
+        verbose=verbose,
+        json_output=json_output
     )
 
     if not success:

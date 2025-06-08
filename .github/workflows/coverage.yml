@@ -106,6 +106,15 @@ jobs:
           coverage/
           !coverage/coverage.out
         retention-days: 30
+
+    - name: Publish coverage test results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: Coverage Tests
+        path: coverage/junit.xml
+        reporter: java-junit
+        fail-on-error: false
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

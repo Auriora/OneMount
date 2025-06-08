@@ -57,8 +57,38 @@ jobs:
     - name: Run all system tests
       run: |
         chmod +x scripts/dev
-        ./scripts/dev test system --category all --timeout 45m
-    
+        # Create test results directory
+        mkdir -p system-test-results
+        # Run system tests with JSON output for reporting
+        ./scripts/dev test system --category all --timeout 45m --json-output system-test-results/system-tests.json || true
+
+    - name: Generate JUnit XML from system test results
+      if: always()
+      run: |
+        # Install go-junit-report if not available
+        go install github.com/jstemmer/go-junit-report/v2@latest
+        # Convert JSON to JUnit XML if JSON file exists
+        if [ -f system-test-results/system-tests.json ]; then
+          cat system-test-results/system-tests.json | go-junit-report -set-exit-code > system-test-results/junit.xml
+        else
+          echo "No JSON test results found, creating empty JUnit report"
+          cat > system-test-results/junit.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="system-tests" tests="0" failures="0" time="0">
+  </testsuite>
+</testsuites>
+EOF
+        fi
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: system-test-results-self-hosted
+        path: system-test-results/
+        retention-days: 30
+
     - name: Upload test logs
       if: always()
       uses: actions/upload-artifact@v4
@@ -66,6 +96,15 @@ jobs:
         name: system-test-logs-self-hosted
         path: ~/.onemount-tests/logs/
         retention-days: 30
+
+    - name: Publish system test results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: System Tests (Self-Hosted)
+        path: system-test-results/junit.xml
+        reporter: java-junit
+        fail-on-error: false
     
     - name: Cleanup
       if: always()
