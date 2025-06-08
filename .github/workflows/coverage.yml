@@ -13,7 +13,7 @@ permissions:
 jobs:
   coverage:
     name: Coverage Analysis
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, linux, onemount-testing]' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, Linux, onemount-testing]' }}
     
     steps:
     - name: Checkout code
