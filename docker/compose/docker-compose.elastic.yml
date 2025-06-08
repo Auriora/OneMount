@@ -76,6 +76,8 @@ services:
     # Mount configuration
     volumes:
       - runner-template-work:/opt/actions-runner/_work
+      - runner-template-data:/opt/actions-runner/.runner
+      - runner-template-credentials:/opt/actions-runner/.credentials
       - ../..:/workspace:ro
 
     # Use tmpfs for update directories to avoid permission issues
@@ -134,6 +136,14 @@ volumes:
   
   # Template runner work directory
   runner-template-work:
+    driver: local
+
+  # Template runner registration data (persists across restarts)
+  runner-template-data:
+    driver: local
+
+  # Template runner credentials (persists across restarts)
+  runner-template-credentials:
     driver: local
 
 networks:
