@@ -3,11 +3,11 @@
 # Golden config for golangci-lint v2.1.6
 # Based on https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
 
-# version: "2"  # Commented out for compatibility
+version: "2"
 
 # Go version configuration
 run:
-  go: "1.23"
+  go: "1.24"
 
 issues:
   # Maximum count of issues with the same text.
@@ -30,13 +30,12 @@ linters:
   disable-all: true
   enable:
     - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
-    - gosimple # linter for Go source code that specializes in simplifying a code
     - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
     - ineffassign # detects when assignments to existing variables are not used
-    - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
+    - staticcheck # is a go vet on steroids, applying a ton of static analysis checks (includes gosimple)
     - unused # checks for unused constants, variables, functions and types
     - goconst # finds repeated strings that could be replaced by a constant
-    - gocyclo # computes and checks the cyclomatic complexity of functions
+    - cyclop # computes and checks the cyclomatic complexity of functions
     - gocritic # provides diagnostics that check for bugs, performance and style issues
 
 # All settings can be found here https://github.com/golangci/golangci-lint/blob/HEAD/.golangci.reference.yml
@@ -52,11 +51,6 @@ settings:
     # Target maximum line length.
     # Default: 100
     max-len: 140
-  cyclop:
-    # The maximal code complexity to report.
-    # Default: 10
-    max-complexity: 15
-
   goconst:
     # Minimal length of string constant.
     # Default: 3
@@ -65,10 +59,10 @@ settings:
     # Default: 3
     min-occurrences: 3
 
-  gocyclo:
+  cyclop:
     # Minimal code complexity to report.
     # Default: 30 (but we recommend 10-20)
-    min-complexity: 15
+    max-complexity: 15
 
   gocritic:
     # Settings passed to gocritic.
@@ -118,9 +112,8 @@ exclusions:
     # Exclude some linters from running on tests files
     - path: '_test\.go'
       linters:
-        - gocyclo
+        - cyclop
         - errcheck
-        - gosec
 
     # Exclude external dependencies from type checking due to Go version compatibility
     - text: 'file requires newer Go version go1.24'
