@@ -35,7 +35,7 @@ permissions:
 jobs:
   test:
     name: Test and Build
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, Linux, onemount-testing]' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, Linux, onemount-testing, optimized]' }}
     
     steps:
     - name: Checkout code
@@ -126,7 +126,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, Linux, onemount-testing]' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, Linux, onemount-testing, optimized]' }}
     
     steps:
     - name: Checkout code
