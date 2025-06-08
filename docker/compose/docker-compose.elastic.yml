@@ -1,7 +1,10 @@
 # Docker Compose configuration for Elastic GitHub Actions Runners
 # Provides auto-scaling capabilities for OneMount CI/CD
+# Stack name: onemount-runners
 
 version: '3.8'
+
+name: onemount-runners
 
 services:
   # Elastic Runner Manager - monitors and scales runners
@@ -17,6 +20,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../..:/workspace:ro
       - elastic-manager-data:/opt/actions-runner/_work
+      - /tmp/onemount.env:/usr/local/.env:ro
     
     # Network configuration
     network_mode: bridge
