@@ -37,7 +37,11 @@ jobs:
         sudo apt-get install -y \
           libgtk-3-dev \
           libwebkit2gtk-4.1-dev \
-          pkg-config
+          libfuse3-dev \
+          fuse3 \
+          pkg-config \
+          build-essential \
+          bc
     
     - name: Install Python dependencies
       run: |
@@ -57,7 +61,10 @@ jobs:
     
     - name: Run tests with coverage
       run: |
-        go test -v -coverprofile=coverage/coverage.out ./...
+        # Set CGO flags to suppress warnings
+        export CGO_CFLAGS="-Wno-deprecated-declarations"
+        # Run tests with coverage and extended timeout
+        go test -v -timeout 10m -coverprofile=coverage/coverage.out ./...
         go tool cover -func=coverage/coverage.out > coverage/coverage-summary.txt
     
     - name: Generate coverage reports

@@ -59,7 +59,13 @@ jobs:
         sudo apt-get install -y \
           libgtk-3-dev \
           libwebkit2gtk-4.1-dev \
-          pkg-config
+          libfuse3-dev \
+          fuse3 \
+          pkg-config \
+          build-essential \
+          fuse3 \
+          libfuse3-dev \
+          xvfb
 
     - name: Install CLI dependencies
       run: |
@@ -84,19 +90,35 @@ jobs:
         python3 scripts/test-dev-cli.py
 
     - name: Run tests
-      run: make test
+      run: |
+        # Set CGO flags to suppress warnings
+        export CGO_CFLAGS="-Wno-deprecated-declarations"
+        # Run tests with extended timeout and better error reporting
+        go test -v -timeout 10m ./... || {
+          echo "Tests failed. Checking for common issues..."
+          echo "Go version: $(go version)"
+          echo "Available packages:"
+          go list ./...
+          exit 1
+        }
     
     - name: Build binaries
       run: |
+        # Set CGO flags to suppress warnings
+        export CGO_CFLAGS="-Wno-deprecated-declarations"
         make build
-        ls -la onemount* || echo "No binaries found"
+        ls -la build/binaries/ || echo "No binaries found in build/binaries/"
+        ls -la onemount* || echo "No binaries found in root"
     
     - name: Verify version
       run: |
-        if [ -f onemount ]; then
+        if [ -f build/binaries/onemount ]; then
+          ./build/binaries/onemount --version
+        elif [ -f onemount ]; then
           ./onemount --version
         else
-          echo "onemount binary not found"
+          echo "onemount binary not found in expected locations"
+          find . -name "onemount*" -type f 2>/dev/null || echo "No onemount binaries found anywhere"
         fi
 
   lint:

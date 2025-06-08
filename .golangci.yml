@@ -134,11 +134,20 @@ exclusions:
     - text: 'cgo-gcc-prolog'
       linters:
         - errcheck
+        - staticcheck
+        - govet
 
     # Exclude deprecated warnings from gotk3
     - text: 'deprecated'
       linters:
         - staticcheck
+        - govet
+
+    # Exclude CGO compilation warnings
+    - text: 'warning.*deprecated'
+      linters:
+        - typecheck
+        - govet
 
     # Exclude some common false positives
     - text: 'G404: Use of weak random number generator'

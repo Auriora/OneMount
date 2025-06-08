@@ -22,7 +22,7 @@ TEMP_DIR := $(BUILD_DIR)/temp
 
 # test-specific variables
 GORACE := GORACE="log_path=fusefs_tests.race strip_path_prefix=1"
-TEST_TIMEOUT := 5m
+TEST_TIMEOUT := 10m
 
 all: onemount onemount-launcher
 

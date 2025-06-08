@@ -73,21 +73,21 @@ def test_status_command():
 def test_imports():
     """Test that all required imports are available."""
     print("Testing imports...")
-    
+
     try:
-        import click
-        print("✓ click imported successfully")
+        import typer
+        print("✓ typer imported successfully")
     except ImportError:
-        print("✗ click not available - install with: pip install click")
+        print("✗ typer not available - install with: pip install typer")
         return False
-    
+
     try:
         import rich
         print("✓ rich imported successfully")
     except ImportError:
         print("✗ rich not available - install with: pip install rich")
         return False
-    
+
     return True
 
 def main():
