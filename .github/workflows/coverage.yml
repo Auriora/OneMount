@@ -67,6 +67,13 @@ jobs:
       run: |
         # Set CGO flags to suppress warnings
         export CGO_CFLAGS="-Wno-deprecated-declarations"
+        # Fix for self-hosted runners: /tmp is mounted as tmpfs with noexec
+        # Set GOTMPDIR to a writable location with exec permissions
+        export GOTMPDIR="/workspace/tmp"
+        mkdir -p "$GOTMPDIR"
+        # Also set GOCACHE to avoid /tmp usage
+        export GOCACHE="/workspace/.cache/go-build"
+        mkdir -p "$GOCACHE"
         # Run tests with coverage and extended timeout
         go test -v -timeout 10m -coverprofile=coverage/coverage.out ./...
         go tool cover -func=coverage/coverage.out > coverage/coverage-summary.txt

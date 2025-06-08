@@ -34,7 +34,7 @@ services:
 
     # Use tmpfs for update directories to avoid permission issues
     tmpfs:
-      - /tmp
+      - /tmp:exec
       - /opt/actions-runner/_update
     
     # Enable FUSE support for filesystem testing
@@ -87,7 +87,7 @@ services:
 
     # Use tmpfs for update directories to avoid permission issues
     tmpfs:
-      - /tmp
+      - /tmp:exec
       - /opt/actions-runner/_update
     
     # Enable FUSE support for filesystem testing

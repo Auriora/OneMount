@@ -1131,12 +1131,22 @@ def unit(
     else:
         cmd.append("./...")
     
+    # Set environment variables to fix /tmp tmpfs noexec issue on self-hosted runners
+    env = os.environ.copy()
+    env["GOTMPDIR"] = "/workspace/tmp"
+    env["GOCACHE"] = "/workspace/.cache/go-build"
+
+    # Ensure directories exist
+    os.makedirs("/workspace/tmp", exist_ok=True)
+    os.makedirs("/workspace/.cache/go-build", exist_ok=True)
+
     try:
         run_command_with_progress(
             cmd,
             "Running unit tests",
             verbose=verbose,
             timeout=None,  # Use Go's own timeout
+            env=env,
         )
         
         console.print("[green]✅ Unit tests passed![/green]")
@@ -1172,12 +1182,22 @@ def integration(
         "./tests/integration/...",
     ]
     
+    # Set environment variables to fix /tmp tmpfs noexec issue on self-hosted runners
+    env = os.environ.copy()
+    env["GOTMPDIR"] = "/workspace/tmp"
+    env["GOCACHE"] = "/workspace/.cache/go-build"
+
+    # Ensure directories exist
+    os.makedirs("/workspace/tmp", exist_ok=True)
+    os.makedirs("/workspace/.cache/go-build", exist_ok=True)
+
     try:
         run_command_with_progress(
             cmd,
             "Running integration tests",
             verbose=verbose,
             timeout=None,  # Use Go's own timeout
+            env=env,
         )
         
         console.print("[green]✅ Integration tests passed![/green]")
@@ -1213,12 +1233,22 @@ def all(
     
     cmd.append("./...")
     
+    # Set environment variables to fix /tmp tmpfs noexec issue on self-hosted runners
+    env = os.environ.copy()
+    env["GOTMPDIR"] = "/workspace/tmp"
+    env["GOCACHE"] = "/workspace/.cache/go-build"
+
+    # Ensure directories exist
+    os.makedirs("/workspace/tmp", exist_ok=True)
+    os.makedirs("/workspace/.cache/go-build", exist_ok=True)
+
     try:
         run_command_with_progress(
             cmd,
             "Running all tests",
             verbose=verbose,
             timeout=None,  # Use Go's own timeout
+            env=env,
         )
         
         console.print("[green]✅ All tests passed![/green]")
