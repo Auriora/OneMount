@@ -71,11 +71,17 @@ services:
       - RUNNER_LABELS=self-hosted,Linux,onemount-testing,optimized,elastic
       - RUNNER_GROUP=${RUNNER_GROUP:-Default}
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
+      - RUNNER_ALLOW_RUNASROOT=1
     
     # Mount configuration
     volumes:
-      - ../..:/workspace:rw
       - runner-template-work:/opt/actions-runner/_work
+      - ../..:/workspace:ro
+
+    # Use tmpfs for update directories to avoid permission issues
+    tmpfs:
+      - /tmp
+      - /opt/actions-runner/_update
     
     # Enable FUSE support for filesystem testing
     devices:
@@ -90,6 +96,9 @@ services:
     dns:
       - 8.8.8.8
       - 8.8.4.4
+
+    # Run as root to avoid permission issues
+    user: "0:0"
     
     # Don't start automatically
     profiles:
