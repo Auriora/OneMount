@@ -50,6 +50,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+
     
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -87,48 +89,110 @@ jobs:
         # Create test directories
         mkdir -p ~/.onemount-tests/logs
         chmod 700 ~/.onemount-tests
-        
-        # Decode and save the auth tokens
-        echo "$ONEDRIVE_PERSONAL_TOKENS" | base64 -d > ~/.onemount-tests/.auth_tokens.json
+
+        # Use GitHub secret for auth tokens (secure approach)
+        if [ -n "$ONEDRIVE_PERSONAL_TOKENS" ] && [ "$ONEDRIVE_PERSONAL_TOKENS" != "" ]; then
+          echo "🔑 Using auth tokens from GitHub secret..."
+          echo "$ONEDRIVE_PERSONAL_TOKENS" | base64 -d > ~/.onemount-tests/.auth_tokens.json
+        else
+          echo "❌ No auth tokens found in GitHub secret ONEDRIVE_PERSONAL_TOKENS"
+          echo ""
+          echo "To fix this:"
+          echo "1. Ensure you have valid auth tokens in your local .env file"
+          echo "2. Copy the AUTH_TOKENS_B64 value from .env"
+          echo "3. Add it as a GitHub secret named ONEDRIVE_PERSONAL_TOKENS"
+          echo "4. Go to: Settings > Secrets and variables > Actions > New repository secret"
+          exit 1
+        fi
+
         chmod 600 ~/.onemount-tests/.auth_tokens.json
-        
+
         # Verify the tokens file is valid JSON
         if ! jq empty ~/.onemount-tests/.auth_tokens.json; then
           echo "❌ Invalid auth tokens format"
           exit 1
         fi
-        
+
         # Check token expiration
         EXPIRES_AT=$(jq -r '.expires_at // 0' ~/.onemount-tests/.auth_tokens.json)
         CURRENT_TIME=$(date +%s)
-        
+
         if [ "$EXPIRES_AT" -le "$CURRENT_TIME" ]; then
           echo "⚠️  Auth tokens appear to be expired"
           echo "You may need to refresh your local authentication and update the GitHub secret"
         else
           echo "✅ Auth tokens are valid (expires in $((EXPIRES_AT - CURRENT_TIME)) seconds)"
         fi
-        
+
         echo "✅ Personal OneDrive credentials configured"
     
+    - name: Check and refresh authentication tokens
+      run: |
+        echo "🔍 Checking authentication token status..."
+
+        # Check if auth file exists and is valid JSON
+        if ! jq empty ~/.onemount-tests/.auth_tokens.json 2>/dev/null; then
+          echo "❌ Auth tokens file is not valid JSON"
+          exit 1
+        fi
+
+        # Check token expiration
+        EXPIRES_AT=$(jq -r '.expires_at // 0' ~/.onemount-tests/.auth_tokens.json)
+        CURRENT_TIME=$(date +%s)
+        REFRESH_TOKEN=$(jq -r '.refresh_token // ""' ~/.onemount-tests/.auth_tokens.json)
+
+        echo "Current time: $CURRENT_TIME"
+        echo "Token expires at: $EXPIRES_AT"
+
+        if [ "$EXPIRES_AT" -le "$CURRENT_TIME" ]; then
+          echo "⚠️  Access token has expired, attempting refresh..."
+
+          if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
+            echo "❌ No refresh token available - full re-authentication required"
+            echo "Please update your GitHub secret ONEDRIVE_PERSONAL_TOKENS with fresh tokens"
+            exit 1
+          fi
+
+          # Attempt to refresh using OneMount's built-in refresh capability
+          echo "🔄 Attempting token refresh using OneMount..."
+
+          # Create a temporary config for refresh
+          mkdir -p /tmp/onemount-refresh
+          cp ~/.onemount-tests/.auth_tokens.json /tmp/onemount-refresh/auth_tokens.json
+
+          # Try to refresh by doing a simple auth check with OneMount
+          # This will automatically refresh if needed
+          if timeout 30s ./build/onemount --auth-only --config-file /dev/null --cache-dir /tmp/onemount-refresh 2>/dev/null; then
+            echo "✅ Token refresh successful"
+            # Copy refreshed tokens back
+            if [ -f "/tmp/onemount-refresh/auth_tokens.json" ]; then
+              cp /tmp/onemount-refresh/auth_tokens.json ~/.onemount-tests/.auth_tokens.json
+              echo "✅ Updated auth tokens file"
+            fi
+          else
+            echo "❌ Token refresh failed - full re-authentication required"
+            echo "Please update your GitHub secret ONEDRIVE_PERSONAL_TOKENS with fresh tokens"
+            exit 1
+          fi
+
+          # Clean up
+          rm -rf /tmp/onemount-refresh
+        else
+          echo "✅ Access token is still valid (expires in $((EXPIRES_AT - CURRENT_TIME)) seconds)"
+        fi
+
     - name: Verify OneDrive access
       run: |
         # Test that we can access your OneDrive
-        echo "🔍 Verifying OneDrive access..."
+        echo "🌐 Testing OneDrive API access..."
 
-        if ! ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json 2>/dev/null); then
-          echo "❌ Failed to read access token from auth file"
-          echo "Auth file contents (first 100 chars):"
-          head -c 100 ~/.onemount-tests/.auth_tokens.json || echo "Could not read auth file"
-          exit 1
-        fi
+        ACCESS_TOKEN=$(jq -r '.access_token' ~/.onemount-tests/.auth_tokens.json)
 
         if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
           echo "❌ Access token is null or empty"
           exit 1
         fi
 
-        echo "🌐 Testing OneDrive API access..."
         RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" -H "Authorization: Bearer $ACCESS_TOKEN" \
           "https://graph.microsoft.com/v1.0/me/drive/root")
 
@@ -146,8 +210,8 @@ jobs:
           echo "HTTP Status: $HTTP_CODE"
           echo "Response: $RESPONSE_BODY"
           if [ "$HTTP_CODE" = "401" ]; then
-            echo "🔑 Authentication failed - tokens may be expired"
-            echo "You may need to refresh your authentication tokens"
+            echo "🔑 Authentication failed - tokens may still be expired"
+            echo "Please update your GitHub secret ONEDRIVE_PERSONAL_TOKENS with fresh tokens"
           fi
           exit 1
         fi

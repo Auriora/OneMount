@@ -2,6 +2,7 @@
 Testing and quality assurance commands for OneMount development CLI.
 """
 
+import os
 import sys
 import subprocess
 from pathlib import Path
@@ -17,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.environment import ensure_environment
 from utils.paths import ensure_coverage_directories, get_project_paths
-from utils.shell import run_command, run_command_with_progress, run_script, ensure_executable
+from utils.shell import run_command, run_command_with_progress, run_script, ensure_executable, CommandError
 from utils.coverage_reporter import generate_coverage_report
 from utils.system_test_runner import run_system_tests
 from utils.docker_test_runner import run_docker_tests, build_docker_image, clean_docker_resources, show_docker_auth_help
@@ -131,6 +132,50 @@ def system(
         raise typer.Exit(1)
 
     console.print("[green]✅ System tests completed successfully![/green]")
+
+
+@test_app.command()
+def auth(
+    ctx: typer.Context,
+    auth_file: Optional[str] = typer.Option(None, "--auth-file", help="Path to auth tokens file"),
+    refresh: bool = typer.Option(False, "--refresh", help="Force token refresh"),
+):
+    """
+    🔐 Test and refresh authentication tokens.
+
+    Validates authentication tokens and attempts to refresh them if expired.
+    Useful for debugging authentication issues in system tests.
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    console.print("[blue]Testing authentication tokens...[/blue]")
+
+    # Use default auth file if not specified
+    if not auth_file:
+        auth_file = os.path.expanduser("~/.onemount-tests/.auth_tokens.json")
+
+    # Build command
+    cmd = [str(get_project_paths()["scripts_dir"] / "test-auth-tokens.sh"), auth_file]
+    if refresh:
+        cmd.append("--refresh")
+
+    try:
+        result = run_command(
+            cmd,
+            check=True,
+            verbose=verbose,
+            timeout=60,  # 1 minute timeout
+            cwd=str(get_project_paths()["project_root"])
+        )
+
+        console.print("[green]✅ Authentication token test completed![/green]")
+
+    except CommandError as e:
+        console.print(f"[red]Authentication token test failed: {e}[/red]")
+        raise typer.Exit(1)
 
 
 # Docker test commands

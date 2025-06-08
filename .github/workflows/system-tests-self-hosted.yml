@@ -18,6 +18,26 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Load environment variables from .env (self-hosted only)
+      run: |
+        if [ -f ".env" ]; then
+          echo "📄 Loading environment variables from .env file (self-hosted runner)..."
+          # Export variables from .env file (excluding comments and empty lines)
+          set -a
+          source .env
+          set +a
+          echo "✅ Environment variables loaded"
+
+          # Show which auth method will be used (without exposing tokens)
+          if [ -n "$AUTH_TOKENS_B64" ]; then
+            echo "🔑 AUTH_TOKENS_B64 found in .env file"
+          else
+            echo "⚠️  No AUTH_TOKENS_B64 in .env file"
+          fi
+        else
+          echo "⚠️  No .env file found"
+        fi
     
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -37,42 +57,74 @@ jobs:
     
     - name: Verify test credentials
       run: |
-        # Check multiple possible credential locations
-        CREDENTIAL_PATHS=(
-          "/opt/onemount-ci/.auth_tokens.json"
-          "/home/runner/.onemount-tests/.auth_tokens.json"
-          "/home/actions/.onemount-tests/.auth_tokens.json"
-          "$HOME/.onemount-tests/.auth_tokens.json"
-        )
+        # Create test directories
+        mkdir -p ~/.onemount-tests/logs
+        chmod 700 ~/.onemount-tests
 
-        FOUND_CREDENTIALS=""
-        for path in "${CREDENTIAL_PATHS[@]}"; do
-          if [ -f "$path" ]; then
-            echo "✅ Found credentials at: $path"
-            FOUND_CREDENTIALS="$path"
-            break
-          else
-            echo "❌ No credentials at: $path"
+        # Try multiple sources for auth tokens
+        AUTH_TOKENS_FOUND=false
+
+        # 1. Try .env file AUTH_TOKENS_B64 first (since we're on self-hosted)
+        if [ -f ".env" ] && grep -q "AUTH_TOKENS_B64=" .env; then
+          echo "🔑 Using auth tokens from .env file..."
+          AUTH_TOKENS_B64=$(grep "AUTH_TOKENS_B64=" .env | cut -d'=' -f2)
+          if [ -n "$AUTH_TOKENS_B64" ]; then
+            echo "$AUTH_TOKENS_B64" | base64 -d > ~/.onemount-tests/.auth_tokens.json
+            AUTH_TOKENS_FOUND=true
           fi
-        done
+        fi
 
-        if [ -z "$FOUND_CREDENTIALS" ]; then
-          echo "❌ Test credentials not found on self-hosted runner"
-          echo "Checked locations:"
+        # 2. Try environment variable AUTH_TOKENS_B64
+        if [ "$AUTH_TOKENS_FOUND" = false ] && [ -n "$AUTH_TOKENS_B64" ]; then
+          echo "🔑 Using auth tokens from AUTH_TOKENS_B64 environment variable..."
+          echo "$AUTH_TOKENS_B64" | base64 -d > ~/.onemount-tests/.auth_tokens.json
+          AUTH_TOKENS_FOUND=true
+        fi
+
+        # 3. Try existing credential file locations
+        if [ "$AUTH_TOKENS_FOUND" = false ]; then
+          CREDENTIAL_PATHS=(
+            "/opt/onemount-ci/.auth_tokens.json"
+            "/home/runner/.onemount-tests/.auth_tokens.json"
+            "/home/actions/.onemount-tests/.auth_tokens.json"
+            "$HOME/.onemount-tests/.auth_tokens.json"
+          )
+
+          FOUND_CREDENTIALS=""
           for path in "${CREDENTIAL_PATHS[@]}"; do
-            echo "  - $path"
+            if [ -f "$path" ]; then
+              echo "✅ Found credentials at: $path"
+              FOUND_CREDENTIALS="$path"
+              break
+            else
+              echo "❌ No credentials at: $path"
+            fi
+          done
+
+          if [ -n "$FOUND_CREDENTIALS" ]; then
+            # Copy to expected location if not already there
+            if [ "$FOUND_CREDENTIALS" != "$HOME/.onemount-tests/.auth_tokens.json" ]; then
+              cp "$FOUND_CREDENTIALS" ~/.onemount-tests/.auth_tokens.json
+            fi
+            AUTH_TOKENS_FOUND=true
+          fi
+        fi
+
+        if [ "$AUTH_TOKENS_FOUND" = false ]; then
+          echo "❌ Test credentials not found on self-hosted runner"
+          echo "Checked sources:"
+          echo "  - .env file AUTH_TOKENS_B64"
+          echo "  - Environment variable AUTH_TOKENS_B64"
+          echo "  - Credential file locations:"
+          for path in "${CREDENTIAL_PATHS[@]}"; do
+            echo "    - $path"
           done
           echo ""
-          echo "Please ensure authentication tokens are available at one of these locations."
+          echo "Please ensure authentication tokens are available from one of these sources."
           echo "See docs/testing/self-hosted-runner-setup.md for setup instructions."
           exit 1
         fi
 
-        # Copy to expected location if not already there
-        mkdir -p ~/.onemount-tests
-        if [ "$FOUND_CREDENTIALS" != "$HOME/.onemount-tests/.auth_tokens.json" ]; then
-          cp "$FOUND_CREDENTIALS" ~/.onemount-tests/.auth_tokens.json
-        fi
         chmod 600 ~/.onemount-tests/.auth_tokens.json
 
         # Verify the file is valid JSON
@@ -81,7 +133,75 @@ jobs:
           exit 1
         fi
 
+        # Check token expiration
+        EXPIRES_AT=$(jq -r '.expires_at // 0' ~/.onemount-tests/.auth_tokens.json)
+        CURRENT_TIME=$(date +%s)
+
+        if [ "$EXPIRES_AT" -le "$CURRENT_TIME" ]; then
+          echo "⚠️  Auth tokens appear to be expired"
+          echo "You may need to refresh your local authentication and update the tokens"
+        else
+          echo "✅ Auth tokens are valid (expires in $((EXPIRES_AT - CURRENT_TIME)) seconds)"
+        fi
+
         echo "✅ Test credentials loaded and validated"
+
+    - name: Check and refresh authentication tokens
+      run: |
+        echo "🔍 Checking authentication token status..."
+
+        # Check token expiration
+        EXPIRES_AT=$(jq -r '.expires_at // 0' ~/.onemount-tests/.auth_tokens.json)
+        CURRENT_TIME=$(date +%s)
+        REFRESH_TOKEN=$(jq -r '.refresh_token // ""' ~/.onemount-tests/.auth_tokens.json)
+
+        echo "Current time: $CURRENT_TIME"
+        echo "Token expires at: $EXPIRES_AT"
+
+        if [ "$EXPIRES_AT" -le "$CURRENT_TIME" ]; then
+          echo "⚠️  Access token has expired, attempting refresh..."
+
+          if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
+            echo "❌ No refresh token available - full re-authentication required"
+            echo "Please update your .env file AUTH_TOKENS_B64 with fresh tokens"
+            exit 1
+          fi
+
+          # Attempt to refresh using OneMount's built-in refresh capability
+          echo "🔄 Attempting token refresh using OneMount..."
+
+          # Create a temporary config for refresh
+          mkdir -p /tmp/onemount-refresh
+          cp ~/.onemount-tests/.auth_tokens.json /tmp/onemount-refresh/auth_tokens.json
+
+          # Try to refresh by doing a simple auth check with OneMount
+          # This will automatically refresh if needed
+          if timeout 30s ./build/onemount --auth-only --config-file /dev/null --cache-dir /tmp/onemount-refresh 2>/dev/null; then
+            echo "✅ Token refresh successful"
+            # Copy refreshed tokens back
+            if [ -f "/tmp/onemount-refresh/auth_tokens.json" ]; then
+              cp /tmp/onemount-refresh/auth_tokens.json ~/.onemount-tests/.auth_tokens.json
+              echo "✅ Updated auth tokens file"
+
+              # Also update the .env file if we can
+              if [ -f ".env" ] && [ -w ".env" ]; then
+                echo "🔄 Updating .env file with refreshed tokens..."
+                NEW_AUTH_TOKENS_B64=$(base64 -w 0 ~/.onemount-tests/.auth_tokens.json)
+                sed -i "s/^AUTH_TOKENS_B64=.*/AUTH_TOKENS_B64=$NEW_AUTH_TOKENS_B64/" .env
+                echo "✅ Updated .env file with refreshed tokens"
+              fi
+            fi
+          else
+            echo "❌ Token refresh failed - full re-authentication required"
+            echo "Please update your .env file AUTH_TOKENS_B64 with fresh tokens"
+            exit 1
+          fi
+
+          # Clean up
+          rm -rf /tmp/onemount-refresh
+        else
+          echo "✅ Access token is still valid (expires in $((EXPIRES_AT - CURRENT_TIME)) seconds)"
+        fi
     
     - name: Build OneMount
       run: make onemount
