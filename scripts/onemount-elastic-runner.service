@@ -1,0 +1,41 @@
+[Unit]
+Description=OneMount Elastic GitHub Actions Runner Manager
+After=docker.service
+Requires=docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=30
+User=runner
+Group=docker
+WorkingDirectory=/opt/onemount
+ExecStart=/opt/onemount/scripts/elastic-runner-manager.sh monitor
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=30
+KillMode=mixed
+
+# Environment variables
+Environment=DOCKER_HOST=172.16.1.104:2376
+Environment=MIN_RUNNERS=1
+Environment=MAX_RUNNERS=5
+Environment=SCALE_UP_THRESHOLD=2
+Environment=SCALE_DOWN_THRESHOLD=0
+Environment=CHECK_INTERVAL=30
+Environment=COOLDOWN_PERIOD=300
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/onemount
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=onemount-elastic-runner
+
+[Install]
+WantedBy=multi-user.target
