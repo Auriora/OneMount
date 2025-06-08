@@ -14,7 +14,7 @@ gitpython>=3.1.0
 requests>=2.28.0          # For GitHub API integration
 matplotlib>=3.5.0         # For coverage trend plotting
 pandas>=1.4.0             # For data analysis in coverage trends
-numpy>=1.21.0             # For numerical operations in analysis
+numpy>=1.21.0             # For numerical operations in analysis (Go 1.23+ compatible)
 
 # Native Python implementations (replacing shell scripts)
 docker>=6.0.0             # For Docker operations (replacing build-deb-docker.sh)

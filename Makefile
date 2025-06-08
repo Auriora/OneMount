@@ -207,7 +207,7 @@ clean:
 
 # Run all tests
 test:
-	go test -v ./...
+	go test -v -timeout $(TEST_TIMEOUT) ./...
 
 # Run all tests sequentially (no parallel execution)
 test-sequential:

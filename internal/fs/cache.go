@@ -1622,6 +1622,57 @@ func (f *Filesystem) StopMetadataRequestManager() {
 	}
 }
 
+// Stop stops all background processes and cleans up the filesystem.
+// This method should be called when the filesystem is no longer needed,
+// especially in tests to prevent goroutine leaks.
+func (f *Filesystem) Stop() {
+	// Use a sync.Once to ensure Stop is only called once
+	f.stopOnce.Do(func() {
+		logging.Info().Msg("Stopping filesystem and all background processes...")
+
+		// Cancel the root context to signal all operations to stop
+		if f.cancel != nil {
+			f.cancel()
+		}
+
+		// Stop all background processes in the correct order
+		f.StopCacheCleanup()
+		f.StopDeltaLoop()
+		f.StopDownloadManager()
+		f.StopUploadManager()
+		f.StopMetadataRequestManager()
+
+		// Stop the D-Bus server if it exists
+		if f.dbusServer != nil {
+			f.dbusServer.Stop()
+		}
+
+		// Wait for all goroutines to finish with a timeout
+		done := make(chan struct{})
+		go func() {
+			f.Wg.Wait()
+			close(done)
+		}()
+
+		// Wait for all goroutines to finish or timeout after 10 seconds
+		select {
+		case <-done:
+			logging.Info().Msg("All filesystem goroutines stopped successfully")
+		case <-time.After(10 * time.Second):
+			logging.Warn().Msg("Timed out waiting for filesystem goroutines to stop")
+		}
+
+		// Close the database connection
+		if f.db != nil {
+			if err := f.db.Close(); err != nil {
+				logging.Warn().Err(err).Msg("Failed to close database connection")
+			}
+		}
+
+		logging.Info().Msg("Filesystem stopped successfully")
+	})
+}
+
 // GetSyncProgress returns the current sync progress, if available
 func (f *Filesystem) GetSyncProgress() *SyncProgress {
 	f.RLock()

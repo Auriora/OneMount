@@ -141,7 +141,7 @@ sudo apt install libwebkit2gtk-4.0-37
 # Check Go version
 go version
 
-# If Go 1.18, you may need to install a newer version manually
+# If Go < 1.23, you may need to install a newer version manually
 # or use the pre-built packages instead of building from source
 ```
 

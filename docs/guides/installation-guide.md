@@ -54,7 +54,7 @@ Before installing OneMount, ensure you have:
 The following dependencies are required when building OneMount from source:
 
 #### Runtime Dependencies
-* **Go**: Version 1.24.2 or later
+* **Go**: Version 1.23 or later
 * **GCC**: C compiler for CGO compilation
 * **pkg-config**: For library configuration
 

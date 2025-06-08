@@ -4,6 +4,7 @@ package helpers
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/auriora/onemount/pkg/graph"
@@ -87,6 +88,19 @@ func SetupFSTest(t *testing.T, testName string, newFilesystem func(auth *graph.A
 func CleanupFSTest(t *testing.T, fixture *FSTestFixture) error {
 	// Ensure we reset to online mode after the test
 	graph.SetOperationalOffline(false)
+
+	// Stop the filesystem if it has a Stop method (to prevent goroutine leaks)
+	if fixture.FS != nil {
+		// Use reflection to check if the filesystem has a Stop method
+		fsValue := reflect.ValueOf(fixture.FS)
+		if fsValue.IsValid() && !fsValue.IsNil() {
+			stopMethod := fsValue.MethodByName("Stop")
+			if stopMethod.IsValid() {
+				t.Logf("Calling Stop() on filesystem to clean up background goroutines")
+				stopMethod.Call(nil)
+			}
+		}
+	}
 
 	// Clean up the mock client to prevent test interference
 	if fixture.MockClient != nil {

@@ -8,9 +8,9 @@ URL:           https://github.com/auriora/onemount
 Source0:       https://github.com/auriora/onemount/archive/refs/tags/v%{version}.tar.gz
 
 %if 0%{?suse_version}
-BuildRequires: go >= 1.21
+BuildRequires: go >= 1.23
 %else
-BuildRequires: golang >= 1.21.0
+BuildRequires: golang >= 1.23.0
 %endif
 BuildRequires: git
 BuildRequires: gcc

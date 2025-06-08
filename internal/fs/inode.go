@@ -396,6 +396,17 @@ func (i *Inode) GetMode() uint32 {
 	return 0644
 }
 
+// VerifyChecksum checks to see if the Inode's checksum matches what it's
+// supposed to be. This delegates to the embedded DriveItem's VerifyChecksum method.
+func (i *Inode) VerifyChecksum(checksum string) bool {
+	if i == nil {
+		return false
+	}
+	i.RLock()
+	defer i.RUnlock()
+	return i.DriveItem.VerifyChecksum(checksum)
+}
+
 // SetMode sets the mode of the Inode.
 func (i *Inode) SetMode(mode uint32) {
 	i.Lock()

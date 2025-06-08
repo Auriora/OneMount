@@ -108,4 +108,7 @@ type Filesystem struct {
 
 	// Sync progress tracking
 	syncProgress *SyncProgress // Progress tracking for directory tree sync
+
+	// Stop synchronization
+	stopOnce sync.Once // Ensures Stop is only called once
 }

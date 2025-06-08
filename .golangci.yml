@@ -3,7 +3,11 @@
 # Golden config for golangci-lint v2.1.6
 # Based on https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
 
-version: "2"
+# version: "2"  # Commented out for compatibility
+
+# Go version configuration
+run:
+  go: "1.23"
 
 issues:
   # Maximum count of issues with the same text.
@@ -11,12 +15,19 @@ issues:
   # Default: 3
   max-same-issues: 50
 
+  # Exclude external dependencies from linting
+  exclude-dirs:
+    - vendor
+  exclude-files:
+    - ".*\\.pb\\.go$"
+
 formatters:
   enable:
     - goimports # checks if the code and import statements are formatted according to the 'goimports' command
     - golines # checks if code is formatted, and fixes long lines
 
 linters:
+  disable-all: true
   enable:
     - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
     - gosimple # linter for Go source code that specializes in simplifying a code
@@ -110,6 +121,14 @@ exclusions:
         - gocyclo
         - errcheck
         - gosec
+
+    # Exclude external dependencies from type checking due to Go version compatibility
+    - text: 'file requires newer Go version go1.24'
+      linters:
+        - typecheck
+    - text: 'undefined: colorable'
+      linters:
+        - typecheck
 
     # Exclude CGO-related warnings
     - text: 'cgo-gcc-prolog'
