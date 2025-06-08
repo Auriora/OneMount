@@ -35,7 +35,7 @@ permissions:
 jobs:
   test:
     name: Test and Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, linux, onemount-testing]' }}
     
     steps:
     - name: Checkout code
@@ -73,11 +73,14 @@ jobs:
         pip install -r scripts/requirements-dev-cli.txt
     
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ hashFiles('**/*.go') }}
         restore-keys: |
+          ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
           ${{ runner.os }}-go-
     
     - name: Download dependencies
@@ -123,7 +126,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, linux, onemount-testing]' }}
     
     steps:
     - name: Checkout code

@@ -13,7 +13,7 @@ permissions:
 jobs:
   coverage:
     name: Coverage Analysis
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-latest' || '[self-hosted, linux, onemount-testing]' }}
     
     steps:
     - name: Checkout code
@@ -49,11 +49,15 @@ jobs:
         pip install -r scripts/requirements-dev-cli.txt
     
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-coverage-${{ hashFiles('**/go.sum') }}-${{ hashFiles('**/*.go') }}
         restore-keys: |
+          ${{ runner.os }}-go-coverage-${{ hashFiles('**/go.sum') }}-
+          ${{ runner.os }}-go-coverage-
           ${{ runner.os }}-go-
     
     - name: Create coverage directory

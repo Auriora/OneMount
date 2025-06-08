@@ -68,3 +68,11 @@ onemount-fixed
 /filelist.txt
 .venv/
 /auth_tokens.json
+
+# Self-hosted runner configurations (contains sensitive tokens)
+.runners/
+.env
+.env.*
+
+# Workflow performance reports
+workflow-performance-report.json
