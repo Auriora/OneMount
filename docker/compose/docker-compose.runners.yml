@@ -15,22 +15,23 @@ services:
     image: onemount-github-runner:latest
     container_name: onemount-runner-1
 
-    
+
     # Environment configuration
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - RUNNER_NAME=onemount-runner-1
-      - RUNNER_LABELS=self-hosted,Linux,onemount-testing,optimized
-      - RUNNER_GROUP=${RUNNER_GROUP:-Default}
+      - RUNNER_LABELS=self-hosted,linux,onemount-testing,optimized
+      - RUNNER_GROUP=onemount-production
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
       - RUNNER_ALLOW_RUNASROOT=1
-    
+
     # Mount configuration
     volumes:
       - runner-1-work:/opt/actions-runner/_work
+      - runner-1-workspace:/workspace
+      - runner-1-tokens:/opt/onemount-ci
       # Note: .runner and .credentials directories are not mounted to avoid permission issues
-      - ../..:/workspace:ro
 
     # Use tmpfs for update directories to avoid permission issues
     tmpfs:
@@ -68,22 +69,23 @@ services:
     image: onemount-github-runner:latest
     container_name: onemount-runner-2
 
-    
+
     # Environment configuration
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - RUNNER_NAME=onemount-runner-2
-      - RUNNER_LABELS=self-hosted,Linux,onemount-testing,optimized
-      - RUNNER_GROUP=${RUNNER_GROUP:-Default}
+      - RUNNER_LABELS=self-hosted,linux,onemount-testing,optimized
+      - RUNNER_GROUP=onemount-production
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
       - RUNNER_ALLOW_RUNASROOT=1
-    
+
     # Mount configuration
     volumes:
       - runner-2-work:/opt/actions-runner/_work
+      - runner-2-workspace:/workspace
+      - runner-2-tokens:/opt/onemount-ci
       # Note: .runner and .credentials directories are not mounted to avoid permission issues
-      - ../..:/workspace:ro
 
     # Use tmpfs for update directories to avoid permission issues
     tmpfs:
@@ -118,8 +120,24 @@ volumes:
   runner-1-work:
     driver: local
 
+  # Runner 1 workspace
+  runner-1-workspace:
+    driver: local
+
+  # Runner 1 authentication tokens
+  runner-1-tokens:
+    driver: local
+
   # Runner 2 persistent storage
   runner-2-work:
+    driver: local
+
+  # Runner 2 workspace
+  runner-2-workspace:
+    driver: local
+
+  # Runner 2 authentication tokens
+  runner-2-tokens:
     driver: local
 
 networks:

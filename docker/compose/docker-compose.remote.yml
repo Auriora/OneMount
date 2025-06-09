@@ -31,6 +31,7 @@ services:
     volumes:
       - onemount-runner-workspace:/workspace
       - onemount-runner-work:/opt/actions-runner/_work
+      - onemount-runner-tokens:/opt/onemount-ci
       - onemount-runner-logs:/home/runner/.onemount-tests/logs
     
     # Enable FUSE support for filesystem testing
@@ -56,11 +57,15 @@ volumes:
   # Persistent storage for runner workspace
   onemount-runner-workspace:
     driver: local
-  
+
   # Persistent storage for runner work directory
   onemount-runner-work:
     driver: local
-    
+
+  # Persistent storage for authentication tokens
+  onemount-runner-tokens:
+    driver: local
+
   # Persistent storage for test logs
   onemount-runner-logs:
     driver: local

@@ -39,7 +39,11 @@ Commands:
   start             Start the runner (after registration)
   run               Register and start the runner
   setup-auth        Setup OneDrive authentication
+  refresh-tokens    Refresh OneDrive authentication tokens
+  token-status      Show authentication token status
   test              Test the runner environment
+  init-workspace    Initialize workspace from source code
+  sync-workspace    Sync workspace with latest source code
   shell             Start interactive shell
   exec              Execute a script or command
 
@@ -50,8 +54,11 @@ Environment Variables (required for registration):
   RUNNER_LABELS     Comma-separated labels (default: self-hosted,linux,onemount-testing)
 
 Environment Variables (optional):
-  AUTH_TOKENS_B64   Base64-encoded OneDrive auth tokens
-  RUNNER_GROUP      Runner group (default: Default)
+  AUTH_TOKENS_B64                Base64-encoded OneDrive auth tokens
+  RUNNER_GROUP                   Runner group (default: Default)
+  ONEMOUNT_SYNC_WORKSPACE        Set to 'true' to sync workspace on startup
+  ONEMOUNT_AUTO_REFRESH_TOKENS   Set to 'false' to disable auto token refresh (default: true)
+  ONEMOUNT_TOKEN_REFRESH_INTERVAL Seconds between token refresh attempts (default: 3600)
 
 Examples:
   # Register and start runner
@@ -74,35 +81,50 @@ EOF
 # Function to setup OneDrive authentication
 setup_auth() {
     print_info "Setting up OneDrive authentication..."
-    
-    if [[ -n "$AUTH_TOKENS_B64" ]]; then
-        print_info "Using provided auth tokens..."
-        echo "$AUTH_TOKENS_B64" | base64 -d > /opt/onemount-ci/.auth_tokens.json
-        chmod 600 /opt/onemount-ci/.auth_tokens.json
-        
-        # Verify the tokens file is valid JSON
-        if jq empty /opt/onemount-ci/.auth_tokens.json 2>/dev/null; then
-            print_success "Auth tokens configured successfully"
-            
-            # Check token expiration
-            EXPIRES_AT=$(jq -r '.expires_at // 0' /opt/onemount-ci/.auth_tokens.json)
-            CURRENT_TIME=$(date +%s)
-            
-            if [[ "$EXPIRES_AT" -le "$CURRENT_TIME" ]]; then
-                print_warning "Auth tokens appear to be expired"
-                print_warning "You may need to refresh your authentication"
-            else
-                print_success "Auth tokens are valid (expires in $((EXPIRES_AT - CURRENT_TIME)) seconds)"
-            fi
-        else
-            print_error "Invalid auth tokens format"
-            return 1
+
+    # Use the token manager to ensure fresh tokens
+    if /usr/local/bin/token-manager.sh ensure; then
+        print_success "Authentication tokens are ready"
+
+        # Show token status
+        /usr/local/bin/token-manager.sh status
+
+        # Set up periodic token refresh if enabled
+        if [[ "${ONEMOUNT_AUTO_REFRESH_TOKENS:-true}" == "true" ]]; then
+            setup_token_refresh_daemon
         fi
     else
-        print_warning "No auth tokens provided via AUTH_TOKENS_B64"
-        print_info "You can provide tokens by setting AUTH_TOKENS_B64 environment variable"
-        print_info "Generate with: base64 -w 0 ~/.cache/onemount/auth_tokens.json"
+        print_error "Failed to setup authentication tokens"
+        print_info "Available options:"
+        print_info "1. Provide AUTH_TOKENS_B64 environment variable"
+        print_info "2. Mount existing tokens to /opt/onemount-ci/auth_tokens.json"
+        print_info "3. Run manual authentication in the container"
+        return 1
     fi
+}
+
+# Function to setup periodic token refresh daemon
+setup_token_refresh_daemon() {
+    local refresh_interval="${ONEMOUNT_TOKEN_REFRESH_INTERVAL:-3600}"  # Default: 1 hour
+
+    print_info "Setting up token refresh daemon (interval: ${refresh_interval}s)"
+
+    # Create a background process to refresh tokens periodically
+    (
+        while true; do
+            sleep "$refresh_interval"
+            print_info "Performing scheduled token refresh..."
+            if /usr/local/bin/token-manager.sh ensure; then
+                print_success "Scheduled token refresh completed"
+            else
+                print_warning "Scheduled token refresh failed"
+            fi
+        done
+    ) &
+
+    # Store the PID for potential cleanup
+    echo $! > /tmp/token-refresh-daemon.pid
+    print_success "Token refresh daemon started (PID: $!)"
 }
 
 # Function to register the runner
@@ -179,6 +201,9 @@ fix_permissions_and_switch_user() {
     if [[ "$(id -u)" == "0" ]]; then
         print_info "Fixing permissions and switching to runner user..."
 
+        # Initialize workspace if using Docker volumes
+        /usr/local/bin/init-workspace.sh init
+
         # Fix ownership of the entire actions-runner directory
         chown -R runner:runner /opt/actions-runner
 
@@ -196,6 +221,9 @@ fix_permissions_and_switch_user() {
             RUNNER_GROUP='$RUNNER_GROUP' \
             AUTH_TOKENS_B64='$AUTH_TOKENS_B64' \
             RUNNER_ALLOW_RUNASROOT='$RUNNER_ALLOW_RUNASROOT' \
+            ONEMOUNT_SYNC_WORKSPACE='$ONEMOUNT_SYNC_WORKSPACE' \
+            ONEMOUNT_AUTO_REFRESH_TOKENS='$ONEMOUNT_AUTO_REFRESH_TOKENS' \
+            ONEMOUNT_TOKEN_REFRESH_INTERVAL='$ONEMOUNT_TOKEN_REFRESH_INTERVAL' \
             $0 $*"
     else
         print_info "Already running as runner user"
@@ -220,15 +248,13 @@ test_environment() {
         print_error "FUSE device is not available"
     fi
     
-    # Test auth tokens
-    if [[ -f /opt/onemount-ci/.auth_tokens.json ]]; then
-        if jq empty /opt/onemount-ci/.auth_tokens.json 2>/dev/null; then
-            print_success "Auth tokens are valid JSON"
-        else
-            print_error "Auth tokens are invalid JSON"
-        fi
+    # Test auth tokens using token manager
+    print_info "Testing authentication tokens..."
+    if /usr/local/bin/token-manager.sh validate; then
+        print_success "Auth tokens are valid"
+        /usr/local/bin/token-manager.sh status
     else
-        print_warning "No auth tokens found at /opt/onemount-ci/.auth_tokens.json"
+        print_error "Auth tokens are invalid or missing"
     fi
     
     print_success "Environment test completed"
@@ -256,8 +282,20 @@ case "${1:-}" in
     setup-auth)
         setup_auth
         ;;
+    refresh-tokens)
+        /usr/local/bin/token-manager.sh refresh
+        ;;
+    token-status)
+        /usr/local/bin/token-manager.sh status
+        ;;
     test)
         test_environment
+        ;;
+    init-workspace)
+        /usr/local/bin/init-workspace.sh init
+        ;;
+    sync-workspace)
+        /usr/local/bin/init-workspace.sh sync
         ;;
     shell)
         print_info "Starting interactive shell..."

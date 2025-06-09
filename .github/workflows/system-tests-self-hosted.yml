@@ -13,7 +13,7 @@ permissions:
 jobs:
   system-tests:
     # Use self-hosted runner with pre-configured credentials
-    runs-on: [self-hosted, Linux, onemount-testing, optimized]
+    runs-on: [self-hosted, linux, onemount-testing, optimized]
     
     steps:
     - name: Checkout code

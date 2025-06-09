@@ -35,7 +35,7 @@ permissions:
 jobs:
   test:
     name: Test and Build
-    runs-on: [self-hosted, Linux, onemount-testing, optimized]
+    runs-on: [self-hosted, linux, onemount-testing, optimized]
     
     steps:
     - name: Checkout code
@@ -159,7 +159,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: [self-hosted, Linux, onemount-testing, optimized]
+    runs-on: [self-hosted, linux, onemount-testing, optimized]
     
     steps:
     - name: Checkout code

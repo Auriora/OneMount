@@ -89,14 +89,21 @@ RUN mkdir -p /home/runner/.onemount-tests/tmp && \
     sudo mkdir -p /opt/onemount-ci && \
     sudo chown runner:runner /opt/onemount-ci
 
-# Copy runner entrypoint script
+# Copy runner entrypoint, workspace init, and token manager scripts
 COPY packaging/docker/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
+COPY packaging/docker/init-workspace.sh /usr/local/bin/init-workspace.sh
+COPY packaging/docker/token-manager.sh /usr/local/bin/token-manager.sh
 COPY .env /workspace/.env
 USER root
 RUN chmod +x /usr/local/bin/runner-entrypoint.sh && \
+    chmod +x /usr/local/bin/init-workspace.sh && \
+    chmod +x /usr/local/bin/token-manager.sh && \
     chown runner:runner /workspace/.env && \
     chmod 644 /workspace/.env
 USER runner
+
+# Copy source code to temporary location for workspace initialization
+COPY --chown=runner:runner . /tmp/onemount-source/
 
 # Set working directory for actions
 WORKDIR /workspace

@@ -92,13 +92,33 @@ Both compose files support the following environment variables:
 ## Volumes
 
 ### Persistent Volumes
-- `onemount-runner-workspace` - Project workspace
-- `onemount-runner-work` - GitHub Actions runner work directory
+- `runner-1-workspace` / `runner-2-workspace` - Project workspace (Docker volumes)
+- `runner-1-work` / `runner-2-work` - GitHub Actions runner work directory
+- `onemount-runner-workspace` - Remote runner workspace (for remote deployments)
+- `onemount-runner-work` - Remote runner work directory
 - `onemount-runner-logs` - Test logs and artifacts
 
 ### Host Mounts
 - `.env` file for environment configuration
 - Optional: Host auth tokens for OneDrive authentication
+
+### Workspace Management
+The runners now use Docker volumes instead of bind mounts for better performance and consistency:
+- Source code is copied into the volume during container startup
+- Use `ONEMOUNT_SYNC_WORKSPACE=true` to sync workspace on startup
+- Manual sync available via `docker exec <container> runner-entrypoint.sh sync-workspace`
+
+### Token Management
+Authentication tokens are now managed automatically with refresh capabilities:
+- Tokens are stored in persistent Docker volumes (`runner-X-tokens`)
+- Automatic token refresh using OneMount's built-in capabilities
+- Fallback to environment variables if refresh fails
+- Periodic refresh daemon (configurable interval)
+- Manual token management via `docker exec <container> runner-entrypoint.sh refresh-tokens`
+
+#### Token Environment Variables
+- `ONEMOUNT_AUTO_REFRESH_TOKENS=false` - Disable automatic token refresh (default: true)
+- `ONEMOUNT_TOKEN_REFRESH_INTERVAL=3600` - Refresh interval in seconds (default: 1 hour)
 
 ## Networking
 
