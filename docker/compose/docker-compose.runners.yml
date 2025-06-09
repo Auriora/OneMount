@@ -14,6 +14,7 @@ services:
       dockerfile: packaging/docker/Dockerfile.github-runner
     image: onemount-github-runner:latest
     container_name: onemount-runner-1
+
     
     # Environment configuration
     environment:
@@ -28,8 +29,7 @@ services:
     # Mount configuration
     volumes:
       - runner-1-work:/opt/actions-runner/_work
-      - runner-1-data:/opt/actions-runner/.runner
-      - runner-1-credentials:/opt/actions-runner/.credentials
+      # Note: .runner and .credentials directories are not mounted to avoid permission issues
       - ../..:/workspace:ro
 
     # Use tmpfs for update directories to avoid permission issues
@@ -51,7 +51,7 @@ services:
       - 8.8.8.8
       - 8.8.4.4
 
-    # Run as root to avoid permission issues
+    # Run as root to fix permissions, then switch to runner user
     user: "0:0"
     
     # Restart policy
@@ -67,6 +67,7 @@ services:
       dockerfile: packaging/docker/Dockerfile.github-runner
     image: onemount-github-runner:latest
     container_name: onemount-runner-2
+
     
     # Environment configuration
     environment:
@@ -81,8 +82,7 @@ services:
     # Mount configuration
     volumes:
       - runner-2-work:/opt/actions-runner/_work
-      - runner-2-data:/opt/actions-runner/.runner
-      - runner-2-credentials:/opt/actions-runner/.credentials
+      # Note: .runner and .credentials directories are not mounted to avoid permission issues
       - ../..:/workspace:ro
 
     # Use tmpfs for update directories to avoid permission issues
@@ -104,7 +104,7 @@ services:
       - 8.8.8.8
       - 8.8.4.4
 
-    # Run as root to avoid permission issues
+    # Run as root to fix permissions, then switch to runner user
     user: "0:0"
     
     # Restart policy
@@ -117,17 +117,9 @@ volumes:
   # Runner 1 persistent storage
   runner-1-work:
     driver: local
-  runner-1-data:
-    driver: local
-  runner-1-credentials:
-    driver: local
-  
+
   # Runner 2 persistent storage
   runner-2-work:
-    driver: local
-  runner-2-data:
-    driver: local
-  runner-2-credentials:
     driver: local
 
 networks:

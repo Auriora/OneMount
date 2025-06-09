@@ -174,6 +174,34 @@ start_runner() {
     ./run.sh
 }
 
+# Function to fix permissions and switch to runner user
+fix_permissions_and_switch_user() {
+    if [[ "$(id -u)" == "0" ]]; then
+        print_info "Fixing permissions and switching to runner user..."
+
+        # Fix ownership of the entire actions-runner directory
+        chown -R runner:runner /opt/actions-runner
+
+        # Create and fix ownership of auth directory
+        mkdir -p /opt/onemount-ci
+        chown -R runner:runner /opt/onemount-ci
+
+        # Switch to runner user and re-execute the script with preserved environment
+        print_info "Switching to runner user..."
+        exec su runner -c "cd /opt/actions-runner && env \
+            GITHUB_TOKEN='$GITHUB_TOKEN' \
+            GITHUB_REPOSITORY='$GITHUB_REPOSITORY' \
+            RUNNER_NAME='$RUNNER_NAME' \
+            RUNNER_LABELS='$RUNNER_LABELS' \
+            RUNNER_GROUP='$RUNNER_GROUP' \
+            AUTH_TOKENS_B64='$AUTH_TOKENS_B64' \
+            RUNNER_ALLOW_RUNASROOT='$RUNNER_ALLOW_RUNASROOT' \
+            $0 $*"
+    else
+        print_info "Already running as runner user"
+    fi
+}
+
 # Function to test the environment
 test_environment() {
     print_info "Testing runner environment..."
@@ -207,6 +235,14 @@ test_environment() {
 }
 
 # Main execution
+# Fix permissions and switch to runner user for runner commands
+case "${1:-}" in
+    register|start|run)
+        fix_permissions_and_switch_user "$@"
+        ;;
+esac
+
+# Execute the actual command
 case "${1:-}" in
     register)
         register_runner
