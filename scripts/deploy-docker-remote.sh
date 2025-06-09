@@ -28,7 +28,7 @@ print_error() {
 }
 
 # Default configuration
-DOCKER_HOST="172.16.1.104:2375"
+DOCKER_HOST="172.16.1.104:2376"
 RUNNER_NAME="onemount-runner-remote"
 CONTAINER_NAME="onemount-github-runner"
 IMAGE_NAME="onemount-github-runner"
@@ -96,7 +96,7 @@ test_docker_connection() {
         print_error "Failed to connect to Docker host $DOCKER_HOST"
         print_info "Please ensure:"
         print_info "1. Docker daemon is running on $DOCKER_HOST"
-        print_info "2. Port 2375 is accessible"
+        print_info "2. Port 2376 is accessible"
         print_info "3. Docker daemon is configured to accept TCP connections"
         return 1
     fi

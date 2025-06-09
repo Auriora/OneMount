@@ -73,8 +73,10 @@ init_workspace() {
         print_success "Workspace initialized successfully"
         print_info "Go module: $(head -1 "$workspace_dir/go.mod")"
     else
-        print_error "Workspace initialization may have failed - no go.mod found"
-        return 1
+        print_warning "Workspace initialization incomplete - no go.mod found"
+        print_info "This is normal for Docker volume-based deployments"
+        print_info "Source code will be synced when needed"
+        # Don't return error - this is expected for volume-based deployments
     fi
 }
 

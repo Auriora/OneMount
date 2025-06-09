@@ -66,7 +66,6 @@ These scripts are **CLI dependencies** and must be kept:
 
 **Deploy Dependencies:**
 - `deploy-docker-remote.sh` - Called by `./scripts/dev deploy docker-remote`
-- `deploy-remote-runner.sh` - Deploy utilities
 - `setup-personal-ci.sh` - Called by `./scripts/dev deploy setup-ci`
 - `manage-runner.sh` - Runner management
 
@@ -138,7 +137,6 @@ scripts/
     ├── run-tests-docker.sh
     ├── release.sh
     ├── deploy-docker-remote.sh
-    ├── deploy-remote-runner.sh
     ├── setup-personal-ci.sh
     ├── manage-runner.sh
     └── curl-graph.sh

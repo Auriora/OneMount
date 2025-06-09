@@ -22,7 +22,7 @@ services:
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - RUNNER_NAME=onemount-runner-1
       - RUNNER_LABELS=self-hosted,linux,onemount-testing,optimized
-      - RUNNER_GROUP=onemount-production
+      - RUNNER_GROUP=${RUNNER_GROUP:-Default}
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
       - RUNNER_ALLOW_RUNASROOT=1
 
@@ -76,7 +76,7 @@ services:
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - RUNNER_NAME=onemount-runner-2
       - RUNNER_LABELS=self-hosted,linux,onemount-testing,optimized
-      - RUNNER_GROUP=onemount-production
+      - RUNNER_GROUP=${RUNNER_GROUP:-Default}
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
       - RUNNER_ALLOW_RUNASROOT=1
 

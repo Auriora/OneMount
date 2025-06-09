@@ -1,43 +1,43 @@
 # Remote Docker Host Setup for OneMount GitHub Actions Runner
 
-This guide shows how to deploy the OneMount GitHub Actions runner to a remote Docker host at 172.16.1.104.
+This guide shows how to deploy the OneMount GitHub Actions runner to a remote Docker host at 172.16.1.104 using direct Docker API access.
 
 ## 🚀 Quick Setup
 
 ### Prerequisites
 
-1. **SSH Access**: Ensure you have SSH key-based access to the remote host
-2. **Docker**: Docker and Docker Compose must be installed on the remote host
+1. **Docker API Access**: Remote Docker daemon must be accessible on port 2376
+2. **Docker**: Docker must be installed and configured on the remote host
 3. **GitHub Token**: Personal access token with `repo` scope
-4. **Permissions**: User should have Docker permissions (in `docker` group)
+4. **Network Access**: Port 2376 must be accessible from your local machine
 
 ### 1. Interactive Setup
 
 ```bash
 # Run the interactive setup
-./scripts/deploy-remote-runner.sh setup
+./scripts/deploy-docker-remote.sh setup
 ```
 
 This will:
-- Configure remote host connection details
+- Test Docker API connectivity
 - Set up GitHub authentication
 - Configure OneDrive authentication (optional)
-- Test connectivity and Docker availability
+- Save configuration for future use
 
 ### 2. Deploy and Start
 
 ```bash
-# Deploy the runner to remote host
-./scripts/deploy-remote-runner.sh deploy
+# Build the runner image on remote host
+./scripts/deploy-docker-remote.sh build
 
-# Start the runner
-./scripts/deploy-remote-runner.sh start
+# Deploy and start the runner
+./scripts/deploy-docker-remote.sh deploy
 
 # Check status
-./scripts/deploy-remote-runner.sh status
+./scripts/deploy-docker-remote.sh status
 
 # View logs
-./scripts/deploy-remote-runner.sh logs
+./scripts/deploy-docker-remote.sh logs
 ```
 
 ## 🔧 Manual Configuration
@@ -51,25 +51,27 @@ The remote host (172.16.1.104) should have:
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+# Configure Docker daemon to accept API connections
+# Edit /etc/docker/daemon.json
+sudo tee /etc/docker/daemon.json << EOF
+{
+  "hosts": ["unix:///var/run/docker.sock", "tcp://0.0.0.0:2376"]
+}
+EOF
 
-# Add user to docker group
-sudo usermod -aG docker $USER
-# Log out and back in for group changes to take effect
+# Restart Docker daemon
+sudo systemctl restart docker
 ```
 
-### SSH Key Setup
+### Docker API Access Test
 
-Ensure SSH key authentication is configured:
+Test Docker API connectivity from your local machine:
 
 ```bash
-# Copy your SSH key to the remote host
-ssh-copy-id username@172.16.1.104
+# Test connection to remote Docker API
+DOCKER_HOST="tcp://172.16.1.104:2376" docker version
 
-# Test SSH connection
-ssh username@172.16.1.104 "echo 'SSH working'"
+# Should show both client and server information
 ```
 
 ## 📋 Available Commands
@@ -78,42 +80,48 @@ ssh username@172.16.1.104 "echo 'SSH working'"
 
 ```bash
 # Interactive setup
-./scripts/deploy-remote-runner.sh setup
+./scripts/deploy-docker-remote.sh setup
 
-# Deploy runner to remote host
-./scripts/deploy-remote-runner.sh deploy
+# Build runner image on remote host
+./scripts/deploy-docker-remote.sh build
 
-# Deploy with custom settings
-./scripts/deploy-remote-runner.sh deploy --host 172.16.1.104 --user myuser
+# Deploy and start runner
+./scripts/deploy-docker-remote.sh deploy
+
+# Deploy with custom Docker host
+./scripts/deploy-docker-remote.sh deploy --host 172.16.1.104:2376
 ```
 
 ### Management Commands
 
 ```bash
 # Start the runner
-./scripts/deploy-remote-runner.sh start
+./scripts/deploy-docker-remote.sh start
 
 # Stop the runner
-./scripts/deploy-remote-runner.sh stop
+./scripts/deploy-docker-remote.sh stop
+
+# Restart the runner
+./scripts/deploy-docker-remote.sh restart
 
 # Check status
-./scripts/deploy-remote-runner.sh status
+./scripts/deploy-docker-remote.sh status
 
 # View logs (follows)
-./scripts/deploy-remote-runner.sh logs
+./scripts/deploy-docker-remote.sh logs
 
 # Connect to runner shell
-./scripts/deploy-remote-runner.sh shell
+./scripts/deploy-docker-remote.sh shell
 ```
 
 ### Maintenance Commands
 
 ```bash
-# Update runner code and restart
-./scripts/deploy-remote-runner.sh update
+# Update runner image and restart
+./scripts/deploy-docker-remote.sh update
 
 # Clean up everything
-./scripts/deploy-remote-runner.sh clean
+./scripts/deploy-docker-remote.sh clean
 ```
 
 ## 🔐 Authentication Setup
@@ -138,55 +146,59 @@ ls -la ~/.cache/onemount/auth_tokens.json
 
 Or provide a custom path during setup.
 
-## 🏗️ Remote Directory Structure
+## 🏗️ Remote Container Structure
 
-The runner will be deployed to `/opt/onemount-runner/` on the remote host:
+The runner operates as a Docker container on the remote host with:
 
 ```
-/opt/onemount-runner/
-├── .env                           # Environment configuration
-├── docker-compose.runner.yml     # Docker Compose config
-├── packaging/docker/              # Docker files
-├── scripts/                       # Management scripts
-└── ... (OneMount source code)
+Container: onemount-github-runner
+├── Persistent Volumes:
+│   ├── onemount-runner-workspace:/workspace     # Runner workspace
+│   └── onemount-runner-work:/opt/actions-runner/_work  # GitHub Actions work directory
+├── Environment Variables:
+│   ├── GITHUB_TOKEN                             # GitHub authentication
+│   ├── GITHUB_REPOSITORY                       # Target repository
+│   ├── RUNNER_NAME                             # Runner identifier
+│   └── AUTH_TOKENS_B64                         # OneDrive authentication (optional)
+└── Labels: self-hosted,linux,onemount-testing,docker-remote
 ```
 
 ## 🔍 Troubleshooting
 
-### SSH Connection Issues
+### Docker API Connection Issues
 
 ```bash
-# Test SSH connectivity
-ssh -v username@172.16.1.104
+# Test Docker API connectivity
+DOCKER_HOST="tcp://172.16.1.104:2376" docker version
 
-# Check SSH key
-ssh-add -l
+# Test port connectivity
+telnet 172.16.1.104 2376
 
-# Copy SSH key if needed
-ssh-copy-id username@172.16.1.104
+# Check if Docker daemon is configured for API access
+# On remote host: sudo systemctl status docker
 ```
 
 ### Docker Issues on Remote Host
 
 ```bash
-# Check Docker status
-ssh username@172.16.1.104 "docker --version && docker ps"
+# Test Docker API directly
+DOCKER_HOST="tcp://172.16.1.104:2376" docker ps
 
-# Check Docker Compose
-ssh username@172.16.1.104 "docker-compose --version"
+# Check Docker daemon configuration
+DOCKER_HOST="tcp://172.16.1.104:2376" docker info
 
-# Check user permissions
-ssh username@172.16.1.104 "groups"
+# Check available resources
+DOCKER_HOST="tcp://172.16.1.104:2376" docker system df
 ```
 
 ### Runner Registration Issues
 
 ```bash
 # Check runner logs
-./scripts/deploy-remote-runner.sh logs
+./scripts/deploy-docker-remote.sh logs
 
 # Connect to runner shell for debugging
-./scripts/deploy-remote-runner.sh shell
+./scripts/deploy-docker-remote.sh shell
 
 # Check GitHub repository settings
 # Go to Repository → Settings → Actions → Runners
@@ -194,11 +206,11 @@ ssh username@172.16.1.104 "groups"
 
 ### Network Issues
 
-The runner is configured for IPv4-only networking (suitable for South African networks):
+The runner is configured for IPv4-only networking:
 
 ```bash
 # Test network connectivity from container
-./scripts/deploy-remote-runner.sh shell
+./scripts/deploy-docker-remote.sh shell
 # Inside container: ping 8.8.8.8
 ```
 
@@ -208,10 +220,10 @@ The runner is configured for IPv4-only networking (suitable for South African ne
 
 ```bash
 # Quick status check
-./scripts/deploy-remote-runner.sh status
+./scripts/deploy-docker-remote.sh status
 
 # Detailed logs
-./scripts/deploy-remote-runner.sh logs
+./scripts/deploy-docker-remote.sh logs
 
 # GitHub repository runners page
 # Repository → Settings → Actions → Runners
@@ -221,10 +233,10 @@ The runner is configured for IPv4-only networking (suitable for South African ne
 
 ```bash
 # Check container resource usage
-ssh username@172.16.1.104 "docker stats"
+DOCKER_HOST="tcp://172.16.1.104:2376" docker stats
 
-# Check disk usage
-ssh username@172.16.1.104 "df -h"
+# Check disk usage on remote host
+DOCKER_HOST="tcp://172.16.1.104:2376" docker system df
 ```
 
 ## 🔄 Updates and Maintenance
@@ -232,24 +244,25 @@ ssh username@172.16.1.104 "df -h"
 ### Updating the Runner
 
 ```bash
-# Update runner code and restart
-./scripts/deploy-remote-runner.sh update
+# Update runner image and restart
+./scripts/deploy-docker-remote.sh update
 ```
 
 This will:
-1. Stop the current runner
-2. Deploy updated code
-3. Rebuild the Docker image
+1. Build a new runner image on the remote host
+2. Stop the current runner container
+3. Deploy the updated container
 4. Start the updated runner
 
-### Backup and Restore
+### Configuration Management
 
 ```bash
-# Backup runner configuration
-scp username@172.16.1.104:/opt/onemount-runner/.env ./backup-runner.env
+# Configuration is stored in .docker-remote-config
+# View current configuration
+cat .docker-remote-config
 
-# Restore configuration
-scp ./backup-runner.env username@172.16.1.104:/opt/onemount-runner/.env
+# Reconfigure if needed
+./scripts/deploy-docker-remote.sh setup
 ```
 
 ## 🎯 Integration with GitHub Actions
@@ -270,12 +283,12 @@ To completely remove the runner:
 
 ```bash
 # Clean up everything
-./scripts/deploy-remote-runner.sh clean
+./scripts/deploy-docker-remote.sh clean
 
 # This will:
 # - Stop and remove containers
 # - Remove Docker images
-# - Optionally remove the project directory
+# - Optionally remove persistent volumes
 ```
 
 ## 📞 Support
@@ -283,6 +296,6 @@ To completely remove the runner:
 If you encounter issues:
 
 1. Check the troubleshooting section above
-2. View runner logs: `./scripts/deploy-remote-runner.sh logs`
-3. Connect to runner shell: `./scripts/deploy-remote-runner.sh shell`
+2. View runner logs: `./scripts/deploy-docker-remote.sh logs`
+3. Connect to runner shell: `./scripts/deploy-docker-remote.sh shell`
 4. Check GitHub repository runner status

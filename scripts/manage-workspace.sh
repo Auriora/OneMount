@@ -63,9 +63,15 @@ list_volumes() {
     print_info "OneMount workspace volumes:"
     echo
 
-    for volume in runner-1-workspace runner-2-workspace onemount-runner-workspace; do
-        if docker volume inspect "$volume" >/dev/null 2>&1; then
-            size=$(docker run --rm -v "$volume":/workspace alpine du -sh /workspace 2>/dev/null | cut -f1 || echo "unknown")
+    # Use DOCKER_HOST from environment if set
+    local docker_cmd="docker"
+    if [[ -n "${DOCKER_HOST:-}" ]]; then
+        docker_cmd="docker"
+    fi
+
+    for volume in onemount-runners_runner-1-workspace onemount-runners_runner-2-workspace onemount-runner-workspace; do
+        if $docker_cmd volume inspect "$volume" >/dev/null 2>&1; then
+            size=$($docker_cmd run --rm -v "$volume":/workspace alpine du -sh /workspace 2>/dev/null | cut -f1 || echo "unknown")
             print_success "$volume (size: $size)"
         else
             print_warning "$volume (not found)"
@@ -76,9 +82,9 @@ list_volumes() {
     print_info "OneMount token volumes:"
     echo
 
-    for volume in runner-1-tokens runner-2-tokens onemount-runner-tokens; do
-        if docker volume inspect "$volume" >/dev/null 2>&1; then
-            size=$(docker run --rm -v "$volume":/tokens alpine du -sh /tokens 2>/dev/null | cut -f1 || echo "unknown")
+    for volume in onemount-runners_runner-1-tokens onemount-runners_runner-2-tokens onemount-runner-tokens; do
+        if $docker_cmd volume inspect "$volume" >/dev/null 2>&1; then
+            size=$($docker_cmd run --rm -v "$volume":/tokens alpine du -sh /tokens 2>/dev/null | cut -f1 || echo "unknown")
             print_success "$volume (size: $size)"
         else
             print_warning "$volume (not found)"
@@ -93,10 +99,10 @@ sync_workspace() {
     
     case "$runner" in
         runner-1)
-            volume_name="runner-1-workspace"
+            volume_name="onemount-runners_runner-1-workspace"
             ;;
         runner-2)
-            volume_name="runner-2-workspace"
+            volume_name="onemount-runners_runner-2-workspace"
             ;;
         remote)
             volume_name="onemount-runner-workspace"

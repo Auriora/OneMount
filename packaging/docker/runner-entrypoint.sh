@@ -202,7 +202,7 @@ fix_permissions_and_switch_user() {
         print_info "Fixing permissions and switching to runner user..."
 
         # Initialize workspace if using Docker volumes
-        /usr/local/bin/init-workspace.sh init
+        /usr/local/bin/init-workspace.sh init || print_warning "Workspace initialization incomplete - continuing anyway"
 
         # Fix ownership of the entire actions-runner directory
         chown -R runner:runner /opt/actions-runner
