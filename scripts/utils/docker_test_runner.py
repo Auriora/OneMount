@@ -477,7 +477,10 @@ class DockerTestRunner:
             # Volume mounts
             cmd.extend([
                 "-v", f"{self.paths['project_root']}:/workspace:rw",
-                "-v", f"{self.paths['project_root']}/test-artifacts:/home/tester/.onemount-tests:rw"
+                "-v", f"{self.paths['project_root']}/test-artifacts:/tmp/home-tester/.onemount-tests:rw",
+                # Use tmpfs for Go directories to avoid permission issues
+                "--tmpfs", "/tmp/home-tester/go:rw,noexec,nosuid,size=1g",
+                "--tmpfs", "/tmp/home-tester/.cache:rw,noexec,nosuid,size=1g"
             ])
 
             # Copy auth tokens to test-artifacts if available
@@ -508,6 +511,18 @@ class DockerTestRunner:
                 env_vars.append("ONEMOUNT_TEST_VERBOSE=true")
             if sequential:
                 env_vars.append("ONEMOUNT_TEST_SEQUENTIAL=true")
+
+            # Set HOME to a writable directory when running with custom user
+            # This prevents permission errors when the test script tries to create $HOME
+            env_vars.append("HOME=/tmp/home-tester")
+
+            # Set Go environment variables to use writable directories
+            env_vars.append("GOPATH=/tmp/home-tester/go")
+            env_vars.append("GOCACHE=/tmp/home-tester/.cache/go-build")
+            # Disable Go sumdb verification in Docker environment to avoid permission issues
+            env_vars.append("GOSUMDB=off")
+            # Disable Go sumdb verification in Docker environment to avoid permission issues
+            env_vars.append("GOSUMDB=off")
 
             for env_var in env_vars:
                 cmd.extend(["-e", env_var])

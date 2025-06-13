@@ -82,7 +82,12 @@ setup_environment() {
     # Create home directory if running as different user
     if [[ ! -d "$HOME" ]]; then
         print_info "Creating home directory for user $(whoami)..."
-        mkdir -p "$HOME"
+        # Try to create in HOME first, fallback to /tmp if permission denied
+        if ! mkdir -p "$HOME" 2>/dev/null; then
+            print_warning "Cannot create $HOME, using /tmp/home-$(whoami) instead"
+            export HOME="/tmp/home-$(whoami)"
+            mkdir -p "$HOME"
+        fi
         mkdir -p "$HOME/.cache/go-build"
         mkdir -p "$HOME/go"
     fi
@@ -97,9 +102,9 @@ setup_environment() {
         exit 1
     fi
 
-    # Set up Go environment for current user
-    export GOPATH="$HOME/go"
-    export GOCACHE="$HOME/.cache/go-build"
+    # Set up Go environment for current user (respect existing environment variables)
+    export GOPATH="${GOPATH:-$HOME/go}"
+    export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
     export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"
 
     # Download dependencies
@@ -137,22 +142,22 @@ setup_auth_tokens() {
 
     if [[ -n "$auth_tokens_file" ]]; then
         # Ensure the target directory exists
-        mkdir -p /home/tester/.onemount-tests
+        mkdir -p "$HOME/.onemount-tests"
 
         # Copy auth tokens to the expected location if not already there
-        if [[ "$auth_tokens_file" != "/home/tester/.onemount-tests/.auth_tokens.json" ]]; then
-            cp "$auth_tokens_file" /home/tester/.onemount-tests/.auth_tokens.json
-            chmod 600 /home/tester/.onemount-tests/.auth_tokens.json
+        if [[ "$auth_tokens_file" != "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
+            cp "$auth_tokens_file" "$HOME/.onemount-tests/.auth_tokens.json"
+            chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
             print_info "Copied auth tokens to expected location"
         fi
 
         # Verify the tokens file is valid JSON
         if command -v jq >/dev/null 2>&1; then
-            if jq empty /home/tester/.onemount-tests/.auth_tokens.json 2>/dev/null; then
+            if jq empty "$HOME/.onemount-tests/.auth_tokens.json" 2>/dev/null; then
                 print_success "Auth tokens are valid JSON"
 
                 # Check token expiration if jq is available
-                EXPIRES_AT=$(jq -r '.expires_at // 0' /home/tester/.onemount-tests/.auth_tokens.json 2>/dev/null || echo "0")
+                EXPIRES_AT=$(jq -r '.expires_at // 0' "$HOME/.onemount-tests/.auth_tokens.json" 2>/dev/null || echo "0")
                 CURRENT_TIME=$(date +%s)
 
                 if [[ "$EXPIRES_AT" != "0" ]] && [[ "$EXPIRES_AT" -le "$CURRENT_TIME" ]]; then
@@ -172,11 +177,11 @@ setup_auth_tokens() {
         print_info "Setting up auth tokens from environment variable..."
 
         # Ensure the target directory exists
-        mkdir -p /home/tester/.onemount-tests
+        mkdir -p "$HOME/.onemount-tests"
 
         # Write auth tokens from environment variable
-        echo "$ONEMOUNT_AUTH_TOKENS" > /home/tester/.onemount-tests/.auth_tokens.json
-        chmod 600 /home/tester/.onemount-tests/.auth_tokens.json
+        echo "$ONEMOUNT_AUTH_TOKENS" > "$HOME/.onemount-tests/.auth_tokens.json"
+        chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
 
         print_success "Auth tokens configured from environment"
     else
@@ -262,9 +267,9 @@ run_system_tests() {
     print_info "Running system tests..."
     
     # Check for auth tokens
-    if [[ ! -f "/home/tester/.onemount-tests/.auth_tokens.json" ]]; then
+    if [[ ! -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
         print_error "OneDrive auth tokens not found"
-        print_error "Mount auth tokens to /home/tester/.onemount-tests/.auth_tokens.json"
+        print_error "Mount auth tokens to $HOME/.onemount-tests/.auth_tokens.json"
         print_error "Or set ONEMOUNT_AUTH_TOKENS environment variable"
         return 1
     fi
@@ -297,7 +302,7 @@ run_all_tests() {
     fi
     
     # Run system tests (if auth tokens available)
-    if [[ -f "/home/tester/.onemount-tests/.auth_tokens.json" ]]; then
+    if [[ -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
         if ! run_system_tests; then
             failed_tests+=("system")
         fi

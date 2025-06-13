@@ -1,32 +1,9 @@
 # Multi-stage Dockerfile for running OneMount tests in isolation
-# Provides a clean, reproducible environment with optimized caching
-FROM ubuntu:24.04 AS base
+# Extends onemount-base with test-specific dependencies and user setup
+FROM onemount-base AS base
 
-# Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive
-ENV UBUNTU_VERSION=24.04
-ENV UBUNTU_CODENAME=noble
-
-# Configure IPv4-only networking for South African networks
-RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
-
-# Install system dependencies for OneMount testing
+# Install test-specific dependencies not included in base image
 RUN apt-get update && apt-get install -y \
-    # Go and build tools
-    golang-go \
-    build-essential \
-    pkg-config \
-    git \
-    # FUSE support for filesystem testing
-    fuse3 \
-    libfuse3-dev \
-    # GUI dependencies for launcher tests
-    libwebkit2gtk-4.1-dev \
-    libgtk-3-dev \
-    # System utilities
-    rsync \
-    ca-certificates \
-    curl \
     # Python for test scripts
     python3 \
     python3-pip \
@@ -35,26 +12,18 @@ RUN apt-get update && apt-get install -y \
     netcat-openbsd \
     # Process management
     psmisc \
+    # Additional system utilities for testing
+    lsb-release \
+    gnupg \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
-# Verify Go version
-RUN go version && echo "Go installation verified for Ubuntu $(lsb_release -rs)"
-
-# Set Go environment
-ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOPATH="/home/tester/go"
-ENV GOCACHE="/tmp/go-cache"
-ENV GOMODCACHE="/tmp/go-mod-cache"
-
-# Configure FUSE for testing
-RUN echo 'user_allow_other' >> /etc/fuse.conf
-
-# Create FUSE group and test user with FUSE access
-RUN groupadd -f fuse && \
-    useradd -m -s /bin/bash -G fuse tester && \
-    mkdir -p /workspace && \
+# Create test user with FUSE access
+RUN useradd -m -s /bin/bash -G fuse tester && \
     chown tester:tester /workspace
+
+# Set Go environment for test user
+ENV GOPATH="/home/tester/go"
 
 # Dependency caching stage
 FROM base AS deps
@@ -62,8 +31,6 @@ FROM base AS deps
 # Set up Go environment for test user
 USER tester
 RUN mkdir -p /home/tester/go && \
-    mkdir -p /tmp/go-cache && \
-    mkdir -p /tmp/go-mod-cache && \
     echo 'export GOPATH=/home/tester/go' >> /home/tester/.bashrc && \
     echo 'export PATH=/usr/local/go/bin:$GOPATH/bin:$PATH' >> /home/tester/.bashrc
 
@@ -111,6 +78,6 @@ CMD ["help"]
 
 # Add labels for better image management
 LABEL org.opencontainers.image.title="OneMount Test Runner"
-LABEL org.opencontainers.image.description="Docker image for running OneMount tests in isolation"
+LABEL org.opencontainers.image.description="Docker image for running OneMount tests in isolation (extends onemount-base)"
 LABEL org.opencontainers.image.vendor="Auriora"
 LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"

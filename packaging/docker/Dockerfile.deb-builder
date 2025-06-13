@@ -1,53 +1,21 @@
 # Dockerfile for building OneMount Ubuntu packages
 # Optimized for Ubuntu 24.04 LTS (Noble) and Linux Mint 22
-# Multi-stage build for better caching and smaller final image
-FROM ubuntu:24.04 AS base
+# Based on the base image with Debian packaging tools
+FROM onemount-base AS deps
 
-# Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive
-ENV UBUNTU_VERSION=24.04
-ENV UBUNTU_CODENAME=noble
-
-# Configure apt for better reliability and caching
-RUN echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80retries && \
-    echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/80retries && \
-    echo 'Acquire::ftp::Timeout "30";' >> /etc/apt/apt.conf.d/80retries && \
-    echo 'APT::Keep-Downloaded-Packages "true";' >> /etc/apt/apt.conf.d/80retries
-
-# Update package lists with retry logic
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update --fix-missing || \
-    (sleep 10 && apt-get update --fix-missing) || \
-    (sleep 30 && apt-get update --fix-missing)
-
-# Dependencies stage - install all packages in one layer with cache mounts
-FROM base AS deps
-
-# Install all dependencies in one optimized layer
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        gnupg \
-        lsb-release \
-        golang-go \
-        build-essential \
-        git \
-        debhelper \
-        devscripts \
-        dpkg-dev \
-        fakeroot \
-        pkg-config \
-        libwebkit2gtk-4.1-dev \
-        rsync
+# Install Debian packaging specific dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Debian packaging tools
+    debhelper \
+    devscripts \
+    dpkg-dev \
+    fakeroot \
+    # Additional build tools
+    rsync \
+    && rm -rf /var/lib/apt/lists/*
 
 # Final stage - create optimized builder environment
 FROM deps AS final
-
-# Verify Go version for Ubuntu compatibility
-RUN go version && echo "Ubuntu $(lsb_release -rs) Go compatibility verified"
 
 # Create a non-root user for building
 RUN useradd -m -s /bin/bash builder
@@ -57,10 +25,10 @@ RUN mkdir -p /build /home/builder/go /home/builder/.cache/go-build && \
     chown -R builder:builder /build /home/builder/go /home/builder/.cache
 
 # Set Go environment for builder user
-ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/home/builder/go"
 ENV GOCACHE="/home/builder/.cache/go-build"
 ENV GOMODCACHE="/home/builder/go/pkg/mod"
+ENV GOSUMDB="sum.golang.org"
 
 WORKDIR /build
 
@@ -74,9 +42,9 @@ RUN echo 'export GOPATH=/home/builder/go' >> /home/builder/.bashrc && \
 
 # Pre-warm Go module cache by copying go.mod/go.sum and downloading dependencies
 COPY --chown=builder:builder go.mod go.sum ./
-RUN --mount=type=cache,target=/home/builder/go/pkg/mod,uid=1000,gid=1000 \
-    --mount=type=cache,target=/home/builder/.cache/go-build,uid=1000,gid=1000 \
-    go mod download
+USER builder
+RUN go mod download
+USER root
 
 # Default command
 CMD ["/bin/bash"]
