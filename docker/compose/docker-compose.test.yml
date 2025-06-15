@@ -13,8 +13,8 @@ services:
     # Mount project source code
     volumes:
       - ../..:/workspace:rw
-      # Mount test artifacts directory for output
-      - ../../test-artifacts:/home/tester/.onemount-tests:rw
+      # Mount test artifacts directory for output (consistent path)
+      - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
     
     # Enable FUSE support for filesystem testing
     devices:
@@ -30,15 +30,27 @@ services:
       - 8.8.8.8
       - 8.8.4.4
     
+    # Resource limits for base test runner
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
     # Environment variables
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m
       - ONEMOUNT_TEST_VERBOSE=false
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
-    
+      - GOGC=50
+      - GOMEMLIMIT=2GiB
+
     # Default command
     command: ["help"]
-    
+
     # Interactive mode for shell access
     stdin_open: true
     tty: true
@@ -84,13 +96,27 @@ services:
     # Mount auth tokens for system tests
     volumes:
       - ../..:/workspace:rw
-      - ../../test-artifacts:/home/tester/.onemount-tests:rw
+      - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
+
+    # Resource limits for system tests
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '4'
+        reservations:
+          memory: 2G
+          cpus: '1'
 
     # Longer timeout for system tests
     environment:
       - ONEMOUNT_TEST_TIMEOUT=30m
       - ONEMOUNT_TEST_VERBOSE=true
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
+      - GOGC=50
+      - GOMEMLIMIT=4GiB
+      - ONEMOUNT_SKIP_LARGE_FILES=true
+      - DOCKER_CONTAINER=true
 
     command: ["system"]
 
@@ -100,11 +126,11 @@ services:
       service: test-runner
     container_name: onemount-coverage
     
-    # Mount coverage output directory and auth tokens
+    # Mount coverage output directory and test artifacts
     volumes:
       - ../..:/workspace:rw
       - ../../coverage:/workspace/coverage:rw
-      - ../../test-artifacts:/home/tester/.onemount-tests:rw
+      - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
     
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m

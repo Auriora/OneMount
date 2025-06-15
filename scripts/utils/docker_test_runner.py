@@ -332,6 +332,30 @@ class DockerTestRunner:
         except (CommandError, Exception):
             return False
 
+    def container_healthy(self, name: str) -> bool:
+        """Check if a container is running and healthy."""
+        try:
+            result = run_command(
+                ["docker", "inspect", name, "--format", "{{.State.Running}} {{.State.Status}} {{.State.ExitCode}}"],
+                capture_output=True,
+                check=False,
+                verbose=False
+            )
+
+            if result.returncode == 0:
+                parts = result.stdout.strip().split()
+                if len(parts) >= 3:
+                    running = parts[0] == "true"
+                    status = parts[1]
+                    exit_code = int(parts[2])
+
+                    # Container is healthy if it's running or exited successfully
+                    return running or (status == "exited" and exit_code == 0)
+
+            return False
+        except Exception:
+            return False
+
     def get_container_name(self, test_type: str, development: bool = False) -> str:
         """Generate container name based on test type and mode."""
         suffix = "dev" if development else "test"
@@ -382,8 +406,13 @@ class DockerTestRunner:
                     self._log_info(f"Reusing running container: {container_name}")
                     return self._exec_in_container(container_name, test_type, verbose, timeout, sequential)
                 else:
-                    self._log_info(f"Starting existing container: {container_name}")
-                    return self._start_and_exec_container(container_name, test_type, verbose, timeout, sequential)
+                    # Check if container exited with error
+                    if self._container_failed(container_name):
+                        self._log_warning(f"Container {container_name} previously failed, removing and recreating")
+                        self._remove_container(container_name)
+                    else:
+                        self._log_info(f"Starting existing container: {container_name}")
+                        return self._start_and_exec_container(container_name, test_type, verbose, timeout, sequential)
 
             # Create and run new container
             return self._run_new_container(
@@ -392,6 +421,27 @@ class DockerTestRunner:
             )
         except (CommandError, Exception) as e:
             self._log_error(f"Test execution failed: {e}")
+            return False
+
+    def _container_failed(self, name: str) -> bool:
+        """Check if a container exited with an error."""
+        try:
+            result = run_command(
+                ["docker", "inspect", name, "--format", "{{.State.Status}} {{.State.ExitCode}}"],
+                capture_output=True,
+                check=False,
+                verbose=False
+            )
+
+            if result.returncode == 0:
+                status_info = result.stdout.strip().split()
+                if len(status_info) >= 2:
+                    status = status_info[0]
+                    exit_code = int(status_info[1])
+                    return status == "exited" and exit_code != 0
+
+            return False
+        except Exception:
             return False
 
     def _remove_container(self, name: str):
@@ -474,24 +524,48 @@ class DockerTestRunner:
             else:
                 cmd.append("--rm")
 
+            # Resource management for system tests
+            if test_type == "system":
+                # System tests need more resources due to FUSE filesystem and large file operations
+                cmd.extend([
+                    "--memory", "6g",           # 6GB memory limit
+                    "--memory-swap", "8g",      # 8GB total (6GB + 2GB swap)
+                    "--oom-kill-disable",       # Prevent OOM killer, let test timeout instead
+                    "--cpus", "4"               # Limit to 4 CPU cores
+                ])
+            else:
+                # Other tests use fewer resources
+                cmd.extend([
+                    "--memory", "4g",           # 4GB memory limit
+                    "--memory-swap", "6g",      # 6GB total (4GB + 2GB swap)
+                    "--cpus", "2"               # Limit to 2 CPU cores
+                ])
+
             # Volume mounts
             cmd.extend([
                 "-v", f"{self.paths['project_root']}:/workspace:rw",
                 "-v", f"{self.paths['project_root']}/test-artifacts:/tmp/home-tester/.onemount-tests:rw",
-                # Use tmpfs for Go directories to avoid permission issues
-                "--tmpfs", "/tmp/home-tester/go:rw,noexec,nosuid,size=1g",
-                "--tmpfs", "/tmp/home-tester/.cache:rw,noexec,nosuid,size=1g"
+                # Use smaller tmpfs for Go directories to conserve memory
+                "--tmpfs", "/tmp/home-tester/go:rw,noexec,nosuid,size=512m",
+                "--tmpfs", "/tmp/home-tester/.cache:rw,noexec,nosuid,size=512m"
             ])
 
-            # Copy auth tokens to test-artifacts if available
+            # Copy auth tokens to test-artifacts if available (ONLY for testing, NOT production tokens)
             if self.auth_tokens_path.exists():
                 test_artifacts_dir = self.paths['project_root'] / "test-artifacts"
                 test_artifacts_dir.mkdir(exist_ok=True)
                 auth_tokens_dest = test_artifacts_dir / ".auth_tokens.json"
+
+                # Ensure we're not accidentally using production tokens
+                if str(self.auth_tokens_path) == str(Path.home() / ".cache/onemount/auth_tokens.json"):
+                    self._log_warning("WARNING: Using production auth tokens for testing!")
+                    self._log_warning("Consider using dedicated test tokens at ~/.onemount-tests/.auth_tokens.json")
+
                 if not auth_tokens_dest.exists():
                     import shutil
                     shutil.copy2(self.auth_tokens_path, auth_tokens_dest)
                     self._log_info(f"Copied auth tokens to {auth_tokens_dest}")
+                    self._log_info("NOTE: Use dedicated test OneDrive account, not production!")
 
             # FUSE support for filesystem testing
             cmd.extend([
@@ -521,8 +595,12 @@ class DockerTestRunner:
             env_vars.append("GOCACHE=/tmp/home-tester/.cache/go-build")
             # Disable Go sumdb verification in Docker environment to avoid permission issues
             env_vars.append("GOSUMDB=off")
-            # Disable Go sumdb verification in Docker environment to avoid permission issues
-            env_vars.append("GOSUMDB=off")
+            # Optimize Go memory usage for Docker environment
+            env_vars.append("GOGC=50")  # More aggressive garbage collection
+            env_vars.append("GOMEMLIMIT=2GiB")  # Limit Go runtime memory usage
+            # Skip very large file tests in Docker to prevent OOM
+            env_vars.append("ONEMOUNT_SKIP_LARGE_FILES=true")
+            env_vars.append("DOCKER_CONTAINER=true")
 
             for env_var in env_vars:
                 cmd.extend(["-e", env_var])
@@ -618,11 +696,30 @@ class DockerTestRunner:
             except Exception:
                 pass  # Ignore image removal errors
             
-            # Clean up test artifacts
+            # Clean up test artifacts (but preserve auth tokens if they exist)
             test_artifacts_dir = self.paths["project_root"] / "test-artifacts"
             if test_artifacts_dir.exists():
                 self._log_info("Cleaning up test artifacts...")
+
+                # Preserve auth tokens if they exist
+                auth_tokens_file = test_artifacts_dir / ".auth_tokens.json"
+                auth_tokens_backup = None
+
+                if auth_tokens_file.exists() and auth_tokens_file.is_file():
+                    import tempfile
+                    auth_tokens_backup = tempfile.NamedTemporaryFile(delete=False)
+                    shutil.copy2(auth_tokens_file, auth_tokens_backup.name)
+                    self._log_info("Backing up auth tokens during cleanup")
+
+                # Remove test artifacts directory
                 shutil.rmtree(test_artifacts_dir)
+
+                # Restore auth tokens if they were backed up
+                if auth_tokens_backup:
+                    test_artifacts_dir.mkdir(exist_ok=True)
+                    shutil.copy2(auth_tokens_backup.name, auth_tokens_file)
+                    os.unlink(auth_tokens_backup.name)
+                    self._log_info("Restored auth tokens after cleanup")
             
             self._log_success("Docker cleanup complete")
             return True
@@ -631,6 +728,41 @@ class DockerTestRunner:
             self._log_warning(f"Some cleanup operations failed: {e}")
             return True  # Don't fail the overall operation for cleanup issues
     
+    def validate_auth_token_security(self) -> bool:
+        """Validate that we're not accidentally using production tokens."""
+        if not self.auth_tokens_path.exists():
+            return True  # No tokens to validate
+
+        production_path = Path.home() / ".cache/onemount/auth_tokens.json"
+
+        if self.auth_tokens_path.resolve() == production_path.resolve():
+            console.print()
+            console.print("[red]⚠️  SECURITY WARNING: Using Production Auth Tokens![/red]")
+            console.print()
+            console.print("You are using production OneDrive authentication tokens for testing.")
+            console.print("This is [red]DANGEROUS[/red] and could lead to:")
+            console.print("- Accidental deletion of production data")
+            console.print("- Data corruption in your production OneDrive")
+            console.print("- Security exposure of production credentials")
+            console.print()
+            console.print("[yellow]Recommended Action:[/yellow]")
+            console.print("1. Create a dedicated test OneDrive account")
+            console.print("2. Authenticate with the test account")
+            console.print("3. Copy tokens to test location:")
+            console.print("   [cyan]mkdir -p ~/.onemount-tests[/cyan]")
+            console.print("   [cyan]cp ~/.cache/onemount/auth_tokens.json ~/.onemount-tests/.auth_tokens.json[/cyan]")
+            console.print()
+
+            # Ask for confirmation
+            import typer
+            if not typer.confirm("Continue with production tokens? (NOT RECOMMENDED)"):
+                return False
+
+            console.print("[yellow]⚠️  Proceeding with production tokens at your own risk![/yellow]")
+            console.print()
+
+        return True
+
     def show_auth_setup_help(self):
         """Show authentication setup help."""
         console.print()
@@ -641,7 +773,7 @@ class DockerTestRunner:
         console.print("1. Build OneMount:")
         console.print("   [yellow]make onemount[/yellow]")
         console.print()
-        console.print("2. Authenticate with your test OneDrive account:")
+        console.print("2. Authenticate with your [red]TEST[/red] OneDrive account (NOT production):")
         console.print("   [yellow]./build/onemount --auth-only[/yellow]")
         console.print()
         console.print("3. Create test directory and copy tokens:")
@@ -654,10 +786,16 @@ class DockerTestRunner:
         console.print("5. Now you can run system tests:")
         console.print("   [yellow]dev.py test docker system[/yellow]")
         console.print()
+        console.print("[red]🔒 SECURITY REQUIREMENTS:[/red]")
+        console.print("- [red]NEVER[/red] use production OneDrive accounts for testing")
+        console.print("- [red]ALWAYS[/red] use dedicated test accounts with test data only")
+        console.print("- [red]VERIFY[/red] test account isolation before running system tests")
+        console.print()
         console.print("[yellow]Important Notes:[/yellow]")
         console.print("- Use a dedicated test OneDrive account, not your production account")
         console.print("- The auth tokens file will be mounted into the Docker container")
         console.print("- System tests create and delete files in /onemount_system_tests/ on OneDrive")
+        console.print("- Production tokens should NEVER be used for testing")
         console.print()
 
     def run_docker_tests(
@@ -721,6 +859,11 @@ class DockerTestRunner:
             if test_type == "system" and not self.auth_tokens_path.exists():
                 self.show_auth_setup_help()
                 return False
+
+            # Validate auth token security for system tests
+            if test_type in ["system", "all"] and self.auth_tokens_path.exists():
+                if not self.validate_auth_token_security():
+                    return False
 
             # Run the tests
             success = self.run_tests(

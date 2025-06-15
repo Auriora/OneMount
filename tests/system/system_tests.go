@@ -46,11 +46,16 @@ func NewSystemTestSuite(t *testing.T) (*SystemTestSuite, error) {
 		logging.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
 	}
 
+	// Create unique mount point and test directory for this test instance
+	uniqueID := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano())
+	uniqueMountPoint := filepath.Join(testutil.SystemTestDataDir, "mount", uniqueID)
+	uniqueTestDir := filepath.Join(uniqueMountPoint, "system-test-"+uniqueID)
+
 	suite := &SystemTestSuite{
 		t:          t,
 		auth:       auth,
-		mountPoint: testutil.SystemTestMountPoint,
-		testDir:    filepath.Join(testutil.SystemTestMountPoint, strings.TrimPrefix(testutil.OneDriveTestPath, "/")),
+		mountPoint: uniqueMountPoint,
+		testDir:    uniqueTestDir,
 		cleanup:    make([]func() error, 0),
 	}
 
@@ -98,13 +103,25 @@ func (s *SystemTestSuite) Setup() error {
 		return fmt.Errorf("failed to create mount point %s: %w", s.mountPoint, err)
 	}
 
-	// Create cache directory (filesystem expects a cache path, not mount point)
-	cacheDir := filepath.Join(testutil.SystemTestDataDir, "cache")
+	// Create unique cache directory per test to avoid database conflicts
+	// Use process ID and timestamp for uniqueness
+	uniqueID := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano())
+	cacheDir := filepath.Join(testutil.SystemTestDataDir, "cache", uniqueID)
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory %s: %w", cacheDir, err)
 	}
 
-	// Create filesystem with cache directory
+	// Update auth token path to use the test-specific cache directory
+	// This ensures token refresh operations use the correct path
+	testAuthPath := filepath.Join(cacheDir, "auth_tokens.json")
+	s.auth.Path = testAuthPath
+
+	// Save auth tokens to the test-specific location
+	if err := s.auth.ToFile(testAuthPath); err != nil {
+		return fmt.Errorf("failed to save auth tokens to test location: %w", err)
+	}
+
+	// Create filesystem with unique cache directory
 	filesystem, err := fs.NewFilesystem(s.auth, cacheDir, 30) // 30 second cache TTL
 	if err != nil {
 		return fmt.Errorf("failed to create filesystem: %w", err)
@@ -158,6 +175,29 @@ func (s *SystemTestSuite) Cleanup() error {
 
 	var errors []error
 
+	// Force unmount if still mounted
+	if s.server != nil {
+		if err := s.server.Unmount(); err != nil {
+			errors = append(errors, fmt.Errorf("failed to unmount server: %w", err))
+		}
+		// Wait for unmount to complete
+		time.Sleep(1 * time.Second)
+	}
+
+	// Force unmount using system commands as backup
+	if s.mountPoint != "" {
+		// Try fusermount3 first
+		if err := exec.Command("fusermount3", "-uz", s.mountPoint).Run(); err != nil {
+			logging.Debug().Err(err).Msg("fusermount3 unmount failed during cleanup")
+		}
+		// Try fusermount as fallback
+		if err := exec.Command("fusermount", "-uz", s.mountPoint).Run(); err != nil {
+			logging.Debug().Err(err).Msg("fusermount unmount failed during cleanup")
+		}
+		// Wait for unmount to complete
+		time.Sleep(500 * time.Millisecond)
+	}
+
 	// Run cleanup functions in reverse order
 	for i := len(s.cleanup) - 1; i >= 0; i-- {
 		if err := s.cleanup[i](); err != nil {
@@ -169,6 +209,13 @@ func (s *SystemTestSuite) Cleanup() error {
 	if s.testDir != "" {
 		if err := os.RemoveAll(s.testDir); err != nil {
 			errors = append(errors, fmt.Errorf("failed to remove test directory %s: %w", s.testDir, err))
+		}
+	}
+
+	// Clean up mount point directory
+	if s.mountPoint != "" {
+		if err := os.RemoveAll(s.mountPoint); err != nil && !os.IsNotExist(err) {
+			errors = append(errors, fmt.Errorf("failed to remove mount point %s: %w", s.mountPoint, err))
 		}
 	}
 
@@ -311,17 +358,43 @@ func (s *SystemTestSuite) TestLargeFileOperations() error {
 	}
 	time.Sleep(1 * time.Second)
 
-	// Create a 10MB test file
+	// Create a 10MB test file using streaming to avoid memory issues
 	const fileSize = 10 * 1024 * 1024 // 10MB
-	data := make([]byte, fileSize)
-	for i := range data {
-		data[i] = byte(i % 256)
-	}
+	const chunkSize = 1024 * 1024     // 1MB chunks to reduce memory usage
 
-	// Test large file creation
-	if err := os.WriteFile(testFile, data, 0644); err != nil {
+	// Create file and write in chunks to avoid allocating 10MB in memory
+	file, err := os.Create(testFile)
+	if err != nil {
 		return fmt.Errorf("failed to create large test file: %w", err)
 	}
+	defer file.Close()
+
+	// Create a reusable 1MB chunk
+	chunk := make([]byte, chunkSize)
+	for i := range chunk {
+		chunk[i] = byte(i % 256)
+	}
+
+	// Write file in chunks
+	bytesWritten := 0
+	for bytesWritten < fileSize {
+		remainingBytes := fileSize - bytesWritten
+		writeSize := chunkSize
+		if remainingBytes < chunkSize {
+			writeSize = remainingBytes
+		}
+
+		if _, err := file.Write(chunk[:writeSize]); err != nil {
+			return fmt.Errorf("failed to write chunk to large test file: %w", err)
+		}
+		bytesWritten += writeSize
+	}
+
+	// Ensure data is written to disk
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("failed to sync large test file: %w", err)
+	}
+	file.Close()
 
 	// Wait for upload (longer for large files)
 	time.Sleep(10 * time.Second)

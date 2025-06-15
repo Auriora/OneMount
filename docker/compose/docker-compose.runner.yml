@@ -35,8 +35,8 @@ services:
       - .:/workspace:rw
       # Persistent runner data
       - runner-data:/opt/actions-runner/_work
-      # Optional: Mount host auth tokens if available
-      - ${HOME}/.cache/onemount/auth_tokens.json:/tmp/host_auth_tokens.json:ro
+      # NOTE: Production auth tokens should NOT be mounted directly
+      # Use AUTH_TOKENS_B64 environment variable instead for security
     
     # Enable FUSE support for filesystem testing
     devices:
@@ -76,7 +76,8 @@ services:
     volumes:
       - .:/workspace:rw
       - runner-dev-data:/opt/actions-runner/_work
-      - ${HOME}/.cache/onemount/auth_tokens.json:/tmp/host_auth_tokens.json:ro
+      # NOTE: Production auth tokens should NOT be mounted directly
+      # Use AUTH_TOKENS_B64 environment variable instead for security
       # Mount test artifacts
       - ./test-artifacts:/home/runner/.onemount-tests:rw
 

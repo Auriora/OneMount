@@ -115,6 +115,8 @@ setup_environment() {
     if [[ ! -e /dev/fuse ]]; then
         print_warning "FUSE device not available - some tests may fail"
         print_warning "Run with --device /dev/fuse --cap-add SYS_ADMIN for full FUSE support"
+    else
+        print_info "FUSE device available for filesystem testing"
     fi
 
     # Setup auth tokens if available
@@ -135,8 +137,11 @@ setup_auth_tokens() {
     elif [[ -f "/workspace/test-artifacts/auth_tokens.json" ]]; then
         auth_tokens_file="/workspace/test-artifacts/auth_tokens.json"
         print_info "Auth tokens found in test-artifacts directory"
-    elif [[ -f "/home/tester/.onemount-tests/.auth_tokens.json" ]]; then
-        auth_tokens_file="/home/tester/.onemount-tests/.auth_tokens.json"
+    elif [[ -f "/workspace/test-artifacts/.auth_tokens.json" ]]; then
+        auth_tokens_file="/workspace/test-artifacts/.auth_tokens.json"
+        print_info "Auth tokens found in test-artifacts directory (hidden file)"
+    elif [[ -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
+        auth_tokens_file="$HOME/.onemount-tests/.auth_tokens.json"
         print_info "Auth tokens found in mounted directory"
     fi
 
@@ -146,6 +151,12 @@ setup_auth_tokens() {
 
         # Copy auth tokens to the expected location if not already there
         if [[ "$auth_tokens_file" != "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
+            # Ensure target is a file, not a directory
+            if [[ -d "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
+                print_warning "Removing incorrect directory at auth tokens location"
+                rm -rf "$HOME/.onemount-tests/.auth_tokens.json"
+            fi
+
             cp "$auth_tokens_file" "$HOME/.onemount-tests/.auth_tokens.json"
             chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
             print_info "Copied auth tokens to expected location"
@@ -190,6 +201,9 @@ setup_auth_tokens() {
         print_info "  - Copy auth tokens to workspace root as 'auth_tokens.json', or"
         print_info "  - Copy auth tokens to test-artifacts/auth_tokens.json, or"
         print_info "  - Set ONEMOUNT_AUTH_TOKENS environment variable"
+        print_info ""
+        print_info "SECURITY NOTE: Use dedicated test OneDrive account, NOT production!"
+        print_info "Production tokens should NEVER be used for testing."
     fi
 }
 
