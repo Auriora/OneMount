@@ -1,8 +1,8 @@
-# Multi-stage Dockerfile for running OneMount tests in isolation
-# Extends onemount-base with test-specific dependencies and user setup
-FROM onemount-base AS base
+# Dockerfile for running OneMount tests in isolation
+# Provides a clean, reproducible environment for all test types
+FROM onemount-base
 
-# Install test-specific dependencies not included in base image
+# Install additional dependencies for testing
 RUN apt-get update && apt-get install -y \
     # Python for test scripts
     python3 \
@@ -12,21 +12,24 @@ RUN apt-get update && apt-get install -y \
     netcat-openbsd \
     # Process management
     psmisc \
-    # Additional system utilities for testing
-    lsb-release \
-    gnupg \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
-# Create test user with FUSE access
-RUN useradd -m -s /bin/bash -G fuse tester && \
-    chown tester:tester /workspace
-
 # Set Go environment for test user
 ENV GOPATH="/home/tester/go"
+ENV GOCACHE="/tmp/go-cache"
+ENV GOMODCACHE="/tmp/go-mod-cache"
 
-# Dependency caching stage
-FROM base AS deps
+# Install Python dependencies for OneMount development CLI
+# Copy requirements file first for better Docker layer caching
+COPY scripts/requirements-dev-cli.txt /tmp/requirements-dev-cli.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements-dev-cli.txt && \
+    rm /tmp/requirements-dev-cli.txt
+
+# Create test user and add to existing FUSE group
+RUN useradd -m -s /bin/bash -G fuse tester && \
+    mkdir -p /workspace && \
+    chown tester:tester /workspace
 
 # Set up Go environment for test user
 USER tester
@@ -42,9 +45,6 @@ COPY --chown=tester:tester go.mod go.sum ./
 
 # Download dependencies (this layer will be cached unless go.mod/go.sum changes)
 RUN go mod download
-
-# Final stage
-FROM deps AS final
 
 # Copy source code (this will invalidate cache when source changes)
 COPY --chown=tester:tester . .
@@ -81,3 +81,4 @@ LABEL org.opencontainers.image.title="OneMount Test Runner"
 LABEL org.opencontainers.image.description="Docker image for running OneMount tests in isolation (extends onemount-base)"
 LABEL org.opencontainers.image.vendor="Auriora"
 LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
+LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"

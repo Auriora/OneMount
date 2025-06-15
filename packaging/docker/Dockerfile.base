@@ -73,7 +73,7 @@ LABEL org.opencontainers.image.title="OneMount Base Image"
 LABEL org.opencontainers.image.description="Base Docker image for OneMount with Ubuntu 24.04, Go 1.24.2, and FUSE support"
 LABEL org.opencontainers.image.vendor="Auriora"
 LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
-LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"
 
 # Default working directory
 WORKDIR /workspace

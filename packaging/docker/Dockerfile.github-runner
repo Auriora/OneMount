@@ -84,3 +84,10 @@ WORKDIR /workspace
 # Default entrypoint
 ENTRYPOINT ["/usr/local/bin/runner-entrypoint.sh"]
 CMD ["--help"]
+
+# Add labels for better image management
+LABEL org.opencontainers.image.title="OneMount GitHub Runner"
+LABEL org.opencontainers.image.description="Docker image for running GitHub Actions workflows for OneMount (extends onemount-base)"
+LABEL org.opencontainers.image.vendor="Auriora"
+LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
+LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"

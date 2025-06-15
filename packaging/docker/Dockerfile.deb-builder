@@ -48,3 +48,10 @@ USER root
 
 # Default command
 CMD ["/bin/bash"]
+
+# Add labels for better image management
+LABEL org.opencontainers.image.title="OneMount Debian Package Builder"
+LABEL org.opencontainers.image.description="Docker image for building Debian packages for OneMount (extends onemount-base)"
+LABEL org.opencontainers.image.vendor="Auriora"
+LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
+LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"

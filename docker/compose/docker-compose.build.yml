@@ -3,45 +3,59 @@
 # Run from project root directory
 
 services:
+  # Build service for base image
+  base-build:
+    build:
+      context: ../..
+      dockerfile: packaging/docker/Dockerfile.base
+      cache_from:
+        - onemount-base:latest
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: onemount-base:${ONEMOUNT_VERSION:-0.1.0rc1}
+    profiles:
+      - build
+      - build-dev
+      - build-no-cache
+
   # Build service for test runner image
   test-runner-build:
     build:
-      context: .
+      context: ../..
       dockerfile: packaging/docker/Dockerfile.test-runner
       cache_from:
         - onemount-test-runner:latest
         - onemount-test-runner:dev
-      target: final
       args:
         - BUILDKIT_INLINE_CACHE=1
-    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:latest}
+    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}}
+    depends_on:
+      - base-build
     profiles:
       - build
 
   # Development build variant
   test-runner-dev-build:
     build:
-      context: .
+      context: ../..
       dockerfile: packaging/docker/Dockerfile.test-runner
       cache_from:
         - onemount-test-runner:dev
         - onemount-test-runner:latest
-      target: final
       args:
         - BUILDKIT_INLINE_CACHE=1
-    image: onemount-test-runner:dev
+    image: onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}-dev
     profiles:
       - build-dev
 
   # No-cache build for clean rebuilds
   test-runner-no-cache-build:
     build:
-      context: .
+      context: ../..
       dockerfile: packaging/docker/Dockerfile.test-runner
       no_cache: true
-      target: final
       args:
         - BUILDKIT_INLINE_CACHE=1
-    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:latest}
+    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}}
     profiles:
       - build-no-cache
