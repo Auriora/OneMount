@@ -77,6 +77,5 @@ onemount-fixed
 # Workflow performance reports
 workflow-performance-report.json
 /test-artifacts/
-!/.venv/
 
 venv/
