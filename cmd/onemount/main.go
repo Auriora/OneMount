@@ -37,9 +37,9 @@ import (
 
 	"github.com/auriora/onemount/cmd/common"
 	"github.com/auriora/onemount/internal/fs"
-	"github.com/auriora/onemount/pkg/errors"
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	flag "github.com/spf13/pflag"

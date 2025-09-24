@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/auriora/onemount/internal/fs"
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 const version = "0.1.0rc1"

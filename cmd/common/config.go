@@ -9,9 +9,9 @@ import (
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/auriora/onemount/internal/ui"
-	"github.com/auriora/onemount/pkg/errors"
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 const (

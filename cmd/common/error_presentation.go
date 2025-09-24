@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/auriora/onemount/pkg/errors"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // ErrorCategory represents a category of errors for user-friendly presentation
