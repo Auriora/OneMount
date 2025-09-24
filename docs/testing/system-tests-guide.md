@@ -144,13 +144,13 @@ Enable verbose logging:
 Run specific tests directly with Go:
 ```bash
 # Run comprehensive tests
-go test -v -timeout 30m ./pkg/testutil -run TestSystemST_COMPREHENSIVE_01_AllOperations
+go test -v -timeout 30m ./internal/testutil/framework -run TestSystemST_COMPREHENSIVE_01_AllOperations
 
 # Run performance tests
-go test -v -timeout 30m ./pkg/testutil -run TestSystemST_PERFORMANCE_01_UploadDownloadSpeed
+go test -v -timeout 30m ./internal/testutil/framework -run TestSystemST_PERFORMANCE_01_UploadDownloadSpeed
 
 # Run all system tests
-go test -v -timeout 30m ./pkg/testutil -run "TestSystemST_.*"
+go test -v -timeout 30m ./internal/testutil/framework -run "TestSystemST_.*"
 ```
 
 ## Test Data and Cleanup

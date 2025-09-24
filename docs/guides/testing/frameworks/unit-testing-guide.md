@@ -783,7 +783,7 @@ func TestWithBothFrameworks(t *testing.T) {
 
 ## Related Documentation
 
-- Testing Framework (see code comments in `pkg/testutil/framework/framework.go`)
-- Mock Providers (see code comments in `pkg/testutil/mock/` directory)
+- Testing Framework (see code comments in `internal/testutil/framework/framework.go`)
+- Mock Providers (see code comments in `internal/testutil/mock/` directory)
 - [Integration Testing](integration-testing-guide.md)
 - [Testing Troubleshooting](../testing-troubleshooting.md)

@@ -1050,9 +1050,9 @@ For more detailed troubleshooting information, see [Testing Troubleshooting Guid
 
 ## Related Resources
 
-- Testing Framework (see code comments in `pkg/testutil/framework/framework.go`)
-- Network Simulator (see code comments in `pkg/testutil/framework/network_simulator.go`)
-- Mock Providers (see code comments in `pkg/testutil/mock/` directory)
+- Testing Framework (see code comments in `internal/testutil/framework/framework.go`)
+- Network Simulator (see code comments in `internal/testutil/framework/network_simulator.go`)
+- Mock Providers (see code comments in `internal/testutil/mock/` directory)
 - [Unit Testing](../frameworks/unit-testing-guide.md)
 - [System Testing Guide](system-testing-guide.md)
 - [Performance Testing Guide](performance-testing-guide.md)

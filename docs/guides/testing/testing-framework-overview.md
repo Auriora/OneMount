@@ -41,7 +41,7 @@ The OneMount Test Framework is built around a core `TestFramework` class that pr
 - [Performance Testing Guide](frameworks/performance-testing-guide.md): Guide for performance testing
 - [Load Testing Guide](frameworks/load-testing-guide.md): Guide for load testing
 - [Security Testing Guide](frameworks/security-testing-guide.md): Guide for security testing
-- Mock Providers (see code comments in `pkg/testutil/mock/` directory): Guide for using mock providers
-- Network Simulator (see code comments in `pkg/testutil/framework/network_simulator.go`): Guide for simulating network conditions
+- Mock Providers (see code comments in `internal/testutil/mock/` directory): Guide for using mock providers
+- Network Simulator (see code comments in `internal/testutil/framework/network_simulator.go`): Guide for simulating network conditions
 - [Test Sandbox Guide](components/test-sandbox-guide.md): Guide for using the test sandbox
 - [Troubleshooting Guide](../testing-troubleshooting.md): Guide for troubleshooting common testing issues

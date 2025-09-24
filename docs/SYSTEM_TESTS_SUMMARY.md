@@ -70,7 +70,7 @@ I have successfully implemented a comprehensive system test suite for OneMount t
 
 ### 4. Test Configuration
 
-**Constants and Paths (`pkg/testutil/test_constants.go`):**
+**Constants and Paths (`internal/testutil/test_constants.go`):**
 - `SystemTestMountPoint` - Mount point for system tests
 - `SystemTestDataDir` - Test data directory
 - `SystemTestLogPath` - System test log file

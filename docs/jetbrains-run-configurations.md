@@ -20,13 +20,13 @@ This directory contains JetBrains IDE run configurations for running different t
 
 #### 3. Integration Tests (`Integration_Tests.xml`)
 - **Purpose**: Run integration tests that test component interactions
-- **Command**: `go test -timeout 5m ./pkg/testutil/integration_test_env_test.go`
+- **Command**: `go test -timeout 5m ./internal/testutil/framework/integration_test_env_test.go`
 - **Equivalent Make target**: `make integration-test`
 - **Description**: Tests the integration test environment and framework
 
 #### 4. System Tests (`System_Tests.xml`)
 - **Purpose**: Run basic system tests
-- **Command**: `go test -timeout 5m ./pkg/testutil/system_test_env_test.go`
+- **Command**: `go test -timeout 5m ./internal/testutil/framework/system_test_env_test.go`
 - **Equivalent Make target**: `make system-test`
 - **Description**: Tests the system test environment and framework
 

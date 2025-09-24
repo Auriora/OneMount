@@ -42,7 +42,7 @@ on:
     branches: [ main ]
     paths:
       - 'internal/**'
-      - 'pkg/**'
+
       - 'tests/system/**'
       - 'go.mod'
       - 'go.sum'
@@ -52,7 +52,7 @@ on:
     branches: [ main ]
     paths:
       - 'internal/**'
-      - 'pkg/**'
+
       - 'tests/system/**'
       - 'go.mod'
       - 'go.sum'
@@ -276,7 +276,7 @@ If you prefer to isolate test data, you can modify the test path:
 
 1. **Update test constants**:
 ```go
-// In pkg/testutil/test_constants.go
+// In internal/testutil/test_constants.go
 OneDriveTestPath = "/OneMount_CI_Tests"  // Instead of "/onemount_system_tests"
 ```
 

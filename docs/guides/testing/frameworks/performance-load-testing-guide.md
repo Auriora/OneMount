@@ -15,16 +15,16 @@ This guide covers the performance and load testing framework for OneMount, speci
 
 ```bash
 # Run all performance tests (requires significant time and resources)
-go test -v ./pkg/testutil/framework -run "TestPerformanceIntegration"
+go test -v ./internal/testutil/framework -run "TestPerformanceIntegration"
 
 # Run specific performance tests
-go test -v ./pkg/testutil/framework -run "TestPerformanceIntegration_LargeFileHandling"
-go test -v ./pkg/testutil/framework -run "TestPerformanceIntegration_HighFileCount"
-go test -v ./pkg/testutil/framework -run "TestPerformanceIntegration_SustainedOperation"
-go test -v ./pkg/testutil/framework -run "TestPerformanceIntegration_MemoryLeakDetection"
+go test -v ./internal/testutil/framework -run "TestPerformanceIntegration_LargeFileHandling"
+go test -v ./internal/testutil/framework -run "TestPerformanceIntegration_HighFileCount"
+go test -v ./internal/testutil/framework -run "TestPerformanceIntegration_SustainedOperation"
+go test -v ./internal/testutil/framework -run "TestPerformanceIntegration_MemoryLeakDetection"
 
 # Run unit tests for the performance framework
-go test -v ./pkg/testutil/framework -run "TestLargeFileHandling|TestHighFileCountDirectory" -short
+go test -v ./internal/testutil/framework -run "TestLargeFileHandling|TestHighFileCountDirectory" -short
 ```
 
 ### Skipping Resource-Intensive Tests
@@ -33,7 +33,7 @@ Performance tests are automatically skipped in short mode to prevent resource ex
 
 ```bash
 # This will skip the actual performance tests
-go test -short ./pkg/testutil/framework
+go test -short ./internal/testutil/framework
 ```
 
 ## Test Types
