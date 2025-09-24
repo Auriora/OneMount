@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil"
 	"github.com/auriora/onemount/internal/testutil/framework"
 )

@@ -2,7 +2,7 @@
 package helpers
 
 import (
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"path/filepath"

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // FileTestHelper provides utilities for file operations in tests

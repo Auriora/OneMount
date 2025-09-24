@@ -4,7 +4,7 @@ package mock
 import (
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph/api"
+	"github.com/auriora/onemount/internal/graph/api"
 )
 
 // UIState represents the current state of a UI component

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph/mock"
+	"github.com/auriora/onemount/internal/graph/mock"
 )
 
 // NetworkCondition represents a specific network condition configuration.

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/graph/api"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/graph/api"
 )
 
 // NetworkConditions simulates different network scenarios

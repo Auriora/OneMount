@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph/mock"
+	"github.com/auriora/onemount/internal/graph/mock"
 )
 
 func TestLoadTestScenarios(t *testing.T) {

@@ -1,7 +1,7 @@
 package testutil
 
 import (
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // CustomLogger implements the Logger interface using our custom logging package.
