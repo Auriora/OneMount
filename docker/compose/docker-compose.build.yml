@@ -28,6 +28,7 @@ services:
         - onemount-test-runner:dev
       args:
         - BUILDKIT_INLINE_CACHE=1
+        - BASE_IMAGE=onemount-base:${ONEMOUNT_VERSION:-0.1.0rc1}
     image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}}
     depends_on:
       - base-build

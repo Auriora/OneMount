@@ -4,7 +4,7 @@
 services:
   # Main test runner service - uses pre-built image by default
   test-runner:
-    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}}
+    image: onemount-test-runner:latest
     container_name: ${ONEMOUNT_CONTAINER_NAME:-onemount-test-runner}
     # Ensure base image is available
     depends_on:
@@ -60,11 +60,9 @@ services:
 
   # Base image reference (not a running container)
   base-image:
-    image: onemount-base:${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-base:latest
     # This is a reference only, not a running container
     entrypoint: ["echo", "Base image reference only - not a running container"]
-    profiles:
-      - never-run
 
   # Unit tests only (lightweight, no FUSE required)
   unit-tests:
