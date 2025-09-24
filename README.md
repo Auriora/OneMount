@@ -220,30 +220,18 @@ OneMount uses automated release management with version-controlled package build
 **Automated Release Process (using CLI tool - recommended):**
 ```bash
 # Bump version and trigger automated package building
-./scripts/onemount-dev.py release bump num          # 0.1.0rc1 → 0.1.0rc2 (release candidate)
-./scripts/onemount-dev.py release bump release      # 0.1.0rc1 → 0.1.0 (stable release)
-./scripts/onemount-dev.py release bump patch        # 0.1.0 → 0.1.1 (patch release)
+./scripts/dev release bump num          # 0.1.0rc1 → 0.1.0rc2 (release candidate)
+./scripts/dev release bump release      # 0.1.0rc1 → 0.1.0 (stable release)
+./scripts/dev release bump patch        # 0.1.0 → 0.1.1 (patch release)
 
 # Preview changes without committing
-./scripts/onemount-dev.py release bump num --dry-run
+./scripts/dev release bump num --dry-run
 
 # Bump version without triggering package build
-./scripts/onemount-dev.py release bump patch --no-push
+./scripts/dev release bump patch --no-push
 ```
 
-**Legacy release process (still supported):**
-```bash
-# Using the original script
-./scripts/release.sh num          # 0.1.0rc1 → 0.1.0rc2 (release candidate)
-./scripts/release.sh release      # 0.1.0rc1 → 0.1.0 (stable release)
-./scripts/release.sh patch        # 0.1.0 → 0.1.1 (patch release)
 
-# Preview changes without committing
-./scripts/release.sh num --dry-run
-
-# Bump version without triggering package build
-./scripts/release.sh patch --no-push
-```
 
 **What happens automatically:**
 1. **Version bump** - Updates all project files with new version
