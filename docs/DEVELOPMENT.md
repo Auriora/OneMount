@@ -39,7 +39,7 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
     - **ui/** - GUI implementation
         - **systemd/** - Systemd integration for the UI
     - **nemo/** - Nemo file manager integration
-- **pkg/** - Shared packages
+- **pkg/** - (deprecated) previously shared public packages; code migrated under `internal/`
     - **errors/** - Error handling utilities
     - **graph/** - Microsoft Graph API client
     - **logging/** - Logging utilities

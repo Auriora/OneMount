@@ -36,9 +36,9 @@ OneMount is a native Linux filesystem for Microsoft OneDrive that performs on-de
   - **ui/** - GUI implementation
     - **systemd/** - Systemd integration for the UI
   - **nemo/** - Nemo file manager integration
-- **pkg/** - Reusable public packages
-  - **errors/** - Error handling utilities
-  - **graph/** - Microsoft Graph API integration
+- **pkg/** - (deprecated) previously reusable public packages; code migrated under `internal/`
+  - **errors/** - (migrated under `internal/errors`)
+  - **graph/** - (migrated under `internal/graph`)
   - **logging/** - Logging utilities
   - **quickxorhash/** - QuickXORHash implementation
   - **testutil/** - Testing utilities
@@ -108,7 +108,7 @@ Available run configurations:
 - **all** - Builds all project binaries using the Makefile's "all" target
 - **onemount-launcher** - Builds the onemount-launcher application using the Makefile
 - **onemount** - Builds the onemount application using the Makefile
-- **Test - Test Utils** - Runs tests in the pkg/testutil package
+- **Test - Test Utils** - Runs tests in the internal/testutil framework
 - **Unit Test - File System** - Runs unit tests in the internal/fs package and its subpackages that match the pattern "TestUT*"
 
 To use these configurations:

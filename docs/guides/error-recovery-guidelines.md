@@ -12,7 +12,7 @@ This guide provides recommendations for implementing error recovery mechanisms i
 
 ## Retry Utility Package
 
-The OneMount project includes a centralized retry utility package (`pkg/retry`) that provides a consistent approach to error recovery. This package should be used for all operations that may encounter transient failures.
+The OneMount project includes a centralized retry utility package (`internal/retry`) that provides a consistent approach to error recovery. This package should be used for all operations that may encounter transient failures.
 
 ### Retry Configuration
 
@@ -101,7 +101,7 @@ config.RetryableErrors = append(config.RetryableErrors, func(err error) bool {
 ```
 import (
     "context"
-    "github.com/auriora/onemount/pkg/retry"
+    "github.com/auriora/onemount/internal/retry"
 )
 
 func performOperation() error {
@@ -121,7 +121,7 @@ func performOperation() error {
 import (
     "context"
     "time"
-    "github.com/auriora/onemount/pkg/retry"
+    "github.com/auriora/onemount/internal/retry"
 )
 
 func performOperation() error {
@@ -150,7 +150,7 @@ func performOperation() error {
 ```
 import (
     "context"
-    "github.com/auriora/onemount/pkg/retry"
+    "github.com/auriora/onemount/internal/retry"
 )
 
 func fetchData() (Data, error) {
@@ -169,7 +169,7 @@ func fetchData() (Data, error) {
 ```
 import (
     "context"
-    "github.com/auriora/onemount/pkg/retry"
+    "github.com/auriora/onemount/internal/retry"
 )
 
 func processFile() error {

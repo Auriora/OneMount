@@ -152,7 +152,7 @@ The workflows now use smart path filtering:
 ```yaml
 paths:
   - 'internal/**'      # Core code changes
-  - 'pkg/**'           # Package changes
+
   - 'cmd/**'           # Command changes
   - 'go.mod'           # Dependency changes
   - 'go.sum'           # Dependency lock changes

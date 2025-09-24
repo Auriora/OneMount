@@ -97,7 +97,7 @@ For projects with multiple packages and commands:
 │   │   └── config.go
 │   └── handler/
 │       └── handler.go
-├── pkg/
+├── internal/
 │   └── mylib/
 │       └── mylib.go
 ├── go.mod
@@ -125,7 +125,7 @@ For large applications with multiple components:
 │   │   └── server.go
 │   └── storage/
 │       └── storage.go
-├── pkg/
+├── internal/
 │   └── api/
 │       └── client.go
 ├── scripts/

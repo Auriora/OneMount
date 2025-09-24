@@ -220,7 +220,7 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm shell
 
 # Inside the container
 cd /workspace
-go test -v ./pkg/... -run TestSpecificFunction
+go test -v ./internal/... -run TestSpecificFunction
 ```
 
 ### Logs and Artifacts
@@ -240,7 +240,7 @@ Coverage reports are generated in:
 ```bash
 # Run specific test patterns
 docker run --rm -v $(pwd):/workspace:ro onemount-test-runner \
-  go test -v ./pkg/... -run TestPattern
+  go test -v ./internal/... -run TestPattern
 
 # Run with custom environment
 docker run --rm -v $(pwd):/workspace:ro \

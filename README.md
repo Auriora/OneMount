@@ -462,7 +462,7 @@ This project is provided AS IS with no warranties or guarantees. It is in active
 
 - `cmd/` — Main application entry points (CLI, GUI, etc.)
 - `internal/` — Internal Go packages
-- `pkg/` — Reusable Go packages
+- `pkg/` — (deprecated) previously reusable public packages; code migrated under `internal/`
 - `scripts/` — General-purpose shell and Python scripts for development, testing, and tooling
 - `packaging/` — Files for building distribution packages (deb, rpm, etc.)
 - `build/` — Build artifacts (binaries, release zips/tars, etc.)

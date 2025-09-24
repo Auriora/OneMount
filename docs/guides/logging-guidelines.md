@@ -330,7 +330,7 @@ The logging framework includes tests in `method_logging_test.go` that verify:
 
 Run the tests with:
 ```bash
-go test -v ./pkg/logging/...
+go test -v ./internal/logging/...
 ```
 
 ## Context Propagation
