@@ -1,12 +1,15 @@
 # Dockerfile for running OneMount tests in isolation
 # Provides a clean, reproducible environment for all test types
-FROM onemount-base
+ARG BASE_IMAGE=onemount-base:latest
+FROM ${BASE_IMAGE}
 
 # Install additional dependencies for testing
 RUN apt-get update && apt-get install -y \
     # Python for test scripts
     python3 \
     python3-pip \
+    python3-venv \
+    python3.12-venv \
     # Network tools for testing
     iputils-ping \
     netcat-openbsd \
@@ -54,10 +57,12 @@ RUN mkdir -p /home/tester/.onemount-tests/tmp && \
     mkdir -p /home/tester/.onemount-tests/logs && \
     mkdir -p /home/tester/.cache/onemount
 
-# Copy test entrypoint script and make it executable
+# Copy test entrypoint script and Python helper script and make them executable
 COPY packaging/docker/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
+COPY packaging/docker/python-helper.sh /usr/local/bin/python-helper.sh
 USER root
-RUN chmod +x /usr/local/bin/test-entrypoint.sh
+RUN chmod +x /usr/local/bin/test-entrypoint.sh && \
+    chmod +x /usr/local/bin/python-helper.sh
 USER tester
 
 # Pre-build OneMount binaries for faster test execution
