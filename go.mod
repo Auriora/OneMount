@@ -3,7 +3,7 @@ module github.com/auriora/onemount
 require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/godbus/dbus/v5 v5.1.0
-	github.com/gotk3/gotk3 v0.6.1
+	github.com/gotk3/gotk3 v0.6.3
 	github.com/hanwen/go-fuse/v2 v2.7.2
 	github.com/imdario/mergo v0.3.16
 	github.com/pkg/errors v0.9.1
