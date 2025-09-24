@@ -1,7 +1,9 @@
 # Dockerfile for running OneMount tests in isolation
 # Provides a clean, reproducible environment for all test types
-ARG BASE_IMAGE=onemount-base:latest
+ARG BASE_IMAGE=onemount-base:0.1.0rc1
 FROM ${BASE_IMAGE}
+# Define version arg for labels (avoid UndefinedVar warnings)
+ARG ONEMOUNT_VERSION=0.1.0rc1
 
 # Install additional dependencies for testing
 RUN apt-get update && apt-get install -y \
@@ -49,8 +51,11 @@ COPY --chown=tester:tester go.mod go.sum ./
 # Download dependencies (this layer will be cached unless go.mod/go.sum changes)
 RUN go mod download
 
-# Copy source code (this will invalidate cache when source changes)
-COPY --chown=tester:tester . .
+# Copy only required source to maximize cache hits (avoid copying entire repo)
+COPY --chown=tester:tester cmd/ ./cmd
+COPY --chown=tester:tester internal/ ./internal
+# Only the helper needed by build; avoid copying whole scripts dir
+COPY --chown=tester:tester scripts/cgo-helper.sh ./scripts/cgo-helper.sh
 
 # Create test directories
 RUN mkdir -p /home/tester/.onemount-tests/tmp && \

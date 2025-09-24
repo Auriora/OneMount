@@ -4,6 +4,9 @@
 
 FROM ubuntu:24.04
 
+# Define version arg for labels (avoid UndefinedVar warnings)
+ARG ONEMOUNT_VERSION=0.1.0rc1
+
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UBUNTU_VERSION=24.04

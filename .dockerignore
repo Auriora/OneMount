@@ -1,0 +1,58 @@
+# Root dockerignore to keep build context small and cache-friendly
+
+# Git and VCS
+.git/
+.gitignore
+.gitattributes
+
+# Build outputs and temporary artifacts
+build/
+dist/
+.tmp/
+.temp/
+*.tmp
+*.temp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# IDE/editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (just in case)
+node_modules/
+
+# Go
+vendor/
+# Exclude test files to avoid unnecessary cache busts on docs/test changes
+*_test.go
+
+# Large or irrelevant to container builds
+assets/
+docs/
+deployments/
+docker/
+ui.test/
+systemd.test/
+framework.test/
+test-artifacts/
+
+# Secrets and caches
+.cache/
+.auth_tokens.json
+
+# Keep packaging/ available because Dockerfiles copy from it
+# (do not ignore packaging/)
+

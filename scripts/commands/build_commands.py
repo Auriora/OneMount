@@ -39,22 +39,22 @@ def deb(
 ):
     """
     🔨 Build Debian packages.
-    
+
     Choose between Docker-based building (recommended) or native building.
     Docker building provides a consistent environment and doesn't require
     local Debian packaging tools.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
-    
+
     if not ensure_environment():
         raise typer.Exit(1)
-    
+
     if not docker and not native:
         console.print("[yellow]Please specify either --docker or --native[/yellow]")
         console.print("Use --docker for containerized building (recommended)")
         console.print("Use --native for local building (requires packaging tools)")
         raise typer.Exit(1)
-    
+
     if clean:
         console.print("[yellow]Cleaning build artifacts...[/yellow]")
         paths = get_project_paths()
@@ -62,9 +62,9 @@ def deb(
             import shutil
             shutil.rmtree(paths["build_dir"])
         ensure_build_directories()
-    
+
     paths = get_project_paths()
-    
+
     if docker:
         console.print("[blue]Building Debian package with Docker...[/blue]")
 
@@ -78,7 +78,7 @@ def deb(
         if not success:
             console.print("[red]Docker build failed[/red]")
             raise typer.Exit(1)
-        
+
     elif native:
         console.print("[blue]Building Debian package natively...[/blue]")
 
@@ -91,10 +91,10 @@ def deb(
         if not success:
             console.print("[red]Native build failed[/red]")
             raise typer.Exit(1)
-    
+
     # Show build results
     console.print("\n[green]✅ Build completed successfully![/green]")
-    
+
     # List generated packages
     deb_dir = paths["deb_dir"]
     if deb_dir.exists():
@@ -117,45 +117,45 @@ def manifest(
 ):
     """
     📋 Generate installation commands from manifest.
-    
+
     This command uses the installation manifest to generate commands for
     different packaging systems and installation types.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
-    
+
     if not ensure_environment():
         raise typer.Exit(1)
-    
+
     # Validate arguments
     valid_targets = ["makefile", "rpm", "debian"]
     valid_actions = ["install", "uninstall", "validate", "files"]
-    
+
     if target not in valid_targets:
         console.print(f"[red]Invalid target: {target}. Must be one of: {', '.join(valid_targets)}[/red]")
         raise typer.Exit(1)
-    
+
     if action not in valid_actions:
         console.print(f"[red]Invalid action: {action}. Must be one of: {', '.join(valid_actions)}[/red]")
         raise typer.Exit(1)
-    
+
     if target == "makefile" and action in ["install", "uninstall"] and not type:
         console.print("[red]Error: --type is required for makefile install/uninstall actions[/red]")
         console.print("Use --type user for user installation or --type system for system-wide installation")
         raise typer.Exit(1)
-    
+
     if type and type not in ["user", "system"]:
         console.print(f"[red]Invalid type: {type}. Must be 'user' or 'system'[/red]")
         raise typer.Exit(1)
-    
+
     # Find manifest file
     paths = get_project_paths()
     manifest_path = paths["packaging_dir"] / "install-manifest.json"
-    
+
     if not manifest_path.exists():
         console.print(f"[red]Error: Manifest file not found at {manifest_path}[/red]")
         console.print("Make sure you're in the OneMount project root directory")
         raise typer.Exit(1)
-    
+
     # Import and use the manifest parser
     try:
         # Import the existing manifest parser
@@ -163,24 +163,24 @@ def manifest(
         if not manifest_parser_path.exists():
             console.print(f"[red]Manifest parser not found: {manifest_parser_path}[/red]")
             raise typer.Exit(1)
-        
+
         # Add scripts directory to Python path and import
         import sys
         scripts_dir = str(paths["scripts_dir"])
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
-        
+
         from manifest_parser import InstallManifestParser
-        
+
         parser_obj = InstallManifestParser(manifest_path)
-        
+
         if verbose:
             console.print(f"[dim]Using manifest: {manifest_path}[/dim]")
             console.print(f"[dim]Target: {target}, Type: {type}, Action: {action}[/dim]")
-        
+
         # Generate commands based on target and action
         commands = []
-        
+
         if target == "makefile":
             if action == "install":
                 commands = parser_obj.generate_makefile_install(type, dry_run)
@@ -194,17 +194,17 @@ def manifest(
                 for file_info in files:
                     console.print(f"  {file_info['source']} → {file_info['dest']}")
                 return
-        
+
         elif target == "rpm":
             if action == "install":
                 commands = parser_obj.generate_rpm_install()
             elif action == "files":
                 commands = parser_obj.generate_rpm_files()
-        
+
         elif target == "debian":
             if action == "install":
                 commands = parser_obj.generate_debian_install()
-        
+
         # Output the commands
         if dry_run and action in ["install", "uninstall"]:
             if plain:
@@ -217,7 +217,7 @@ def manifest(
                 print(command)
             else:
                 console.print(command)
-    
+
     except Exception as e:
         console.print(f"[red]Error generating commands: {e}[/red]")
         if verbose:
@@ -225,6 +225,89 @@ def manifest(
             console.print(f"[dim]{traceback.format_exc()}[/dim]")
         raise typer.Exit(1)
 
+
+
+
+@build_app.command()
+def images(
+    ctx: typer.Context,
+    profile: str = typer.Option(
+        "build", "--profile", help="Compose profile to use (build, build-dev, build-no-cache)",
+    ),
+    service: Optional[str] = typer.Option(
+        None, "--service", "-s", help="Specific service to build (defaults to all in profile)"
+    ),
+    version: Optional[str] = typer.Option(
+        None, "--version", help="Explicit ONEMOUNT_VERSION tag to use (defaults to git-derived)"
+    ),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Do not use cache when building"),
+    pull: bool = typer.Option(False, "--pull", help="Always attempt to pull a newer version of the base images"),
+):
+    """
+    🐳 Build Docker images via docker compose with deterministic, content-based tags.
+
+    - Derives ONEMOUNT_VERSION from git by default: <tag>.<distance>+<sha>[-dirty]
+    - Avoids :latest and wires the tag into compose env for image names and cache_from
+    - Honors compose profiles: build (default), build-dev, build-no-cache
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    if not ensure_environment():
+        raise typer.Exit(1)
+
+    # Compute content-based version tag if not provided
+    if not version:
+        try:
+            from utils.git import (
+                get_commit_hash,
+                is_working_directory_clean,
+                get_latest_tag,
+                run_git_command,
+            )
+            short_sha = get_commit_hash(short=True) or "unknown"
+            latest_tag = get_latest_tag()
+            dirty_suffix = "" if is_working_directory_clean() else "-dirty"
+            if latest_tag:
+                distance = run_git_command(["rev-list", f"{latest_tag}..HEAD", "--count"]) or "0"
+                version = f"{latest_tag}.{distance}+{short_sha}{dirty_suffix}"
+            else:
+                version = f"0.0.0+{short_sha}{dirty_suffix}"
+        except Exception:
+            version = "0.0.0+unknown"
+
+    console.print(f"[dim]Using ONEMOUNT_VERSION={version}[/dim]")
+
+    # Build docker compose command
+    compose_file = "docker/compose/docker-compose.build.yml"
+    cmd = [
+        "docker", "compose",
+        "-f", compose_file,
+        "--profile", profile,
+        "build",
+    ]
+    if no_cache:
+        cmd.append("--no-cache")
+    if pull:
+        cmd.append("--pull")
+    if service:
+        cmd.append(service)
+
+    env = {
+        "ONEMOUNT_VERSION": version,
+        "DOCKER_BUILDKIT": "1",
+        "COMPOSE_DOCKER_CLI_BUILD": "1",
+    }
+
+    # Execute
+    run_command_with_progress(
+        cmd,
+        description="Building Docker images",
+        verbose=verbose,
+        env=env,
+        timeout=None,
+    )
+
+    console.print("\n[green]✅ Docker image build completed successfully![/green]")
 
 @build_app.command()
 def binaries(
@@ -234,21 +317,21 @@ def binaries(
 ):
     """
     🔧 Build OneMount binaries.
-    
+
     Build the main OneMount binaries using the Makefile targets.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
-    
+
     if not ensure_environment():
         raise typer.Exit(1)
-    
+
     ensure_build_directories()
-    
+
     if clean:
         console.print("[yellow]Cleaning build artifacts...[/yellow]")
         from utils.shell import run_make_target
         run_make_target("clean", verbose=verbose)
-    
+
     # Determine what to build
     if target is None or target == "all":
         targets = ["onemount", "onemount-launcher"]
@@ -257,10 +340,10 @@ def binaries(
     else:
         console.print(f"[red]Invalid target: {target}. Must be 'onemount', 'onemount-launcher', or 'all'[/red]")
         raise typer.Exit(1)
-    
+
     # Build each target
     from utils.shell import run_make_target
-    
+
     for make_target in targets:
         console.print(f"[blue]Building {make_target}...[/blue]")
         run_command_with_progress(
@@ -269,14 +352,14 @@ def binaries(
             verbose=verbose,
             timeout=600,  # 10 minutes
         )
-    
+
     # Show build results
     console.print("\n[green]✅ Build completed successfully![/green]")
-    
+
     # List generated binaries
     from utils.paths import get_binary_paths
     binary_paths = get_binary_paths()
-    
+
     console.print(f"\n[cyan]🔧 Generated binaries:[/cyan]")
     for name, path in binary_paths.items():
         if path.exists():
@@ -290,26 +373,26 @@ def binaries(
 def status(ctx: typer.Context):
     """
     📊 Show build status and information.
-    
+
     Display information about the current build state, available binaries,
     and build directory structure.
     """
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
-    
+
     console.print(Panel.fit(
         "[bold blue]OneMount Build Status[/bold blue]",
         border_style="blue"
     ))
-    
+
     # Build directory status
     paths = get_project_paths()
-    
+
     console.print("\n[bold cyan]📁 Build Directory Structure[/bold cyan]")
     structure_table = Table()
     structure_table.add_column("Directory", style="cyan")
     structure_table.add_column("Status", style="green")
     structure_table.add_column("Contents", style="dim")
-    
+
     build_dirs = [
         ("Build Root", paths["build_dir"]),
         ("Binaries", paths["binaries_dir"]),
@@ -320,7 +403,7 @@ def status(ctx: typer.Context):
         ("Docker Build", paths["docker_dir"]),
         ("Temporary", paths["temp_dir"]),
     ]
-    
+
     for name, path in build_dirs:
         if path.exists():
             contents = list(path.iterdir()) if path.is_dir() else []
@@ -330,22 +413,22 @@ def status(ctx: typer.Context):
         else:
             status = "❌ Missing"
             content_info = "not created"
-        
+
         structure_table.add_row(name, status, content_info)
-    
+
     console.print(structure_table)
-    
+
     # Binary status
     console.print("\n[bold cyan]🔧 Binary Status[/bold cyan]")
     from utils.paths import get_binary_paths
     binary_paths = get_binary_paths()
-    
+
     binary_table = Table()
     binary_table.add_column("Binary", style="cyan")
     binary_table.add_column("Status", style="green")
     binary_table.add_column("Size", style="dim")
     binary_table.add_column("Modified", style="dim")
-    
+
     for name, path in binary_paths.items():
         if path.exists():
             file_size = path.stat().st_size / (1024 * 1024)  # MB
@@ -358,21 +441,21 @@ def status(ctx: typer.Context):
             status = "❌ Not built"
             size_info = "-"
             modified_info = "-"
-        
+
         binary_table.add_row(name, status, size_info, modified_info)
-    
+
     console.print(binary_table)
-    
+
     # Package status
     console.print("\n[bold cyan]📦 Package Status[/bold cyan]")
     from utils.paths import get_package_paths
     package_paths = get_package_paths()
-    
+
     package_table = Table()
     package_table.add_column("Package Type", style="cyan")
     package_table.add_column("Directory", style="dim")
     package_table.add_column("Packages", style="green")
-    
+
     for pkg_type, pkg_dir in package_paths.items():
         if pkg_dir.exists():
             if pkg_type == "deb_dir":
@@ -387,12 +470,12 @@ def status(ctx: typer.Context):
             else:
                 packages = []
                 pkg_type_name = pkg_type
-            
+
             package_count = f"{len(packages)} packages"
         else:
             package_count = "Directory not found"
             pkg_type_name = pkg_type.replace("_dir", "").upper()
-        
+
         package_table.add_row(pkg_type_name, str(pkg_dir), package_count)
-    
+
     console.print(package_table)
