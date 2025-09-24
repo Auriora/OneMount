@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // Package ui provides user interface components and logic for the OneMount application, including widgets and system integration.

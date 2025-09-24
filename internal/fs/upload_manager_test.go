@@ -3,13 +3,13 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/pkg/logging"
-	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
+	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 )
 
 // TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times

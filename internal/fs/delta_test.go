@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
 // TestIT_FS_03_01_Delta_SyncOperations_ChangesAreSynced tests delta operations for syncing changes.

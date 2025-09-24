@@ -49,7 +49,7 @@ triggers:
   path_filters:
     code_changes:
       - "internal/**"
-      - "pkg/**"
+
       - "cmd/**"
       - "go.mod"
       - "go.sum"

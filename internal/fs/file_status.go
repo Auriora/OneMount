@@ -2,10 +2,10 @@ package fs
 
 import (
 	"bytes"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 	bolt "go.etcd.io/bbolt"
 )
 

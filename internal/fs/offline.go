@@ -1,7 +1,7 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // OfflineMode represents the state of the filesystem's offline mode

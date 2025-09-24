@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 

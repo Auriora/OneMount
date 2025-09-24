@@ -2,7 +2,7 @@
 # Simple 2-runner setup for manual management
 # Stack name: onemount-runners
 
-version: '3.8'
+
 
 name: onemount-runners
 

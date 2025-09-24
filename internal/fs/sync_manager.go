@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
-	"github.com/auriora/onemount/pkg/retry"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/retry"
 )
 
 // SyncManager handles synchronization with retry mechanisms and error recovery

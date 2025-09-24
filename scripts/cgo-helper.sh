@@ -8,7 +8,7 @@ if [ -n "$CGO_ENABLED" ] && [ "$CGO_ENABLED" -eq 0 ]; then
 fi
 
 if pkg-config webkit2gtk-4.0; then
-    sed -i 's/webkit2gtk-4.1/webkit2gtk-4.0/g' pkg/graph/oauth2_gtk.go
+    sed -i 's/webkit2gtk-4.1/webkit2gtk-4.0/g' internal/graph/oauth2_gtk.go
 elif ! pkg-config webkit2gtk-4.1; then
     echo "webkit2gtk development headers must be installed"
     exit 1

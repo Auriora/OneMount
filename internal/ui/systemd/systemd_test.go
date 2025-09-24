@@ -1,7 +1,7 @@
 package systemd
 
 import (
-	"github.com/auriora/onemount/pkg/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/framework"
 	"testing"
 )
 

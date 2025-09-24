@@ -29,7 +29,7 @@ all: onemount onemount-launcher
 build: all
 
 
-onemount: $(shell find internal/fs/ pkg/ -type f) cmd/onemount/main.go
+onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
 	bash scripts/cgo-helper.sh
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
@@ -38,7 +38,7 @@ onemount: $(shell find internal/fs/ pkg/ -type f) cmd/onemount/main.go
 		./cmd/onemount
 
 
-onemount-headless: $(shell find internal/fs/ cmd/common/ pkg/ -type f) cmd/onemount/main.go
+onemount-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onemount/main.go
 	mkdir -p $(OUTPUT_DIR)
 	CGO_ENABLED=0 go build -v \
 		-o $(OUTPUT_DIR)/onemount-headless \
@@ -46,7 +46,7 @@ onemount-headless: $(shell find internal/fs/ cmd/common/ pkg/ -type f) cmd/onemo
 		./cmd/onemount
 
 
-onemount-launcher: $(shell find internal/ui/ cmd/common/ pkg/ -type f) cmd/onemount-launcher/main.go
+onemount-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onemount-launcher/main.go
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v \
 		-o $(OUTPUT_DIR)/onemount-launcher \
@@ -223,11 +223,11 @@ unit-test-sequential:
 
 # Run integration tests
 integration-test:
-	go test -v ./pkg/testutil/integration_test_env_test.go -timeout $(TEST_TIMEOUT)
+	go test -v ./internal/testutil/framework/integration_test_env_test.go -timeout $(TEST_TIMEOUT)
 
 # Run system tests
 system-test:
-	go test -v ./pkg/testutil/system_test_env_test.go -timeout $(TEST_TIMEOUT)
+	go test -v ./internal/testutil/framework/system_test_env_test.go -timeout $(TEST_TIMEOUT)
 
 # Run comprehensive system tests with real OneDrive account
 system-test-real:

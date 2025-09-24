@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/errors"
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 	bolt "go.etcd.io/bbolt"
 )
 

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // Package fs implements the core FUSE-based filesystem logic, including caching, file operations, and OneDrive integration for OneMount.

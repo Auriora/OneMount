@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // ThumbnailCache stores thumbnails for files under a folder as regular files

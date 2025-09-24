@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	dbus "github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 )

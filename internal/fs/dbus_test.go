@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
 // TestIT_FS_02_01_DBusServer_BasicFunctionality_WorksCorrectly tests D-Bus server functionality.

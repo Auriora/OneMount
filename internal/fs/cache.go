@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 	bolt "go.etcd.io/bbolt"
 )
 

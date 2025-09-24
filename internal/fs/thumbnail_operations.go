@@ -2,14 +2,14 @@ package fs
 
 import (
 	"fmt"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/auriora/onemount/pkg/errors"
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/graph"
 )
 
 // GetThumbnail retrieves a thumbnail for a file.

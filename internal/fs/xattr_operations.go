@@ -4,7 +4,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 

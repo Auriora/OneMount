@@ -2,7 +2,7 @@ package fs
 
 import (
 	"context"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"io"
 	"os"
 	"path/filepath"

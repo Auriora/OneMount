@@ -2,7 +2,7 @@ package fs
 
 import (
 	"fmt"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"os"
 	"path/filepath"
 	"runtime"

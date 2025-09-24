@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"github.com/auriora/onemount/pkg/logging"
-	"github.com/auriora/onemount/pkg/testutil"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
+	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/testutil"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 	"os"
 	"testing"
 )

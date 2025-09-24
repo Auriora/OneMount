@@ -3,15 +3,15 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/pkg/testutil/framework"
-	"github.com/auriora/onemount/pkg/testutil/helpers"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/testutil"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil"
 )
 
 // TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload verifies that a file can be successfully uploaded to OneDrive.

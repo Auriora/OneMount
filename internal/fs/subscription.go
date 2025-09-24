@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 	"github.com/yousong/socketio-go/engineio"
 	"github.com/yousong/socketio-go/socketio"
 )

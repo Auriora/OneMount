@@ -2,13 +2,13 @@ package fs
 
 import (
 	"context"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 

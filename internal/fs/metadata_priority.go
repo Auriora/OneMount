@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 )
 
 // Error definitions for metadata request manager

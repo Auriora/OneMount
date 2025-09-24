@@ -210,19 +210,19 @@ setup_auth_tokens() {
 # Build function
 build_onemount() {
     print_info "Building OneMount binaries..."
-    
+
     # Use the project's build script for CGO compatibility
     if [[ -f "scripts/cgo-helper.sh" ]]; then
         bash scripts/cgo-helper.sh
     fi
-    
+
     # Build main binary
     mkdir -p build
     CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
         -o build/onemount \
         -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
         ./cmd/onemount
-    
+
     # Build launcher (if GUI dependencies are available)
     if pkg-config --exists webkit2gtk-4.1; then
         CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
@@ -239,19 +239,19 @@ build_onemount() {
 # Test functions
 run_unit_tests() {
     print_info "Running unit tests..."
-    
+
     local cmd="go test -v ./... -short"
-    
+
     if [[ "$SEQUENTIAL" == "true" ]]; then
         cmd="$cmd -p 1 -parallel 1"
     fi
-    
+
     if [[ "$VERBOSE" == "true" ]]; then
         cmd="$cmd -v"
     fi
-    
+
     cmd="$cmd -timeout $TIMEOUT"
-    
+
     print_info "Executing: $cmd"
     if eval "$cmd"; then
         print_success "Unit tests passed"
@@ -264,9 +264,9 @@ run_unit_tests() {
 
 run_integration_tests() {
     print_info "Running integration tests..."
-    
-    local cmd="go test -v ./pkg/testutil/integration_test_env_test.go -timeout $TIMEOUT"
-    
+
+    local cmd="go test -v ./internal/testutil/framework/integration_test_env_test.go -timeout $TIMEOUT"
+
     print_info "Executing: $cmd"
     if eval "$cmd"; then
         print_success "Integration tests passed"
@@ -279,7 +279,7 @@ run_integration_tests() {
 
 run_system_tests() {
     print_info "Running system tests..."
-    
+
     # Check for auth tokens
     if [[ ! -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
         print_error "OneDrive auth tokens not found"
@@ -287,9 +287,9 @@ run_system_tests() {
         print_error "Or set ONEMOUNT_AUTH_TOKENS environment variable"
         return 1
     fi
-    
+
     local cmd="go test -v -timeout $TIMEOUT ./tests/system -run 'TestSystemST_.*'"
-    
+
     print_info "Executing: $cmd"
     if eval "$cmd"; then
         print_success "System tests passed"
@@ -302,19 +302,19 @@ run_system_tests() {
 
 run_all_tests() {
     print_info "Running all tests..."
-    
+
     local failed_tests=()
-    
+
     # Run unit tests
     if ! run_unit_tests; then
         failed_tests+=("unit")
     fi
-    
+
     # Run integration tests
     if ! run_integration_tests; then
         failed_tests+=("integration")
     fi
-    
+
     # Run system tests (if auth tokens available)
     if [[ -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
         if ! run_system_tests; then
@@ -323,7 +323,7 @@ run_all_tests() {
     else
         print_warning "Skipping system tests - no auth tokens found"
     fi
-    
+
     # Report results
     if [[ ${#failed_tests[@]} -eq 0 ]]; then
         print_success "All tests passed!"
@@ -336,17 +336,17 @@ run_all_tests() {
 
 run_coverage() {
     print_info "Running tests with coverage analysis..."
-    
+
     mkdir -p coverage
-    
+
     local cmd="go test -v -coverprofile=coverage/coverage.out ./..."
-    
+
     if [[ "$SEQUENTIAL" == "true" ]]; then
         cmd="$cmd -p 1 -parallel 1"
     fi
-    
+
     cmd="$cmd -timeout $TIMEOUT"
-    
+
     print_info "Executing: $cmd"
     if eval "$cmd"; then
         # Generate HTML coverage report
@@ -430,6 +430,7 @@ case "$COMMAND" in
     shell)
         setup_environment
         print_info "Starting interactive shell..."
+        print_info "For Python help, run: python-helper.sh"
         exec /bin/bash
         ;;
     *)

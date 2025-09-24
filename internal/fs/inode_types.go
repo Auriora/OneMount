@@ -1,7 +1,7 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/pkg/graph"
+	"github.com/auriora/onemount/internal/graph"
 	"sync"
 )
 

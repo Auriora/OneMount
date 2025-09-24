@@ -4,9 +4,9 @@
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-timeout 5m" />
     <kind value="FILE" />
-    <package value="github.com/auriora/onemount/pkg/testutil" />
-    <directory value="$PROJECT_DIR$/pkg/testutil" />
-    <filePath value="$PROJECT_DIR$/pkg/testutil/system_test_env_test.go" />
+    <package value="github.com/auriora/onemount/internal/testutil/framework" />
+    <directory value="$PROJECT_DIR$/internal/testutil/framework" />
+    <filePath value="$PROJECT_DIR$/internal/testutil/framework/system_test_env_test.go" />
     <framework value="gotest" />
     <method v="2" />
   </configuration>

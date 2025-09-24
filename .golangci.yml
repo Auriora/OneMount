@@ -1,168 +1,27 @@
-# This file is licensed under the terms of the MIT license https://opensource.org/license/mit
-# Copyright (c) 2021-2025 Marat Reymers
-# Golden config for golangci-lint v2.1.6
-# Based on https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
-
-version: "2"
-
-# Go version configuration
 run:
-  go: "1.24"
-
-issues:
-  # Maximum count of issues with the same text.
-  # Set to 0 to disable.
-  # Default: 3
-  max-same-issues: 50
-
-  # Exclude external dependencies from linting
-  exclude-dirs:
-    - vendor
-  exclude-files:
-    - ".*\\.pb\\.go$"
-
-formatters:
-  enable:
-    - goimports # checks if the code and import statements are formatted according to the 'goimports' command
-    - golines # checks if code is formatted, and fixes long lines
+  timeout: 5m
 
 linters:
-  disable-all: true
   enable:
-    - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
-    - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
-    - ineffassign # detects when assignments to existing variables are not used
-    - staticcheck # is a go vet on steroids, applying a ton of static analysis checks (includes gosimple)
-    - unused # checks for unused constants, variables, functions and types
-    - goconst # finds repeated strings that could be replaced by a constant
-    - cyclop # computes and checks the cyclomatic complexity of functions
-    - gocritic # provides diagnostics that check for bugs, performance and style issues
+    - govet
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - errcheck
+    - gofumpt
+    - revive
+    - misspell
+    - lll
 
-# All settings can be found here https://github.com/golangci/golangci-lint/blob/HEAD/.golangci.reference.yml
-settings:
-  goimports:
-    # A list of prefixes, which, if set, checks import paths
-    # with the given prefixes are grouped after 3rd-party packages.
-    # Default: []
-    local-prefixes:
-      - github.com/auriora/onemount
+linters-settings:
+  lll:
+    line-length: 140
+    tab-width: 1
+    # ignore comments and markdown-like lines for length
+    exclude-pattern: "^\s*//|^\s*#|^\s*\*|^\s*```"
+  revive:
+    severity: warning
 
-  golines:
-    # Target maximum line length.
-    # Default: 100
-    max-len: 140
-  goconst:
-    # Minimal length of string constant.
-    # Default: 3
-    min-len: 3
-    # Minimum occurrences of constant string count to trigger issue.
-    # Default: 3
-    min-occurrences: 3
+issues:
+  exclude-use-default: false
 
-  cyclop:
-    # Minimal code complexity to report.
-    # Default: 30 (but we recommend 10-20)
-    max-complexity: 15
-
-  gocritic:
-    # Settings passed to gocritic.
-    # The settings key is the name of a supported gocritic checker.
-    # The list of supported checkers can be found at https://go-critic.com/overview.
-    settings:
-      captLocal:
-        # Whether to restrict checker to params only.
-        # Default: true
-        paramsOnly: false
-      underef:
-        # Whether to skip (*x).method() calls where x is a pointer receiver.
-        # Default: true
-        skipRecvDeref: false
-
-  govet:
-    # Enable all analyzers.
-    # Default: false
-    enable-all: true
-    # Disable analyzers by name.
-    # Default: []
-    disable:
-      - fieldalignment # too strict
-
-  staticcheck:
-    # SAxxxx checks in https://staticcheck.dev/docs/configuration/options/#checks
-    # Example (to disable some checks): [ "all", "-SA1000", "-SA1001"]
-    # Default: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
-    checks:
-      - all
-      # Incorrect or missing package comment.
-      # https://staticcheck.dev/docs/checks/#ST1000
-      - -ST1000
-      # Use consistent method receiver names.
-      # https://staticcheck.dev/docs/checks/#ST1016
-      - -ST1016
-
-exclusions:
-  # Predefined exclusion rules.
-  # Default: []
-  presets:
-    - std-error-handling
-    - common-false-positives
-
-  # Excluding configuration per-path, per-linter, per-text and per-source.
-  rules:
-    # Exclude some linters from running on tests files
-    - path: '_test\.go'
-      linters:
-        - cyclop
-        - errcheck
-
-    # Exclude external dependencies from type checking due to Go version compatibility
-    - text: 'file requires newer Go version go1.24'
-      linters:
-        - typecheck
-    - text: 'undefined: colorable'
-      linters:
-        - typecheck
-
-    # Exclude CGO-related warnings
-    - text: 'cgo-gcc-prolog'
-      linters:
-        - errcheck
-        - staticcheck
-        - govet
-
-    # Exclude deprecated warnings from gotk3
-    - text: 'deprecated'
-      linters:
-        - staticcheck
-        - govet
-
-    # Exclude CGO compilation warnings
-    - text: 'warning.*deprecated'
-      linters:
-        - typecheck
-        - govet
-
-    # Exclude some common false positives
-    - text: 'G404: Use of weak random number generator'
-      linters:
-        - gosec
-
-    # Exclude unused function warnings for public API functions
-    - text: 'UntemplateUnit.*is unused'
-      linters:
-        - unused
-
-    # Allow long lines in generated files
-    - path: '.*\.pb\.go'
-      linters:
-        - golines
-
-    # Exclude package comment requirements
-    - text: 'should have a package comment'
-      linters:
-        - revive
-
-    # Exclude exported function comment requirements
-    - text: 'exported \S+ \S+ should have comment( \(or a comment on this block\))? or be unexported'
-      linters:
-        - revive

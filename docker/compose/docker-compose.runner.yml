@@ -1,7 +1,7 @@
 # Docker Compose configuration for OneMount GitHub Actions Self-Hosted Runner
 # Provides easy setup and management of the containerized runner
 
-version: '3.8'
+
 
 services:
   # GitHub Actions Self-Hosted Runner

@@ -9,16 +9,16 @@ package fs
 import (
 	"context"
 	"encoding/json"
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"io"
 	"math"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/auriora/onemount/pkg/errors"
-	"github.com/auriora/onemount/pkg/graph"
-	"github.com/auriora/onemount/pkg/retry"
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/retry"
 	bolt "go.etcd.io/bbolt"
 )
 

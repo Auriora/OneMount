@@ -1,7 +1,7 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/pkg/logging"
+	"github.com/auriora/onemount/internal/logging"
 	"os"
 	"os/exec"
 	"strings"
