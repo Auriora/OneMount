@@ -4,6 +4,7 @@ import gi
 gi.require_version('Nemo', '3.0')
 from gi.repository import Nemo, GObject, Gio, GLib
 import os
+import time
 from functools import partial
 import dbus
 import dbus.mainloop.glib
@@ -15,7 +16,7 @@ except Exception:
     class MenuProviderBase(object):
         pass
 
-class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
+class OneMountExtension(GObject.GObject, Nemo.InfoProvider, MenuProviderBase):
     def __init__(self):
         # Initialize D-Bus main loop (best-effort)
         try:
@@ -103,13 +104,28 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
             print(f"Error getting OneMount mounts: {e}")
         return mounts
 
+    def _get_cached_onemount_mounts(self, ttl_s: int = 5):
+        """Return cached OneMount mounts, refreshing only if TTL expired."""
+        try:
+            now = time.time()
+            last = getattr(self, '_mounts_cache_ts', 0)
+            if not hasattr(self, '_mounts_cache') or (now - last) > ttl_s:
+                self._mounts_cache = self._get_onemount_mounts()
+                self._mounts_cache_ts = now
+            return getattr(self, '_mounts_cache', []) or []
+        except Exception as e:
+            # Be defensive: on error, return current known list
+            print(f"Error caching OneMount mounts: {e}")
+            return getattr(self, 'onemount_mounts', [])
+
     def _is_in_onemount(self, path: str) -> bool:
         """Return True if path is inside any known OneMount mount point."""
         if not path:
             return False
         mounts = getattr(self, 'onemount_mounts', None) or []
         for mount in mounts:
-            if path.startswith(mount.rstrip('/') + '/') or path == mount:
+            mount_normalized = mount.rstrip('/')
+            if path == mount_normalized or path.startswith(mount_normalized + '/'):
                 return True
         return False
 
@@ -188,8 +204,8 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
 
     def update_file_info(self, file, info=None, update_complete_callback=None):
         """Add emblems based on OneMount file status"""
-        # Refresh the list of OneMount mounts
-        self.onemount_mounts = self._get_onemount_mounts() or []
+        # Refresh the list of OneMount mounts (cached to avoid excessive /proc/mounts reads)
+        self.onemount_mounts = self._get_cached_onemount_mounts(ttl_s=5) or []
 
         # Check if the file is within a OneMount mount
         path = file.get_location().get_path()
@@ -199,7 +215,8 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
             return Nemo.OperationResult.COMPLETE
 
         for mount in self.onemount_mounts:
-            if path.startswith(mount):
+            mount_normalized = mount.rstrip('/')
+            if path == mount_normalized or path.startswith(mount_normalized + '/'):
                 # Query OneMount status for this file
                 status = self._get_file_status(path)
                 # Cache the status observed during an info update to speed up subsequent queries
