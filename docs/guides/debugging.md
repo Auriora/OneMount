@@ -55,6 +55,12 @@ Related docs: [Logging Guidelines](logging-guidelines.md), [Logging Examples](lo
 - Python Nemo extension path: `internal/nemo/src/nemo-onemount.py`.
 - Focus on D-Bus signals and method calls rather than UI when isolating issues.
 - Use `dbus-monitor` to confirm events arrive; compare with Nemo log output if available.
+- Example: monitor OneMount FileManager signals only:
+
+  ```bash
+  dbus-monitor --session "type='signal',sender='org.onemount',interface='org.onemount.FileManager'"
+  ```
+
 
 ## Token safety (testing)
 - Do NOT use production tokens in tests.

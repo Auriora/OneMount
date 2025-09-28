@@ -407,7 +407,6 @@ For more information about OneMount:
 ### Developer Documentation
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
 * [Debugging Guide](docs/guides/debugging.md) - Developer-focused procedures for logs, tracing, and quick diagnostics
-
 * [OneMount Consolidated Action Plan](docs/OneMount-Consolidated-Action-Plan.md) - **Current project status, priorities, and AI implementation prompts**
 * [Solo Developer AI Process](docs/Solo-Developer-AI-Process.md) - Project-agnostic development methodology
 * [Documentation Consolidation Summary](docs/0-project-management/DOCUMENTATION_CONSOLIDATION_SUMMARY.md) - Overview of recent documentation updates
