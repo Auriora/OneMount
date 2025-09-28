@@ -4,42 +4,66 @@ import gi
 gi.require_version('Nemo', '3.0')
 from gi.repository import Nemo, GObject, Gio, GLib
 import os
+import time
+from functools import partial
 import dbus
 import dbus.mainloop.glib
 
-class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
-    def __init__(self):
-        # Initialize D-Bus main loop
-        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+# Compatibility for tests: gracefully degrade MenuProvider base if needed
+try:
+    MenuProviderBase = Nemo.MenuProvider
+except Exception:
+    class MenuProviderBase(object):
+        pass
 
-        # Connect to D-Bus
-        self.bus = dbus.SessionBus()
+class OneMountExtension(GObject.GObject, Nemo.InfoProvider, MenuProviderBase):
+    def __init__(self):
+        # Initialize D-Bus main loop (best-effort)
+        try:
+            dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+        except Exception:
+            pass
+
+        # Connect to D-Bus (best-effort)
+        try:
+            self.bus = dbus.SessionBus()
+        except Exception:
+            self.bus = None
         self.dbus_proxy = None
-        self.connect_to_dbus()
+        try:
+            self.connect_to_dbus()
+        except Exception:
+            self.dbus_proxy = None
 
         # Set up signal handlers for file status changes
         self.file_status_cache = {}
-        self.setup_dbus_signals()
+        try:
+            self.setup_dbus_signals()
+        except Exception:
+            pass
 
         # Get list of OneMount mount points
-        self.onemount_mounts = self._get_onemount_mounts()
+        self.onemount_mounts = self._get_onemount_mounts() or []
 
     def connect_to_dbus(self):
         """Connect to the OneMount D-Bus service"""
+        if not getattr(self, 'bus', None):
+            self.dbus_proxy = None
+            return
         try:
             self.dbus_proxy = self.bus.get_object(
                 'org.onemount.FileStatus',
                 '/org/onemount/FileStatus'
             )
             print("Connected to OneMount D-Bus service")
-        except dbus.exceptions.DBusException as e:
+        except Exception:
             # Silently handle the case when the D-Bus service is not available
             # This is expected when onemount is not running or D-Bus service is not registered
             self.dbus_proxy = None
 
     def setup_dbus_signals(self):
         """Set up D-Bus signal handlers for file status changes"""
-        if self.dbus_proxy is None:
+        if self.dbus_proxy is None or not getattr(self, 'bus', None):
             return
 
         try:
@@ -49,7 +73,7 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
                 signal_name='FileStatusChanged'
             )
             print("Set up D-Bus signal handler for file status changes")
-        except dbus.exceptions.DBusException as e:
+        except Exception:
             # Silently handle the case when the D-Bus signal handler cannot be set up
             # This is expected when onemount is not running or D-Bus service is not registered
             pass
@@ -80,10 +104,108 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
             print(f"Error getting OneMount mounts: {e}")
         return mounts
 
+    def _get_cached_onemount_mounts(self, ttl_s: int = 5):
+        """Return cached OneMount mounts, refreshing only if TTL expired."""
+        try:
+            now = time.time()
+            last = getattr(self, '_mounts_cache_ts', 0)
+            if not hasattr(self, '_mounts_cache') or (now - last) > ttl_s:
+                self._mounts_cache = self._get_onemount_mounts()
+                self._mounts_cache_ts = now
+            return getattr(self, '_mounts_cache', []) or []
+        except Exception as e:
+            # Be defensive: on error, return current known list
+            print(f"Error caching OneMount mounts: {e}")
+            return getattr(self, 'onemount_mounts', [])
+
+    def _is_in_onemount(self, path: str) -> bool:
+        """Return True if path is inside any known OneMount mount point."""
+        if not path:
+            return False
+        mounts = getattr(self, 'onemount_mounts', None) or []
+        for mount in mounts:
+            mount_normalized = mount.rstrip('/')
+            if path == mount_normalized or path.startswith(mount_normalized + '/'):
+                return True
+        return False
+
+    # ===== Context menu (Nemo.MenuProvider) =====
+    def get_file_items(self, window, files):
+        """Provide context menu items for selected files within OneMount mounts.
+
+        Returns a list of Nemo.MenuItem or None.
+        """
+        try:
+            paths = []
+            for f in files or []:
+                loc = f.get_location()
+                if loc is None:
+                    return None
+                p = loc.get_path()
+                if not self._is_in_onemount(p):
+                    return None
+                paths.append(p)
+
+            if not paths:
+                return None
+
+            item = Nemo.MenuItem(
+                name='OneMount::RefreshSelectedEmblems',
+                label='OneMount: Refresh status emblems',
+                tip='Refresh OneMount status emblems for selected items',
+                icon='view-refresh'
+            )
+            # Pass the paths to the handler via functools.partial
+            item.connect('activate', partial(self._action_refresh_emblems_for_paths, paths=paths))
+            return [item]
+        except Exception as e:
+            # Be defensive: any errors should not break Nemo
+            print(f"Error building file items: {e}")
+            return None
+
+    def get_background_items(self, window, current_folder):
+        """Provide context menu items for the background of a folder within OneMount mounts."""
+        try:
+            loc = current_folder.get_location() if current_folder else None
+            path = loc.get_path() if loc else None
+            if not self._is_in_onemount(path):
+                return None
+
+            item = Nemo.MenuItem(
+                name='OneMount::RefreshFolderEmblems',
+                label='OneMount: Refresh folder emblems',
+                tip='Refresh OneMount status emblems for items in this folder',
+                icon='view-refresh'
+            )
+            item.connect('activate', partial(self._action_refresh_folder, folder_path=path))
+            return [item]
+        except Exception as e:
+            print(f"Error building background items: {e}")
+            return None
+
+    def _action_refresh_emblems_for_paths(self, menu, paths):
+        """Clear cached status and request emblem refresh for given file paths."""
+        for p in paths:
+            try:
+                self.file_status_cache.pop(p, None)
+                location = Gio.File.new_for_path(p)
+                Nemo.FileInfo.invalidate_extension_info(location)
+            except Exception as e:
+                print(f"Error refreshing emblem for {p}: {e}")
+
+    def _action_refresh_folder(self, menu, folder_path: str):
+        """Refresh the folder itself (simple, non-recursive for safety)."""
+        try:
+            self.file_status_cache.pop(folder_path, None)
+            location = Gio.File.new_for_path(folder_path)
+            Nemo.FileInfo.invalidate_extension_info(location)
+        except Exception as e:
+            print(f"Error refreshing folder {folder_path}: {e}")
+
     def update_file_info(self, file, info=None, update_complete_callback=None):
         """Add emblems based on OneMount file status"""
-        # Refresh the list of OneMount mounts
-        self.onemount_mounts = self._get_onemount_mounts()
+        # Refresh the list of OneMount mounts (cached to avoid excessive /proc/mounts reads)
+        self.onemount_mounts = self._get_cached_onemount_mounts(ttl_s=5) or []
 
         # Check if the file is within a OneMount mount
         path = file.get_location().get_path()
@@ -93,9 +215,12 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
             return Nemo.OperationResult.COMPLETE
 
         for mount in self.onemount_mounts:
-            if path.startswith(mount):
+            mount_normalized = mount.rstrip('/')
+            if path == mount_normalized or path.startswith(mount_normalized + '/'):
                 # Query OneMount status for this file
                 status = self._get_file_status(path)
+                # Cache the status observed during an info update to speed up subsequent queries
+                self.file_status_cache[path] = status
 
                 if info is not None:
                     if status == "Cloud":
@@ -143,18 +268,21 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider):
                 status = get_status(path)
                 self.file_status_cache[path] = status
                 return status
-            except dbus.exceptions.DBusException:
+            except Exception:
                 # Silently handle D-Bus errors and fall back to extended attributes
                 # This is expected when onemount is not running or D-Bus service is not registered
                 # Try to reconnect for next time
-                self.connect_to_dbus()
+                try:
+                    self.connect_to_dbus()
+                except Exception:
+                    pass
                 # Fall back to extended attributes
 
         # Fallback: Get the status from extended attributes
         try:
             status = os.getxattr(path, "user.onemount.status")
             status_str = status.decode('utf-8')
-            self.file_status_cache[path] = status_str
+            # Do not cache xattr-derived status to reflect external changes promptly
             return status_str
         except OSError as e:
             # Check if this is a filesystem limitation error (ENOTSUP, EOPNOTSUPP, ENOENT)
