@@ -21,7 +21,7 @@ Mount your Microsoft OneDrive account as a native filesystem on Linux.
 
 ---
 
-This repository was forked from [Jeff Stafford's one-driver](https://github.com/jstaf/one-driver) repository. Extensive changes have been made, leading to the decision to rename the project. 
+This repository was forked from [Jeff Stafford's one-driver](https://github.com/jstaf/one-driver) repository. Extensive changes have been made, leading to the decision to rename the project.
 
 ---
 
@@ -61,7 +61,7 @@ by typing `man OneMount` or get a quick summary with `OneMount --help`.
 
 You can also view statistics about your OneDrive cache without mounting by using
 the `--stats` flag: `OneMount --stats /path/to/mount/onedrive/at`. This will
-display information about the metadata cache, content cache, upload queue, 
+display information about the metadata cache, content cache, upload queue,
 file statuses, and the embedded bbolt database used for persistent storage.
 The stats command now includes detailed metadata analysis such as file type distribution,
 directory depth statistics, file size distribution, and file age information derived
@@ -406,6 +406,7 @@ For more information about OneMount:
 
 ### Developer Documentation
 * [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
+* [Debugging Guide](docs/guides/debugging.md) - Developer-focused procedures for logs, tracing, and quick diagnostics
 * [OneMount Consolidated Action Plan](docs/OneMount-Consolidated-Action-Plan.md) - **Current project status, priorities, and AI implementation prompts**
 * [Solo Developer AI Process](docs/Solo-Developer-AI-Process.md) - Project-agnostic development methodology
 * [Documentation Consolidation Summary](docs/0-project-management/DOCUMENTATION_CONSOLIDATION_SUMMARY.md) - Overview of recent documentation updates
