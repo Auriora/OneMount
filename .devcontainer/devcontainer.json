@@ -11,6 +11,9 @@
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "containerUser": "vscode",
+  "forwardPorts": [
+    22
+  ],
   "runArgs": [
     "--device=/dev/fuse",
     "--cap-add=SYS_ADMIN",
@@ -25,7 +28,14 @@
     "GOPATH": "/home/vscode/go",
     "GOPROXY": "https://proxy.golang.org,direct"
   },
+  "postStartCommand": "sudo service ssh start",
   "customizations": {
+    "jetbrains": {
+      "backend": "GoLand",
+      "plugins": [
+        "org.jetbrains.plugins.go-template"
+      ]
+    },
     "vscode": {
       "settings": {
         "go.useLanguageServer": true,
