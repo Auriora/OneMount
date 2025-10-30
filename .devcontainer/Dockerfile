@@ -6,6 +6,8 @@ FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GO_VERSION=1.24.2
 ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=1000
 
 # Install system packages required for building and running OneMount
 RUN apt-get update \
@@ -22,13 +24,20 @@ RUN apt-get update \
         software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
+# Ensure the requested devcontainer user exists (supports overrides)
+RUN if ! id -u "${USERNAME}" >/dev/null 2>&1; then \
+        groupadd --gid "${USER_GID}" "${USERNAME}"; \
+        useradd --uid "${USER_UID}" --gid "${USER_GID}" -m -s /bin/bash "${USERNAME}"; \
+    fi
+
 # Install Go toolchain
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
     | tar -xz -C /usr/local
 
 ENV PATH="/usr/local/go/bin:${PATH}" \
     GO111MODULE=on \
-    GOPATH=/home/${USERNAME}/go
+    GOPATH=/home/${USERNAME}/go \
+    HOME=/home/${USERNAME}
 
 # Ensure the non-root user can access FUSE inside the container
 RUN if getent group fuse >/dev/null; then \

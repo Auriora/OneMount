@@ -2,13 +2,19 @@
   "name": "OneMount Dev",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": ".."
+    "context": "..",
+    "args": {
+      "USERNAME": "vscode",
+      "USER_UID": "1000",
+      "USER_GID": "1000"
+    }
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "containerUser": "vscode",
   "runArgs": [
     "--device=/dev/fuse",
     "--cap-add=SYS_ADMIN",
+    "--name", "onemount-dev",
     "--security-opt=apparmor:unconfined"
   ],
   "mounts": [
