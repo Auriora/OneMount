@@ -1,0 +1,871 @@
+# Implementation Plan: OneMount System Verification and Fix
+
+## Overview
+
+This implementation plan breaks down the verification and fix process into discrete, manageable tasks. Each task builds on previous tasks and focuses on verifying specific components against requirements, identifying issues, and implementing fixes.
+
+---
+
+## Phase 1: Setup and Initial Analysis
+
+- [ ] 1. Setup verification environment
+  - Create test OneDrive account with sample files
+  - Configure test mount point directory
+  - Enable detailed logging (debug level)
+  - Document test environment configuration
+  - _Requirements: All_
+
+- [ ] 2. Analyze existing test suite
+  - Run all existing unit tests and document results
+  - Run all existing integration tests and document results
+  - Identify which tests pass vs fail
+  - Analyze test coverage gaps
+  - Create test results summary document
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+
+- [ ] 3. Create verification tracking document
+  - Create spreadsheet or markdown table for tracking component verification status
+  - Set up issue tracking for discovered problems
+  - Create template for test result documentation
+  - Set up traceability matrix linking requirements to tests
+  - _Requirements: 12.1, 12.2, 12.3_
+
+---
+
+## Phase 2: Authentication Component Verification
+
+- [ ] 4. Verify authentication implementation
+- [ ] 4.1 Review OAuth2 code structure
+  - Read and analyze `pkg/graph/oauth2.go`, `oauth2_gtk.go`, `oauth2_headless.go`
+  - Compare implementation against design document
+  - Document any deviations from architecture
+  - _Requirements: 1.1, 1.5_
+
+- [ ] 4.2 Test interactive authentication flow
+  - Launch OneMount with GUI authentication
+  - Complete Microsoft OAuth2 flow
+  - Verify tokens are stored in `~/.config/onemount/auth_tokens.json`
+  - Check file permissions on token storage
+  - Verify tokens contain AccessToken, RefreshToken, and ExpiresAt
+  - _Requirements: 1.1, 1.2_
+
+- [ ] 4.3 Test token refresh mechanism
+  - Manually expire access token (modify ExpiresAt)
+  - Trigger operation requiring authentication
+  - Verify automatic token refresh occurs
+  - Check that new tokens are persisted
+  - _Requirements: 1.3_
+
+- [ ] 4.4 Test authentication failure scenarios
+  - Test with invalid credentials
+  - Test with network disconnection during auth
+  - Test with expired refresh token
+  - Verify error messages are clear and actionable
+  - _Requirements: 1.4_
+
+- [ ] 4.5 Test headless authentication
+  - Run OneMount in headless mode (no GUI)
+  - Verify device code flow is used
+  - Complete authentication via browser
+  - Verify tokens are stored correctly
+  - _Requirements: 1.5_
+
+- [ ] 4.6 Create authentication integration tests
+  - Write test for complete OAuth2 flow with mock server
+  - Write test for token refresh with mock responses
+  - Write test for authentication failure scenarios
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+- [ ] 4.7 Document authentication issues and create fix plan
+  - List all discovered issues with severity
+  - Identify root causes
+  - Create prioritized fix plan
+  - Update architecture docs if implementation differs
+  - _Requirements: 12.1, 12.4_
+
+---
+
+## Phase 3: Filesystem Mounting Verification
+
+- [ ] 5. Verify filesystem mounting
+- [ ] 5.1 Review FUSE initialization code
+  - Read and analyze `internal/fs/raw_filesystem.go`
+  - Review `cmd/onemount/main.go` mount logic
+  - Compare against design document
+  - _Requirements: 2.1, 2.2_
+
+- [ ] 5.2 Test basic mounting
+  - Mount filesystem at test mount point
+  - Verify mount appears in `mount` command output
+  - Verify mount point is accessible
+  - Check that root directory is visible
+  - _Requirements: 2.1, 2.2_
+
+- [ ] 5.3 Test mount point validation
+  - Attempt to mount at non-existent directory
+  - Attempt to mount at already-mounted location
+  - Attempt to mount at file (not directory)
+  - Verify appropriate error messages
+  - _Requirements: 2.4_
+
+- [ ] 5.4 Test filesystem operations while mounted
+  - Run `ls` on mount point
+  - Run `cat` on a file
+  - Run `cp` to copy a file
+  - Verify operations complete without hanging
+  - _Requirements: 2.3_
+
+- [ ] 5.5 Test unmounting and cleanup
+  - Unmount filesystem using `fusermount3 -uz`
+  - Verify mount point is released
+  - Check for orphaned processes
+  - Verify clean shutdown in logs
+  - _Requirements: 2.5_
+
+- [ ] 5.6 Test signal handling
+  - Mount filesystem
+  - Send SIGINT (Ctrl+C)
+  - Verify graceful shutdown
+  - Repeat with SIGTERM
+  - _Requirements: 2.5_
+
+- [ ] 5.7 Create mounting integration tests
+  - Write test for successful mount
+  - Write test for mount failure scenarios
+  - Write test for graceful unmount
+  - _Requirements: 2.1, 2.2, 2.4, 2.5_
+
+- [ ] 5.8 Document mounting issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 4: File Operations Verification
+
+- [ ] 6. Verify file read operations
+- [ ] 6.1 Review file operation code
+  - Read and analyze `internal/fs/file_operations.go`
+  - Review FUSE operation handlers (Open, Read, Release)
+  - Compare against design document
+  - _Requirements: 3.1, 3.2, 3.3_
+
+- [ ] 6.2 Test reading uncached files
+  - Clear cache
+  - Read a file that hasn't been accessed
+  - Verify file downloads from OneDrive
+  - Check file content is correct
+  - Verify file is cached after read
+  - _Requirements: 3.2_
+
+- [ ] 6.3 Test reading cached files
+  - Read a previously accessed file
+  - Verify no network request is made (check logs)
+  - Verify content is served from cache
+  - Check read performance is fast
+  - _Requirements: 3.3_
+
+- [ ] 6.4 Test directory listing
+  - List a directory with many files
+  - Verify all files appear
+  - Verify no file content is downloaded
+  - Check that metadata is displayed correctly
+  - _Requirements: 3.1_
+
+- [ ] 6.5 Test file metadata operations
+  - Run `stat` on files
+  - Check file size, timestamps, permissions
+  - Verify metadata matches OneDrive
+  - _Requirements: 3.1_
+
+- [ ] 6.6 Create file read integration tests
+  - Write test for uncached file read
+  - Write test for cached file read
+  - Write test for directory listing
+  - Write test for metadata operations
+  - _Requirements: 3.1, 3.2, 3.3_
+
+- [ ] 6.7 Document file read issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+- [ ] 7. Verify file write operations
+- [ ] 7.1 Test file creation
+  - Create a new file in mounted directory
+  - Write content to the file
+  - Verify file appears in directory listing
+  - Check that file is marked for upload
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 7.2 Test file modification
+  - Modify an existing file
+  - Save changes
+  - Verify file is marked as modified
+  - Check that upload is queued
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 7.3 Test file deletion
+  - Delete a file
+  - Verify file is removed from directory listing
+  - Check that deletion is synced to OneDrive
+  - _Requirements: 4.1_
+
+- [ ] 7.4 Test directory operations
+  - Create a new directory
+  - Create files within the directory
+  - Delete the directory
+  - Verify operations sync correctly
+  - _Requirements: 4.1_
+
+- [ ] 7.5 Create file write integration tests
+  - Write test for file creation and upload
+  - Write test for file modification and upload
+  - Write test for file deletion
+  - Write test for directory operations
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 7.6 Document file write issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 5: Download Manager Verification
+
+- [ ] 8. Verify download manager
+- [ ] 8.1 Review download manager code
+  - Read and analyze `internal/fs/download_manager.go`
+  - Review worker pool implementation
+  - Check queue management
+  - _Requirements: 3.2, 3.4, 3.5_
+
+- [ ] 8.2 Test single file download
+  - Trigger download of one file
+  - Monitor download progress in logs
+  - Verify file content is correct
+  - Check that file is cached
+  - _Requirements: 3.2_
+
+- [ ] 8.3 Test concurrent downloads
+  - Trigger downloads of multiple files simultaneously
+  - Verify downloads proceed concurrently
+  - Check that all downloads complete
+  - Verify no race conditions or deadlocks
+  - _Requirements: 3.4, 10.1_
+
+- [ ] 8.4 Test download failure and retry
+  - Simulate network failure during download
+  - Verify download is retried
+  - Check exponential backoff is used
+  - Verify eventual success or clear error
+  - _Requirements: 3.5, 9.1_
+
+- [ ] 8.5 Test download status tracking
+  - Monitor file status during download
+  - Verify status changes from "not cached" to "downloading" to "cached"
+  - Check that status is visible via extended attributes
+  - _Requirements: 3.4, 8.1_
+
+- [ ] 8.6 Create download manager integration tests
+  - Write test for single download
+  - Write test for concurrent downloads
+  - Write test for download retry logic
+  - Write test for download cancellation
+  - _Requirements: 3.2, 3.4, 3.5_
+
+- [ ] 8.7 Document download manager issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 6: Upload Manager Verification
+
+- [ ] 9. Verify upload manager
+- [ ] 9.1 Review upload manager code
+  - Read and analyze `internal/fs/upload_manager.go`
+  - Review `internal/fs/upload_session.go`
+  - Check queue and retry logic
+  - _Requirements: 4.2, 4.3, 4.4, 4.5_
+
+- [ ] 9.2 Test small file upload
+  - Create and modify a small file (< 4MB)
+  - Verify upload is queued
+  - Monitor upload progress
+  - Verify file appears on OneDrive
+  - Check ETag is updated
+  - _Requirements: 4.2, 4.3, 4.5_
+
+- [ ] 9.3 Test large file upload
+  - Create a large file (> 10MB)
+  - Verify chunked upload is used
+  - Monitor upload progress
+  - Verify complete file on OneDrive
+  - _Requirements: 4.3_
+
+- [ ] 9.4 Test upload failure and retry
+  - Simulate network failure during upload
+  - Verify upload is retried
+  - Check exponential backoff
+  - Verify eventual success
+  - _Requirements: 4.4_
+
+- [ ] 9.5 Test upload conflict detection
+  - Modify file locally
+  - Modify same file on OneDrive web interface
+  - Trigger upload
+  - Verify conflict is detected
+  - Check conflict resolution (should be tested in delta sync)
+  - _Requirements: 4.4, 5.4_
+
+- [ ] 9.6 Create upload manager integration tests
+  - Write test for small file upload
+  - Write test for large file chunked upload
+  - Write test for upload retry logic
+  - Write test for upload queue management
+  - _Requirements: 4.2, 4.3, 4.4_
+
+- [ ] 9.7 Document upload manager issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 7: Delta Synchronization Verification
+
+- [ ] 10. Verify delta synchronization
+- [ ] 10.1 Review delta sync code
+  - Read and analyze `internal/fs/delta.go`
+  - Review `internal/fs/sync.go`
+  - Check delta loop implementation
+  - Review delta link persistence
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+
+- [ ] 10.2 Test initial delta sync
+  - Start with empty cache
+  - Mount filesystem
+  - Verify initial sync fetches all metadata
+  - Check that delta link is stored
+  - _Requirements: 5.1, 5.5_
+
+- [ ] 10.3 Test incremental delta sync
+  - Create a file on OneDrive web interface
+  - Wait for delta sync to run
+  - Verify new file appears in mounted filesystem
+  - Check that only changes were fetched
+  - _Requirements: 5.1, 5.2_
+
+- [ ] 10.4 Test remote file modification
+  - Modify a file on OneDrive web interface
+  - Wait for delta sync
+  - Access the file locally
+  - Verify new version is downloaded
+  - _Requirements: 5.3_
+
+- [ ] 10.5 Test conflict detection and resolution
+  - Modify a file locally (don't let it upload yet)
+  - Modify same file on OneDrive
+  - Trigger delta sync
+  - Verify conflict is detected
+  - Check that conflict copy is created
+  - Verify local version is preserved
+  - _Requirements: 5.4_
+
+- [ ] 10.6 Test delta sync persistence
+  - Run delta sync
+  - Unmount filesystem
+  - Remount filesystem
+  - Verify delta sync resumes from last position
+  - _Requirements: 5.5_
+
+- [ ] 10.7 Create delta sync integration tests
+  - Write test for initial sync
+  - Write test for incremental sync
+  - Write test for conflict detection
+  - Write test for delta link persistence
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+
+- [ ] 10.8 Document delta sync issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 8: Cache Management Verification
+
+- [ ] 11. Verify cache management
+- [ ] 11.1 Review cache code
+  - Read and analyze `internal/fs/cache.go`
+  - Review `internal/fs/content_cache.go`
+  - Check cache cleanup implementation
+  - Review bbolt database usage
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [ ] 11.2 Test content caching
+  - Access several files
+  - Verify content is stored in cache directory
+  - Check cache directory structure
+  - Verify cached content is correct
+  - _Requirements: 7.1_
+
+- [ ] 11.3 Test cache hit/miss
+  - Access a cached file (should be cache hit)
+  - Access an uncached file (should be cache miss)
+  - Verify cache statistics reflect hits and misses
+  - _Requirements: 7.5_
+
+- [ ] 11.4 Test cache expiration
+  - Configure short cache expiration (e.g., 1 day)
+  - Create files with old access times
+  - Trigger cache cleanup
+  - Verify old files are removed
+  - Verify recent files are retained
+  - _Requirements: 7.2, 7.3, 7.4_
+
+- [ ] 11.5 Test cache statistics
+  - Run `onemount --stats /mount/path`
+  - Verify statistics show cache size
+  - Check file count
+  - Verify hit rate calculation
+  - _Requirements: 7.5_
+
+- [ ] 11.6 Test metadata cache persistence
+  - Access files to populate metadata cache
+  - Unmount filesystem
+  - Remount filesystem
+  - Verify metadata is still cached (no refetch)
+  - _Requirements: 7.1_
+
+- [ ] 11.7 Create cache management integration tests
+  - Write test for cache storage and retrieval
+  - Write test for cache expiration
+  - Write test for cache cleanup
+  - Write test for cache statistics
+  - _Requirements: 7.1, 7.2, 7.3, 7.5_
+
+- [ ] 11.8 Document cache issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 9: Offline Mode Verification
+
+- [ ] 12. Verify offline mode
+- [ ] 12.1 Review offline mode code
+  - Read and analyze `internal/fs/offline.go`
+  - Check offline detection logic
+  - Review change queuing implementation
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [ ] 12.2 Test offline detection
+  - Mount filesystem while online
+  - Disconnect network (disable network interface)
+  - Trigger operation requiring network
+  - Verify offline state is detected
+  - Check logs for offline detection message
+  - _Requirements: 6.1_
+
+- [ ] 12.3 Test offline read operations
+  - While offline, access cached files
+  - Verify files can be read
+  - Attempt to access uncached file
+  - Verify appropriate error message
+  - _Requirements: 6.2_
+
+- [ ] 12.4 Test offline write restrictions
+  - While offline, attempt to create file
+  - Verify operation is rejected (read-only)
+  - Attempt to modify file
+  - Verify operation is rejected
+  - _Requirements: 6.3_
+
+- [ ] 12.5 Test change queuing (if implemented)
+  - If system allows queuing changes while offline
+  - Make changes while offline
+  - Verify changes are queued
+  - _Requirements: 6.4_
+
+- [ ] 12.6 Test online transition
+  - While offline, reconnect network
+  - Trigger operation requiring network
+  - Verify online state is detected
+  - Check that queued changes are processed
+  - Verify delta sync resumes
+  - _Requirements: 6.5_
+
+- [ ] 12.7 Create offline mode integration tests
+  - Write test for offline detection
+  - Write test for offline read operations
+  - Write test for offline write restrictions
+  - Write test for online transition
+  - _Requirements: 6.1, 6.2, 6.3, 6.5_
+
+- [ ] 12.8 Document offline mode issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 10: File Status and D-Bus Verification
+
+- [ ] 13. Verify file status tracking
+- [ ] 13.1 Review file status code
+  - Read and analyze `internal/fs/file_status.go`
+  - Review `internal/fs/dbus.go`
+  - Check extended attribute implementation
+  - Review Nemo extension code
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+
+- [ ] 13.2 Test file status updates
+  - Monitor file status during various operations
+  - Verify status changes appropriately (synced, downloading, error, etc.)
+  - Check extended attributes are set correctly
+  - _Requirements: 8.1_
+
+- [ ] 13.3 Test D-Bus integration
+  - Verify D-Bus server starts successfully
+  - Monitor D-Bus signals during file operations
+  - Use `dbus-monitor` to observe signals
+  - Verify signal format and content
+  - _Requirements: 8.2_
+
+- [ ] 13.4 Test D-Bus fallback
+  - Disable D-Bus (or run in environment without D-Bus)
+  - Verify system continues operating
+  - Check that extended attributes still work
+  - _Requirements: 8.4_
+
+- [ ] 13.5 Test Nemo extension
+  - Open Nemo file manager
+  - Navigate to mounted OneDrive
+  - Verify status icons appear on files
+  - Trigger file operations and watch icons update
+  - _Requirements: 8.3_
+
+- [ ] 13.6 Create file status integration tests
+  - Write test for status tracking
+  - Write test for D-Bus signal emission
+  - Write test for extended attribute fallback
+  - _Requirements: 8.1, 8.2, 8.4_
+
+- [ ] 13.7 Document file status issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 11: Error Handling and Recovery Verification
+
+- [ ] 14. Verify error handling
+- [ ] 14.1 Review error handling code
+  - Read and analyze `pkg/errors/`
+  - Review error handling throughout codebase
+  - Check logging implementation
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
+
+- [ ] 14.2 Test network error handling
+  - Simulate various network errors (timeout, connection refused, etc.)
+  - Verify errors are logged with context
+  - Check that retries occur
+  - Verify eventual success or clear failure
+  - _Requirements: 9.1_
+
+- [ ] 14.3 Test API rate limiting
+  - Trigger many API requests rapidly
+  - Verify rate limit detection
+  - Check that exponential backoff is used
+  - Verify operations eventually succeed
+  - _Requirements: 9.2_
+
+- [ ] 14.4 Test crash recovery
+  - Mount filesystem
+  - Forcefully kill process (kill -9)
+  - Remount filesystem
+  - Verify state is recovered from database
+  - Check that incomplete uploads resume
+  - _Requirements: 9.3, 9.4_
+
+- [ ] 14.5 Test error messages
+  - Trigger various error conditions
+  - Review error messages shown to user
+  - Verify messages are clear and actionable
+  - Check that technical details are logged but not shown to user
+  - _Requirements: 9.5_
+
+- [ ] 14.6 Create error handling integration tests
+  - Write test for network error retry
+  - Write test for rate limit handling
+  - Write test for crash recovery
+  - _Requirements: 9.1, 9.2, 9.3, 9.4_
+
+- [ ] 14.7 Document error handling issues and create fix plan
+  - List all discovered issues
+  - Identify root causes
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 12: Performance and Concurrency Verification
+
+- [ ] 15. Verify performance and concurrency
+- [ ] 15.1 Review concurrency implementation
+  - Review goroutine usage throughout codebase
+  - Check locking mechanisms (mutexes, RWMutexes)
+  - Verify wait groups for cleanup
+  - Look for potential race conditions or deadlocks
+  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
+
+- [ ] 15.2 Test concurrent file access
+  - Access multiple files simultaneously from different processes
+  - Verify no race conditions occur
+  - Check that all operations complete successfully
+  - _Requirements: 10.1_
+
+- [ ] 15.3 Test concurrent downloads
+  - Trigger many downloads simultaneously
+  - Verify downloads proceed concurrently
+  - Check that worker pool limits are respected
+  - Verify no deadlocks occur
+  - _Requirements: 10.2_
+
+- [ ] 15.4 Test directory listing performance
+  - List a directory with many files (100+)
+  - Measure response time
+  - Verify response is under 2 seconds
+  - _Requirements: 10.3_
+
+- [ ] 15.5 Test locking granularity
+  - Review lock usage in hot paths
+  - Verify locks are held for minimal time
+  - Check for unnecessary global locks
+  - _Requirements: 10.4_
+
+- [ ] 15.6 Test graceful shutdown
+  - Mount filesystem
+  - Start several long-running operations
+  - Trigger shutdown (SIGTERM)
+  - Verify all goroutines complete
+  - Check that wait groups are used correctly
+  - _Requirements: 10.5_
+
+- [ ] 15.7 Run race detector
+  - Run tests with `-race` flag
+  - Run application with race detector enabled
+  - Fix any detected race conditions
+  - _Requirements: 10.1_
+
+- [ ] 15.8 Create performance benchmarks
+  - Write benchmark for file read operations
+  - Write benchmark for directory listing
+  - Write benchmark for concurrent operations
+  - _Requirements: 10.2, 10.3_
+
+- [ ] 15.9 Document performance issues and create fix plan
+  - List all discovered issues
+  - Identify bottlenecks
+  - Create prioritized fix plan
+  - _Requirements: 12.1_
+
+---
+
+## Phase 13: Integration and End-to-End Testing
+
+- [ ] 16. Create comprehensive integration tests
+- [ ] 16.1 Write authentication to file access integration test
+  - Test complete flow: authenticate → mount → list files → read file
+  - Verify each step works correctly
+  - Check error handling at each step
+  - _Requirements: 11.1_
+
+- [ ] 16.2 Write file modification to sync integration test
+  - Test flow: create file → modify → upload → verify on OneDrive
+  - Check that all steps complete
+  - Verify file appears correctly on OneDrive
+  - _Requirements: 11.2_
+
+- [ ] 16.3 Write offline mode integration test
+  - Test flow: online → access files → go offline → access cached files → go online
+  - Verify offline detection works
+  - Check that cached files remain accessible
+  - Verify online transition works
+  - _Requirements: 11.3_
+
+- [ ] 16.4 Write conflict resolution integration test
+  - Test flow: modify file locally → modify remotely → sync → verify conflict copy
+  - Check that both versions are preserved
+  - Verify conflict is detected correctly
+  - _Requirements: 11.4_
+
+- [ ] 16.5 Write cache cleanup integration test
+  - Test flow: access files → wait for expiration → trigger cleanup → verify old files removed
+  - Check that cleanup respects expiration settings
+  - Verify recent files are retained
+  - _Requirements: 11.5_
+
+- [ ] 17. Create end-to-end workflow tests
+- [ ] 17.1 Test complete user workflow
+  - Install OneMount
+  - Authenticate with Microsoft account
+  - Mount OneDrive
+  - Create, modify, and delete files
+  - Verify changes sync to OneDrive
+  - Unmount and remount
+  - Verify state is preserved
+  - _Requirements: All_
+
+- [ ] 17.2 Test multi-file operations
+  - Copy entire directory to OneDrive
+  - Verify all files upload correctly
+  - Copy directory from OneDrive to local
+  - Verify all files download correctly
+  - _Requirements: 3.2, 4.3, 10.1, 10.2_
+
+- [ ] 17.3 Test long-running operations
+  - Upload a very large file (1GB+)
+  - Monitor progress
+  - Verify upload completes successfully
+  - Test interruption and resume
+  - _Requirements: 4.3, 4.4_
+
+- [ ] 17.4 Test stress scenarios
+  - Perform many concurrent operations
+  - Monitor resource usage (CPU, memory, network)
+  - Verify system remains stable
+  - Check for memory leaks
+  - _Requirements: 10.1, 10.2_
+
+---
+
+## Phase 14: Issue Resolution
+
+- [ ] 18. Fix critical issues
+  - Review all issues marked as "critical" priority
+  - For each critical issue:
+    - Analyze root cause
+    - Design fix
+    - Implement fix
+    - Write test to verify fix
+    - Run regression tests
+    - Update documentation
+  - _Requirements: All_
+
+- [ ] 19. Fix high-priority issues
+  - Review all issues marked as "high" priority
+  - For each high-priority issue:
+    - Analyze root cause
+    - Design fix
+    - Implement fix
+    - Write test to verify fix
+    - Run regression tests
+    - Update documentation
+  - _Requirements: All_
+
+- [ ] 20. Fix medium-priority issues
+  - Review all issues marked as "medium" priority
+  - Prioritize based on impact and effort
+  - For each selected issue:
+    - Analyze root cause
+    - Design fix
+    - Implement fix
+    - Write test to verify fix
+    - Run regression tests
+    - Update documentation
+  - _Requirements: All_
+
+---
+
+## Phase 15: Documentation Updates
+
+- [ ] 21. Update architecture documentation
+  - Review `docs/2-architecture-and-design/software-architecture-specification.md`
+  - Update component descriptions to match implementation
+  - Update sequence diagrams if flows have changed
+  - Document any architectural decisions made during fixes
+  - _Requirements: 12.1_
+
+- [ ] 22. Update design documentation
+  - Review `docs/2-architecture-and-design/software-design-specification.md`
+  - Update data models to match implementation
+  - Update interface descriptions
+  - Document design patterns used
+  - _Requirements: 12.2_
+
+- [ ] 23. Update API documentation
+  - Review all public APIs
+  - Ensure godoc comments are accurate
+  - Update function signatures if changed
+  - Document any breaking changes
+  - _Requirements: 12.3_
+
+- [ ] 24. Create troubleshooting guide
+  - Document common issues discovered during verification
+  - Provide solutions for each issue
+  - Include diagnostic commands
+  - Add to user documentation
+  - _Requirements: 9.5, 12.5_
+
+- [ ] 25. Update traceability matrix
+  - Update `docs/2-architecture-and-design/sas-requirements-traceability-matrix.md`
+  - Ensure all requirements are traced to implementation
+  - Document test coverage for each requirement
+  - _Requirements: 12.1, 12.2, 12.3_
+
+---
+
+## Phase 16: Final Verification
+
+- [ ] 26. Run complete test suite
+  - Run all unit tests
+  - Run all integration tests
+  - Run all end-to-end tests
+  - Verify all tests pass
+  - Document any remaining failures
+  - _Requirements: All_
+
+- [ ] 27. Perform manual verification
+  - Follow user workflows manually
+  - Test on different Linux distributions (Fedora, Ubuntu, Arch)
+  - Test with different file managers (Nemo, Nautilus, Dolphin)
+  - Verify all documented features work
+  - _Requirements: All_
+
+- [ ] 28. Performance verification
+  - Run performance benchmarks
+  - Compare against documented performance requirements
+  - Verify response times meet expectations
+  - Check resource usage is reasonable
+  - _Requirements: 10.3_
+
+- [ ] 29. Create verification report
+  - Summarize all verification activities
+  - List all issues found and fixed
+  - Document remaining known issues
+  - Provide recommendations for future work
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+
+- [ ] 30. Final documentation review
+  - Review all updated documentation
+  - Ensure consistency across documents
+  - Verify all cross-references are correct
+  - Check that documentation is complete
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
