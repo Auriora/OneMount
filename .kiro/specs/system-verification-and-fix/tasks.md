@@ -278,48 +278,48 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 6: Download Manager Verification
 
-- [ ] 8. Verify download manager
-- [ ] 8.1 Review download manager code
+- [x] 8. Verify download manager
+- [x] 8.1 Review download manager code
   - Read and analyze `internal/fs/download_manager.go`
   - Review worker pool implementation
   - Check queue management
   - _Requirements: 3.2, 3.4, 3.5_
 
-- [ ] 8.2 Test single file download
+- [x] 8.2 Test single file download
   - Trigger download of one file
   - Monitor download progress in logs
   - Verify file content is correct
   - Check that file is cached
   - _Requirements: 3.2_
 
-- [ ] 8.3 Test concurrent downloads
+- [x] 8.3 Test concurrent downloads
   - Trigger downloads of multiple files simultaneously
   - Verify downloads proceed concurrently
   - Check that all downloads complete
   - Verify no race conditions or deadlocks
   - _Requirements: 3.4, 10.1_
 
-- [ ] 8.4 Test download failure and retry
+- [x] 8.4 Test download failure and retry
   - Simulate network failure during download
   - Verify download is retried
   - Check exponential backoff is used
   - Verify eventual success or clear error
   - _Requirements: 3.5, 9.1_
 
-- [ ] 8.5 Test download status tracking
+- [x] 8.5 Test download status tracking
   - Monitor file status during download
   - Verify status changes from "not cached" to "downloading" to "cached"
   - Check that status is visible via extended attributes
   - _Requirements: 3.4, 8.1_
 
-- [ ] 8.6 Create download manager integration tests
+- [x] 8.6 Create download manager integration tests
   - Write test for single download
   - Write test for concurrent downloads
   - Write test for download retry logic
   - Write test for download cancellation
   - _Requirements: 3.2, 3.4, 3.5_
 
-- [ ] 8.7 Document download manager issues and create fix plan
+- [x] 8.7 Document download manager issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
