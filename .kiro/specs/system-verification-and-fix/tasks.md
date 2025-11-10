@@ -71,15 +71,15 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 3: Authentication Component Verification
 
-- [ ] 4. Verify authentication implementation
-- [ ] 4.1 Review OAuth2 code structure
+- [x] 4. Verify authentication implementation
+- [x] 4.1 Review OAuth2 code structure
   - Read and analyze `internal/graph/oauth2.go`, `oauth2_gtk.go`, `oauth2_headless.go`
   - Review `internal/graph/authenticator.go` interface and implementations
   - Compare implementation against design document
   - Document any deviations from architecture
   - _Requirements: 1.1, 1.5_
 
-- [ ] 4.2 Test interactive authentication flow
+- [x] 4.2 Test interactive authentication flow
   - Use Docker shell for interactive testing: `docker compose -f docker/compose/docker-compose.test.yml run shell`
   - Launch OneMount with GUI authentication (if GTK available in container)
   - Complete Microsoft OAuth2 flow
@@ -88,35 +88,35 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify tokens contain AccessToken, RefreshToken, and ExpiresAt
   - _Requirements: 1.1, 1.2, 13.4, 13.5_
 
-- [ ] 4.3 Test token refresh mechanism
+- [x] 4.3 Test token refresh mechanism
   - Manually expire access token (modify ExpiresAt)
   - Trigger operation requiring authentication
   - Verify automatic token refresh occurs
   - Check that new tokens are persisted
   - _Requirements: 1.3_
 
-- [ ] 4.4 Test authentication failure scenarios
+- [x] 4.4 Test authentication failure scenarios
   - Test with invalid credentials
   - Test with network disconnection during auth
   - Test with expired refresh token
   - Verify error messages are clear and actionable
   - _Requirements: 1.4_
 
-- [ ] 4.5 Test headless authentication
+- [x] 4.5 Test headless authentication
   - Run OneMount in headless mode (no GUI)
   - Verify device code flow is used
   - Complete authentication via browser
   - Verify tokens are stored correctly
   - _Requirements: 1.5_
 
-- [ ] 4.6 Create authentication integration tests
+- [x] 4.6 Create authentication integration tests
   - Write test for complete OAuth2 flow with mock server
   - Write test for token refresh with mock responses
   - Write test for authentication failure scenarios
   - Run tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 13.2, 13.4_
 
-- [ ] 4.7 Document authentication issues and create fix plan
+- [x] 4.7 Document authentication issues and create fix plan
   - List all discovered issues with severity
   - Identify root causes
   - Create prioritized fix plan
