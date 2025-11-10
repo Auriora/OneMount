@@ -15,6 +15,9 @@ This specification defines the requirements for systematically verifying and fix
 - **D-Bus**: Inter-process communication system used for file status updates
 - **Integration Test**: Test that verifies multiple components working together
 - **End-to-End Test**: Test that verifies complete user workflows from start to finish
+- **Docker Container**: Isolated environment for running tests without affecting the host system
+- **Test Runner**: Docker container configured with all dependencies needed to run OneMount tests
+- **BBolt**: Embedded key/value database used for persistent storage of metadata and state
 
 ## Requirements
 
@@ -37,10 +40,12 @@ This specification defines the requirements for systematically verifying and fix
 #### Acceptance Criteria
 
 1. WHEN the user specifies a mount point, THE OneMount System SHALL mount OneDrive at that location using FUSE
-2. WHEN the filesystem is mounted, THE OneMount System SHALL display the root directory contents
-3. WHILE the filesystem is mounted, THE OneMount System SHALL respond to standard file operations (ls, cat, cp, etc.)
-4. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
-5. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
+2. WHEN the filesystem is mounted for the first time, THE OneMount System SHALL fetch and cache the complete directory structure from OneDrive
+3. WHEN the filesystem is mounted, THE OneMount System SHALL display the root directory contents
+4. WHILE the filesystem is mounted, THE OneMount System SHALL respond to standard file operations (ls, cat, cp, etc.)
+5. WHEN the user navigates directories, THE OneMount System SHALL serve directory listings from the cached metadata without network requests
+6. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
+7. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
 
 ### Requirement 3: On-Demand File Download Verification
 
@@ -48,11 +53,14 @@ This specification defines the requirements for systematically verifying and fix
 
 #### Acceptance Criteria
 
-1. WHEN the user lists a directory, THE OneMount System SHALL display all files without downloading their content
-2. WHEN the user opens a file that is not cached, THE OneMount System SHALL download the file content from OneDrive
-3. WHEN the user opens a cached file, THE OneMount System SHALL serve the content from local cache without network access
-4. WHILE a file is downloading, THE OneMount System SHALL update the file status to "downloading"
-5. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
+1. WHEN the user lists a directory, THE OneMount System SHALL display all files using cached metadata without downloading file content
+2. WHEN the user opens a file that is not cached, THE OneMount System SHALL request the file content using GET `/items/{id}/content` API
+3. WHEN the API returns a 302 redirect, THE OneMount System SHALL follow the redirect to download from the preauthenticated URL
+4. WHEN the user opens a cached file, THE OneMount System SHALL validate the cache using the ETag with `if-none-match` header
+5. IF the API returns 304 Not Modified, THEN THE OneMount System SHALL serve the content from local cache
+6. IF the API returns 200 OK with new content, THEN THE OneMount System SHALL update the cache with the new content and ETag
+7. WHILE a file is downloading, THE OneMount System SHALL update the file status to "downloading"
+8. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
 
 ### Requirement 4: File Modification and Upload Verification
 
@@ -62,9 +70,12 @@ This specification defines the requirements for systematically verifying and fix
 
 1. WHEN the user modifies a file, THE OneMount System SHALL mark the file as having local changes
 2. WHEN the user saves a modified file, THE OneMount System SHALL queue the file for upload
-3. WHEN the upload queue is processed, THE OneMount System SHALL upload modified files to OneDrive
-4. IF an upload fails due to network issues, THEN THE OneMount System SHALL retry with exponential backoff
-5. WHEN an upload completes successfully, THE OneMount System SHALL update the file's ETag and clear the modified flag
+3. WHEN uploading a file smaller than 250 MB, THE OneMount System SHALL use PUT `/items/{id}/content` with the file content
+4. WHEN uploading a file larger than 250 MB, THE OneMount System SHALL create an upload session using POST `/createUploadSession`
+5. WHEN using an upload session, THE OneMount System SHALL upload the file in chunks to the session URL
+6. IF an upload fails due to network issues, THEN THE OneMount System SHALL retry with exponential backoff
+7. WHEN an upload completes successfully, THE OneMount System SHALL update the file's ETag from the response
+8. WHEN an upload completes successfully, THE OneMount System SHALL clear the modified flag
 
 ### Requirement 5: Delta Synchronization Verification
 
@@ -72,11 +83,20 @@ This specification defines the requirements for systematically verifying and fix
 
 #### Acceptance Criteria
 
-1. WHILE the filesystem is mounted, THE OneMount System SHALL periodically fetch changes from OneDrive using delta queries
-2. WHEN remote changes are detected, THE OneMount System SHALL update the local metadata cache
-3. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
-4. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
-5. WHEN delta sync completes, THE OneMount System SHALL store the delta link for the next sync cycle
+1. WHEN the filesystem is first mounted, THE OneMount System SHALL fetch the complete directory structure from OneDrive using the delta API
+2. WHEN the filesystem is mounted, THE OneMount System SHALL create a webhook subscription using POST `/subscriptions` for the mounted drive
+3. WHEN creating a subscription for personal OneDrive, THE OneMount System SHALL subscribe to the root folder or any subfolder
+4. WHEN creating a subscription for OneDrive for Business, THE OneMount System SHALL subscribe only to the root folder
+5. WHEN a subscription is created successfully, THE OneMount System SHALL use a longer polling interval (e.g., 30 minutes) as a fallback
+6. WHEN a webhook notification is received, THE OneMount System SHALL immediately trigger a delta query to fetch changes
+7. WHEN no subscription is active, THE OneMount System SHALL use a shorter polling interval (e.g., 5 minutes) for delta queries
+8. WHEN remote changes are detected via delta query, THE OneMount System SHALL update the local metadata cache
+9. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
+10. WHEN a cached file has been modified remotely, THE OneMount System SHALL invalidate the local cache entry using ETag comparison
+11. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
+12. WHEN delta sync completes, THE OneMount System SHALL store the @odata.deltaLink token for the next sync cycle
+13. WHEN a subscription expires (maximum 3 days for personal OneDrive), THE OneMount System SHALL renew the subscription
+14. IF subscription renewal fails, THEN THE OneMount System SHALL fall back to shorter polling interval until subscription is re-established
 
 ### Requirement 6: Offline Mode Verification
 
@@ -92,17 +112,35 @@ This specification defines the requirements for systematically verifying and fix
 
 ### Requirement 7: Cache Management Verification
 
-**User Story:** As a user, I want the cache to be managed efficiently so that it doesn't consume excessive disk space.
+**User Story:** As a user, I want the cache to be managed efficiently so that it doesn't consume excessive disk space and always reflects the latest remote state.
 
 #### Acceptance Criteria
 
-1. WHEN files are downloaded, THE OneMount System SHALL store content in the cache directory
+1. WHEN files are downloaded, THE OneMount System SHALL store content in the cache directory with the file's ETag
 2. WHEN files are accessed, THE OneMount System SHALL update the last access time in the cache
-3. WHILE the cache cleanup process runs, THE OneMount System SHALL remove files older than the expiration threshold
-4. WHERE cache expiration is configured, THE OneMount System SHALL respect the configured number of days
-5. WHEN the user requests cache statistics, THE OneMount System SHALL display cache size, file count, and hit rate
+3. WHEN a cached file's ETag differs from the remote ETag, THE OneMount System SHALL invalidate the cache entry and download the new version
+4. WHEN delta sync detects remote changes, THE OneMount System SHALL invalidate affected cache entries to prevent stale data
+5. WHILE the cache cleanup process runs, THE OneMount System SHALL remove files older than the expiration threshold
+6. WHERE cache expiration is configured, THE OneMount System SHALL respect the configured number of days
+7. WHEN the user requests cache statistics, THE OneMount System SHALL display cache size, file count, and hit rate
 
-### Requirement 8: File Status and D-Bus Integration Verification
+### Requirement 8: Conflict Resolution Verification
+
+**User Story:** As a user, I want conflicts between local and remote changes to be handled gracefully so that I don't lose any work.
+
+#### Acceptance Criteria
+
+1. WHEN a file has been modified both locally and remotely, THE OneMount System SHALL detect the conflict by comparing ETags
+2. WHEN uploading a file with local changes, THE OneMount System SHALL check if the remote ETag has changed since last sync
+3. IF the remote ETag differs from the cached ETag, THEN THE OneMount System SHALL detect a conflict
+4. WHEN a conflict is detected, THE OneMount System SHALL preserve the local version with its original name
+5. WHEN a conflict is detected, THE OneMount System SHALL create a conflict copy with a timestamp suffix
+6. WHEN a conflict is detected, THE OneMount System SHALL download the remote version as the conflict copy
+7. WHEN a conflict is resolved, THE OneMount System SHALL log the conflict details including file path, ETags, and timestamps
+8. WHERE multiple conflict resolution strategies are available, THE OneMount System SHALL use the configured strategy (last-writer-wins, keep-both, or user-choice)
+9. WHEN the user accesses a file with unresolved conflicts, THE OneMount System SHALL display both versions
+
+### Requirement 9: File Status and D-Bus Integration Verification
 
 **User Story:** As a user of Nemo/Nautilus file manager, I want to see file sync status icons so that I know which files are synced, downloading, or have errors.
 
@@ -114,7 +152,7 @@ This specification defines the requirements for systematically verifying and fix
 4. IF D-Bus is unavailable, THEN THE OneMount System SHALL continue operating using extended attributes only
 5. WHILE files are downloading, THE OneMount System SHALL update status to show download progress
 
-### Requirement 9: Error Handling and Recovery Verification
+### Requirement 10: Error Handling and Recovery Verification
 
 **User Story:** As a user, I want the system to handle errors gracefully so that temporary issues don't cause data loss or crashes.
 
@@ -126,7 +164,7 @@ This specification defines the requirements for systematically verifying and fix
 4. WHEN the system restarts after a crash, THE OneMount System SHALL recover incomplete uploads and resume operations
 5. WHERE errors are user-facing, THE OneMount System SHALL display helpful error messages
 
-### Requirement 10: Performance and Concurrency Verification
+### Requirement 11: Performance and Concurrency Verification
 
 **User Story:** As a user, I want the filesystem to be responsive so that file operations don't block or hang.
 
@@ -138,7 +176,7 @@ This specification defines the requirements for systematically verifying and fix
 4. WHERE file operations require locks, THE OneMount System SHALL use appropriate locking granularity
 5. WHEN goroutines are spawned, THE OneMount System SHALL track them with wait groups for clean shutdown
 
-### Requirement 11: Integration Test Coverage
+### Requirement 12: Integration Test Coverage
 
 **User Story:** As a developer, I want comprehensive integration tests so that I can verify the system works end-to-end.
 
@@ -150,7 +188,72 @@ This specification defines the requirements for systematically verifying and fix
 4. THE OneMount System SHALL have integration tests for conflict resolution
 5. THE OneMount System SHALL have integration tests for cache cleanup and expiration
 
-### Requirement 12: Documentation Alignment
+### Requirement 13: Multiple Account and Drive Support
+
+**User Story:** As a user with multiple OneDrive accounts, I want to mount my personal OneDrive, work OneDrive, and shared drives simultaneously so that I can access all my files.
+
+#### Acceptance Criteria
+
+1. THE OneMount System SHALL support mounting multiple OneDrive accounts simultaneously at different mount points
+2. WHEN mounting a personal OneDrive account, THE OneMount System SHALL access the user's personal drive using `/me/drive`
+3. WHEN mounting a OneDrive for Business account, THE OneMount System SHALL access the user's work drive using `/me/drive`
+4. THE OneMount System SHALL support mounting shared drives using `/drives/{drive-id}`
+5. THE OneMount System SHALL support accessing "Shared with me" items using `/me/drive/sharedWithMe`
+6. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate authentication tokens for each account
+7. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate caches for each account
+8. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate delta sync loops for each account
+
+### Requirement 15: XDG Base Directory Compliance
+
+**User Story:** As a Linux user, I want OneMount to follow XDG Base Directory standards so that my configuration and cache files are stored in standard locations.
+
+#### Acceptance Criteria
+
+1. THE OneMount System SHALL use `os.UserConfigDir()` to determine the configuration directory
+2. WHEN `XDG_CONFIG_HOME` is set, THE OneMount System SHALL store configuration in `$XDG_CONFIG_HOME/onemount/`
+3. WHEN `XDG_CONFIG_HOME` is not set, THE OneMount System SHALL store configuration in `$HOME/.config/onemount/`
+4. THE OneMount System SHALL use `os.UserCacheDir()` to determine the cache directory
+5. WHEN `XDG_CACHE_HOME` is set, THE OneMount System SHALL store cache in `$XDG_CACHE_HOME/onemount/`
+6. WHEN `XDG_CACHE_HOME` is not set, THE OneMount System SHALL store cache in `$HOME/.cache/onemount/`
+7. THE OneMount System SHALL store authentication tokens in the configuration directory
+8. THE OneMount System SHALL store file content cache in the cache directory
+9. THE OneMount System SHALL store metadata database (bbolt) in the cache directory
+10. WHERE the user specifies custom paths via command-line flags, THE OneMount System SHALL use the specified paths instead of XDG defaults
+
+### Requirement 17: Docker-Based Test Environment
+
+**User Story:** As a developer, I want to run all tests in isolated Docker containers so that my local environment is not affected by test execution.
+
+#### Acceptance Criteria
+
+1. THE OneMount System SHALL provide Docker containers for running unit tests
+2. THE OneMount System SHALL provide Docker containers for running integration tests
+3. THE OneMount System SHALL provide Docker containers for running system tests
+4. WHEN tests are executed in Docker, THE OneMount System SHALL mount the workspace as a volume to access source code
+5. WHEN tests complete, THE OneMount System SHALL write test artifacts to a mounted volume accessible from the host
+6. WHERE FUSE operations are required, THE OneMount System SHALL configure containers with appropriate capabilities and devices
+7. THE OneMount System SHALL provide a test runner container with all required dependencies pre-installed
+
+### Requirement 14: Webhook Subscription Management
+
+**User Story:** As a system, I want to use webhook subscriptions to receive real-time notifications of changes so that I can reduce polling frequency and improve responsiveness.
+
+#### Acceptance Criteria
+
+1. WHEN mounting a drive, THE OneMount System SHALL attempt to create a webhook subscription using POST `/subscriptions`
+2. WHEN creating a subscription, THE OneMount System SHALL provide a publicly accessible notification URL
+3. WHEN creating a subscription, THE OneMount System SHALL specify the resource path (e.g., `/me/drive/root`)
+4. WHEN creating a subscription, THE OneMount System SHALL specify changeType as "updated"
+5. WHEN a subscription is created, THE OneMount System SHALL store the subscription ID and expiration time
+6. WHEN a webhook notification is received, THE OneMount System SHALL validate the notification using the validation token
+7. WHEN a valid notification is received, THE OneMount System SHALL trigger an immediate delta query
+8. WHILE a subscription is active, THE OneMount System SHALL monitor the expiration time
+9. WHEN a subscription is within 24 hours of expiration, THE OneMount System SHALL renew it using PATCH `/subscriptions/{id}`
+10. IF subscription creation fails, THEN THE OneMount System SHALL log the error and continue with polling-only mode
+11. IF subscription renewal fails, THEN THE OneMount System SHALL attempt to create a new subscription
+12. WHEN unmounting a drive, THE OneMount System SHALL delete the subscription using DELETE `/subscriptions/{id}`
+
+### Requirement 16: Documentation Alignment
 
 **User Story:** As a developer, I want documentation to match the actual implementation so that I can understand and maintain the code.
 

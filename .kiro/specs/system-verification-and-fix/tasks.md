@@ -6,22 +6,58 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 1: Setup and Initial Analysis
+## Phase 1: Docker Environment Setup and Validation
 
-- [ ] 1. Setup verification environment
-  - Create test OneDrive account with sample files
-  - Configure test mount point directory
-  - Enable detailed logging (debug level)
-  - Document test environment configuration
-  - _Requirements: All_
+- [ ] 1. Review and validate Docker test environment
+- [ ] 1.1 Review Docker configuration files
+  - Review `.devcontainer/Dockerfile` and `.devcontainer/devcontainer.json`
+  - Review `docker/compose/docker-compose.test.yml`
+  - Review `packaging/docker/Dockerfile.test-runner`
+  - Review `packaging/docker/test-entrypoint.sh`
+  - Verify all required dependencies are included
+  - _Requirements: 13.1, 13.2, 13.3, 13.6, 13.7_
+
+- [ ] 1.2 Build Docker test images
+  - Build base image: `docker compose -f docker/compose/docker-compose.build.yml build base-image`
+  - Build test runner: `docker compose -f docker/compose/docker-compose.build.yml build test-runner`
+  - Verify images are created successfully
+  - Check image sizes and layers
+  - _Requirements: 13.7_
+
+- [ ] 1.3 Validate Docker test environment
+  - Test shell access: `docker compose -f docker/compose/docker-compose.test.yml run shell`
+  - Verify FUSE device is accessible: `ls -l /dev/fuse`
+  - Verify Go environment: `go version`
+  - Verify Python environment: `python3 --version`
+  - Test workspace mounting: `ls -la /workspace`
+  - Test artifact directory: `ls -la /tmp/home-tester/.onemount-tests`
+  - _Requirements: 13.4, 13.5, 13.6_
+
+- [ ] 1.4 Setup test credentials and data
+  - Create test OneDrive account with sample files (if not already available)
+  - Configure auth tokens in `test-artifacts/.auth_tokens.json` for system tests
+  - Create sample test files in OneDrive for verification
+  - Document test account setup and credentials storage
+  - _Requirements: 13.5_
+
+- [ ] 1.5 Document Docker test environment
+  - Document how to build images
+  - Document how to run different test types
+  - Document how to access test artifacts
+  - Document how to debug in containers
+  - Document environment variables and configuration options
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
+
+## Phase 2: Initial Test Suite Analysis
 
 - [ ] 2. Analyze existing test suite
-  - Run all existing unit tests and document results
-  - Run all existing integration tests and document results
+  - Run all existing unit tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run unit-tests`
+  - Run all existing integration tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - Document test results from `test-artifacts/logs/`
   - Identify which tests pass vs fail
   - Analyze test coverage gaps
   - Create test results summary document
-  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 13.1, 13.2, 13.4, 13.5_
 
 - [ ] 3. Create verification tracking document
   - Create spreadsheet or markdown table for tracking component verification status
@@ -32,22 +68,24 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 2: Authentication Component Verification
+## Phase 3: Authentication Component Verification
 
 - [ ] 4. Verify authentication implementation
 - [ ] 4.1 Review OAuth2 code structure
-  - Read and analyze `pkg/graph/oauth2.go`, `oauth2_gtk.go`, `oauth2_headless.go`
+  - Read and analyze `internal/graph/oauth2.go`, `oauth2_gtk.go`, `oauth2_headless.go`
+  - Review `internal/graph/authenticator.go` interface and implementations
   - Compare implementation against design document
   - Document any deviations from architecture
   - _Requirements: 1.1, 1.5_
 
 - [ ] 4.2 Test interactive authentication flow
-  - Launch OneMount with GUI authentication
+  - Use Docker shell for interactive testing: `docker compose -f docker/compose/docker-compose.test.yml run shell`
+  - Launch OneMount with GUI authentication (if GTK available in container)
   - Complete Microsoft OAuth2 flow
-  - Verify tokens are stored in `~/.config/onemount/auth_tokens.json`
+  - Verify tokens are stored in `test-artifacts/.auth_tokens.json`
   - Check file permissions on token storage
   - Verify tokens contain AccessToken, RefreshToken, and ExpiresAt
-  - _Requirements: 1.1, 1.2_
+  - _Requirements: 1.1, 1.2, 13.4, 13.5_
 
 - [ ] 4.3 Test token refresh mechanism
   - Manually expire access token (modify ExpiresAt)
@@ -74,7 +112,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for complete OAuth2 flow with mock server
   - Write test for token refresh with mock responses
   - Write test for authentication failure scenarios
-  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+  - Run tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 13.2, 13.4_
 
 - [ ] 4.7 Document authentication issues and create fix plan
   - List all discovered issues with severity
@@ -85,7 +124,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 3: Filesystem Mounting Verification
+## Phase 4: Filesystem Mounting Verification
 
 - [ ] 5. Verify filesystem mounting
 - [ ] 5.1 Review FUSE initialization code
@@ -143,7 +182,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 4: File Operations Verification
+## Phase 5: File Operations Verification
 
 - [ ] 6. Verify file read operations
 - [ ] 6.1 Review file operation code
@@ -236,7 +275,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 5: Download Manager Verification
+## Phase 6: Download Manager Verification
 
 - [ ] 8. Verify download manager
 - [ ] 8.1 Review download manager code
@@ -287,7 +326,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 6: Upload Manager Verification
+## Phase 7: Upload Manager Verification
 
 - [ ] 9. Verify upload manager
 - [ ] 9.1 Review upload manager code
@@ -341,7 +380,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 7: Delta Synchronization Verification
+## Phase 8: Delta Synchronization Verification
 
 - [ ] 10. Verify delta synchronization
 - [ ] 10.1 Review delta sync code
@@ -403,7 +442,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 8: Cache Management Verification
+## Phase 9: Cache Management Verification
 
 - [ ] 11. Verify cache management
 - [ ] 11.1 Review cache code
@@ -463,7 +502,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 9: Offline Mode Verification
+## Phase 10: Offline Mode Verification
 
 - [ ] 12. Verify offline mode
 - [ ] 12.1 Review offline mode code
@@ -523,7 +562,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 10: File Status and D-Bus Verification
+## Phase 11: File Status and D-Bus Verification
 
 - [ ] 13. Verify file status tracking
 - [ ] 13.1 Review file status code
@@ -573,13 +612,14 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 11: Error Handling and Recovery Verification
+## Phase 12: Error Handling and Recovery Verification
 
 - [ ] 14. Verify error handling
 - [ ] 14.1 Review error handling code
-  - Read and analyze `pkg/errors/`
+  - Read and analyze `internal/errors/`
+  - Review `internal/logging/` implementation
   - Review error handling throughout codebase
-  - Check logging implementation
+  - Check structured logging with zerolog
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 - [ ] 14.2 Test network error handling
@@ -625,7 +665,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 12: Performance and Concurrency Verification
+## Phase 13: Performance and Concurrency Verification
 
 - [ ] 15. Verify performance and concurrency
 - [ ] 15.1 Review concurrency implementation
@@ -688,7 +728,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 13: Integration and End-to-End Testing
+## Phase 14: Integration and End-to-End Testing
 
 - [ ] 16. Create comprehensive integration tests
 - [ ] 16.1 Write authentication to file access integration test
@@ -756,7 +796,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 14: Issue Resolution
+## Phase 15: Issue Resolution
 
 - [ ] 18. Fix critical issues
   - Review all issues marked as "critical" priority
@@ -794,7 +834,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 15: Documentation Updates
+## Phase 16: Documentation Updates
 
 - [ ] 21. Update architecture documentation
   - Review `docs/2-architecture-and-design/software-architecture-specification.md`
@@ -832,40 +872,280 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 16: Final Verification
+## Phase 17: XDG Compliance Verification
 
-- [ ] 26. Run complete test suite
-  - Run all unit tests
-  - Run all integration tests
-  - Run all end-to-end tests
+- [ ] 26. Verify XDG Base Directory compliance
+- [ ] 26.1 Review XDG implementation
+  - Read and analyze `cmd/common/config.go`
+  - Verify use of `os.UserConfigDir()` and `os.UserCacheDir()`
+  - Check directory creation and permissions
+  - _Requirements: 15.1, 15.4_
+
+- [ ] 26.2 Test XDG_CONFIG_HOME environment variable
+  - Set `XDG_CONFIG_HOME` to custom path
+  - Mount filesystem
+  - Verify config stored in `$XDG_CONFIG_HOME/onemount/`
+  - Verify auth tokens in config directory
+  - _Requirements: 15.2, 15.7_
+
+- [ ] 26.3 Test XDG_CACHE_HOME environment variable
+  - Set `XDG_CACHE_HOME` to custom path
+  - Mount filesystem
+  - Verify cache stored in `$XDG_CACHE_HOME/onemount/`
+  - Verify metadata database in cache directory
+  - _Requirements: 15.5, 15.9_
+
+- [ ] 26.4 Test default XDG paths
+  - Unset XDG environment variables
+  - Mount filesystem
+  - Verify config in `~/.config/onemount/`
+  - Verify cache in `~/.cache/onemount/`
+  - _Requirements: 15.3, 15.6_
+
+- [ ] 26.5 Test command-line override
+  - Use `--config-file` and `--cache-dir` flags
+  - Verify custom paths are used
+  - Verify XDG paths are not used
+  - _Requirements: 15.10_
+
+- [ ] 26.6 Test directory permissions
+  - Check config directory permissions (should be 0700)
+  - Check cache directory permissions (should be 0755)
+  - Verify auth tokens are not world-readable
+  - _Requirements: 15.7_
+
+---
+
+## Phase 18: Webhook Subscription Verification
+
+- [ ] 27. Verify webhook subscription implementation
+- [ ] 27.1 Review subscription code
+  - Read and analyze `internal/fs/subscription.go`
+  - Review subscription API calls in `internal/graph/`
+  - Check subscription manager implementation
+  - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
+
+- [ ] 27.2 Test subscription creation on mount
+  - Mount filesystem
+  - Verify POST `/subscriptions` API call
+  - Check subscription ID is stored
+  - Verify expiration time is tracked
+  - _Requirements: 14.1, 14.5, 5.2_
+
+- [ ] 27.3 Test webhook notification reception
+  - Set up webhook listener
+  - Trigger change on OneDrive
+  - Verify notification is received
+  - Check notification validation
+  - Verify delta query is triggered
+  - _Requirements: 14.6, 14.7, 5.6_
+
+- [ ] 27.4 Test subscription renewal
+  - Create subscription with short expiration
+  - Wait until within 24h of expiration
+  - Verify PATCH `/subscriptions/{id}` is called
+  - Check new expiration time is stored
+  - _Requirements: 14.9, 5.13_
+
+- [ ] 27.5 Test subscription failure fallback
+  - Simulate subscription creation failure
+  - Verify system continues with polling
+  - Check polling interval is shorter (5 min)
+  - _Requirements: 14.10, 5.7, 5.14_
+
+- [ ] 27.6 Test subscription deletion on unmount
+  - Mount filesystem with subscription
+  - Unmount filesystem
+  - Verify DELETE `/subscriptions/{id}` is called
+  - _Requirements: 14.12_
+
+- [ ] 27.7 Test personal vs business subscription limits
+  - Test subscription to subfolder on personal OneDrive
+  - Test subscription to root only on business OneDrive
+  - Verify appropriate restrictions
+  - _Requirements: 5.3, 5.4_
+
+- [ ] 27.8 Create webhook subscription integration tests
+  - Write test for subscription lifecycle
+  - Write test for notification handling
+  - Write test for renewal logic
+  - Write test for fallback to polling
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - _Requirements: 14.1-14.12, 5.2-5.14_
+
+---
+
+## Phase 19: Multiple Account Support Verification
+
+- [ ] 28. Verify multiple account support
+- [ ] 28.1 Review multi-account code
+  - Read and analyze mount manager implementation
+  - Check account isolation (auth, cache, sync)
+  - Review drive type handling (personal, business, shared)
+  - _Requirements: 13.1, 13.6, 13.7, 13.8_
+
+- [ ] 28.2 Test mounting personal OneDrive
+  - Authenticate with personal account
+  - Mount at `/mnt/onedrive-personal`
+  - Verify access to `/me/drive`
+  - Check files are accessible
+  - _Requirements: 13.2_
+
+- [ ] 28.3 Test mounting business OneDrive
+  - Authenticate with work account
+  - Mount at `/mnt/onedrive-work`
+  - Verify access to `/me/drive`
+  - Check files are accessible
+  - _Requirements: 13.3_
+
+- [ ] 28.4 Test simultaneous mounts
+  - Mount personal OneDrive
+  - Mount business OneDrive
+  - Verify both are accessible
+  - Check no cross-contamination
+  - _Requirements: 13.1_
+
+- [ ] 28.5 Test shared drive mount
+  - Get shared drive ID
+  - Mount using `/drives/{drive-id}`
+  - Verify access to shared files
+  - _Requirements: 13.4_
+
+- [ ] 28.6 Test "Shared with me" access
+  - Access `/me/drive/sharedWithMe`
+  - Verify shared items are visible
+  - Test accessing shared files
+  - _Requirements: 13.5_
+
+- [ ] 28.7 Test cache isolation
+  - Mount multiple accounts
+  - Access files in each mount
+  - Verify separate cache directories
+  - Check no cache conflicts
+  - _Requirements: 13.7_
+
+- [ ] 28.8 Test delta sync isolation
+  - Mount multiple accounts
+  - Trigger changes in each OneDrive
+  - Verify independent delta sync loops
+  - Check correct updates per mount
+  - _Requirements: 13.8_
+
+- [ ] 28.9 Create multi-account integration tests
+  - Write test for simultaneous mounts
+  - Write test for cache isolation
+  - Write test for sync isolation
+  - Write test for different drive types
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - _Requirements: 13.1-13.8_
+
+---
+
+## Phase 20: ETag Cache Validation Verification
+
+- [ ] 29. Verify ETag-based cache validation
+- [ ] 29.1 Review ETag implementation
+  - Read and analyze `internal/fs/cache.go`
+  - Review `internal/fs/content_cache.go`
+  - Check ETag storage in cache entries
+  - Review `if-none-match` header usage
+  - _Requirements: 7.1, 7.3_
+
+- [ ] 29.2 Test cache hit with valid ETag
+  - Download a file (cache it)
+  - Access the same file again
+  - Verify `if-none-match` header is sent
+  - Check 304 Not Modified response
+  - Verify content served from cache
+  - _Requirements: 3.4, 3.5, 7.3_
+
+- [ ] 29.3 Test cache miss with changed ETag
+  - Download a file (cache it)
+  - Modify file on OneDrive
+  - Access the file again
+  - Verify `if-none-match` header is sent
+  - Check 200 OK response with new content
+  - Verify cache is updated with new ETag
+  - _Requirements: 3.6, 7.3_
+
+- [ ] 29.4 Test ETag updates from delta sync
+  - Cache several files
+  - Modify files on OneDrive
+  - Run delta sync
+  - Verify ETags are updated in metadata
+  - Check cache entries are invalidated
+  - _Requirements: 5.10, 7.4_
+
+- [ ] 29.5 Test conflict detection with ETags
+  - Download a file (cache it with ETag)
+  - Modify file locally
+  - Modify same file on OneDrive (changes ETag)
+  - Attempt to upload
+  - Verify conflict is detected via ETag mismatch
+  - Check conflict copy is created
+  - _Requirements: 8.1, 8.2, 8.3_
+
+- [ ] 29.6 Create ETag validation integration tests
+  - Write test for cache validation flow
+  - Write test for ETag-based conflict detection
+  - Write test for delta sync ETag updates
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - _Requirements: 3.4-3.6, 7.1-7.4, 8.1-8.3_
+
+---
+
+## Phase 21: Final Verification
+
+- [ ] 30. Run complete test suite in Docker
+  - Build latest test images: `docker compose -f docker/compose/docker-compose.build.yml build`
+  - Run all unit tests: `docker compose -f docker/compose/docker-compose.test.yml run unit-tests`
+  - Run all integration tests: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - Run all system tests (requires auth): `docker compose -f docker/compose/docker-compose.test.yml run system-tests`
+  - Generate coverage report: `docker compose -f docker/compose/docker-compose.test.yml run coverage`
+  - Review test artifacts in `test-artifacts/logs/`
   - Verify all tests pass
   - Document any remaining failures
-  - _Requirements: All_
+  - _Requirements: All, 17.1, 17.2, 17.3, 17.4, 17.5_
 
-- [ ] 27. Perform manual verification
-  - Follow user workflows manually
-  - Test on different Linux distributions (Fedora, Ubuntu, Arch)
-  - Test with different file managers (Nemo, Nautilus, Dolphin)
-  - Verify all documented features work
-  - _Requirements: All_
+- [ ] 31. Perform manual verification in Docker
+  - Use interactive shell: `docker compose -f docker/compose/docker-compose.test.yml run shell`
+  - Follow user workflows manually within container
+  - Test mounting and file operations
+  - Test multiple account mounts
+  - Test webhook subscriptions
+  - Verify all documented features work in isolated environment
+  - Test with different configurations
+  - Document any issues found during manual testing
+  - _Requirements: All, 17.4, 17.5_
 
-- [ ] 28. Performance verification
+- [ ] 32. Performance verification
   - Run performance benchmarks
-  - Compare against documented performance requirements
+  - Test with webhook subscriptions (30min polling)
+  - Test without subscriptions (5min polling)
+  - Compare polling frequency impact
   - Verify response times meet expectations
   - Check resource usage is reasonable
-  - _Requirements: 10.3_
+  - Test multiple simultaneous mounts
+  - _Requirements: 11.3, 5.5, 5.7_
 
-- [ ] 29. Create verification report
+- [ ] 33. Create verification report
   - Summarize all verification activities
   - List all issues found and fixed
+  - Document webhook subscription behavior
+  - Document multi-account support
+  - Document ETag cache validation
+  - Document XDG compliance
   - Document remaining known issues
   - Provide recommendations for future work
-  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 30. Final documentation review
+- [ ] 34. Final documentation review
   - Review all updated documentation
+  - Ensure webhook subscription documentation is complete
+  - Ensure multi-account support is documented
+  - Ensure ETag validation is documented
+  - Ensure XDG compliance is documented
   - Ensure consistency across documents
   - Verify all cross-references are correct
   - Check that documentation is complete
-  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
