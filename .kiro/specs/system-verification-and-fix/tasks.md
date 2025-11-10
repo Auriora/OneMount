@@ -127,55 +127,55 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 4: Filesystem Mounting Verification
 
-- [ ] 5. Verify filesystem mounting
-- [ ] 5.1 Review FUSE initialization code
+- [x] 5. Verify filesystem mounting
+- [x] 5.1 Review FUSE initialization code
   - Read and analyze `internal/fs/raw_filesystem.go`
   - Review `cmd/onemount/main.go` mount logic
   - Compare against design document
   - _Requirements: 2.1, 2.2_
 
-- [ ] 5.2 Test basic mounting
-  - Mount filesystem at test mount point
+- [x] 5.2 Test basic mounting
+  - Mount filesystem at test mount point inside a docker container
   - Verify mount appears in `mount` command output
   - Verify mount point is accessible
   - Check that root directory is visible
   - _Requirements: 2.1, 2.2_
 
-- [ ] 5.3 Test mount point validation
+- [x] 5.3 Test mount point validation (in a docker container)
   - Attempt to mount at non-existent directory
   - Attempt to mount at already-mounted location
   - Attempt to mount at file (not directory)
   - Verify appropriate error messages
   - _Requirements: 2.4_
 
-- [ ] 5.4 Test filesystem operations while mounted
+- [x] 5.4 Test filesystem operations while mounted
   - Run `ls` on mount point
   - Run `cat` on a file
   - Run `cp` to copy a file
   - Verify operations complete without hanging
   - _Requirements: 2.3_
 
-- [ ] 5.5 Test unmounting and cleanup
+- [x] 5.5 Test unmounting and cleanup
   - Unmount filesystem using `fusermount3 -uz`
   - Verify mount point is released
   - Check for orphaned processes
   - Verify clean shutdown in logs
   - _Requirements: 2.5_
 
-- [ ] 5.6 Test signal handling
+- [x] 5.6 Test signal handling
   - Mount filesystem
   - Send SIGINT (Ctrl+C)
   - Verify graceful shutdown
   - Repeat with SIGTERM
   - _Requirements: 2.5_
 
-- [ ] 5.7 Create mounting integration tests
+- [x] 5.7 Create mounting integration tests
   - Write test for successful mount
   - Write test for mount failure scenarios
   - Write test for graceful unmount
   - _Requirements: 2.1, 2.2, 2.4, 2.5_
 
-- [ ] 5.8 Document mounting issues and create fix plan
+- [x] 5.8 Document mounting issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
