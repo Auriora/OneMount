@@ -241,7 +241,7 @@ func TestMountIntegration_WithMockGraphAPI(t *testing.T) {
 	}
 
 	// Create mock Graph API
-	mockGraph := mock.NewMockGraph()
+	mockGraph := mock.NewMockGraphClient()
 
 	// Create mock auth
 	auth := &graph.Auth{

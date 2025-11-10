@@ -185,14 +185,14 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 5: File Operations Verification
 
-- [ ] 6. Verify file read operations
-- [ ] 6.1 Review file operation code
+- [x] 6. Verify file read operations
+- [x] 6.1 Review file operation code
   - Read and analyze `internal/fs/file_operations.go`
   - Review FUSE operation handlers (Open, Read, Release)
   - Compare against design document
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 6.2 Test reading uncached files
+- [x] 6.2 Test reading uncached files
   - Clear cache
   - Read a file that hasn't been accessed
   - Verify file downloads from OneDrive
@@ -200,34 +200,34 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify file is cached after read
   - _Requirements: 3.2_
 
-- [ ] 6.3 Test reading cached files
+- [x] 6.3 Test reading cached files
   - Read a previously accessed file
   - Verify no network request is made (check logs)
   - Verify content is served from cache
   - Check read performance is fast
   - _Requirements: 3.3_
 
-- [ ] 6.4 Test directory listing
+- [x] 6.4 Test directory listing
   - List a directory with many files
   - Verify all files appear
   - Verify no file content is downloaded
   - Check that metadata is displayed correctly
   - _Requirements: 3.1_
 
-- [ ] 6.5 Test file metadata operations
+- [x] 6.5 Test file metadata operations
   - Run `stat` on files
   - Check file size, timestamps, permissions
   - Verify metadata matches OneDrive
   - _Requirements: 3.1_
 
-- [ ] 6.6 Create file read integration tests
+- [x] 6.6 Create file read integration tests
   - Write test for uncached file read
   - Write test for cached file read
   - Write test for directory listing
   - Write test for metadata operations
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 6.7 Document file read issues and create fix plan
+- [x] 6.7 Document file read issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
