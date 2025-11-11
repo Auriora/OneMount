@@ -10,7 +10,7 @@ services:
     container_name: onemount-build-binaries
     build:
       context: ../..
-      dockerfile: packaging/deb/docker/Dockerfile
+      dockerfile: docker/images/deb-builder/Dockerfile
       args:
         - BUILDKIT_INLINE_CACHE=1
         - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
@@ -29,7 +29,7 @@ services:
     container_name: onemount-clean-build
     build:
       context: ../..
-      dockerfile: packaging/deb/docker/Dockerfile
+      dockerfile: docker/images/deb-builder/Dockerfile
       args:
         - BUILDKIT_INLINE_CACHE=1
         - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}

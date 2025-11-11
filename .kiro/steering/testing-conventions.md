@@ -28,7 +28,17 @@ inclusion: always
 
 ### Docker Test Commands
 
-**Always use these commands to run tests:**
+**Build images first (if not already built):**
+
+```bash
+# Build all development images
+./docker/scripts/build-images.sh dev
+
+# Or build just test runner
+./docker/scripts/build-images.sh test-runner
+```
+
+**Run tests:**
 
 ```bash
 # Unit tests (no FUSE required, fast)
@@ -53,8 +63,13 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm shell
 
 ### Test Environment Details
 
-- **Images**: `onemount-base:latest` (1.49GB) and `onemount-test-runner:latest` (2.21GB)
-- **Build Command**: `docker compose -f docker/compose/docker-compose.build.yml build`
+- **Images**: 
+  - `onemount-base:latest` (1.49GB) - Base image with build tools
+  - `onemount-test-runner:latest` (2.21GB) - Test execution environment
+- **Build Command**: `./docker/scripts/build-images.sh test-runner`
+- **Image Locations**:
+  - Base: `packaging/docker/Dockerfile.base`
+  - Test Runner: `docker/images/test-runner/Dockerfile`
 - **Workspace**: Mounted at `/workspace` with read-write access
 - **Test Artifacts**: Output to `test-artifacts/` (mounted from host)
 - **Auth Tokens**: Located at `test-artifacts/.auth_tokens.json` (gitignored)
@@ -65,8 +80,10 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm shell
 
 When making changes to improve the Docker test environment:
 
-1. **Update Dockerfiles**: Modify `packaging/docker/Dockerfile` or `Dockerfile.test-runner`
-2. **Rebuild Images**: Run `docker compose -f docker/compose/docker-compose.build.yml build`
+1. **Update Dockerfiles**: 
+   - Base image: `packaging/docker/Dockerfile.base`
+   - Test runner: `docker/images/test-runner/Dockerfile`
+2. **Rebuild Images**: Run `./docker/scripts/build-images.sh test-runner`
 3. **Update Documentation**: Update `docs/TEST_SETUP.md` and `docs/testing/docker-test-environment.md`
 4. **Test Changes**: Verify all test types still work (unit, integration, system)
 5. **Document Rationale**: Explain why the change improves the test environment

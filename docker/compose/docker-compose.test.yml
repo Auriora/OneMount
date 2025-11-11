@@ -6,11 +6,16 @@ name: onemount-test
 services:
   # Main test runner service - uses pre-built image by default
   test-runner:
-    image: onemount-test-runner:latest
+    build:
+      context: ../..
+      dockerfile: docker/images/test-runner/Dockerfile
+      args:
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-test-runner:${ONEMOUNT_VERSION:-latest}
     container_name: ${ONEMOUNT_CONTAINER_NAME:-onemount-test-runner}
-    # Ensure base image is available
+    # Ensure builder image is available
     depends_on:
-      - base-image
+      - builder-image
 
     # Run as current user to avoid permission issues
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
@@ -60,12 +65,17 @@ services:
     stdin_open: true
     tty: true
 
-  # Base image reference (not a running container)
-  base-image:
-    container_name: onemount-base-image
-    image: onemount-base:latest
+  # Builder image reference (not a running container)
+  builder-image:
+    container_name: onemount-builder-image
+    build:
+      context: ../..
+      dockerfile: docker/images/builder/Dockerfile
+      args:
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-builder:${ONEMOUNT_VERSION:-latest}
     # This is a reference only, not a running container
-    entrypoint: ["echo", "Base image reference only - not a running container"]
+    entrypoint: ["echo", "Builder image reference only - not a running container"]
 
   # Unit tests only (lightweight, no FUSE required)
   unit-tests:

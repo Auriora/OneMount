@@ -15,8 +15,10 @@ services:
     container_name: onemount-runner-dev
     build:
       context: ../..
-      dockerfile: docker/Dockerfile.github-runner
-    image: onemount-github-runner:latest
+      dockerfile: docker/images/github-runner/Dockerfile
+      args:
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-github-runner:${ONEMOUNT_VERSION:-latest}
     
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
@@ -62,8 +64,10 @@ services:
     container_name: onemount-runner-1
     build:
       context: ../..
-      dockerfile: docker/Dockerfile.github-runner
-    image: onemount-github-runner:latest
+      dockerfile: docker/images/github-runner/Dockerfile
+      args:
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-github-runner:${ONEMOUNT_VERSION:-latest}
     
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
@@ -109,8 +113,10 @@ services:
     container_name: onemount-runner-2
     build:
       context: ../..
-      dockerfile: docker/Dockerfile.github-runner
-    image: onemount-github-runner:latest
+      dockerfile: docker/images/github-runner/Dockerfile
+      args:
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-github-runner:${ONEMOUNT_VERSION:-latest}
     
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}

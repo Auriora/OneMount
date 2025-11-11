@@ -6,13 +6,38 @@ For development and testing, see `docker/` directory.
 
 ## Files
 
-- **Dockerfile** - Base image (Ubuntu 24.04, Go 1.24.2, FUSE3, build tools)
+- **Dockerfile** - Production image (multi-stage: builder + minimal runtime, NO build tools)
+- **Dockerfile.builder** - Builder image (Ubuntu 24.04, Go 1.24.2, FUSE3, build tools)
 - **docker-compose.yml** - Production deployment configuration
 - **.dockerignore** - Build context exclusions
 
-## Base Image
+## Production Image (Dockerfile)
 
-The base image provides the foundation for all OneMount containers:
+The production image is a **multi-stage build** that creates a minimal runtime-only image:
+
+**Builder stage**:
+- Ubuntu 24.04 LTS
+- Go 1.24.2
+- Build tools (build-essential, pkg-config, git, wget)
+- Compiles OneMount binaries
+
+**Runtime stage** (final image):
+- Ubuntu 24.04 LTS (minimal)
+- FUSE3 runtime libraries only
+- GUI runtime libraries only
+- Compiled binaries from builder
+- **NO build tools** (no git, wget, build-essential, Go compiler)
+- **NO source code**
+- Target size: <500MB (vs 1.49GB for builder image)
+
+**Building**:
+```bash
+./docker/scripts/build-images.sh production
+```
+
+## Builder Image (Dockerfile.builder)
+
+The builder image provides the foundation for development containers:
 
 - Ubuntu 24.04 LTS
 - Go 1.24.2
@@ -21,10 +46,15 @@ The base image provides the foundation for all OneMount containers:
 - Build tools with CGO support
 - IPv4-only networking
 
-Used by:
-- `docker/Dockerfile.test-runner` - Test execution
-- `docker/Dockerfile.github-runner` - CI/CD runners
-- `packaging/deb/docker/Dockerfile` - Debian package builder
+**Used by**:
+- `docker/images/test-runner/` - Test execution
+- `docker/images/github-runner/` - CI/CD runners
+- `docker/images/deb-builder/` - Debian package builder
+
+**Building**:
+```bash
+./docker/scripts/build-images.sh builder
+```
 
 ## Production Deployment
 
@@ -55,8 +85,34 @@ The production container includes:
 - `ONEMOUNT_LOG_LEVEL` - Log level (default: info)
 - `ONEMOUNT_MOUNT_POINT` - Mount point (default: /mnt/onedrive)
 
+## Quick Reference
+
+### Building
+
+```bash
+# Build production image (runtime only, no build tools)
+./docker/scripts/build-images.sh production
+
+# Build builder image (with build tools, for development)
+./docker/scripts/build-images.sh builder
+```
+
+### Deployment
+
+```bash
+# Start production container
+docker compose -f packaging/docker/docker-compose.yml up -d
+
+# View logs
+docker logs onemount
+
+# Stop container
+docker compose -f packaging/docker/docker-compose.yml down
+```
+
 ## See Also
 
 - Development Docker: `docker/README.md`
-- Build configuration: `docker/compose/docker-compose.build.yml`
+- Build script: `docker/scripts/build-images.sh`
 - Test configuration: `docker/compose/docker-compose.test.yml`
+- Build configuration: `docker/compose/docker-compose.build.yml`

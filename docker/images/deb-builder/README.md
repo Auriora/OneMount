@@ -46,8 +46,22 @@ The image uses `docker/scripts/build-entrypoint.sh` which provides:
 - **Binaries**: `build/binaries/`
 - **Debian packages**: `dist/`
 
+## Quick Reference
+
+```bash
+# Build image
+./docker/scripts/build-images.sh deb-builder
+
+# Build Debian package
+docker compose -f docker/compose/docker-compose.build.yml --profile deb run --rm build-deb
+
+# Build binaries only
+docker compose -f docker/compose/docker-compose.build.yml --profile binaries run --rm build-binaries
+```
+
 ## See Also
 
-- Base image: `packaging/docker/Dockerfile`
+- Builder image: `packaging/docker/Dockerfile.builder`
 - Build compose: `docker/compose/docker-compose.build.yml`
 - Build entrypoint: `docker/scripts/build-entrypoint.sh`
+- Build script: `docker/scripts/build-images.sh`

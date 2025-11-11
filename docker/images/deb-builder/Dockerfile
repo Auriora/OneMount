@@ -2,7 +2,9 @@
 # Optimized for Ubuntu 24.04 LTS (Noble) and Linux Mint 22
 # Based on the base image with Debian packaging tools
 
-FROM onemount-base
+ARG ONEMOUNT_VERSION=0.1.0rc1
+ARG BASE_IMAGE=onemount-builder:${ONEMOUNT_VERSION}
+FROM ${BASE_IMAGE}
 
 # Install Debian packaging specific dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -46,9 +48,11 @@ RUN --mount=type=cache,target=/home/builder/go/pkg/mod,uid=1000 \
     go mod download
 USER root
 
-# Copy build entrypoint script
+# Copy common functions and build entrypoint script
+COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/build-entrypoint.sh /usr/local/bin/build-entrypoint.sh
-RUN chmod +x /usr/local/bin/build-entrypoint.sh
+RUN chmod +x /usr/local/bin/common.sh && \
+    chmod +x /usr/local/bin/build-entrypoint.sh
 
 # Switch back to builder user for execution
 USER builder

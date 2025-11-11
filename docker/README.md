@@ -8,52 +8,101 @@ For production deployment files, see `packaging/docker/`.
 
 ```
 docker/
-├── Dockerfile.github-runner         # GitHub Actions runner image
-├── Dockerfile.test-runner           # Test runner image with debugging tools
-├── scripts/                         # Container entrypoint scripts
+├── images/                          # Docker image definitions
+│   ├── test-runner/                 # Test execution image
+│   │   ├── Dockerfile
+│   │   └── README.md
+│   ├── github-runner/               # CI/CD runner image
+│   │   ├── Dockerfile
+│   │   └── README.md
+│   └── deb-builder/                 # Debian package builder
+│       ├── Dockerfile
+│       └── README.md
+├── scripts/                         # Container scripts
+│   ├── common.sh                    # Shared functions (NEW)
+│   ├── build-images.sh              # Build all images (NEW)
 │   ├── runner-entrypoint.sh         # Runner container entrypoint
 │   ├── test-entrypoint.sh           # Test container entrypoint
 │   ├── build-entrypoint.sh          # Build container entrypoint
 │   ├── init-workspace.sh            # Workspace initialization
 │   ├── token-manager.sh             # Token management utilities
 │   └── python-helper.sh             # Python helper utilities
-└── compose/                         # Docker Compose configurations
-    ├── docker-compose.build.yml     # Build binaries and packages
-    ├── docker-compose.test.yml      # Run tests
-    └── docker-compose.runners.yml   # GitHub Actions runners
+├── compose/                         # Docker Compose configurations
+│   ├── docker-compose.build.yml     # Build binaries and packages
+│   ├── docker-compose.test.yml      # Run tests
+│   └── docker-compose.runners.yml   # GitHub Actions runners
+└── README.md                        # This file
 ```
+
+**Note**: Production and builder images are in `packaging/docker/`:
+- `Dockerfile` - Production runtime (minimal, no build tools)
+- `Dockerfile.builder` - Builder base (with build tools, used by dev images)
 
 ## Docker Images
 
-### Base Image
+### Production Image
 - **Location**: `packaging/docker/Dockerfile`
+- **Type**: Multi-stage (builder + runtime)
+- **Runtime includes**: FUSE3 runtime, GUI runtime, compiled binaries only
+- **Runtime excludes**: Build tools, Go compiler, source code
+- **Purpose**: Minimal production deployment
+- **Size**: <500MB
+- **Build**: `./docker/scripts/build-images.sh production`
+
+### Builder Image
+- **Location**: `packaging/docker/Dockerfile.builder`
 - **Base**: Ubuntu 24.04
 - **Includes**: Go 1.24.2, FUSE3, build tools, GUI dependencies
-- **Purpose**: Foundation for all OneMount containers
+- **Purpose**: Foundation for development containers
+- **Size**: ~1.49GB
+- **Build**: `./docker/scripts/build-images.sh builder`
 
 ### Test Runner
-- **Location**: `docker/Dockerfile.test-runner`
-- **Base**: onemount-base
+- **Location**: `docker/images/test-runner/Dockerfile`
+- **Base**: onemount-builder
 - **Includes**: Python 3.12, pytest, debugging tools (vim, less)
 - **Purpose**: Running unit, integration, and system tests
+- **Build**: `./docker/scripts/build-images.sh test-runner`
 
 ### GitHub Runner
-- **Location**: `docker/Dockerfile.github-runner`
-- **Base**: onemount-base
+- **Location**: `docker/images/github-runner/Dockerfile`
+- **Base**: onemount-builder
 - **Includes**: GitHub Actions runner, Docker CLI, debugging tools
 - **Purpose**: Self-hosted CI/CD runners
+- **Build**: `./docker/scripts/build-images.sh github-runner`
 
 ### Debian Builder
-- **Location**: `packaging/deb/docker/Dockerfile`
-- **Base**: onemount-base
+- **Location**: `docker/images/deb-builder/Dockerfile`
+- **Base**: onemount-builder
 - **Includes**: Debian packaging tools
 - **Purpose**: Building .deb packages
+- **Build**: `./docker/scripts/build-images.sh deb-builder`
 
 ## Docker Compose Files
 
-### Building (`docker-compose.build.yml`)
+## Building Docker Images
 
-Build OneMount binaries and Debian packages.
+### Build All Images
+
+```bash
+# Build all images (base + all derived images)
+./docker/scripts/build-images.sh all
+
+# Build only development images (excludes production runtime)
+./docker/scripts/build-images.sh dev
+
+# Build specific image
+./docker/scripts/build-images.sh test-runner
+./docker/scripts/build-images.sh github-runner
+./docker/scripts/build-images.sh deb-builder
+
+# Build without cache
+./docker/scripts/build-images.sh all --no-cache
+```
+
+### Building Binaries (`docker-compose.build.yml`)
+
+Build OneMount binaries and Debian packages inside containers.
 
 ```bash
 # Build binaries
@@ -355,14 +404,48 @@ These Docker configurations integrate with:
 
 ## Quick Reference
 
+### Building Images
+
+| Task | Command |
+|------|---------|
+| Build all images | `./docker/scripts/build-images.sh all` |
+| Build dev images | `./docker/scripts/build-images.sh dev` |
+| Build production image | `./docker/scripts/build-images.sh production` |
+| Build builder image | `./docker/scripts/build-images.sh builder` |
+| Build test runner | `./docker/scripts/build-images.sh test-runner` |
+| Build without cache | `./docker/scripts/build-images.sh all --no-cache` |
+
+### Running Tests
+
 | Task | Command |
 |------|---------|
 | Run unit tests | `docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests` |
+| Run integration tests | `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests` |
+| Run system tests | `docker compose -f docker/compose/docker-compose.test.yml run --rm system-tests` |
 | Run all tests | `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner all` |
+| Interactive shell | `docker compose -f docker/compose/docker-compose.test.yml run --rm shell` |
+
+### Building Binaries
+
+| Task | Command |
+|------|---------|
 | Build binaries | `docker compose -f docker/compose/docker-compose.build.yml --profile binaries run --rm build-binaries` |
 | Build .deb package | `docker compose -f docker/compose/docker-compose.build.yml --profile deb run --rm build-deb` |
+| Clean artifacts | `docker compose -f docker/compose/docker-compose.build.yml --profile clean run --rm clean-build` |
+
+### GitHub Runners
+
+| Task | Command |
+|------|---------|
 | Start dev runner | `docker compose -f docker/compose/docker-compose.runners.yml --profile dev up -d` |
 | Start prod runners | `docker compose -f docker/compose/docker-compose.runners.yml --profile prod up -d` |
-| Interactive shell | `docker compose -f docker/compose/docker-compose.test.yml run --rm shell` |
 | View logs | `docker logs onemount-runner-1` |
-| Clean up | `docker rm -f $(docker ps -aq --filter "name=onemount")` |
+| Stop runners | `docker compose -f docker/compose/docker-compose.runners.yml down` |
+
+### Maintenance
+
+| Task | Command |
+|------|---------|
+| List images | `docker images | grep onemount` |
+| Clean up containers | `docker rm -f $(docker ps -aq --filter "name=onemount")` |
+| Clean up volumes | `docker volume prune` |

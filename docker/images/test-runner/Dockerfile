@@ -2,7 +2,8 @@
 # Extends the production base image with development-specific configurations
 # For production test runner, see: packaging/docker/Dockerfile.test-runner
 
-ARG BASE_IMAGE=onemount-base:0.1.0rc1
+ARG ONEMOUNT_VERSION=0.1.0rc1
+ARG BASE_IMAGE=onemount-builder:${ONEMOUNT_VERSION}
 FROM ${BASE_IMAGE}
 
 # Define version arg for labels
@@ -68,11 +69,13 @@ RUN mkdir -p /home/tester/.onemount-tests/tmp && \
     mkdir -p /home/tester/.onemount-tests/logs && \
     mkdir -p /home/tester/.cache/onemount
 
-# Copy test entrypoint script and Python helper script
+# Copy common functions and entrypoint scripts
+COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
 COPY docker/scripts/python-helper.sh /usr/local/bin/python-helper.sh
 USER root
-RUN chmod +x /usr/local/bin/test-entrypoint.sh && \
+RUN chmod +x /usr/local/bin/common.sh && \
+    chmod +x /usr/local/bin/test-entrypoint.sh && \
     chmod +x /usr/local/bin/python-helper.sh
 USER tester
 

@@ -2,7 +2,9 @@
 # Extends the production base image with development-specific configurations
 # For production runner, see: packaging/docker/Dockerfile.github-runner
 
-FROM onemount-base
+ARG ONEMOUNT_VERSION=0.1.0rc1
+ARG BASE_IMAGE=onemount-builder:${ONEMOUNT_VERSION}
+FROM ${BASE_IMAGE}
 
 # Set GitHub Actions specific environment variables
 ENV RUNNER_ALLOW_RUNASROOT=1
@@ -67,13 +69,15 @@ RUN mkdir -p /home/runner/.onemount-tests/tmp && \
     sudo mkdir -p /opt/onemount-ci && \
     sudo chown runner:runner /opt/onemount-ci
 
-# Copy runner entrypoint, workspace init, and token manager scripts
+# Copy common functions and entrypoint scripts
+COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
 COPY docker/scripts/init-workspace.sh /usr/local/bin/init-workspace.sh
 COPY docker/scripts/token-manager.sh /usr/local/bin/token-manager.sh
 COPY .env /workspace/.env
 USER root
-RUN chmod +x /usr/local/bin/runner-entrypoint.sh && \
+RUN chmod +x /usr/local/bin/common.sh && \
+    chmod +x /usr/local/bin/runner-entrypoint.sh && \
     chmod +x /usr/local/bin/init-workspace.sh && \
     chmod +x /usr/local/bin/token-manager.sh && \
     chown runner:runner /workspace/.env && \

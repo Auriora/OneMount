@@ -1,85 +1,77 @@
-# Base Dockerfile for OneMount Docker Images
-# Provides common foundation with Ubuntu 24.04, Go 1.24.2, FUSE, and essential build tools
-# This image is extended by test-runner, github-runner, and deb-builder images
+# Production Dockerfile for OneMount
+# Multi-stage build: Uses builder image, creates minimal runtime
+# This eliminates duplication by reusing the builder image
 
-FROM ubuntu:24.04
+ARG ONEMOUNT_VERSION=0.1.0rc1
+ARG BUILDER_IMAGE=onemount-builder:${ONEMOUNT_VERSION}
 
-# Define version arg for labels (avoid UndefinedVar warnings)
+# ============================================
+# Builder stage - use existing builder image
+# ============================================
+FROM ${BUILDER_IMAGE} AS builder
+
+# Copy source and build
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY scripts/cgo-helper.sh ./scripts/cgo-helper.sh
+
+RUN bash scripts/cgo-helper.sh && \
+    mkdir -p /app && \
+    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
+        -o /app/onemount \
+        -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+        ./cmd/onemount && \
+    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
+        -o /app/onemount-launcher \
+        -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+        ./cmd/onemount-launcher
+
+# ============================================
+# Runtime stage - minimal production image
+# ============================================
+FROM ubuntu:24.04 AS runtime
+
 ARG ONEMOUNT_VERSION=0.1.0rc1
 
-# Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
-ENV UBUNTU_VERSION=24.04
-ENV UBUNTU_CODENAME=noble
 
-# Configure IPv4-only networking for South African networks
+# Configure IPv4-only networking
 RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
 
-# Configure apt for better reliability and caching
-RUN echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80retries && \
-    echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/80retries && \
-    echo 'Acquire::ftp::Timeout "30";' >> /etc/apt/apt.conf.d/80retries && \
-    echo 'APT::Keep-Downloaded-Packages "true";' >> /etc/apt/apt.conf.d/80retries
-
-# Install essential system dependencies common to all OneMount images
+# Install ONLY runtime dependencies (no build tools, no git, no wget)
 RUN apt-get update && apt-get install -y \
-    # Essential build tools
-    build-essential \
-    pkg-config \
-    git \
-    wget \
-    curl \
-    ca-certificates \
-    # FUSE support for filesystem testing
     fuse3 \
-    libfuse3-dev \
-    # GUI dependencies for launcher (common to test and runner images)
-    libgtk-3-dev \
-    libwebkit2gtk-4.1-dev \
-    # System utilities
-    rsync \
-    lsb-release \
-    gnupg \
-    # Cleanup
+    libfuse3-3 \
+    libgtk-3-0 \
+    libwebkit2gtk-4.1-0 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install specific Go version required by project
-ARG GO_VERSION=1.24.2
-RUN wget -O go.tar.gz "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" && \
-    tar -C /usr/local -xzf go.tar.gz && \
-    rm go.tar.gz
+# Configure FUSE
+RUN echo 'user_allow_other' >> /etc/fuse.conf && \
+    groupadd -f fuse
 
-# Verify Go version matches project requirements
-RUN /usr/local/go/bin/go version && echo "Go ${GO_VERSION} installation verified for Ubuntu $(lsb_release -rs)"
+# Create non-root user
+RUN useradd -m -s /bin/bash -G fuse onemount
 
-# Set Go environment with standardized cache paths for volume mounting
-ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOCACHE="/tmp/go-cache"
-ENV GOMODCACHE="/tmp/go-mod-cache"
-ENV GOSUMDB="sum.golang.org"
+# Copy ONLY the compiled binaries from builder (no source code, no Go, no build tools)
+COPY --from=builder /app/onemount /usr/local/bin/onemount
+COPY --from=builder /app/onemount-launcher /usr/local/bin/onemount-launcher
 
-# Configure FUSE for testing
-RUN echo 'user_allow_other' >> /etc/fuse.conf
+# Switch to non-root user
+USER onemount
+WORKDIR /home/onemount
 
-# Create FUSE group (users will be added in derived images)
-RUN groupadd -f fuse
+ENTRYPOINT ["/usr/local/bin/onemount"]
+CMD ["--help"]
 
-# Create standardized cache directories with proper permissions
-RUN mkdir -p /tmp/go-cache /tmp/go-mod-cache && \
-    chmod 777 /tmp/go-cache /tmp/go-mod-cache
-
-# Create workspace directory (ownership will be set in derived images)
-RUN mkdir -p /workspace
-
-# Add labels for better image management
-LABEL org.opencontainers.image.title="OneMount Base Image"
-LABEL org.opencontainers.image.description="Base Docker image for OneMount with Ubuntu 24.04, Go 1.24.2, and FUSE support"
+# Labels
+LABEL org.opencontainers.image.title="OneMount"
+LABEL org.opencontainers.image.description="Production OneMount image (runtime only, no build tools)"
 LABEL org.opencontainers.image.vendor="Auriora"
 LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
 LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"
-
-# Default working directory
-WORKDIR /workspace
-
-# Default command (will be overridden in derived images)
-CMD ["/bin/bash"]
