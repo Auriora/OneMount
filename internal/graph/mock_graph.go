@@ -98,6 +98,11 @@ type MockGraphClient struct {
 
 	// HTTP client that uses this mock
 	httpClient *http.Client
+
+	// Callback functions for dynamic responses
+	responseCallbacks   map[string]func() ([]byte, int, error)
+	chunkUploadCallback func(chunkIndex int) ([]byte, int, error)
+	callbackMutex       sync.RWMutex
 }
 
 // RoundTrip implements the http.RoundTripper interface
@@ -131,6 +136,23 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	// Check for response callbacks first
+	m.callbackMutex.RLock()
+	callback, hasCallback := m.responseCallbacks[resource]
+	m.callbackMutex.RUnlock()
+
+	if hasCallback {
+		body, statusCode, err := callback()
+		if err != nil {
+			return nil, err
+		}
+		return &http.Response{
+			StatusCode: statusCode,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     make(http.Header),
+		}, nil
+	}
+
 	// Special handling for createUploadSession requests
 	if strings.Contains(resource, "/createUploadSession") && req.Method == "POST" {
 		// Return a mock upload session response
@@ -149,6 +171,41 @@ func (m *MockGraphClient) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Special handling for upload session URLs (PUT requests to mock upload URLs)
 	if req.Method == "PUT" && strings.Contains(req.URL.Host, "mock-upload.example.com") {
+		// Check for chunk upload callback
+		m.callbackMutex.RLock()
+		chunkCallback := m.chunkUploadCallback
+		m.callbackMutex.RUnlock()
+
+		if chunkCallback != nil {
+			// Extract chunk index from Content-Range header
+			contentRange := req.Header.Get("Content-Range")
+			chunkIndex := 0
+			if contentRange != "" {
+				// Parse "bytes 0-10485759/12582912" format
+				parts := strings.Split(contentRange, " ")
+				if len(parts) >= 2 {
+					rangeParts := strings.Split(parts[1], "-")
+					if len(rangeParts) >= 1 {
+						startByte := rangeParts[0]
+						// Calculate chunk index (assuming 10MB chunks)
+						var start int64
+						fmt.Sscanf(startByte, "%d", &start)
+						chunkIndex = int(start / (10 * 1024 * 1024))
+					}
+				}
+			}
+
+			body, statusCode, err := chunkCallback(chunkIndex)
+			if err != nil {
+				return nil, err
+			}
+			return &http.Response{
+				StatusCode: statusCode,
+				Body:       io.NopCloser(bytes.NewReader(body)),
+				Header:     make(http.Header),
+			}, nil
+		}
+
 		// Check if we have a mock response for this upload URL
 		m.mu.Lock()
 		mockResponse, exists := m.RequestResponses[req.URL.String()]
@@ -481,6 +538,7 @@ func NewMockGraphClient() *MockGraphClient {
 			ThrottleDelay:  0,
 			CustomBehavior: make(map[string]interface{}),
 		},
+		responseCallbacks: make(map[string]func() ([]byte, int, error)),
 	}
 
 	// Create an HTTP client that uses this mock as its transport
@@ -1834,4 +1892,30 @@ func (r *BasicMockRecorder) VerifyCall(method string, times int) bool {
 // NewBasicMockRecorder constructor
 func NewBasicMockRecorder() *BasicMockRecorder {
 	return &BasicMockRecorder{}
+}
+
+// SetResponseCallback sets a callback function for a specific resource path
+// The callback will be invoked when a request is made to that resource
+// This allows for dynamic responses based on test state (e.g., simulating retries)
+func (m *MockGraphClient) SetResponseCallback(resource string, callback func() ([]byte, int, error)) {
+	m.callbackMutex.Lock()
+	defer m.callbackMutex.Unlock()
+	m.responseCallbacks[resource] = callback
+}
+
+// SetChunkUploadCallback sets a callback function for chunk uploads
+// The callback receives the chunk index and returns the response
+// This allows for simulating failures on specific chunks
+func (m *MockGraphClient) SetChunkUploadCallback(callback func(chunkIndex int) ([]byte, int, error)) {
+	m.callbackMutex.Lock()
+	defer m.callbackMutex.Unlock()
+	m.chunkUploadCallback = callback
+}
+
+// ClearCallbacks clears all response callbacks
+func (m *MockGraphClient) ClearCallbacks() {
+	m.callbackMutex.Lock()
+	defer m.callbackMutex.Unlock()
+	m.responseCallbacks = make(map[string]func() ([]byte, int, error))
+	m.chunkUploadCallback = nil
 }

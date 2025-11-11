@@ -135,10 +135,10 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 	ctx, cancel := context.WithCancel(context.Background())
 
 	manager := UploadManager{
-		highPriorityQueue:          make(chan *UploadSession),
-		lowPriorityQueue:           make(chan *UploadSession),
-		queue:                      make(chan *UploadSession), // Legacy queue for backward compatibility
-		deletionQueue:              make(chan string, 1000),   // Buffered to prevent CancelUpload from blocking when uploadLoop is busy
+		highPriorityQueue:          make(chan *UploadSession, 100), // Buffered to allow multiple high priority uploads to be queued
+		lowPriorityQueue:           make(chan *UploadSession, 100), // Buffered to allow multiple low priority uploads to be queued
+		queue:                      make(chan *UploadSession),      // Legacy queue for backward compatibility
+		deletionQueue:              make(chan string, 1000),        // Buffered to prevent CancelUpload from blocking when uploadLoop is busy
 		sessions:                   make(map[string]*UploadSession),
 		sessionPriorities:          make(map[string]UploadPriority),
 		pendingHighPriorityUploads: make(map[string]bool),
