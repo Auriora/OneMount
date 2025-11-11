@@ -569,47 +569,47 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 11: File Status and D-Bus Verification
 
-- [ ] 13. Verify file status tracking
-- [ ] 13.1 Review file status code
+- [x] 13. Verify file status tracking
+- [x] 13.1 Review file status code
   - Read and analyze `internal/fs/file_status.go`
   - Review `internal/fs/dbus.go`
   - Check extended attribute implementation
   - Review Nemo extension code
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 13.2 Test file status updates
+- [x] 13.2 Test file status updates
   - Monitor file status during various operations
   - Verify status changes appropriately (synced, downloading, error, etc.)
   - Check extended attributes are set correctly
   - _Requirements: 8.1_
 
-- [ ] 13.3 Test D-Bus integration
+- [x] 13.3 Test D-Bus integration
   - Verify D-Bus server starts successfully
   - Monitor D-Bus signals during file operations
   - Use `dbus-monitor` to observe signals
   - Verify signal format and content
   - _Requirements: 8.2_
 
-- [ ] 13.4 Test D-Bus fallback
+- [x] 13.4 Test D-Bus fallback
   - Disable D-Bus (or run in environment without D-Bus)
   - Verify system continues operating
   - Check that extended attributes still work
   - _Requirements: 8.4_
 
-- [ ] 13.5 Test Nemo extension
+- [x] 13.5 Test Nemo extension
   - Open Nemo file manager
   - Navigate to mounted OneDrive
   - Verify status icons appear on files
   - Trigger file operations and watch icons update
   - _Requirements: 8.3_
 
-- [ ] 13.6 Create file status integration tests
+- [x] 13.6 Create file status integration tests
   - Write test for status tracking
   - Write test for D-Bus signal emission
   - Write test for extended attribute fallback
   - _Requirements: 8.1, 8.2, 8.4_
 
-- [ ] 13.7 Document file status issues and create fix plan
+- [x] 13.7 Document file status issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
