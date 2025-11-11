@@ -26,12 +26,6 @@ services:
     security_opt:
       - apparmor:unconfined
     
-    # Network configuration
-    network_mode: bridge
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-    
     # Resource limits for production
     deploy:
       resources:
@@ -71,4 +65,3 @@ volumes:
 
 networks:
   default:
-    driver: bridge
