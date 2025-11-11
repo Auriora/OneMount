@@ -43,7 +43,9 @@ vendor/
 assets/
 docs/
 deployments/
-docker/
+# docker/ - NEEDED for COPY commands in Dockerfiles
+# Exclude specific docker subdirectories instead:
+docker/compose/
 ui.test/
 systemd.test/
 framework.test/

@@ -54,10 +54,8 @@ WORKDIR /workspace
 # Copy go.mod and go.sum first for better caching
 COPY --chown=tester:tester go.mod go.sum ./
 
-# Download dependencies with BuildKit cache mount
-RUN --mount=type=cache,target=/tmp/go-mod-cache,uid=1000 \
-    --mount=type=cache,target=/tmp/go-cache,uid=1000 \
-    go mod download
+# Download dependencies (cache mounts already set up in builder image)
+RUN go mod download
 
 # Copy only required source to maximize cache hits
 COPY --chown=tester:tester cmd/ ./cmd
@@ -69,20 +67,23 @@ RUN mkdir -p /home/tester/.onemount-tests/tmp && \
     mkdir -p /home/tester/.onemount-tests/logs && \
     mkdir -p /home/tester/.cache/onemount
 
+# Switch to root to copy scripts
+USER root
+
 # Copy common functions and entrypoint scripts
 COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
 COPY docker/scripts/python-helper.sh /usr/local/bin/python-helper.sh
-USER root
+
 RUN chmod +x /usr/local/bin/common.sh && \
     chmod +x /usr/local/bin/test-entrypoint.sh && \
     chmod +x /usr/local/bin/python-helper.sh
+
+# Switch back to tester user
 USER tester
 
-# Pre-build OneMount binaries for faster test execution with BuildKit cache
-RUN --mount=type=cache,target=/tmp/go-mod-cache,uid=1000 \
-    --mount=type=cache,target=/tmp/go-cache,uid=1000 \
-    bash scripts/cgo-helper.sh && \
+# Pre-build OneMount binaries for faster test execution
+RUN bash scripts/cgo-helper.sh && \
     mkdir -p build/binaries && \
     CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
         -o build/binaries/onemount \

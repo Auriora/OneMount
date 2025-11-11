@@ -69,19 +69,24 @@ RUN mkdir -p /home/runner/.onemount-tests/tmp && \
     sudo mkdir -p /opt/onemount-ci && \
     sudo chown runner:runner /opt/onemount-ci
 
+# Switch to root to copy scripts
+USER root
+
 # Copy common functions and entrypoint scripts
 COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
 COPY docker/scripts/init-workspace.sh /usr/local/bin/init-workspace.sh
 COPY docker/scripts/token-manager.sh /usr/local/bin/token-manager.sh
 COPY .env /workspace/.env
-USER root
+
 RUN chmod +x /usr/local/bin/common.sh && \
     chmod +x /usr/local/bin/runner-entrypoint.sh && \
     chmod +x /usr/local/bin/init-workspace.sh && \
     chmod +x /usr/local/bin/token-manager.sh && \
     chown runner:runner /workspace/.env && \
     chmod 644 /workspace/.env
+
+# Switch back to runner user
 USER runner
 
 # Copy source code to temporary location for workspace initialization

@@ -43,12 +43,10 @@ RUN echo 'export GOPATH=/home/builder/go' >> /home/builder/.bashrc && \
 # Pre-warm Go module cache by copying go.mod/go.sum and downloading dependencies
 COPY --chown=builder:builder go.mod go.sum ./
 USER builder
-RUN --mount=type=cache,target=/home/builder/go/pkg/mod,uid=1000 \
-    --mount=type=cache,target=/home/builder/.cache/go-build,uid=1000 \
-    go mod download
+RUN go mod download
 USER root
 
-# Copy common functions and build entrypoint script
+# Copy common functions and build entrypoint script (as root)
 COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/build-entrypoint.sh /usr/local/bin/build-entrypoint.sh
 RUN chmod +x /usr/local/bin/common.sh && \
