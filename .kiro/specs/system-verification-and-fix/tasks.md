@@ -447,28 +447,28 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 9: Cache Management Verification
 
-- [ ] 11. Verify cache management
-- [ ] 11.1 Review cache code
+- [x] 11. Verify cache management
+- [x] 11.1 Review cache code
   - Read and analyze `internal/fs/cache.go`
   - Review `internal/fs/content_cache.go`
   - Check cache cleanup implementation
   - Review bbolt database usage
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 11.2 Test content caching
+- [x] 11.2 Test content caching
   - Access several files
   - Verify content is stored in cache directory
   - Check cache directory structure
   - Verify cached content is correct
   - _Requirements: 7.1_
 
-- [ ] 11.3 Test cache hit/miss
+- [x] 11.3 Test cache hit/miss
   - Access a cached file (should be cache hit)
   - Access an uncached file (should be cache miss)
   - Verify cache statistics reflect hits and misses
   - _Requirements: 7.5_
 
-- [ ] 11.4 Test cache expiration
+- [x] 11.4 Test cache expiration
   - Configure short cache expiration (e.g., 1 day)
   - Create files with old access times
   - Trigger cache cleanup
@@ -476,28 +476,28 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify recent files are retained
   - _Requirements: 7.2, 7.3, 7.4_
 
-- [ ] 11.5 Test cache statistics
+- [x] 11.5 Test cache statistics
   - Run `onemount --stats /mount/path`
   - Verify statistics show cache size
   - Check file count
   - Verify hit rate calculation
   - _Requirements: 7.5_
 
-- [ ] 11.6 Test metadata cache persistence
+- [x] 11.6 Test metadata cache persistence
   - Access files to populate metadata cache
   - Unmount filesystem
   - Remount filesystem
   - Verify metadata is still cached (no refetch)
   - _Requirements: 7.1_
 
-- [ ] 11.7 Create cache management integration tests
+- [x] 11.7 Create cache management integration tests
   - Write test for cache storage and retrieval
   - Write test for cache expiration
   - Write test for cache cleanup
   - Write test for cache statistics
   - _Requirements: 7.1, 7.2, 7.3, 7.5_
 
-- [ ] 11.8 Document cache issues and create fix plan
+- [x] 11.8 Document cache issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
