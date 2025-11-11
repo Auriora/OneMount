@@ -1,6 +1,8 @@
 # Docker Compose configuration for OneMount testing
 # References pre-built images by tag, builds only when explicitly requested
 
+name: onemount-test
+
 services:
   # Main test runner service - uses pre-built image by default
   test-runner:
@@ -60,6 +62,7 @@ services:
 
   # Base image reference (not a running container)
   base-image:
+    container_name: onemount-base-image
     image: onemount-base:latest
     # This is a reference only, not a running container
     entrypoint: ["echo", "Base image reference only - not a running container"]

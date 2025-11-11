@@ -1,0 +1,74 @@
+# Docker Compose for OneMount Production Deployment
+# This file is for running OneMount in production - no build configuration
+# Images should be pre-built and available (from registry or local build)
+
+name: onemount
+
+services:
+  # OneMount production service
+  onemount:
+    container_name: onemount
+    image: onemount:${ONEMOUNT_VERSION:-latest}
+    
+    # Mount point for OneDrive
+    volumes:
+      - onemount-data:/mnt/onedrive:rshared
+      # Configuration directory
+      - onemount-config:/etc/onemount:ro
+      # Cache directory
+      - onemount-cache:/var/cache/onemount:rw
+    
+    # Enable FUSE support
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    
+    # Network configuration
+    network_mode: bridge
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mountpoint", "-q", "/mnt/onedrive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Environment variables
+    environment:
+      - ONEMOUNT_LOG_LEVEL=${ONEMOUNT_LOG_LEVEL:-info}
+      - ONEMOUNT_MOUNT_POINT=/mnt/onedrive
+
+volumes:
+  # Production data volumes
+  onemount-data:
+    driver: local
+  
+  onemount-config:
+    driver: local
+  
+  onemount-cache:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

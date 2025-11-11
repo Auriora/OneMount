@@ -1,169 +1,153 @@
-# OneMount Docker Testing
+# OneMount Production Docker Packaging
 
-This directory contains Docker configurations for running OneMount tests in isolated environments. The Docker-based testing provides a clean, reproducible environment that eliminates host system dependencies and ensures consistent test results.
+This directory contains Docker configurations for **production packaging and deployment** of OneMount.
+
+For **development and testing** Docker files, see `docker/` directory.
 
 ## Overview
 
-The Docker testing setup includes:
+The production Docker setup includes:
 
-- **Dockerfile.test-runner**: Main test container with all dependencies
-- **test-entrypoint.sh**: Test execution script with unified interface
-- **docker-compose.test.yml**: Docker Compose configuration for easy test execution
-- **Development CLI**: Native Python interface for convenient Docker test execution
+- **Dockerfile.base**: Foundation image with Ubuntu 24.04, Go 1.24.2, FUSE3
+- **Dockerfile.deb-builder**: Debian package builder
+- **docker-compose.yml**: Production packaging and deployment
+- **install-deps.sh**: Dependency installation script
 
 ## Quick Start
 
-### 1. Build the Test Image
+### 1. Build Production Images
 
 ```bash
-# Using Make
-make docker-test-build
+# Build base image
+docker compose -f packaging/docker/docker-compose.yml build base
 
-# Using Development CLI (Recommended)
-python scripts/dev.py test docker build
+# Build Debian package builder
+docker compose -f packaging/docker/docker-compose.yml build deb-builder
 
-# Or directly with legacy script (deprecated)
-# ./scripts/run-tests-docker.sh build
+# Build production deployment image
+docker compose -f packaging/docker/docker-compose.yml build production
 ```
 
-### 2. Run Tests
+### 2. Build Packages
 
 ```bash
-# Run unit tests
-make docker-test-unit
+# Build Debian package
+docker compose -f packaging/docker/docker-compose.yml run --rm deb-builder
 
-# Run integration tests
-make docker-test-integration
-
-# Run all tests
-make docker-test-all
-
-# Run with coverage analysis
-make docker-test-coverage
+# Output will be in dist/ directory
+ls -la dist/*.deb
 ```
 
-## Available Test Commands
-
-### Make Targets
-
-| Target | Description |
-|--------|-------------|
-| `make docker-test-build` | Build the Docker test image |
-| `make docker-test-unit` | Run unit tests in Docker |
-| `make docker-test-integration` | Run integration tests in Docker |
-| `make docker-test-system` | Run system tests in Docker |
-| `make docker-test-all` | Run all tests in Docker |
-| `make docker-test-coverage` | Run coverage analysis in Docker |
-| `make docker-test-shell` | Start interactive shell in test container |
-| `make docker-test-clean` | Clean up Docker test resources |
-
-### Development CLI Interface (Recommended)
+### 3. Run Production Container
 
 ```bash
-# Build test image
-python scripts/dev.py test docker build
+# Start production container
+docker compose -f packaging/docker/docker-compose.yml --profile production up -d
 
-# Run different test types
-python scripts/dev.py test docker unit
-python scripts/dev.py test docker integration
-python scripts/dev.py test docker system
-python scripts/dev.py test docker all
+# Check status
+docker ps --filter "name=onemount-production"
 
-# Run with options
-python scripts/dev.py --verbose test docker unit --sequential
-python scripts/dev.py test docker system --timeout 30m
-
-# Interactive debugging (use Docker Compose directly)
-docker compose -f docker/compose/docker-compose.test.yml run --rm shell
-
-# Cleanup
-python scripts/dev.py test docker clean
+# View logs
+docker logs onemount-production
 ```
 
-### Legacy Script Interface (Deprecated)
+## Available Commands
+
+### Building Images
 
 ```bash
-# Note: The shell script has been migrated to Python
-# Use the development CLI above for the best experience
+# Build base image
+docker compose -f packaging/docker/docker-compose.yml build base
 
-# Legacy usage (if needed):
-# ./scripts/run-tests-docker.sh build
-# ./scripts/run-tests-docker.sh unit
+# Build Debian package builder
+docker compose -f packaging/docker/docker-compose.yml build deb-builder
+
+# Build production deployment image
+docker compose -f packaging/docker/docker-compose.yml build production
+
+# Build all images
+docker compose -f packaging/docker/docker-compose.yml build
 ```
 
-### Docker Compose
+### Building Packages
 
 ```bash
-# Run specific test services
-docker-compose -f docker-compose.test.yml run --rm unit-tests
-docker-compose -f docker-compose.test.yml run --rm integration-tests
-docker-compose -f docker-compose.test.yml run --rm system-tests
+# Build Debian package
+docker compose -f packaging/docker/docker-compose.yml run --rm deb-builder
 
-# Interactive shell
-docker-compose -f docker-compose.test.yml run --rm shell
+# Build with specific version
+ONEMOUNT_VERSION=1.0.0 docker compose -f packaging/docker/docker-compose.yml run --rm deb-builder
+
+# Output location
+ls -la dist/*.deb
 ```
 
-## System Tests with OneDrive Authentication
-
-System tests require valid OneDrive authentication tokens. Follow these steps:
-
-### 1. Setup Authentication
+### Running Production Container
 
 ```bash
-# Build OneMount
-make onemount
+# Start production container
+docker compose -f packaging/docker/docker-compose.yml --profile production up -d
 
-# Authenticate with your test OneDrive account
-./build/onemount --auth-only
+# Stop production container
+docker compose -f packaging/docker/docker-compose.yml --profile production down
 
-# Create test directory and copy tokens
-mkdir -p ~/.onemount-tests
-cp ~/.cache/onemount/auth_tokens.json ~/.onemount-tests/.auth_tokens.json
+# View logs
+docker logs onemount-production
+
+# Check health
+docker inspect onemount-production | jq '.[0].State.Health'
 ```
 
-### 2. Run System Tests
+## Production Deployment
 
-```bash
-# Using Make
-make docker-test-system
+### Prerequisites
 
-# Using Development CLI (Recommended)
-python scripts/dev.py test docker system
+- Docker Engine 20.10+
+- Docker Compose V2
+- Valid OneDrive authentication tokens (for production use)
 
-# Or legacy script (deprecated)
-# ./scripts/run-tests-docker.sh system
-```
+### Configuration
 
-### Authentication Notes
+1. **Set environment variables**:
+   ```bash
+   export ONEMOUNT_VERSION=1.0.0
+   ```
 
-- Use a dedicated test OneDrive account, not your production account
-- System tests create and delete files in `/onemount_system_tests/` on OneDrive
-- The auth tokens file is automatically mounted into the Docker container
-- Run `python scripts/dev.py test docker setup-auth` for detailed setup instructions
+2. **Configure volumes**:
+   - `onemount-data`: Mount point for OneDrive files
+   - `onemount-config`: Configuration files
+   - `onemount-cache`: Cache directory
+
+3. **Deploy**:
+   ```bash
+   docker compose -f packaging/docker/docker-compose.yml --profile production up -d
+   ```
 
 ## Container Features
 
-### Included Dependencies
+### Base Image
 
-- **Go 1.22+**: Latest Go version from Ubuntu 24.04
-- **FUSE Support**: Full FUSE3 support for filesystem testing
-- **GUI Dependencies**: WebKit2GTK for launcher testing
+- **Ubuntu 24.04 LTS**: Stable foundation
+- **Go 1.24.2**: Specific version for reproducibility
+- **FUSE3 Support**: Full FUSE support for filesystem operations
+- **GUI Dependencies**: WebKit2GTK for launcher
 - **Build Tools**: Complete build environment with CGO support
-- **Network Tools**: IPv4-only configuration for South African networks
+- **IPv4-only networking**: Optimized for South African networks
 
-### Security and Isolation
+### Debian Package Builder
 
-- **Non-root User**: Tests run as `tester` user for security
-- **FUSE Access**: Proper FUSE device access for filesystem tests
-- **Volume Mounts**: Source code mounted read-only for safety
-- **Network Isolation**: Isolated network environment
+- **Debian packaging tools**: debhelper, devscripts, dpkg-dev
+- **Automated builds**: Single command package creation
+- **Output to dist/**: Built packages in project directory
+- **Non-root builder**: Security-focused build process
 
-### Performance Optimizations
+### Production Image
 
-- **BuildKit**: Enabled for faster image builds
-- **Layer Caching**: Optimized Dockerfile for better caching
-- **Parallel Tests**: Support for parallel test execution
-- **Resource Limits**: Configurable timeouts and resource limits
+- **Minimal runtime**: Only essential dependencies
+- **FUSE support**: Full filesystem capabilities
+- **Resource limits**: 2GB RAM, 2 CPUs
+- **Health checks**: Automatic mount point monitoring
+- **Restart policy**: Automatic recovery from failures
 
 ## Troubleshooting
 

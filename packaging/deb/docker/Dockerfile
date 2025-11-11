@@ -1,7 +1,8 @@
-# Dockerfile for building OneMount Ubuntu packages
+# Dockerfile for building OneMount Debian packages
 # Optimized for Ubuntu 24.04 LTS (Noble) and Linux Mint 22
 # Based on the base image with Debian packaging tools
-FROM onemount-base AS deps
+
+FROM onemount-base
 
 # Install Debian packaging specific dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,9 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Additional build tools
     rsync \
     && rm -rf /var/lib/apt/lists/*
-
-# Final stage - create optimized builder environment
-FROM deps AS final
 
 # Create a non-root user for building
 RUN useradd -m -s /bin/bash builder
@@ -43,11 +41,21 @@ RUN echo 'export GOPATH=/home/builder/go' >> /home/builder/.bashrc && \
 # Pre-warm Go module cache by copying go.mod/go.sum and downloading dependencies
 COPY --chown=builder:builder go.mod go.sum ./
 USER builder
-RUN go mod download
+RUN --mount=type=cache,target=/home/builder/go/pkg/mod,uid=1000 \
+    --mount=type=cache,target=/home/builder/.cache/go-build,uid=1000 \
+    go mod download
 USER root
 
-# Default command
-CMD ["/bin/bash"]
+# Copy build entrypoint script
+COPY docker/scripts/build-entrypoint.sh /usr/local/bin/build-entrypoint.sh
+RUN chmod +x /usr/local/bin/build-entrypoint.sh
+
+# Switch back to builder user for execution
+USER builder
+
+# Default entrypoint and command
+ENTRYPOINT ["/usr/local/bin/build-entrypoint.sh"]
+CMD ["help"]
 
 # Add labels for better image management
 LABEL org.opencontainers.image.title="OneMount Debian Package Builder"

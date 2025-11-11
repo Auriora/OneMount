@@ -1,19 +1,110 @@
 ---
-inclusion: fileMatch
-fileMatchPattern: 'tests/**'
+inclusion: always
 ---
 
 # Testing Conventions
 
 **Priority**: 25  
-**Scope**: tests/**  
+**Scope**: tests/**, internal/**/*_test.go  
 **Description**: Standardized testing format and policy for all projects.
 
 ## Testing Guidelines
 
-- **Test File Placement**: Always place tests next to the code they exercise when practical (e.g., `src/module/__tests__/` or `tests/module.test.py`).
-- **Consistent Test File Naming**: Prefer `test_*.py` for Python projects following the existing project conventions.
-- **Preferred Test Runner**: Use the repository's designated test runner (pytest for this project).
+- **Test File Placement**: Always place tests next to the code they exercise when practical (e.g., `internal/module/module_test.go` for Go).
+- **Consistent Test File Naming**: Follow Go conventions: `*_test.go` for unit tests, `*_integration_test.go` for integration tests.
+- **Preferred Test Runner**: Use Go's built-in test runner (`go test`) for this project.
+
+## Docker Test Environment (OneMount Project)
+
+**CRITICAL**: All tests for the OneMount project MUST be run inside Docker containers. Never run tests directly on the host system.
+
+### Why Docker is Required
+
+1. **FUSE Dependencies**: Tests require FUSE3 device access with specific capabilities
+2. **Isolation**: Prevents test artifacts from polluting the host system
+3. **Reproducibility**: Ensures consistent environment across all developers and CI/CD
+4. **Security**: Test credentials and OneDrive access are isolated in containers
+5. **Dependencies**: Specific versions of Go (1.24.2), Python (3.12), and system libraries
+
+### Docker Test Commands
+
+**Always use these commands to run tests:**
+
+```bash
+# Unit tests (no FUSE required, fast)
+docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests
+
+# Integration tests (requires FUSE, moderate speed)
+docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests
+
+# System tests (requires auth tokens, slow)
+docker compose -f docker/compose/docker-compose.test.yml run --rm system-tests
+
+# All tests with coverage
+docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner all
+
+# Run specific test
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  --entrypoint /bin/bash shell -c "go test -v -run TestName ./internal/package"
+
+# Interactive debugging shell
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell
+```
+
+### Test Environment Details
+
+- **Images**: `onemount-base:latest` (1.49GB) and `onemount-test-runner:latest` (2.21GB)
+- **Build Command**: `docker compose -f docker/compose/docker-compose.build.yml build`
+- **Workspace**: Mounted at `/workspace` with read-write access
+- **Test Artifacts**: Output to `test-artifacts/` (mounted from host)
+- **Auth Tokens**: Located at `test-artifacts/.auth_tokens.json` (gitignored)
+- **FUSE Device**: `/dev/fuse` with SYS_ADMIN capability
+- **Resources**: 4GB RAM / 2 CPUs (unit), 6GB RAM / 4 CPUs (system)
+
+### Docker Environment Modifications
+
+When making changes to improve the Docker test environment:
+
+1. **Update Dockerfiles**: Modify `packaging/docker/Dockerfile.base` or `Dockerfile.test-runner`
+2. **Rebuild Images**: Run `docker compose -f docker/compose/docker-compose.build.yml build`
+3. **Update Documentation**: Update `docs/TEST_SETUP.md` and `docs/testing/docker-test-environment.md`
+4. **Test Changes**: Verify all test types still work (unit, integration, system)
+5. **Document Rationale**: Explain why the change improves the test environment
+
+### Common Docker Test Patterns
+
+```bash
+# Run tests and keep container for debugging
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  --entrypoint /bin/bash shell -c "go test -v ./... || bash"
+
+# Run tests with verbose output
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  --entrypoint /bin/bash shell -c "go test -v -count=1 ./internal/..."
+
+# Run tests with coverage report
+docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner coverage
+
+# Check test environment
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  --entrypoint /bin/bash shell -c "ls -l /dev/fuse && go version && python3 --version"
+```
+
+### Troubleshooting Docker Tests
+
+If tests fail in Docker:
+
+1. **Check FUSE device**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell` then `ls -l /dev/fuse`
+2. **Verify images are up-to-date**: Rebuild with `docker compose -f docker/compose/docker-compose.build.yml build --no-cache`
+3. **Check auth tokens**: Verify `test-artifacts/.auth_tokens.json` exists and is valid
+4. **Review logs**: Check `test-artifacts/logs/` for detailed error messages
+5. **Interactive debugging**: Use `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
+
+### References
+
+- **Setup Guide**: `docs/TEST_SETUP.md` - Comprehensive test environment setup
+- **Docker Guide**: `docs/testing/docker-test-environment.md` - Docker-specific details
+- **Task Summary**: `docs/TASK_1_SUMMARY.md` - Docker environment validation results
 
 ## Test Organization
 

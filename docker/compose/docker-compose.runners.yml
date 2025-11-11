@@ -1,44 +1,88 @@
 # Docker Compose configuration for OneMount GitHub Actions Runners
-# Simple 2-runner setup for manual management
-# Stack name: onemount-runners
-
-
+# Consolidated file using profiles for different deployment scenarios
+# Supports local and remote deployment
+#
+# Usage:
+#   Development:  docker compose -f docker/compose/docker-compose.runners.yml --profile dev up -d
+#   Production:   docker compose -f docker/compose/docker-compose.runners.yml --profile prod up -d
+#   Remote:       DOCKER_HOST=tcp://remote:2376 docker compose -f docker/compose/docker-compose.runners.yml --profile prod up -d
 
 name: onemount-runners
 
 services:
-  # Runner 1 - Primary runner (always keep running)
-  runner-1:
+  # Development runner - single runner for testing
+  runner-dev:
+    container_name: onemount-runner-dev
     build:
       context: ../..
-      dockerfile: packaging/docker/Dockerfile.github-runner
+      dockerfile: docker/Dockerfile.github-runner
     image: onemount-github-runner:latest
+    
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - RUNNER_NAME=onemount-runner-dev
+      - RUNNER_LABELS=self-hosted,linux,onemount-testing,development
+      - RUNNER_GROUP=${RUNNER_GROUP:-Default}
+      - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
+      - RUNNER_ALLOW_RUNASROOT=1
+    
+    volumes:
+      - runner-dev-work:/opt/actions-runner/_work
+      - runner-dev-workspace:/workspace
+      - runner-dev-tokens:/opt/onemount-ci
+    
+    tmpfs:
+      - /tmp:exec
+      - /opt/actions-runner/_update
+    
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    
+    network_mode: bridge
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    user: "0:0"
+    restart: "no"
+    
+    command: ["shell"]
+    
+    profiles:
+      - dev
+      - development
+
+  # Production runner 1 - primary runner
+  runner-1:
     container_name: onemount-runner-1
-
-
-    # Environment configuration
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.github-runner
+    image: onemount-github-runner:latest
+    
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - RUNNER_NAME=onemount-runner-1
-      - RUNNER_LABELS=self-hosted,linux,onemount-testing,optimized
+      - RUNNER_LABELS=self-hosted,linux,onemount-testing,production
       - RUNNER_GROUP=${RUNNER_GROUP:-Default}
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
       - RUNNER_ALLOW_RUNASROOT=1
-
-    # Mount configuration
+    
     volumes:
       - runner-1-work:/opt/actions-runner/_work
       - runner-1-workspace:/workspace
       - runner-1-tokens:/opt/onemount-ci
-      # Note: .runner and .credentials directories are not mounted to avoid permission issues
-
-    # Use tmpfs for update directories to avoid permission issues
+    
     tmpfs:
       - /tmp:exec
       - /opt/actions-runner/_update
     
-    # Enable FUSE support for filesystem testing
     devices:
       - /dev/fuse:/dev/fuse
     cap_add:
@@ -46,53 +90,46 @@ services:
     security_opt:
       - apparmor:unconfined
     
-    # Network configuration
     network_mode: bridge
     dns:
       - 8.8.8.8
       - 8.8.4.4
-
-    # Run as root to fix permissions, then switch to runner user
-    user: "0:0"
     
-    # Restart policy
+    user: "0:0"
     restart: unless-stopped
     
-    # Default command
     command: ["run"]
+    
+    profiles:
+      - prod
+      - production
 
-  # Runner 2 - Secondary runner (start/stop as needed)
+  # Production runner 2 - secondary runner
   runner-2:
+    container_name: onemount-runner-2
     build:
       context: ../..
-      dockerfile: packaging/docker/Dockerfile.github-runner
+      dockerfile: docker/Dockerfile.github-runner
     image: onemount-github-runner:latest
-    container_name: onemount-runner-2
-
-
-    # Environment configuration
+    
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - RUNNER_NAME=onemount-runner-2
-      - RUNNER_LABELS=self-hosted,linux,onemount-testing,optimized
+      - RUNNER_LABELS=self-hosted,linux,onemount-testing,production
       - RUNNER_GROUP=${RUNNER_GROUP:-Default}
       - AUTH_TOKENS_B64=${AUTH_TOKENS_B64:-}
       - RUNNER_ALLOW_RUNASROOT=1
-
-    # Mount configuration
+    
     volumes:
       - runner-2-work:/opt/actions-runner/_work
       - runner-2-workspace:/workspace
       - runner-2-tokens:/opt/onemount-ci
-      # Note: .runner and .credentials directories are not mounted to avoid permission issues
-
-    # Use tmpfs for update directories to avoid permission issues
+    
     tmpfs:
       - /tmp:exec
       - /opt/actions-runner/_update
     
-    # Enable FUSE support for filesystem testing
     devices:
       - /dev/fuse:/dev/fuse
     cap_add:
@@ -100,43 +137,41 @@ services:
     security_opt:
       - apparmor:unconfined
     
-    # Network configuration
     network_mode: bridge
     dns:
       - 8.8.8.8
       - 8.8.4.4
-
-    # Run as root to fix permissions, then switch to runner user
-    user: "0:0"
     
-    # Restart policy
+    user: "0:0"
     restart: unless-stopped
     
-    # Default command
     command: ["run"]
+    
+    profiles:
+      - prod
+      - production
 
 volumes:
-  # Runner 1 persistent storage
+  # Development volumes
+  runner-dev-work:
+    driver: local
+  runner-dev-workspace:
+    driver: local
+  runner-dev-tokens:
+    driver: local
+  
+  # Production volumes
   runner-1-work:
     driver: local
-
-  # Runner 1 workspace
   runner-1-workspace:
     driver: local
-
-  # Runner 1 authentication tokens
   runner-1-tokens:
     driver: local
-
-  # Runner 2 persistent storage
+  
   runner-2-work:
     driver: local
-
-  # Runner 2 workspace
   runner-2-workspace:
     driver: local
-
-  # Runner 2 authentication tokens
   runner-2-tokens:
     driver: local
 

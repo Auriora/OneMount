@@ -1,5 +1,7 @@
-# Dockerfile for OneMount GitHub Actions Self-Hosted Runner
-# Based on the base image with GitHub Actions runner capabilities
+# Development Dockerfile for OneMount GitHub Actions Self-Hosted Runner
+# Extends the production base image with development-specific configurations
+# For production runner, see: packaging/docker/Dockerfile.github-runner
+
 FROM onemount-base
 
 # Set GitHub Actions specific environment variables
@@ -14,6 +16,9 @@ RUN apt-get update && apt-get install -y \
     tar \
     sudo \
     jq \
+    # Development tools
+    vim \
+    less \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI for elastic manager
@@ -29,7 +34,7 @@ ENV GOCACHE="/tmp/go-cache"
 ENV GOMODCACHE="/home/runner/go/pkg/mod"
 ENV GOSUMDB="sum.golang.org"
 
-# Create runner user with sudo access (extending base fuse group)
+# Create runner user with sudo access
 RUN useradd -m -s /bin/bash -G fuse,sudo runner && \
     echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     mkdir -p /workspace && \
@@ -63,9 +68,9 @@ RUN mkdir -p /home/runner/.onemount-tests/tmp && \
     sudo chown runner:runner /opt/onemount-ci
 
 # Copy runner entrypoint, workspace init, and token manager scripts
-COPY packaging/docker/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
-COPY packaging/docker/init-workspace.sh /usr/local/bin/init-workspace.sh
-COPY packaging/docker/token-manager.sh /usr/local/bin/token-manager.sh
+COPY docker/scripts/runner-entrypoint.sh /usr/local/bin/runner-entrypoint.sh
+COPY docker/scripts/init-workspace.sh /usr/local/bin/init-workspace.sh
+COPY docker/scripts/token-manager.sh /usr/local/bin/token-manager.sh
 COPY .env /workspace/.env
 USER root
 RUN chmod +x /usr/local/bin/runner-entrypoint.sh && \
@@ -86,8 +91,8 @@ ENTRYPOINT ["/usr/local/bin/runner-entrypoint.sh"]
 CMD ["--help"]
 
 # Add labels for better image management
-LABEL org.opencontainers.image.title="OneMount GitHub Runner"
-LABEL org.opencontainers.image.description="Docker image for running GitHub Actions workflows for OneMount (extends onemount-base)"
+LABEL org.opencontainers.image.title="OneMount GitHub Runner (Development)"
+LABEL org.opencontainers.image.description="Development Docker image for running GitHub Actions workflows (extends onemount-base)"
 LABEL org.opencontainers.image.vendor="Auriora"
 LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
 LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"

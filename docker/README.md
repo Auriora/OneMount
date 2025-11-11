@@ -1,16 +1,31 @@
 # Docker Configuration for OneMount
 
-This directory contains Docker-related configuration files for OneMount development and deployment.
+This directory contains Docker-related configuration files for OneMount **development and testing**.
+
+For **production** Docker files (packaging, deployment), see `packaging/docker/`.
 
 ## Directory Structure
 
 ```
 docker/
-├── compose/                    # Docker Compose configurations
-│   ├── docker-compose.runner.yml    # Local GitHub Actions runner
-│   └── docker-compose.remote.yml    # Remote Docker host runner
-└── README.md                   # This file
+├── Dockerfile.github-runner         # Development runner (extends production)
+├── Dockerfile.test-runner           # Development test runner (extends production)
+├── compose/                         # Docker Compose configurations
+│   ├── docker-compose.build.yml     # Image building
+│   ├── docker-compose.test.yml      # Testing workflows
+│   ├── docker-compose.runner.yml    # Single runner (development)
+│   ├── docker-compose.runners.yml   # Multi-runner (production)
+│   └── docker-compose.remote.yml    # Remote deployment
+├── DOCKER_ORGANIZATION.md           # Detailed organization guide
+└── README.md                        # This file
 ```
+
+## Production vs Development
+
+- **Development files** (this directory): Include debugging tools, verbose logging, interactive features
+- **Production files** (`packaging/docker/`): Minimal, optimized, security-focused
+
+See `DOCKER_ORGANIZATION.md` for detailed explanation of the file organization.
 
 ## Docker Compose Files
 
@@ -43,15 +58,20 @@ docker/
 ## Related Files
 
 ### Dockerfiles
-- `packaging/docker/Dockerfile.github-runner` - Main runner image
+- `docker/Dockerfile.github-runner` - Development runner image
+- `docker/Dockerfile.test-runner` - Development test runner image
+- `packaging/docker/Dockerfile.base` - Base image (shared)
 - `packaging/docker/Dockerfile.deb-builder` - Package building image
-- `packaging/docker/Dockerfile.test-runner` - Test environment image
 
 ### Scripts
 - `scripts/manage-runner.sh` - Local runner management
 - `scripts/manage-runners.sh` - Simple 2-runner management
 - `scripts/deploy-docker-remote.sh` - Remote deployment management
-- `packaging/docker/runner-entrypoint.sh` - Runner container entrypoint
+- `docker/scripts/runner-entrypoint.sh` - Runner container entrypoint
+- `docker/scripts/test-entrypoint.sh` - Test container entrypoint
+- `docker/scripts/init-workspace.sh` - Workspace initialization
+- `docker/scripts/token-manager.sh` - Token management
+- `docker/scripts/python-helper.sh` - Python helper utilities
 
 ### Documentation
 - `docs/docker-self-hosted-runner.md` - Local runner setup guide

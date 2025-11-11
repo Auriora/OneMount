@@ -1,61 +1,42 @@
-# Docker Compose configuration for building OneMount test images
-# Use this file when you want to build images, not just run tests
-# Run from project root directory
+# Docker Compose configuration for building OneMount binaries and packages
+# This file runs containers that perform builds
+# Images will be built automatically if not present
+
+name: onemount-build
 
 services:
-  # Build service for base image
-  base-build:
+  # Build OneMount binaries
+  build-binaries:
+    container_name: onemount-build-binaries
     build:
       context: ../..
-      dockerfile: packaging/docker/Dockerfile.base
-      cache_from:
-        - onemount-base:${ONEMOUNT_VERSION:-0.1.0rc1}
+      dockerfile: packaging/deb/docker/Dockerfile
       args:
         - BUILDKIT_INLINE_CACHE=1
-    image: onemount-base:${ONEMOUNT_VERSION:-0.1.0rc1}
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-deb-builder:${ONEMOUNT_VERSION:-latest}
+    volumes:
+      - ../..:/build:rw
+      - ../../build:/workspace/build:rw
+    working_dir: /build
+    command: ["binaries", "--output", "/workspace/build"]
     profiles:
-      - build
-      - build-dev
-      - build-no-cache
+      - binaries
+      - all
 
-  # Build service for test runner image
-  test-runner-build:
+  # Clean build artifacts
+  clean-build:
+    container_name: onemount-clean-build
     build:
       context: ../..
-      dockerfile: packaging/docker/Dockerfile.test-runner
-      cache_from:
-        - onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}
+      dockerfile: packaging/deb/docker/Dockerfile
       args:
         - BUILDKIT_INLINE_CACHE=1
-        - BASE_IMAGE=onemount-base:${ONEMOUNT_VERSION:-0.1.0rc1}
-    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}}
-    depends_on:
-      - base-build
+        - ONEMOUNT_VERSION=${ONEMOUNT_VERSION:-0.1.0rc1}
+    image: onemount-deb-builder:${ONEMOUNT_VERSION:-latest}
+    volumes:
+      - ../..:/build:rw
+    working_dir: /build
+    command: ["clean"]
     profiles:
-      - build
-
-  # Development build variant
-  test-runner-dev-build:
-    build:
-      context: ../..
-      dockerfile: packaging/docker/Dockerfile.test-runner
-      cache_from:
-        - onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}-dev
-        - onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}
-      args:
-        - BUILDKIT_INLINE_CACHE=1
-    image: onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}-dev
-    profiles:
-      - build-dev
-
-  # No-cache build for clean rebuilds
-  test-runner-no-cache-build:
-    build:
-      context: ../..
-      dockerfile: packaging/docker/Dockerfile.test-runner
-      no_cache: true
-      args:
-        - BUILDKIT_INLINE_CACHE=1
-    image: ${ONEMOUNT_TEST_IMAGE:-onemount-test-runner:${ONEMOUNT_VERSION:-0.1.0rc1}}
-    profiles:
-      - build-no-cache
+      - clean

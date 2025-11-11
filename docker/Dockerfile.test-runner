@@ -1,8 +1,11 @@
-# Dockerfile for running OneMount tests in isolation
-# Provides a clean, reproducible environment for all test types
+# Development Dockerfile for running OneMount tests
+# Extends the production base image with development-specific configurations
+# For production test runner, see: packaging/docker/Dockerfile.test-runner
+
 ARG BASE_IMAGE=onemount-base:0.1.0rc1
 FROM ${BASE_IMAGE}
-# Define version arg for labels (avoid UndefinedVar warnings)
+
+# Define version arg for labels
 ARG ONEMOUNT_VERSION=0.1.0rc1
 
 # Install additional dependencies for testing
@@ -17,6 +20,9 @@ RUN apt-get update && apt-get install -y \
     netcat-openbsd \
     # Process management
     psmisc \
+    # Development tools
+    vim \
+    less \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +32,6 @@ ENV GOCACHE="/tmp/go-cache"
 ENV GOMODCACHE="/tmp/go-mod-cache"
 
 # Install Python dependencies for OneMount development CLI
-# Copy requirements file first for better Docker layer caching
 COPY scripts/requirements-dev-cli.txt /tmp/requirements-dev-cli.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements-dev-cli.txt && \
     rm /tmp/requirements-dev-cli.txt
@@ -48,13 +53,14 @@ WORKDIR /workspace
 # Copy go.mod and go.sum first for better caching
 COPY --chown=tester:tester go.mod go.sum ./
 
-# Download dependencies (this layer will be cached unless go.mod/go.sum changes)
-RUN go mod download
+# Download dependencies with BuildKit cache mount
+RUN --mount=type=cache,target=/tmp/go-mod-cache,uid=1000 \
+    --mount=type=cache,target=/tmp/go-cache,uid=1000 \
+    go mod download
 
-# Copy only required source to maximize cache hits (avoid copying entire repo)
+# Copy only required source to maximize cache hits
 COPY --chown=tester:tester cmd/ ./cmd
 COPY --chown=tester:tester internal/ ./internal
-# Only the helper needed by build; avoid copying whole scripts dir
 COPY --chown=tester:tester scripts/cgo-helper.sh ./scripts/cgo-helper.sh
 
 # Create test directories
@@ -62,16 +68,18 @@ RUN mkdir -p /home/tester/.onemount-tests/tmp && \
     mkdir -p /home/tester/.onemount-tests/logs && \
     mkdir -p /home/tester/.cache/onemount
 
-# Copy test entrypoint script and Python helper script and make them executable
-COPY packaging/docker/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
-COPY packaging/docker/python-helper.sh /usr/local/bin/python-helper.sh
+# Copy test entrypoint script and Python helper script
+COPY docker/scripts/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
+COPY docker/scripts/python-helper.sh /usr/local/bin/python-helper.sh
 USER root
 RUN chmod +x /usr/local/bin/test-entrypoint.sh && \
     chmod +x /usr/local/bin/python-helper.sh
 USER tester
 
-# Pre-build OneMount binaries for faster test execution
-RUN bash scripts/cgo-helper.sh && \
+# Pre-build OneMount binaries for faster test execution with BuildKit cache
+RUN --mount=type=cache,target=/tmp/go-mod-cache,uid=1000 \
+    --mount=type=cache,target=/tmp/go-cache,uid=1000 \
+    bash scripts/cgo-helper.sh && \
     mkdir -p build/binaries && \
     CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
         -o build/binaries/onemount \
@@ -87,8 +95,8 @@ ENTRYPOINT ["/usr/local/bin/test-entrypoint.sh"]
 CMD ["help"]
 
 # Add labels for better image management
-LABEL org.opencontainers.image.title="OneMount Test Runner"
-LABEL org.opencontainers.image.description="Docker image for running OneMount tests in isolation (extends onemount-base)"
+LABEL org.opencontainers.image.title="OneMount Test Runner (Development)"
+LABEL org.opencontainers.image.description="Development Docker image for running OneMount tests (extends onemount-base)"
 LABEL org.opencontainers.image.vendor="Auriora"
 LABEL org.opencontainers.image.source="https://github.com/Auriora/OneMount"
 LABEL org.opencontainers.image.version="${ONEMOUNT_VERSION:-0.1.0rc1}"
