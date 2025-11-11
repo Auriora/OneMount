@@ -564,7 +564,7 @@ test:
 - [Test Setup Documentation](../../test-artifacts/TEST_SETUP.md)
 - [Docker Compose Test Configuration](../../docker/compose/docker-compose.test.yml)
 - [Docker Compose Build Configuration](../../docker/compose/docker-compose.build.yml)
-- [Base Dockerfile](../../packaging/docker/Dockerfile.base)
+- [Base Dockerfile](../../packaging/docker/Dockerfile)
 - [Test Runner Dockerfile](../../packaging/docker/Dockerfile.test-runner)
 - [Test Entrypoint Script](../../packaging/docker/test-entrypoint.sh)
 - [System Verification Design](../../.kiro/specs/system-verification-and-fix/design.md)

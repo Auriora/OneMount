@@ -65,7 +65,7 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm shell
 
 When making changes to improve the Docker test environment:
 
-1. **Update Dockerfiles**: Modify `packaging/docker/Dockerfile.base` or `Dockerfile.test-runner`
+1. **Update Dockerfiles**: Modify `packaging/docker/Dockerfile` or `Dockerfile.test-runner`
 2. **Rebuild Images**: Run `docker compose -f docker/compose/docker-compose.build.yml build`
 3. **Update Documentation**: Update `docs/TEST_SETUP.md` and `docs/testing/docker-test-environment.md`
 4. **Test Changes**: Verify all test types still work (unit, integration, system)

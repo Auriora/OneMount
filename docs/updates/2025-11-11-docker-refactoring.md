@@ -30,7 +30,7 @@ Refactored Docker environment to clearly separate production and development con
 - `docker/scripts/` - Entrypoint and helper scripts (moved from packaging)
 
 **Cleaned Up Production Files** (`packaging/docker/`):
-- `packaging/docker/Dockerfile.base` - Shared base image (kept)
+- `packaging/docker/Dockerfile` - Shared base image (kept)
 - `packaging/docker/Dockerfile.deb-builder` - Package builder (kept)
 - `packaging/docker/docker-compose.yml` - Production packaging/deployment (new)
 - `packaging/docker/install-deps.sh` - Dependency installation (kept)
@@ -103,7 +103,7 @@ Refactored Docker environment to clearly separate production and development con
 **Updated compose files to reference correct Dockerfiles**:
 - Development compose files → `docker/Dockerfile.*`
 - Production compose file → `packaging/docker/docker-compose.yml`
-- Base image always from → `packaging/docker/Dockerfile.base`
+- Base image always from → `packaging/docker/Dockerfile`
 
 **Updated Dockerfiles to reference new script locations**:
 - All COPY commands for scripts now reference `docker/scripts/`
@@ -179,7 +179,7 @@ Refactored Docker environment to clearly separate production and development con
 - `packaging/docker/Dockerfile.test-runner` - Replaced by development version in `docker/`
 
 ### Unchanged Files
-- `packaging/docker/Dockerfile.base` - Shared base image
+- `packaging/docker/Dockerfile` - Shared base image
 - `packaging/docker/Dockerfile.deb-builder` - Package builder
 - `packaging/docker/install-deps.sh` - Dependency installation
 - `packaging/docker/.dockerignore` - Build context exclusions

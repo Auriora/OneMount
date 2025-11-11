@@ -13,7 +13,7 @@ Task 1 "Review and validate Docker test environment" has been completed successf
 - `.devcontainer/devcontainer.json` - DevContainer settings
 - `docker/compose/docker-compose.test.yml` - Test execution configuration
 - `docker/compose/docker-compose.build.yml` - Image build configuration
-- `packaging/docker/Dockerfile.base` - Base image (Ubuntu 24.04, Go 1.24.2, FUSE3)
+- `packaging/docker/Dockerfile` - Base image (Ubuntu 24.04, Go 1.24.2, FUSE3)
 - `packaging/docker/Dockerfile.test-runner` - Test runner image
 - `packaging/docker/test-entrypoint.sh` - Test execution entrypoint
 

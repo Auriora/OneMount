@@ -161,7 +161,7 @@ The steering rule update has been verified:
 ### Supporting Documentation
 - `docker/compose/docker-compose.test.yml` - Test execution configuration
 - `docker/compose/docker-compose.build.yml` - Image build configuration
-- `packaging/docker/Dockerfile.base` - Base image definition
+- `packaging/docker/Dockerfile` - Base image definition
 - `packaging/docker/Dockerfile.test-runner` - Test runner image
 - `packaging/docker/test-entrypoint.sh` - Test execution script
 

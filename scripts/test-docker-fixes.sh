@@ -58,7 +58,7 @@ if docker image inspect onemount-base:latest >/dev/null 2>&1; then
 else
     print_warning "Base image 'onemount-base:latest' not found"
     print_info "Building base image..."
-    if docker build -f packaging/docker/Dockerfile.base -t onemount-base:latest . >/dev/null 2>&1; then
+    if docker build -f packaging/docker/Dockerfile -t onemount-base:latest . >/dev/null 2>&1; then
         print_success "Base image built successfully"
     else
         print_error "Failed to build base image"
