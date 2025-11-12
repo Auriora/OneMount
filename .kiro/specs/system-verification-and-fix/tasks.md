@@ -767,8 +767,8 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 14: Integration and End-to-End Testing
 
-- [-] 16. Run comprehensive integration tests with real OneDrive
-- [ ] 16.1 Test authentication to file access with real OneDrive
+- [x] 16. Run comprehensive integration tests with real OneDrive
+- [x] 16.1 Test authentication to file access with real OneDrive
   - Test complete flow: authenticate → mount → list files → read file
   - Verify each step works correctly
   - Check error handling at each step
@@ -779,14 +779,14 @@ This implementation plan breaks down the verification and fix process into discr
   - Document results in `docs/verification-tracking.md` Phase 13 section
   - _Requirements: 11.1_
 
-- [ ] 16.2 Test file modification to sync with real OneDrive
+- [x] 16.2 Test file modification to sync with real OneDrive
   - Test flow: create file → modify → upload → verify on OneDrive
   - Check that all steps complete
   - Verify file appears correctly on OneDrive
   - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.2_
 
-- [ ] 16.3 Test offline mode with real OneDrive
+- [x] 16.3 Test offline mode with real OneDrive
   - Test flow: online → access files → go offline → access cached files → go online
   - Verify offline detection works
   - Check that cached files remain accessible
@@ -794,14 +794,14 @@ This implementation plan breaks down the verification and fix process into discr
   - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.3_
 
-- [ ] 16.4 Test conflict resolution with real OneDrive
+- [x] 16.4 Test conflict resolution with real OneDrive
   - Test flow: modify file locally → modify remotely → sync → verify conflict copy
   - Check that both versions are preserved
   - Verify conflict is detected correctly
   - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.4_
 
-- [ ] 16.5 Test cache cleanup with real OneDrive
+- [x] 16.5 Test cache cleanup with real OneDrive
   - Test flow: access files → wait for expiration → trigger cleanup → verify old files removed
   - Check that cleanup respects expiration settings
   - Verify recent files are retained
@@ -826,24 +826,24 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify all files download correctly
   - _Requirements: 3.2, 4.3, 10.1, 10.2_
 
-- [ ] 17.3 Test long-running operations with real OneDrive
+- [x] 17.3 Test long-running operations with real OneDrive
   - Upload a very large file (1GB+)
   - Monitor progress
   - Verify upload completes successfully
   - Test interruption and resume
-  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm -e RUN_E2E_TESTS=1 -e RUN_LONG_TESTS=1 system-tests go test -v -timeout 60m -run TestE2E_17_03 ./internal/fs`
+  - `docker compose -f docker/compose/docker-compose.test.yml run --rm -e RUN_E2E_TESTS=1 -e RUN_LONG_TESTS=1 system-tests go test -v -timeout 60m -run TestE2E_17_03 ./internal/fs`
   - Verify very large file uploads (1GB+)
   - Monitor progress throughout operation
   - Test interruption and resume functionality
   - Document results in `docs/verification-tracking.md` Phase 14 section
   - _Requirements: 4.3, 4.4_
 
-- [ ] 17.4 Test stress scenarios with real OneDrive
+- [x] 17.4 Test stress scenarios with real OneDrive
   - Perform many concurrent operations
   - Monitor resource usage (CPU, memory, network)
   - Verify system remains stable
   - Check for memory leaks
-  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm -e RUN_E2E_TESTS=1 -e RUN_STRESS_TESTS=1 system-tests go test -v -timeout 30m -run TestE2E_17_04 ./internal/fs`
+  - `docker compose -f docker/compose/docker-compose.test.yml run --rm -e RUN_E2E_TESTS=1 -e RUN_STRESS_TESTS=1 system-tests go test -v -timeout 30m -run TestE2E_17_04 ./internal/fs`
   - Verify many concurrent operations work correctly
   - Monitor resource usage (CPU, memory, network)
   - Verify system remains stable under load
@@ -855,39 +855,307 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 15: Issue Resolution
 
-- [ ] 18. Fix critical issues
-  - Review all issues marked as "critical" priority
-  - For each critical issue:
-    - Analyze root cause
-    - Design fix
-    - Implement fix
-    - Write test to verify fix
-    - Run regression tests
-    - Update documentation
+- [x] 18. Fix critical issues
+  - Review all issues marked as "critical" priority in `docs/verification-tracking.md`
+  - **Status**: No critical issues identified (0 issues)
   - _Requirements: All_
 
-- [ ] 19. Fix high-priority issues
-  - Review all issues marked as "high" priority
-  - For each high-priority issue:
-    - Analyze root cause
-    - Design fix
-    - Implement fix
-    - Write test to verify fix
-    - Run regression tests
-    - Update documentation
+- [x] 19. Fix high-priority issues
+  - Review all issues marked as "high" priority in `docs/verification-tracking.md`
+  - **Status**: No high-priority issues identified (0 issues)
   - _Requirements: All_
 
 - [ ] 20. Fix medium-priority issues
-  - Review all issues marked as "medium" priority
+  - Review all issues marked as "medium" priority in `docs/verification-tracking.md`
+  - **Total**: 16 medium-priority issues identified
   - Prioritize based on impact and effort
-  - For each selected issue:
-    - Analyze root cause
-    - Design fix
-    - Implement fix
-    - Write test to verify fix
-    - Run regression tests
-    - Update documentation
-  - _Requirements: All_
+  
+- [ ] 20.1 Fix Issue #001: Mount Timeout in Docker Container
+  - **Status**: ✅ RESOLVED (2025-11-12)
+  - **Component**: Filesystem Mounting
+  - **Fix**: Added `--mount-timeout` flag with configurable timeout
+  - **Documentation**: `docs/fixes/mount-timeout-fix.md`
+  - _Requirements: 2.1, 2.2_
+
+- [ ] 20.2 Fix Issue #002: ETag-Based Cache Validation Location Unclear
+  - **Component**: File Operations / Download Manager
+  - **Action**: Review download manager and Graph API layer for ETag validation
+  - **Tasks**:
+    - Review `internal/fs/download_manager.go` for ETag validation
+    - Review `internal/graph/` HTTP request code for `if-none-match` header
+    - Update design documentation to clarify where ETag validation occurs
+    - Add integration tests to verify 304 Not Modified handling
+    - Add code comments explaining the validation flow
+  - **Estimate**: 4 hours
+  - _Requirements: 3.4, 3.5, 3.6_
+
+- [ ] 20.3 Fix Issue #008: Upload Manager - Memory Usage for Large Files
+  - **Component**: Upload Manager
+  - **Action**: Implement streaming upload for files > 100MB
+  - **Tasks**:
+    - Replace `Data []byte` field with `ContentReader io.ReadSeeker`
+    - Implement chunked reading from disk
+    - Add memory usage metrics to upload manager
+    - Test with large files (> 100MB)
+    - Document memory requirements
+  - **Estimate**: 8 hours
+  - _Requirements: 4.3, 11.1_
+
+- [ ] 20.4 Fix Issue #OF-001: Read-Write vs Read-Only Offline Mode
+  - **Component**: Offline Mode
+  - **Action**: Update requirements to match implementation (RECOMMENDED)
+  - **Tasks**:
+    - Update Requirement 6.3 to specify read-write offline mode with change queuing
+    - Update design documentation to reflect current behavior
+    - Add explicit requirement for change queuing
+    - Document conflict resolution strategy for offline changes
+  - **Estimate**: 1 hour (requirements update)
+  - _Requirements: 6.3_
+
+- [ ] 20.5 Fix Issue #FS-001: D-Bus GetFileStatus Returns Unknown
+  - **Component**: File Status / D-Bus Server
+  - **Action**: Add GetPath() method or implement path-to-ID mapping
+  - **Tasks**:
+    - Option 1: Add `GetPath(id string) string` method to FilesystemInterface
+    - Option 2: Implement path-to-ID mapping in D-Bus server
+    - Update GetFileStatus to return actual status
+    - Add integration tests for D-Bus method calls
+  - **Estimate**: 2-3 hours
+  - _Requirements: 8.2_
+
+- [ ] 20.6 Fix Issue #PERF-001: No Documented Lock Ordering Policy
+  - **Component**: Concurrency / Locking
+  - **Action**: Document lock ordering policy
+  - **Tasks**:
+    - Create `docs/guides/developer/concurrency-guidelines.md`
+    - Document lock acquisition order (e.g., filesystem lock before inode lock)
+    - Add examples of correct usage
+    - Update code comments with lock ordering notes
+    - Review all code that acquires multiple locks
+  - **Estimate**: 4 hours
+  - _Requirements: 10.1, 10.4_
+
+- [ ] 20.7 Fix Issue #PERF-002: Network Callbacks Lack Wait Group Tracking
+  - **Component**: Network Feedback / Goroutine Management
+  - **Action**: Add wait group tracking for callback goroutines
+  - **Tasks**:
+    - Add WaitGroup to NetworkFeedbackManager
+    - Track callback goroutines with WaitGroup.Add/Done
+    - Add timeout for callback completion during shutdown
+    - Test graceful shutdown with active callbacks
+  - **Estimate**: 2 hours
+  - _Requirements: 10.5_
+
+- [ ] 20.8 Fix Issue #PERF-003: Inconsistent Timeout Values
+  - **Component**: Shutdown / Configuration
+  - **Action**: Standardize timeout values across components
+  - **Tasks**:
+    - Create configuration for timeout values
+    - Update all managers to use standard timeouts
+    - Document timeout policy
+    - Make timeouts configurable via command-line or config file
+  - **Estimate**: 2 hours
+  - _Requirements: 10.5_
+
+- [ ] 20.9 Fix Issue #PERF-004: Inode Embeds Mutex
+  - **Component**: Inode / Locking
+  - **Action**: Change Inode to use pointer to mutex
+  - **Tasks**:
+    - Modify Inode struct to use `*sync.RWMutex` instead of embedded mutex
+    - Update all code that accesses inode mutex
+    - Run full test suite to verify no regressions
+    - Run race detector to verify thread safety
+  - **Estimate**: 4 hours
+  - _Requirements: 10.1_
+
+- [ ] 20.10 Fix Issue #CACHE-001: No Cache Size Limit Enforcement
+  - **Component**: Cache Management
+  - **Action**: Implement LRU eviction with size limit
+  - **Tasks**:
+    - Add cache size tracking to LoopbackCache
+    - Implement LRU eviction algorithm
+    - Add configuration for max cache size
+    - Update CleanupCache to enforce size limits
+    - Add cache size metrics to GetStats()
+    - Document cache management behavior
+  - **Estimate**: 6-8 hours
+  - _Requirements: 7.2, 7.3_
+
+- [ ] 20.11 Fix Issue #CACHE-002: No Explicit Cache Invalidation When ETag Changes
+  - **Component**: Cache Management / Delta Sync
+  - **Action**: Add explicit cache invalidation in delta sync
+  - **Tasks**:
+    - Add explicit cache invalidation when ETag changes in delta sync
+    - Call `content.Delete(id)` for modified files
+    - Mark file status as OutofSync
+    - Add integration test for ETag-based invalidation
+    - Document cache invalidation behavior
+  - **Estimate**: 3-4 hours
+  - _Requirements: 7.3, 7.4, 5.3_
+
+- [ ] 20.12 Fix Issue #CACHE-003: Statistics Collection Slow for Large Filesystems
+  - **Component**: Cache Management / Statistics
+  - **Action**: Optimize statistics collection
+  - **Tasks**:
+    - Implement incremental statistics updates
+    - Cache frequently accessed statistics with TTL
+    - Use background goroutines for expensive calculations
+    - Implement sampling for very large datasets
+    - Add pagination support for statistics display
+    - Optimize database queries with better indexing
+  - **Estimate**: 8-12 hours
+  - _Requirements: 7.5, 10.3_
+
+- [ ] 20.13 Fix Issue #CACHE-004: Fixed 24-Hour Cleanup Interval
+  - **Component**: Cache Management
+  - **Action**: Make cleanup interval configurable
+  - **Tasks**:
+    - Add `--cache-cleanup-interval` command-line flag
+    - Add configuration option to config file
+    - Update `StartCacheCleanup()` to use configured interval
+    - Document cleanup interval configuration
+    - Add validation for reasonable intervals (1 hour to 30 days)
+  - **Estimate**: 2-3 hours
+  - _Requirements: 7.2_
+
+- [ ] 20.14 Fix Issue #FS-003: No Error Handling for Extended Attributes
+  - **Component**: File Status
+  - **Action**: Add error handling for xattr operations
+  - **Tasks**:
+    - Add error handling for xattr operations in updateFileStatus()
+    - Log warnings when xattr operations fail
+    - Track xattr support status per mount point
+    - Document filesystem requirements for full functionality
+    - Consider adding status to GetStats() output
+  - **Estimate**: 1-2 hours
+  - _Requirements: 8.1, 8.4_
+
+- [ ] 20.15 Fix Issue #FS-004: Status Determination Performance
+  - **Component**: File Status
+  - **Action**: Optimize status determination
+  - **Tasks**:
+    - Profile status determination performance
+    - Add caching of determination results with TTL
+    - Batch database queries for multiple files
+    - Optimize hash calculation (only when needed)
+    - Add invalidation on relevant events
+    - Consider lazy evaluation for non-visible files
+  - **Estimate**: 4-6 hours
+  - _Requirements: 8.1, 10.3_
+
+- [ ] 20.16 Fix Issue #FS-002: D-Bus Service Name Discovery Problem
+  - **Component**: D-Bus Server / Nemo Extension
+  - **Action**: Implement service discovery mechanism
+  - **Tasks**:
+    - Option 1: Use well-known service name without unique suffix
+    - Option 2: Implement service discovery mechanism (e.g., via D-Bus introspection)
+    - Option 3: Write service name to known location (e.g., /tmp/onemount-dbus-name)
+    - Update Nemo extension to discover service name
+    - Test with multiple OneMount instances
+  - **Estimate**: 3-4 hours
+  - _Requirements: 8.2, 8.3_
+
+- [ ] 21. Address ACTION REQUIRED items
+  - Review all "ACTION REQUIRED" items in verification documents
+  - **Total**: 8 action items identified
+
+- [ ] 21.1 Update Requirements for Offline Mode
+  - **Source**: Issue #OF-001, `docs/verification-tracking.md`
+  - **Action**: Update Requirement 6.3 to specify read-write offline mode
+  - **Tasks**:
+    - Update Requirement 6.3: "WHILE offline, THE OneMount System SHALL allow read and write operations with changes queued for synchronization when connectivity is restored"
+    - Add Requirement 6.3.1: "WHEN a file is modified offline, THE OneMount System SHALL track the change in persistent storage for later upload"
+    - Add Requirement 6.3.2: "WHEN multiple changes are made to the same file offline, THE OneMount System SHALL preserve the most recent version for upload"
+    - Ensure requirements match implementation for change queuing
+    - Ensure requirements match implementation for online transition
+    - Ensure requirements match implementation for file status integration
+  - **Estimate**: 2 hours
+  - _Requirements: 6.3, 6.4, 6.5_
+
+- [ ] 21.2 Document Mounting Features in Requirements
+  - **Source**: `docs/verification-phase4-mounting.md`
+  - **Action**: Update requirements to document daemon mode and stale lock detection
+  - **Tasks**:
+    - Add requirement for daemon mode functionality (background operation)
+    - Add requirement for stale lock file detection and cleanup mechanism (>5 minutes threshold)
+    - Document mount timeout configuration
+    - Update design documentation with these features
+  - **Estimate**: 1 hour
+  - _Requirements: 2.1, 2.2_
+
+- [ ] 21.3 Add Download Manager Configuration Requirements
+  - **Source**: `docs/verification-phase5-download-manager-review.md`
+  - **Action**: Add requirements for configurable download manager parameters
+  - **Tasks**:
+    - Add requirement for worker pool size configuration (default: 3, range: 1-10)
+    - Add requirement for recovery attempts limit (default: 3, range: 1-10)
+    - Add requirement for queue size configuration (default: 500, range: 100-5000)
+    - Add requirement for chunk size configuration (default: 10MB, range: 1MB-100MB)
+    - Document reasonable defaults and valid ranges
+  - **Estimate**: 1 hour
+  - _Requirements: 3.2, 3.4, 3.5_
+
+- [ ] 21.4 Document Cache Behavior for Deleted Files
+  - **Source**: `docs/verification-phase4-file-write-operations.md`
+  - **Action**: Document why deleted files remain in cache
+  - **Tasks**:
+    - Document use case for keeping deleted files in cache:
+      - Performance optimization - avoid re-downloading if file is restored
+      - Undo/recovery functionality
+      - Cache cleanup happens separately via time-based expiration
+    - Verify this is intentional design
+    - Add to cache management requirements
+    - Update design documentation
+  - **Estimate**: 1 hour
+  - _Requirements: 7.1, 7.2_
+
+- [ ] 21.5 Add Directory Deletion Testing and Requirements
+  - **Source**: `docs/verification-phase4-file-write-operations.md`
+  - **Action**: Ensure directory deletion is properly tested and documented
+  - **Tasks**:
+    - Add unit tests for directory deletion logic (without server sync)
+    - Add integration tests with real OneDrive to verify server synchronization
+    - Verify directory deletion is properly handled in the code
+    - Document directory deletion behavior in requirements
+    - Note: Task 5.4 retest results already verified directory operations work correctly
+  - **Estimate**: 3 hours
+  - _Requirements: 4.1_
+
+- [ ] 21.6 Review Offline Functionality Documentation
+  - **Source**: `docs/verification-tracking.md` Phase 9
+  - **Action**: Review docs/offline-functionality.md for requirements/design elements
+  - **Tasks**:
+    - Review `docs/offline-functionality.md` (if exists)
+    - Identify requirements or design elements worth incorporating
+    - Update requirements specification with any missing elements
+    - Ensure consistency between documentation and implementation
+  - **Estimate**: 1 hour
+  - _Requirements: 6.1-6.5_
+
+- [ ] 21.7 Make XDG Volume Info Files Virtual
+  - **Source**: Issue #XDG-001, `docs/verification-tracking.md`
+  - **Action**: Ensure .xdg-volume-info files are virtual (not synced to OneDrive)
+  - **Tasks**:
+    - Review `cmd/common/xdg.go` CreateXDGVolumeInfo function
+    - Investigate why file causes I/O errors
+    - Make file virtual (not synced to OneDrive)
+    - Fix file permissions and attributes
+    - Test with various desktop environments
+    - Add error handling to prevent I/O errors
+  - **Estimate**: 1-2 hours
+  - _Requirements: 15.1_
+
+- [ ] 21.8 Add Requirements for User Notifications
+  - **Source**: Issues #OF-002, #OF-003, #OF-004
+  - **Action**: Add requirements for offline state notifications and visibility
+  - **Tasks**:
+    - Add requirement for D-Bus notifications for offline state changes
+    - Add requirement for user visibility of offline status
+    - Add requirement for cache status information for offline planning
+    - Add requirement for manual offline mode option (command-line/config)
+    - Document expected user experience for offline mode
+  - **Estimate**: 1 hour
+  - _Requirements: 6.1, 6.2_
 
 ---
 

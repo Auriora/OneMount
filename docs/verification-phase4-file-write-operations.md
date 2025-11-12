@@ -102,7 +102,11 @@ This document summarizes the findings from verifying file write operations in th
 
 **Recommendation:** No fix required. This is expected behavior. The cache is designed to persist data for performance reasons. Document this behavior in the cache implementation.
 
-**BC:** Is the correct behaviour? What is the use case for keeping the deleted file in the cache? 
+**ACTION REQUIRED**: Document the use case for keeping deleted files in cache. Possible reasons:
+1. Performance optimization - avoid re-downloading if file is restored
+2. Undo/recovery functionality
+3. Cache cleanup happens separately via time-based expiration
+4. Verify this is intentional design and document in cache management requirements 
 
 ### Issue 2: Directory Deletion in Mock Environment
 
@@ -120,7 +124,12 @@ This document summarizes the findings from verifying file write operations in th
 - Add integration tests with real OneDrive server to verify directory deletion
 - Document this limitation in the test file
 
-**BC:** If we're testing file deletion why not test directory deletion? I would classify directory deletion as a file management operation. This test need to test the code logical before testing in an integrated environment.
+**ACTION REQUIRED**: Directory deletion should be tested as part of file management operations:
+1. Add unit tests for directory deletion logic (without server sync)
+2. Add integration tests with real OneDrive to verify server synchronization
+3. Verify directory deletion is properly handled in the code
+4. Document directory deletion behavior in requirements
+5. See also: Task 5.4 retest results which verified directory operations work correctly
 ## Verification Status
 
 | Task | Status | Notes |

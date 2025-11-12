@@ -182,7 +182,9 @@ type CustomRawFileSystem struct {
 - Design doesn't explicitly mention daemon mode (but it's a useful feature)
 - Design doesn't detail the stale lock file detection (but it's a good addition)
 
-**BC:** Update the requirements with these minor deviations. 
+**ACTION REQUIRED**: Update the requirements to document:
+1. Daemon mode functionality (background operation)
+2. Stale lock file detection and cleanup mechanism (>5 minutes threshold) 
 
 ## Issues Identified
 

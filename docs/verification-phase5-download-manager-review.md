@@ -443,7 +443,12 @@ The implementation aligns well with the design document:
 3. **Queue Size**: Design doesn't specify 500 capacity
    - **Assessment**: Reasonable default, could be configurable
 
-**BC:** Add requirement(s) to make these configurable and specify reasonable defaults.
+**ACTION REQUIRED**: Add requirements to make download manager parameters configurable:
+1. Worker pool size (default: 3, range: 1-10)
+2. Recovery attempts limit (default: 3, range: 1-10)
+3. Queue size (default: 500, range: 100-5000)
+4. Chunk size for large files (default: 10MB, range: 1MB-100MB)
+5. Document reasonable defaults and valid ranges in requirements
 
 ---
 
@@ -662,7 +667,13 @@ _, err = cachedFile.Seek(0, 0)
 n, err := cachedFile.Read(buffer)
 ```
 
-**BC:** Would this affect file operations in production? 
+**Answer**: No, this does not affect file operations in production. This is standard file I/O behavior:
+- When a file is written, the file pointer is at EOF
+- Reading requires seeking to the beginning first
+- This is how all file systems work (Linux, Windows, macOS)
+- The file operations layer (file_operations.go) handles this correctly
+- Only affects direct cache access in tests
+- See Issue #006 for full documentation of this expected behavior 
 
 ### Additional Test: Cached File Access
 
