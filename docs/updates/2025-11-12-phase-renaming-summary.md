@@ -75,14 +75,14 @@ After this update, the phase structure is:
 - **Phase 2**: Architecture and Design
 - **Phase 3**: Implementation
 - **Phase 4**: Filesystem Mounting Verification (Tasks 5.1-5.8)
-- **Phase 5**: File Operations Verification (Tasks 6.x-7.x)
-- **Phase 6**: Download Manager Verification
-- **Phase 7**: Upload Manager Verification
-- **Phase 8**: Delta Sync Verification
-- **Phase 9**: Cache Management Verification
-- **Phase 10**: Offline Mode Verification
-- **Phase 11**: File Status Verification
-- **Phase 12**: Error Handling Verification
+- **Phase 5**: File Operations Verification (Tasks 6.x-8.x - includes Read, Write, Download Manager)
+- **Phase 6**: Upload Manager Verification
+- **Phase 7**: Delta Sync Verification
+- **Phase 8**: Cache Management Verification
+- **Phase 9**: Offline Mode Verification
+- **Phase 10**: File Status Verification
+- **Phase 11**: Error Handling Verification
+- **Phase 12**: Performance & Concurrency Verification
 
 ## Verification
 

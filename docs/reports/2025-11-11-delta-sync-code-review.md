@@ -185,7 +185,7 @@ local.hasChanges = false
 **Observations**:
 - ✅ Conflict detection integrated with upload manager
 - ✅ Delta sync properly updates ETags for conflict detection
-- ℹ️ Actual conflict resolution is in upload manager (verified in Phase 8)
+- ℹ️ Actual conflict resolution is in upload manager (verified in Phase 6)
 
 ---
 

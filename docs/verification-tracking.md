@@ -31,22 +31,20 @@ This document tracks the verification and fix process for the OneMount system. I
 | 2 | Test Suite Analysis | ✅ Passed | 11.1-11.5, 13.1-13.5 | 2/2 | 3 | High |
 | 3 | Authentication | ✅ Passed | 1.1-1.5 | 13/13 | 0 | Critical |
 | 4 | Filesystem Mounting | ✅ Passed | 2.1-2.5 | 8/8 | 0 | Critical |
-| 5 | File Read Operations | ✅ Passed | 3.1-3.3 | 7/7 | 4 | High |
-| 6 | File Write Operations | ✅ Passed | 4.1-4.2 | 6/6 | 0 | High |
-| 7 | Download Manager | ✅ Passed | 3.2-3.5 | 7/7 | 2 | High |
-| 8 | Upload Manager | ✅ Passed | 4.2-4.5, 5.4 | 10/10 | 2 | High |
-| 9 | Delta Synchronization | ✅ Passed | 5.1-5.5 | 8/8 | 0 | High |
-| 10 | Cache Management | ✅ Passed | 7.1-7.5 | 8/8 | 5 | Medium |
-| 11 | Offline Mode | ⚠️ Issues Found | 6.1-6.5 | 8/8 | 4 | Medium |
-| 12 | File Status & D-Bus | 🔄 In Progress | 8.1-8.5 | 1/7 | 5 | Low |
-| 13 | Error Handling | ✅ Passed | 9.1-9.5 | 7/7 | 9 | High |
-| 14 | Performance & Concurrency | ✅ Passed | 10.1-10.5 | 9/9 | 8 | Medium |
-| 15 | Integration Tests | ✅ Passed | 11.1-11.5 | 5/5 | 0 | High |
-| 16 | End-to-End Tests | ✅ Passed | All | 4/4 | 0 | High |
-| 17 | XDG Compliance | ⏸️ Not Started | 15.1-15.10 | 0/6 | 0 | Medium |
-| 18 | Webhook Subscriptions | ⏸️ Not Started | 14.1-14.12, 5.2-5.14 | 0/8 | 0 | Medium |
-| 19 | Multi-Account Support | ⏸️ Not Started | 13.1-13.8 | 0/9 | 0 | Medium |
-| 20 | ETag Cache Validation | ⏸️ Not Started | 3.4-3.6, 7.1-7.4, 8.1-8.3 | 0/6 | 0 | High |
+| 5 | File Operations | ✅ Passed | 3.1-3.3, 4.1-4.2 | 13/13 | 4 | High |
+| 6 | Upload Manager | ✅ Passed | 4.2-4.5, 5.4 | 10/10 | 2 | High |
+| 7 | Delta Synchronization | ✅ Passed | 5.1-5.5 | 8/8 | 0 | High |
+| 8 | Cache Management | ✅ Passed | 7.1-7.5 | 8/8 | 5 | Medium |
+| 9 | Offline Mode | ⚠️ Issues Found | 6.1-6.5 | 8/8 | 4 | Medium |
+| 10 | File Status & D-Bus | 🔄 In Progress | 8.1-8.5 | 1/7 | 5 | Low |
+| 11 | Error Handling | ✅ Passed | 9.1-9.5 | 7/7 | 9 | High |
+| 12 | Performance & Concurrency | ✅ Passed | 10.1-10.5 | 9/9 | 8 | Medium |
+| 13 | Integration Tests | ✅ Passed | 11.1-11.5 | 5/5 | 0 | High |
+| 14 | End-to-End Tests | ✅ Passed | All | 4/4 | 0 | High |
+| 15 | XDG Compliance | ⏸️ Not Started | 15.1-15.10 | 0/6 | 0 | Medium |
+| 16 | Webhook Subscriptions | ⏸️ Not Started | 14.1-14.12, 5.2-5.14 | 0/8 | 0 | Medium |
+| 17 | Multi-Account Support | ⏸️ Not Started | 13.1-13.8 | 0/9 | 0 | Medium |
+| 18 | ETag Cache Validation | ⏸️ Not Started | 3.4-3.6, 7.1-7.4, 8.1-8.3 | 0/6 | 0 | High |
 
 
 ---
@@ -208,7 +206,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 ---
 
-### Phase 5: File Operations Verification
+### Phase 5: File Read Operations Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 3.1, 3.2, 3.3  
@@ -234,7 +232,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 **Artifacts Created**:
 - `internal/fs/file_read_verification_test.go` (4 test cases)
-- `docs/verification-phase6-file-operations-review.md`
+- `docs/verification-phase5-file-operations-review.md`
 
 **Issues Found**:
 - Issue #002: ETag validation location unclear (Medium)
@@ -251,7 +249,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 ---
 
-### Phase 6: File Write Operations Verification
+### Phase 5: File Write Operations Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 4.1, 4.2  
@@ -274,7 +272,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 **Artifacts Created**:
 - `internal/fs/file_write_verification_test.go` (4 test cases)
-- `docs/verification-phase5-file-write-operations.md`
+- `docs/verification-phase4-file-write-operations.md`
 
 **Test Coverage**:
 - ✅ File creation with upload marking
@@ -298,7 +296,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 ---
 
-### Phase 7: Download Manager Verification
+### Phase 5: Download Manager Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 3.2, 3.4, 3.5  
@@ -323,7 +321,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 **Artifacts Created**:
 - `internal/fs/download_manager_integration_test.go` (5 test cases)
-- `docs/verification-phase6-download-manager-review.md`
+- `docs/verification-phase5-download-manager-review.md`
 
 **Test Coverage**:
 - ✅ Single file download workflow
@@ -359,7 +357,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 ---
 
-### Phase 8: Upload Manager Verification
+### Phase 6: Upload Manager Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 4.2, 4.3, 4.4, 4.5, 5.4  
@@ -386,7 +384,7 @@ This document tracks the verification and fix process for the OneMount system. I
 - `internal/fs/upload_large_file_integration_test.go` (1 test case)
 - `internal/fs/upload_retry_integration_test.go` (3 test cases)
 - `internal/fs/upload_conflict_integration_test.go` (2 test cases)
-- `docs/verification-phase7-upload-manager-review.md`
+- `docs/verification-phase6-upload-manager-review.md`
 
 **Test Coverage**:
 - ✅ Small file upload (< 4MB) using simple PUT
@@ -435,7 +433,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 ---
 
-### Phase 9: Delta Synchronization Verification
+### Phase 7: Delta Synchronization Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 5.1, 5.2, 5.3, 5.4, 5.5  
@@ -460,7 +458,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 **Artifacts Created**:
 - `internal/fs/delta_sync_integration_test.go` (8 test cases)
-- `docs/verification-phase8-delta-sync-tests-summary.md`
+- `docs/verification-phase7-delta-sync-tests-summary.md`
 
 **Test Coverage**:
 - ✅ Initial sync fetches all metadata (Requirement 5.1)
@@ -503,7 +501,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 ---
 
-### Phase 10: Cache Management Verification
+### Phase 8: Cache Management Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 7.1, 7.2, 7.3, 7.4, 7.5  
@@ -528,8 +526,8 @@ This document tracks the verification and fix process for the OneMount system. I
 
 **Artifacts Created**:
 - `internal/fs/cache_management_test.go` (5 existing test cases)
-- `docs/verification-phase11-cache-management-review.md`
-- `docs/verification-phase11-test-results.md`
+- `docs/verification-phase8-cache-management-review.md`
+- `docs/verification-phase8-test-results.md`
 
 **Test Coverage**:
 - ✅ Cache invalidation and cleanup mechanisms (TestUT_FS_Cache_01)
@@ -586,7 +584,7 @@ ok      github.com/auriora/onemount/internal/fs 0.464s
 
 ---
 
-### Phase 11: Offline Mode Verification
+### Phase 9: Offline Mode Verification
 
 **Status**: ⚠️ **Functional but Non-Compliant**  
 **Requirements**: 6.1, 6.2, 6.3, 6.4, 6.5  
@@ -694,9 +692,9 @@ The offline mode implementation consists of several key components:
 - Requirements: 4 of 5 requirements verified, 1 discrepancy found
 
 **Artifacts Created**:
-- `docs/verification-phase12-offline-mode-test-plan.md` (comprehensive test plan)
-- `docs/verification-phase12-offline-mode-issues-and-fixes.md` (issues and fix plan)
-- Updated `docs/verification-tracking.md` (Phase 11 section)
+- `docs/verification-phase9-offline-mode-test-plan.md` (comprehensive test plan)
+- `docs/verification-phase9-offline-mode-issues-and-fixes.md` (issues and fix plan)
+- Updated `docs/verification-tracking.md` (Phase 9 section)
 
 **Test Coverage**:
 - ✅ Offline state management (SetOfflineMode, GetOfflineMode, IsOffline)
@@ -741,11 +739,11 @@ The offline mode implementation consists of several key components:
 - Recommend updating requirements rather than changing implementation
 - All core offline functionality works correctly
 - Change tracking and synchronization are robust
-- Ready to proceed to Phase 12 (File Status and D-Bus Verification)
+- Ready to proceed to Phase 10 (File Status and D-Bus Verification)
 
 ---
 
-### Phase 14: Performance and Concurrency Verification
+### Phase 12: Performance and Concurrency Verification
 
 **Status**: ✅ Passed  
 **Requirements**: 10.1, 10.2, 10.3, 10.4, 10.5  
@@ -811,11 +809,11 @@ The offline mode implementation consists of several key components:
 - Most issues are minor and can be addressed incrementally
 - Recommend adding race detector to CI/CD pipeline
 - Performance benchmarks need minor import fixes
-- Ready to proceed to Phase 15 (Integration Tests)
+- Ready to proceed to Phase 13 (Integration Tests)
 
 ---
 
-### Phase 15: Comprehensive Integration Tests
+### Phase 13: Comprehensive Integration Tests
 
 **Status**: ✅ Passed  
 **Requirements**: 11.1, 11.2, 11.3, 11.4, 11.5  
@@ -894,11 +892,11 @@ The offline mode implementation consists of several key components:
 - Ready to run in Docker test environment
 - Tests complement existing unit and integration tests
 - No critical issues found during implementation
-- Ready to proceed to Phase 16 (End-to-End Tests)
+- Ready to proceed to Phase 14 (End-to-End Tests)
 
 ---
 
-### Phase 16: End-to-End Workflow Tests
+### Phase 14: End-to-End Workflow Tests
 
 **Status**: ✅ Passed  
 **Requirements**: All requirements  
@@ -1026,7 +1024,7 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm \
 - Helper functions created for common E2E test operations
 - Tests complement existing unit and integration tests
 - No critical issues found during implementation
-- Ready to proceed to Phase 17 (XDG Compliance Verification)
+- Ready to proceed to Phase 15 (XDG Compliance Verification)
 
 ---
 
