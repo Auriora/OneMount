@@ -22,7 +22,7 @@ OneMount Docker Test Runner
 
 Usage: docker run [docker-options] onemount-test-runner [COMMAND] [OPTIONS]
 
-Commands:
+Helper Commands:
   help                    Show this help message
   unit                   Run unit tests only
   integration            Run integration tests
@@ -32,20 +32,27 @@ Commands:
   shell                  Start interactive shell
   coverage               Run tests with coverage analysis
 
-Options:
+Helper Command Options:
   --verbose              Enable verbose output
   --timeout DURATION     Set test timeout (default: 5m)
   --sequential           Run tests sequentially (no parallel execution)
 
+Pass-Through Mode:
+  Any command not matching the helper commands above will be executed directly
+  after setting up the environment and building binaries.
+
 Examples:
-  # Run unit tests
+  # Run unit tests (helper command)
   docker run --rm onemount-test-runner unit
 
-  # Run all tests with verbose output
+  # Run all tests with verbose output (helper command)
   docker run --rm onemount-test-runner all --verbose
 
-  # Run system tests with custom timeout
-  docker run --rm onemount-test-runner system --timeout 30m
+  # Run specific test pattern (pass-through)
+  docker run --rm onemount-test-runner go test -v -run TestIT_FS_ETag ./internal/fs
+
+  # Run custom go command (pass-through)
+  docker run --rm onemount-test-runner go test -v -timeout 10m ./...
 
   # Start interactive shell for debugging
   docker run --rm -it onemount-test-runner shell
@@ -59,6 +66,7 @@ Notes:
   - System tests require OneDrive authentication tokens
   - Mount the project directory to /workspace
   - For system tests, copy auth tokens to workspace root as 'auth_tokens.json'
+  - Pass-through mode automatically sets up environment and builds binaries
 EOF
 }
 
@@ -428,35 +436,50 @@ run_coverage() {
 
 # Parse command line arguments
 COMMAND="${1:-help}"
-shift || true
 
 # Default values
 TIMEOUT="${ONEMOUNT_TEST_TIMEOUT:-5m}"
 VERBOSE="${ONEMOUNT_TEST_VERBOSE:-false}"
 SEQUENTIAL="false"
 
-# Parse options
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --verbose)
-            VERBOSE="true"
-            shift
-            ;;
-        --timeout)
-            TIMEOUT="$2"
-            shift 2
-            ;;
-        --sequential)
-            SEQUENTIAL="true"
-            shift
-            ;;
-        *)
-            print_error "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
-    esac
-done
+# Check if first argument is a known helper command
+case "$COMMAND" in
+    help|--help|-h)
+        show_help
+        exit 0
+        ;;
+    build|unit|integration|system|all|coverage|shell)
+        # Known helper command - parse options and execute
+        shift || true
+        
+        # Parse options for helper commands
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --verbose)
+                    VERBOSE="true"
+                    shift
+                    ;;
+                --timeout)
+                    TIMEOUT="$2"
+                    shift 2
+                    ;;
+                --sequential)
+                    SEQUENTIAL="true"
+                    shift
+                    ;;
+                *)
+                    print_error "Unknown option: $1"
+                    show_help
+                    exit 1
+                    ;;
+            esac
+        done
+        ;;
+    *)
+        # Not a helper command - pass through to execution
+        # This allows: docker run ... onemount-test-runner go test -v ./...
+        ;;
+esac
 
 # Main execution
 case "$COMMAND" in
@@ -499,8 +522,12 @@ case "$COMMAND" in
         exec /bin/bash
         ;;
     *)
-        print_error "Unknown command: $COMMAND"
-        show_help
-        exit 1
+        # Pass-through mode: setup environment and execute the command
+        print_info "Pass-through mode: executing custom command"
+        setup_environment
+        build_onemount
+        
+        print_info "Executing: $*"
+        exec "$@"
         ;;
 esac

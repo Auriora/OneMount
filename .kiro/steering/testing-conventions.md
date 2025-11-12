@@ -38,7 +38,12 @@ inclusion: always
 ./docker/scripts/build-images.sh test-runner
 ```
 
-**Run tests:**
+**The test runner supports two modes:**
+
+1. **Helper Commands** - Predefined test suites (unit, integration, system, all, coverage, shell)
+2. **Pass-Through Mode** - Any other command is executed directly after environment setup
+
+**Run predefined test suites (helper commands):**
 
 ```bash
 # Unit tests (no FUSE required, fast)
@@ -53,12 +58,35 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm system-tests
 # All tests with coverage
 docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner all
 
-# Run specific test
-docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  --entrypoint /bin/bash shell -c "go test -v -run TestName ./internal/package"
-
 # Interactive debugging shell
 docker compose -f docker/compose/docker-compose.test.yml run --rm shell
+```
+
+**Run specific tests (pass-through mode):**
+
+```bash
+# Run specific test pattern - pass-through mode automatically sets up environment
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  integration-tests go test -v -run TestIT_FS_ETag ./internal/fs
+
+# Run tests with custom timeout
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  integration-tests go test -v -timeout 10m -run TestPattern ./internal/fs
+
+# Run tests with race detector
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  integration-tests go test -v -race ./internal/...
+
+# Run benchmarks
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  integration-tests go test -v -bench=. -run=^$ ./internal/fs
+```
+
+**Key Points for AI Agents:**
+- ✅ **Use helper commands** for full test suites: `unit-tests`, `integration-tests`, `system-tests`
+- ✅ **Use pass-through mode** for specific test patterns: `integration-tests go test -v -run TestPattern ./path`
+- ✅ **Both modes work** - the entrypoint automatically detects which mode to use
+- ❌ **Don't use** `--entrypoint /bin/bash` workarounds - pass-through mode handles this
 ```
 
 ### Test Environment Details
