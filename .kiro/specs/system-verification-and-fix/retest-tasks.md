@@ -28,7 +28,7 @@ This task list focuses on running integration and end-to-end tests that require 
   - _Estimated Time: 2-3 hours_
 
 
-- [ ] 2. Phase 5: ETag Validation Tests
+- [x] 2. Phase 5: ETag Validation Tests
   - Run ETag validation integration tests
   - Execute: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_FS_ETag ./internal/fs`
   - Verify cache validation with if-none-match header
