@@ -11,6 +11,7 @@ import (
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
 // TestE2E_17_01_CompleteUserWorkflow tests the complete user workflow from authentication to file operations
@@ -53,7 +54,7 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 		authPath = "test-artifacts/.auth_tokens.json"
 	}
 
-	auth, err := graph.LoadAuth(authPath)
+	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		t.Fatalf("Failed to load authentication: %v", err)
 	}
@@ -64,29 +65,59 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 
 	t.Log("Authentication loaded successfully")
 
-	// Step 2: Create mount point
-	t.Log("Step 2: Creating mount point")
+	// Step 2: Create mount point and cache directory
+	t.Log("Step 2: Creating mount point and cache directory")
 
-	mountPoint := t.TempDir()
+	tempDir := t.TempDir()
+	mountPoint := filepath.Join(tempDir, "mount")
+	cacheDir := filepath.Join(tempDir, "cache")
+
+	if err := os.MkdirAll(mountPoint, 0755); err != nil {
+		t.Fatalf("Failed to create mount point: %v", err)
+	}
+
 	t.Logf("Mount point: %s", mountPoint)
+	t.Logf("Cache dir: %s", cacheDir)
 
 	// Create filesystem
-	fs, err := NewFilesystem(auth, mountPoint, 30)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
-
-	// Mount in background
-	_, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	mountErr := make(chan error, 1)
-	go func() {
-		mountErr <- fs.Mount()
+	defer func() {
+		fs.StopCacheCleanup()
+		fs.StopDeltaLoop()
+		fs.StopDownloadManager()
+		fs.StopUploadManager()
+		fs.StopMetadataRequestManager()
 	}()
 
+	// Mount in background using FUSE server
+	mountOptions := &fuse.MountOptions{
+		Name:          "onemount-e2e-test",
+		FsName:        "onemount-e2e-test",
+		DisableXAttrs: false,
+		MaxBackground: 1024,
+		Debug:         false,
+	}
+
+	server, err := fuse.NewServer(fs, mountPoint, mountOptions)
+	if err != nil {
+		t.Fatalf("Failed to create FUSE server: %v", err)
+	}
+	defer server.Unmount()
+
+	go server.Serve()
+
 	// Wait for mount to be ready
-	time.Sleep(3 * time.Second)
+	if err := server.WaitMount(); err != nil {
+		t.Fatalf("Failed to wait for mount: %v", err)
+	}
+
+	t.Log("Filesystem mounted successfully")
 
 	// Verify mount point is accessible
 	entries, err := os.ReadDir(mountPoint)
@@ -165,15 +196,10 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 
 	// Step 7: Unmount filesystem
 	t.Log("Step 7: Unmounting filesystem")
-	cancel()
 
-	select {
-	case err := <-mountErr:
-		if err != nil && err != context.Canceled {
-			t.Logf("Mount error (expected on unmount): %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Error("Unmount timed out")
+	err = server.Unmount()
+	if err != nil {
+		t.Logf("Unmount error (may be expected): %v", err)
 	}
 
 	time.Sleep(2 * time.Second)
@@ -181,20 +207,35 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 	// Step 8: Remount filesystem
 	t.Log("Step 8: Remounting filesystem")
 
-	fs2, err := NewFilesystem(auth, mountPoint, 30)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel2()
+
+	cacheDir2 := filepath.Join(tempDir, "cache2")
+	fs2, err := NewFilesystemWithContext(ctx2, auth, cacheDir2, 30)
 	if err != nil {
 		t.Fatalf("Failed to create new filesystem instance: %v", err)
 	}
-
-	_, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel2()
-
-	mountErr2 := make(chan error, 1)
-	go func() {
-		mountErr2 <- fs2.Mount()
+	defer func() {
+		fs2.StopCacheCleanup()
+		fs2.StopDeltaLoop()
+		fs2.StopDownloadManager()
+		fs2.StopUploadManager()
+		fs2.StopMetadataRequestManager()
 	}()
 
-	time.Sleep(3 * time.Second)
+	server2, err := fuse.NewServer(fs2, mountPoint, mountOptions)
+	if err != nil {
+		t.Fatalf("Failed to create second FUSE server: %v", err)
+	}
+	defer server2.Unmount()
+
+	go server2.Serve()
+
+	if err := server2.WaitMount(); err != nil {
+		t.Fatalf("Failed to wait for second mount: %v", err)
+	}
+
+	t.Log("Filesystem remounted successfully")
 
 	// Step 9: Verify state is preserved
 	t.Log("Step 9: Verifying state is preserved after remount")
@@ -222,11 +263,9 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 	}
 
 	// Cleanup
-	cancel2()
-	select {
-	case <-mountErr2:
-	case <-time.After(10 * time.Second):
-		t.Log("Second unmount timed out")
+	err = server2.Unmount()
+	if err != nil {
+		t.Logf("Second unmount error (may be expected): %v", err)
 	}
 
 	t.Log("=== Complete User Workflow Test Passed ===")
@@ -263,32 +302,59 @@ func TestE2E_17_02_MultiFileOperations(t *testing.T) {
 		authPath = "test-artifacts/.auth_tokens.json"
 	}
 
-	auth, err := graph.LoadAuth(authPath)
+	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		t.Fatalf("Failed to load authentication: %v", err)
 	}
 
-	mountPoint := t.TempDir()
-	fs, err := NewFilesystem(auth, mountPoint, 30)
+	tempDir := t.TempDir()
+	mountPoint := filepath.Join(tempDir, "mount")
+	cacheDir := filepath.Join(tempDir, "cache")
+
+	if err := os.MkdirAll(mountPoint, 0755); err != nil {
+		t.Fatalf("Failed to create mount point: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
-
-	_, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	mountErr := make(chan error, 1)
-	go func() {
-		mountErr <- fs.Mount()
+	defer func() {
+		fs.StopCacheCleanup()
+		fs.StopDeltaLoop()
+		fs.StopDownloadManager()
+		fs.StopUploadManager()
+		fs.StopMetadataRequestManager()
 	}()
 
-	time.Sleep(3 * time.Second)
+	mountOptions := &fuse.MountOptions{
+		Name:          "onemount-e2e-test",
+		FsName:        "onemount-e2e-test",
+		DisableXAttrs: false,
+		MaxBackground: 1024,
+		Debug:         false,
+	}
+
+	server, err := fuse.NewServer(fs, mountPoint, mountOptions)
+	if err != nil {
+		t.Fatalf("Failed to create FUSE server: %v", err)
+	}
+	defer server.Unmount()
+
+	go server.Serve()
+
+	if err := server.WaitMount(); err != nil {
+		t.Fatalf("Failed to wait for mount: %v", err)
+	}
 
 	// Step 1: Create test directory with multiple files
 	t.Log("Step 1: Creating test directory with multiple files")
 
-	tempDir := t.TempDir()
-	testDir := filepath.Join(tempDir, "e2e_test_directory")
+	workDir := t.TempDir()
+	testDir := filepath.Join(workDir, "e2e_test_directory")
 	if err := os.Mkdir(testDir, 0755); err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
 	}
@@ -352,7 +418,7 @@ func TestE2E_17_02_MultiFileOperations(t *testing.T) {
 	// Step 4: Copy directory from OneDrive to local
 	t.Log("Step 4: Copying directory from OneDrive to local")
 
-	downloadDir := filepath.Join(tempDir, "downloaded_directory")
+	downloadDir := filepath.Join(workDir, "downloaded_directory")
 	if err := helpers.CopyDirectory(destDir, downloadDir); err != nil {
 		t.Errorf("Failed to copy from OneDrive: %v", err)
 	}
@@ -368,11 +434,9 @@ func TestE2E_17_02_MultiFileOperations(t *testing.T) {
 	}
 
 	// Cleanup
-	cancel()
-	select {
-	case <-mountErr:
-	case <-time.After(10 * time.Second):
-		t.Log("Unmount timed out")
+	err = server.Unmount()
+	if err != nil {
+		t.Logf("Unmount error (may be expected): %v", err)
 	}
 
 	t.Log("=== Multi-File Operations Test Passed ===")
@@ -402,26 +466,53 @@ func TestE2E_17_03_LongRunningOperations(t *testing.T) {
 		authPath = "test-artifacts/.auth_tokens.json"
 	}
 
-	auth, err := graph.LoadAuth(authPath)
+	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		t.Fatalf("Failed to load authentication: %v", err)
 	}
 
-	mountPoint := t.TempDir()
-	fs, err := NewFilesystem(auth, mountPoint, 30)
+	tempDir := t.TempDir()
+	mountPoint := filepath.Join(tempDir, "mount")
+	cacheDir := filepath.Join(tempDir, "cache")
+
+	if err := os.MkdirAll(mountPoint, 0755); err != nil {
+		t.Fatalf("Failed to create mount point: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
-
-	_, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	mountErr := make(chan error, 1)
-	go func() {
-		mountErr <- fs.Mount()
+	defer func() {
+		fs.StopCacheCleanup()
+		fs.StopDeltaLoop()
+		fs.StopDownloadManager()
+		fs.StopUploadManager()
+		fs.StopMetadataRequestManager()
 	}()
 
-	time.Sleep(3 * time.Second)
+	mountOptions := &fuse.MountOptions{
+		Name:          "onemount-e2e-test",
+		FsName:        "onemount-e2e-test",
+		DisableXAttrs: false,
+		MaxBackground: 1024,
+		Debug:         false,
+	}
+
+	server, err := fuse.NewServer(fs, mountPoint, mountOptions)
+	if err != nil {
+		t.Fatalf("Failed to create FUSE server: %v", err)
+	}
+	defer server.Unmount()
+
+	go server.Serve()
+
+	if err := server.WaitMount(); err != nil {
+		t.Fatalf("Failed to wait for mount: %v", err)
+	}
 
 	// Create large file
 	t.Log("Creating 1GB file (this may take a few minutes)...")
@@ -492,11 +583,9 @@ func TestE2E_17_03_LongRunningOperations(t *testing.T) {
 	t.Log("Cleaning up large file")
 	os.Remove(largeFilePath)
 
-	cancel()
-	select {
-	case <-mountErr:
-	case <-time.After(10 * time.Second):
-		t.Log("Unmount timed out")
+	err = server.Unmount()
+	if err != nil {
+		t.Logf("Unmount error (may be expected): %v", err)
 	}
 
 	t.Log("=== Long-Running Operations Test Completed ===")
@@ -525,26 +614,53 @@ func TestE2E_17_04_StressScenarios(t *testing.T) {
 		authPath = "test-artifacts/.auth_tokens.json"
 	}
 
-	auth, err := graph.LoadAuth(authPath)
+	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		t.Fatalf("Failed to load authentication: %v", err)
 	}
 
-	mountPoint := t.TempDir()
-	fs, err := NewFilesystem(auth, mountPoint, 30)
+	tempDir := t.TempDir()
+	mountPoint := filepath.Join(tempDir, "mount")
+	cacheDir := filepath.Join(tempDir, "cache")
+
+	if err := os.MkdirAll(mountPoint, 0755); err != nil {
+		t.Fatalf("Failed to create mount point: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
-
-	_, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	mountErr := make(chan error, 1)
-	go func() {
-		mountErr <- fs.Mount()
+	defer func() {
+		fs.StopCacheCleanup()
+		fs.StopDeltaLoop()
+		fs.StopDownloadManager()
+		fs.StopUploadManager()
+		fs.StopMetadataRequestManager()
 	}()
 
-	time.Sleep(3 * time.Second)
+	mountOptions := &fuse.MountOptions{
+		Name:          "onemount-e2e-test",
+		FsName:        "onemount-e2e-test",
+		DisableXAttrs: false,
+		MaxBackground: 1024,
+		Debug:         false,
+	}
+
+	server, err := fuse.NewServer(fs, mountPoint, mountOptions)
+	if err != nil {
+		t.Fatalf("Failed to create FUSE server: %v", err)
+	}
+	defer server.Unmount()
+
+	go server.Serve()
+
+	if err := server.WaitMount(); err != nil {
+		t.Fatalf("Failed to wait for mount: %v", err)
+	}
 
 	// Start concurrent operations
 	t.Log("Starting concurrent file operations")
@@ -704,11 +820,9 @@ func TestE2E_17_04_StressScenarios(t *testing.T) {
 	}
 
 	// Cleanup
-	cancel()
-	select {
-	case <-mountErr:
-	case <-time.After(10 * time.Second):
-		t.Log("Unmount timed out")
+	err = server.Unmount()
+	if err != nil {
+		t.Logf("Unmount error (may be expected): %v", err)
 	}
 
 	t.Log("=== Stress Scenarios Test Completed ===")
