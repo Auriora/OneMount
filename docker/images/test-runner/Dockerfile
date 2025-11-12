@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y \
     # Development tools
     vim \
     less \
+    # JSON processing for auth tokens
+    jq \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 

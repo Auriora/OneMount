@@ -25,6 +25,8 @@ services:
       - ../..:/workspace:rw
       # Mount test artifacts directory for output (consistent path)
       - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
+      # Mount authentication tokens for persistent auth across test runs
+      - ${HOME}/.onemount-tests:/tmp/home-tester/.onemount-tests-auth:ro
 
     # Enable FUSE support for filesystem testing
     devices:
@@ -119,6 +121,8 @@ services:
     volumes:
       - ../..:/workspace:rw
       - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
+      # Mount authentication tokens for persistent auth across test runs
+      - ${HOME}/.onemount-tests:/tmp/home-tester/.onemount-tests-auth:ro
 
     # Resource limits for system tests
     deploy:
@@ -153,6 +157,8 @@ services:
       - ../..:/workspace:rw
       - ../../coverage:/workspace/coverage:rw
       - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
+      # Mount authentication tokens for persistent auth across test runs
+      - ${HOME}/.onemount-tests:/tmp/home-tester/.onemount-tests-auth:ro
 
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m
