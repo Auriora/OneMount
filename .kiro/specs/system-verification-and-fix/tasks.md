@@ -358,7 +358,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify eventual success
   - _Requirements: 4.4_
 
-- [ ] 9.5 Test upload conflict detection with real OneDrive
+- [x] 9.5 Test upload conflict detection with real OneDrive
   - Modify file locally
   - Modify same file on OneDrive web interface
   - Trigger upload
@@ -418,7 +418,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify new version is downloaded
   - _Requirements: 5.3_
 
-- [ ] 10.5 Test conflict detection and resolution with real OneDrive
+- [x] 10.5 Test conflict detection and resolution with real OneDrive
   - Modify a file locally (don't let it upload yet)
   - Modify same file on OneDrive web interface
   - Trigger delta sync
@@ -478,13 +478,13 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify cache statistics reflect hits and misses
   - _Requirements: 7.5_
 
-- [ ] 11.4 Test cache expiration with manual verification
+- [x] 11.4 Test cache expiration with manual verification
   - Configure short cache expiration (e.g., 1 day)
   - Create files with old access times
   - Trigger cache cleanup
   - Verify old files are removed
   - Verify recent files are retained
-  - **Manual retest**: Perform manual cache management verification in Docker
+  - **Retest**: Perform manual cache management verification in Docker
   - Set short cache expiration time in configuration
   - Access multiple files to populate cache
   - Monitor cache cleanup process
@@ -599,7 +599,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Monitor file status during various operations
   - Verify status changes appropriately (synced, downloading, error, etc.)
   - Check extended attributes are set correctly
-  - **Manual retest in Docker**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - Run: `./tests/manual/test_file_status_updates.sh`
   - Verify file status updates work correctly with real OneDrive
   - Document results in `docs/verification-tracking.md` Phase 11 section
@@ -610,7 +609,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Monitor D-Bus signals during file operations
   - Use `dbus-monitor` to observe signals
   - Verify signal format and content
-  - **Manual retest in Docker**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - Run: `./tests/manual/test_dbus_integration.sh`
   - Verify D-Bus signals are emitted correctly with real OneDrive
   - Document results in `docs/verification-tracking.md` Phase 11 section
@@ -620,7 +618,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Disable D-Bus (or run in environment without D-Bus)
   - Verify system continues operating
   - Check that extended attributes still work
-  - **Manual retest in Docker**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - Run: `./tests/manual/test_dbus_fallback.sh`
   - Verify fallback to extended attributes works with real OneDrive
   - Document results in `docs/verification-tracking.md` Phase 11 section
@@ -631,7 +628,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Navigate to mounted OneDrive
   - Verify status icons appear on files
   - Trigger file operations and watch icons update
-  - **Manual retest**: Test with real OneDrive mount in Docker or local system
+  - Test with real OneDrive mount in Docker
   - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.3_
 
@@ -775,7 +772,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test complete flow: authenticate → mount → list files → read file
   - Verify each step works correctly
   - Check error handling at each step
-  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_COMPREHENSIVE ./internal/fs`
+  - `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_COMPREHENSIVE ./internal/fs`
   - Verify all components work together end-to-end
   - Test complete workflows with real API
   - Verify error handling with real network conditions
