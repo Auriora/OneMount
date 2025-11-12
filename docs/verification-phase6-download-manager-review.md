@@ -443,6 +443,8 @@ The implementation aligns well with the design document:
 3. **Queue Size**: Design doesn't specify 500 capacity
    - **Assessment**: Reasonable default, could be configurable
 
+**Review Comment:** Add requirement(s) to make these configurable and specify reasonable defaults.
+
 ---
 
 ## Next Steps
@@ -659,6 +661,8 @@ _, err = cachedFile.Seek(0, 0)
 // Now read content
 n, err := cachedFile.Read(buffer)
 ```
+
+**BC:** Would this affect file operations in production? 
 
 ### Additional Test: Cached File Access
 

@@ -770,8 +770,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify recent files are retained
   - _Requirements: 11.5_
 
-- [ ] 17. Create end-to-end workflow tests
-- [ ] 17.1 Test complete user workflow
+- [x] 17. Create end-to-end workflow tests
+- [x] 17.1 Test complete user workflow
   - Install OneMount
   - Authenticate with Microsoft account
   - Mount OneDrive
@@ -781,21 +781,21 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify state is preserved
   - _Requirements: All_
 
-- [ ] 17.2 Test multi-file operations
+- [x] 17.2 Test multi-file operations
   - Copy entire directory to OneDrive
   - Verify all files upload correctly
   - Copy directory from OneDrive to local
   - Verify all files download correctly
   - _Requirements: 3.2, 4.3, 10.1, 10.2_
 
-- [ ] 17.3 Test long-running operations
+- [x] 17.3 Test long-running operations
   - Upload a very large file (1GB+)
   - Monitor progress
   - Verify upload completes successfully
   - Test interruption and resume
   - _Requirements: 4.3, 4.4_
 
-- [ ] 17.4 Test stress scenarios
+- [x] 17.4 Test stress scenarios
   - Perform many concurrent operations
   - Monitor resource usage (CPU, memory, network)
   - Verify system remains stable
