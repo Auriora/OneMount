@@ -4,12 +4,12 @@ package common
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/graph"
@@ -72,12 +72,13 @@ func GetXDGVolumeInfoName(path string) (string, error) {
 }
 
 // CreateXDGVolumeInfo creates .xdg-volume-info for a nice little onedrive logo in the
-// corner of the mountpoint and shows the account name in the nautilus sidebar
+// corner of the mountpoint and shows the account name in the nautilus sidebar.
+// This file is created as a local-only virtual file and is NOT synced to OneDrive.
 func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	if child, _ := filesystem.GetPath("/.xdg-volume-info", auth); child != nil {
 		return
 	}
-	logging.Info().Msg("Creating .xdg-volume-info")
+	logging.Info().Msg("Creating .xdg-volume-info as local-only virtual file")
 	user, err := graph.GetUser(auth)
 	if err != nil {
 		logging.Error().Err(err).Msg("Could not create .xdg-volume-info")
@@ -85,21 +86,32 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	}
 	xdgVolumeInfo := TemplateXDGVolumeInfo(user.UserPrincipalName)
 
-	// just upload directly and shove it in the cache
-	// (since the fs isn't mounted yet)
-	resp, err := graph.Put(
-		graph.ResourcePath("/.xdg-volume-info")+":/content",
-		auth,
-		strings.NewReader(xdgVolumeInfo),
-	)
-	if err != nil {
-		logging.Error().Err(err).Msg("Failed to write .xdg-volume-info")
-	}
+	// Create as a local-only virtual file (not synced to OneDrive)
+	// This prevents I/O errors and keeps the file local to the filesystem
 	root, _ := filesystem.GetPath("/", auth) // cannot fail
 	inode := fs.NewInode(".xdg-volume-info", 0644, root)
-	if json.Unmarshal(resp, &inode) == nil {
-		filesystem.InsertID(inode.ID(), inode)
+
+	// Store the content in the local cache
+	content := []byte(xdgVolumeInfo)
+
+	// Set file size and modification time directly on the DriveItem
+	inode.DriveItem.Size = uint64(len(content))
+	now := time.Now()
+	inode.DriveItem.ModTime = &now
+
+	// Insert the inode into the filesystem
+	// The ID will be a local-* ID, marking it as local-only
+	filesystem.InsertID(inode.ID(), inode)
+
+	// Store the content in the cache so it can be read
+	if err := filesystem.StoreContent(inode.ID(), content); err != nil {
+		logging.Error().Err(err).Msg("Failed to cache .xdg-volume-info content")
 	}
+
+	logging.Debug().
+		Str("id", inode.ID()).
+		Str("name", inode.Name()).
+		Msg("Created local-only .xdg-volume-info file")
 }
 
 // IsUserAllowOtherEnabled checks if the 'user_allow_other' option is enabled in /etc/fuse.conf

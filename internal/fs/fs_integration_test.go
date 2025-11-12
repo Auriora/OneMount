@@ -385,14 +385,22 @@ func TestIT_FS_16_01_Directory_CreateAndModify_OperationsSucceed(t *testing.T) {
 //
 //	Test Case ID    IT-FS-17-01
 //	Title           Directory Remove
-//	Description     Tests directory removal
-//	Preconditions   None
-//	Steps           1. Create a directory with files
-//	                2. Remove the directory
-//	                3. Check if the directory is correctly removed
-//	Expected Result Directories are correctly removed
-//	Notes: This test verifies that directories are correctly removed.
+//	Description     Tests directory removal with server synchronization
+//	Preconditions   Real OneDrive connection
+//	Steps           1. Create a directory
+//	                2. Create files within the directory
+//	                3. Delete files from the directory
+//	                4. Delete the empty directory using Rmdir
+//	                5. Verify directory is removed from server
+//	                6. Test deletion of non-empty directory fails
+//	Expected Result Directories are correctly removed when empty; non-empty deletion fails
+//	Notes: This test verifies directory deletion with real OneDrive server synchronization.
 func TestIT_FS_17_01_Directory_Remove_DirectoryIsDeleted(t *testing.T) {
+	// Skip if running in short mode
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryRemoveFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -408,12 +416,106 @@ func TestIT_FS_17_01_Directory_Remove_DirectoryIsDeleted(t *testing.T) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 
-		// TODO: Implement the test case
-		// 1. Create a directory with files
-		// 2. Remove the directory
-		// 3. Check if the directory is correctly removed
-		assert.True(true, "Placeholder assertion")
-		t.Skip("Test not implemented yet")
+		// Get the test data
+		fsFixture, ok := fixture.(*helpers.FSTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
+		}
+
+		fs := fsFixture.FS.(*Filesystem)
+
+		// Step 1: Create a test directory
+		dirName := fmt.Sprintf("test_dir_delete_%d", time.Now().Unix())
+		mkdirIn := &fuse.MkdirIn{
+			InHeader: fuse.InHeader{NodeId: 1}, // Root node ID
+			Mode:     0755,
+		}
+		dirEntryOut := &fuse.EntryOut{}
+
+		status := fs.Mkdir(nil, mkdirIn, dirName, dirEntryOut)
+		assert.Equal(fuse.OK, status, "Directory creation should succeed")
+
+		dirNodeID := dirEntryOut.NodeId
+		dirInode := fs.GetNodeID(dirNodeID)
+		assert.NotNil(dirInode, "Directory inode should exist")
+
+		// Step 2: Create files within the directory
+		file1Name := "test_file1.txt"
+		createIn1 := &fuse.CreateIn{
+			InHeader: fuse.InHeader{NodeId: dirNodeID},
+			Mode:     0644,
+		}
+		file1Out := &fuse.CreateOut{}
+
+		status = fs.Create(nil, createIn1, file1Name, file1Out)
+		assert.Equal(fuse.OK, status, "File1 creation should succeed")
+
+		// Write some content to the file
+		content1 := []byte("Test content for file 1")
+		writeIn1 := &fuse.WriteIn{
+			InHeader: fuse.InHeader{NodeId: file1Out.NodeId},
+			Offset:   0,
+		}
+		bytesWritten, writeStatus := fs.Write(nil, writeIn1, content1)
+		assert.Equal(fuse.OK, writeStatus, "Write should succeed")
+		assert.Equal(uint32(len(content1)), bytesWritten, "All bytes should be written")
+
+		file2Name := "test_file2.txt"
+		createIn2 := &fuse.CreateIn{
+			InHeader: fuse.InHeader{NodeId: dirNodeID},
+			Mode:     0644,
+		}
+		file2Out := &fuse.CreateOut{}
+
+		status = fs.Create(nil, createIn2, file2Name, file2Out)
+		assert.Equal(fuse.OK, status, "File2 creation should succeed")
+
+		// Write some content to the second file
+		content2 := []byte("Test content for file 2")
+		writeIn2 := &fuse.WriteIn{
+			InHeader: fuse.InHeader{NodeId: file2Out.NodeId},
+			Offset:   0,
+		}
+		bytesWritten, writeStatus = fs.Write(nil, writeIn2, content2)
+		assert.Equal(fuse.OK, writeStatus, "Write should succeed")
+		assert.Equal(uint32(len(content2)), bytesWritten, "All bytes should be written")
+
+		// Step 3: Attempt to delete non-empty directory (should fail)
+		rmdirIn := &fuse.InHeader{NodeId: 1} // Parent node ID (root)
+
+		status = fs.Rmdir(nil, rmdirIn, dirName)
+		assert.NotEqual(fuse.OK, status, "Deleting non-empty directory should fail")
+
+		// Verify directory still exists
+		dirInode = fs.GetNodeID(dirNodeID)
+		assert.NotNil(dirInode, "Directory should still exist after failed deletion")
+
+		// Step 4: Delete files from the directory
+		unlinkIn := &fuse.InHeader{NodeId: dirNodeID}
+
+		status = fs.Unlink(nil, unlinkIn, file1Name)
+		assert.Equal(fuse.OK, status, "File1 deletion should succeed")
+
+		status = fs.Unlink(nil, unlinkIn, file2Name)
+		assert.Equal(fuse.OK, status, "File2 deletion should succeed")
+
+		// Give the server a moment to process the deletions
+		time.Sleep(2 * time.Second)
+
+		// Step 5: Delete the now-empty directory
+		status = fs.Rmdir(nil, rmdirIn, dirName)
+		assert.Equal(fuse.OK, status, "Deleting empty directory should succeed")
+
+		// Step 6: Verify directory no longer exists
+		deletedInode := fs.GetNodeID(dirNodeID)
+		assert.Nil(deletedInode, "Directory should no longer exist after deletion")
+
+		// Verify directory is removed from parent's children
+		rootID := fs.TranslateID(1)
+		child, _ := fs.GetChild(rootID, dirName, fs.auth)
+		assert.Nil(child, "Directory should not be in parent's children after deletion")
+
+		t.Logf("Successfully tested directory deletion with server synchronization")
 	})
 }
 

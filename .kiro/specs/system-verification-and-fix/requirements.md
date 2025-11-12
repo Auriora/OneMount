@@ -46,6 +46,11 @@ This specification defines the requirements for systematically verifying and fix
 5. WHEN the user navigates directories, THE OneMount System SHALL serve directory listings from the cached metadata without network requests
 6. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
 7. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
+8. WHERE the user specifies daemon mode, THE OneMount System SHALL fork the process and detach from the terminal for background operation
+9. WHEN the user specifies a mount timeout, THE OneMount System SHALL wait up to the specified duration for the mount operation to complete
+10. IF the mount timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 60 seconds
+11. WHEN opening the metadata database, THE OneMount System SHALL detect stale lock files older than 5 minutes and attempt to remove them
+12. IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
 
 ### Requirement 3: On-Demand File Download Verification
 
@@ -61,6 +66,19 @@ This specification defines the requirements for systematically verifying and fix
 6. IF the API returns 200 OK with new content, THEN THE OneMount System SHALL update the cache with the new content and ETag
 7. WHILE a file is downloading, THE OneMount System SHALL update the file status to "downloading"
 8. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
+9. WHERE the user specifies download worker pool size, THE OneMount System SHALL use the specified number of concurrent download workers
+10. IF the download worker pool size is not specified, THEN THE OneMount System SHALL use a default of 3 concurrent workers
+11. WHEN configuring download worker pool size, THE OneMount System SHALL validate the value is between 1 and 10 workers
+12. WHERE the user specifies download retry attempts limit, THE OneMount System SHALL retry failed downloads up to the specified number of attempts
+13. IF the download retry attempts limit is not specified, THEN THE OneMount System SHALL use a default of 3 retry attempts
+14. WHEN configuring download retry attempts, THE OneMount System SHALL validate the value is between 1 and 10 attempts
+15. WHERE the user specifies download queue size, THE OneMount System SHALL buffer up to the specified number of pending download requests
+16. IF the download queue size is not specified, THEN THE OneMount System SHALL use a default queue size of 500 requests
+17. WHEN configuring download queue size, THE OneMount System SHALL validate the value is between 100 and 5000 requests
+18. WHERE the user specifies download chunk size for large files, THE OneMount System SHALL download files in chunks of the specified size
+19. IF the download chunk size is not specified, THEN THE OneMount System SHALL use a default chunk size of 10 MB
+20. WHEN configuring download chunk size, THE OneMount System SHALL validate the value is between 1 MB and 100 MB
+21. WHEN download manager configuration is invalid, THE OneMount System SHALL display a clear error message with valid ranges
 
 ### Requirement 4: File Modification and Upload Verification
 
@@ -76,6 +94,11 @@ This specification defines the requirements for systematically verifying and fix
 6. IF an upload fails due to network issues, THEN THE OneMount System SHALL retry with exponential backoff
 7. WHEN an upload completes successfully, THE OneMount System SHALL update the file's ETag from the response
 8. WHEN an upload completes successfully, THE OneMount System SHALL clear the modified flag
+9. WHEN the user creates a directory, THE OneMount System SHALL create the directory on the server and assign it a unique ID
+10. WHEN the user deletes an empty directory using Rmdir, THE OneMount System SHALL remove the directory from the server
+11. IF the user attempts to delete a non-empty directory, THEN THE OneMount System SHALL return ENOTEMPTY error
+12. WHEN a directory is deleted, THE OneMount System SHALL remove the directory from the parent's children list
+13. WHEN a directory is deleted, THE OneMount System SHALL remove the directory inode from the filesystem's internal tracking
 
 ### Requirement 5: Delta Synchronization Verification
 
@@ -104,11 +127,22 @@ This specification defines the requirements for systematically verifying and fix
 
 #### Acceptance Criteria
 
-1. WHEN network connectivity is lost, THE OneMount System SHALL detect the offline state
-2. WHILE offline, THE OneMount System SHALL serve cached files for read operations
-3. WHILE offline, THE OneMount System SHALL make the filesystem read-only
-4. WHEN the user modifies a file while offline, THE OneMount System SHALL queue the changes for upload
-5. WHEN network connectivity is restored, THE OneMount System SHALL process queued uploads and resume delta sync
+1. WHEN network connectivity is lost, THE OneMount System SHALL detect the offline state using passive monitoring of API call failures
+2. WHEN the system is online, THE OneMount System SHALL perform periodic active connectivity checks to Microsoft Graph endpoints
+3. WHEN a network error matches known offline patterns, THE OneMount System SHALL transition to offline mode
+4. WHILE offline, THE OneMount System SHALL serve cached files for read operations
+5. WHILE offline, THE OneMount System SHALL allow read and write operations with changes queued for synchronization when connectivity is restored
+6. WHEN a file is modified offline, THE OneMount System SHALL track the change in persistent storage for later upload
+7. WHEN multiple changes are made to the same file offline, THE OneMount System SHALL preserve the most recent version for upload
+8. WHEN network connectivity is restored, THE OneMount System SHALL process queued uploads in batches
+9. WHEN processing offline changes, THE OneMount System SHALL verify each change was successfully synchronized before removing it from the queue
+10. WHERE the user configures connectivity check interval, THE OneMount System SHALL use the specified interval for active connectivity checks
+11. IF the connectivity check interval is not specified, THEN THE OneMount System SHALL use a default interval of 15 seconds
+12. WHERE the user configures connectivity timeout, THE OneMount System SHALL use the specified timeout for connectivity checks
+13. IF the connectivity timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 10 seconds
+14. WHERE the user configures maximum pending changes limit, THE OneMount System SHALL enforce the specified limit for offline change tracking
+15. IF the maximum pending changes limit is not specified, THEN THE OneMount System SHALL use a default limit of 1000 changes
+16. WHEN network connectivity is restored, THE OneMount System SHALL resume delta sync operations
 
 ### Requirement 7: Cache Management Verification
 
@@ -123,6 +157,8 @@ This specification defines the requirements for systematically verifying and fix
 5. WHILE the cache cleanup process runs, THE OneMount System SHALL remove files older than the expiration threshold
 6. WHERE cache expiration is configured, THE OneMount System SHALL respect the configured number of days
 7. WHEN the user requests cache statistics, THE OneMount System SHALL display cache size, file count, and hit rate
+8. WHEN a file is deleted from the filesystem, THE OneMount System SHALL remove the corresponding cache entry to free disk space
+9. WHEN cache cleanup runs, THE OneMount System SHALL identify and remove cache entries for files that no longer exist in the filesystem metadata
 
 ### Requirement 8: Conflict Resolution Verification
 
@@ -137,10 +173,61 @@ This specification defines the requirements for systematically verifying and fix
 5. WHEN a conflict is detected, THE OneMount System SHALL create a conflict copy with a timestamp suffix
 6. WHEN a conflict is detected, THE OneMount System SHALL download the remote version as the conflict copy
 7. WHEN a conflict is resolved, THE OneMount System SHALL log the conflict details including file path, ETags, and timestamps
-8. WHERE multiple conflict resolution strategies are available, THE OneMount System SHALL use the configured strategy (last-writer-wins, keep-both, or user-choice)
+8. WHERE multiple conflict resolution strategies are available, THE OneMount System SHALL use the configured strategy (last-writer-wins, keep-both, user-choice, merge, or rename)
 9. WHEN the user accesses a file with unresolved conflicts, THE OneMount System SHALL display both versions
+10. WHERE the user configures a default conflict resolution strategy, THE OneMount System SHALL use the specified strategy for automatic conflict resolution
+11. IF no conflict resolution strategy is configured, THEN THE OneMount System SHALL use the keep-both strategy as default
+12. WHEN using the last-writer-wins strategy, THE OneMount System SHALL compare modification timestamps and preserve the most recent version
+13. WHEN using the user-choice strategy, THE OneMount System SHALL present resolution options to the user
+14. WHEN using the merge strategy, THE OneMount System SHALL attempt automatic merging for compatible changes
+15. WHEN using the rename strategy, THE OneMount System SHALL create separate versions with conflict indicators
+16. WHEN using the keep-both strategy, THE OneMount System SHALL create separate versions for both local and remote changes
 
-### Requirement 9: File Status and D-Bus Integration Verification
+### Requirement 9: User Notifications and Feedback
+
+**User Story:** As a user, I want to be notified of network state changes and synchronization status so that I understand the current state of my files.
+
+#### Acceptance Criteria
+
+1. WHERE the user configures feedback level, THE OneMount System SHALL provide notifications according to the specified level (none, basic, or detailed)
+2. IF no feedback level is configured, THEN THE OneMount System SHALL use basic feedback level as default
+3. WHEN network connectivity is lost, THE OneMount System SHALL emit a network disconnected notification
+4. WHEN network connectivity is restored, THE OneMount System SHALL emit a network connected notification
+5. WHEN offline-to-online synchronization starts, THE OneMount System SHALL emit a sync started notification
+6. WHEN offline-to-online synchronization completes successfully, THE OneMount System SHALL emit a sync completed notification
+7. WHEN conflicts are detected during synchronization, THE OneMount System SHALL emit a conflicts detected notification
+8. WHEN synchronization fails, THE OneMount System SHALL emit a sync failed notification with error details
+9. WHEN using basic feedback level, THE OneMount System SHALL provide simple connectivity status messages
+10. WHEN using detailed feedback level, THE OneMount System SHALL provide comprehensive network and sync information
+11. WHEN using none feedback level, THE OneMount System SHALL suppress user notifications but continue logging
+12. WHERE D-Bus is available, THE OneMount System SHALL emit notifications via D-Bus signals
+13. WHEN the user queries offline status, THE OneMount System SHALL provide current network connectivity state
+14. WHEN the user queries cache status, THE OneMount System SHALL provide information about cached files for offline planning
+15. WHERE the user enables manual offline mode, THE OneMount System SHALL allow explicit offline mode activation via command-line or configuration
+
+### Requirement 9: User Notifications and Feedback
+
+**User Story:** As a user, I want to be notified of network state changes and synchronization status so that I understand the current state of my files.
+
+#### Acceptance Criteria
+
+1. WHERE the user configures feedback level, THE OneMount System SHALL provide notifications according to the specified level (none, basic, or detailed)
+2. IF no feedback level is configured, THEN THE OneMount System SHALL use basic feedback level as default
+3. WHEN network connectivity is lost, THE OneMount System SHALL emit a network disconnected notification
+4. WHEN network connectivity is restored, THE OneMount System SHALL emit a network connected notification
+5. WHEN offline-to-online synchronization starts, THE OneMount System SHALL emit a sync started notification
+6. WHEN offline-to-online synchronization completes successfully, THE OneMount System SHALL emit a sync completed notification
+7. WHEN conflicts are detected during synchronization, THE OneMount System SHALL emit a conflicts detected notification
+8. WHEN synchronization fails, THE OneMount System SHALL emit a sync failed notification with error details
+9. WHEN using basic feedback level, THE OneMount System SHALL provide simple connectivity status messages
+10. WHEN using detailed feedback level, THE OneMount System SHALL provide comprehensive network and sync information
+11. WHEN using none feedback level, THE OneMount System SHALL suppress user notifications but continue logging
+12. WHERE D-Bus is available, THE OneMount System SHALL emit notifications via D-Bus signals
+13. WHEN the user queries offline status, THE OneMount System SHALL provide current network connectivity state
+14. WHEN the user queries cache status, THE OneMount System SHALL provide information about cached files for offline planning
+15. WHERE the user enables manual offline mode, THE OneMount System SHALL allow explicit offline mode activation via command-line or configuration
+
+### Requirement 10: File Status and D-Bus Integration Verification
 
 **User Story:** As a user of Nemo/Nautilus file manager, I want to see file sync status icons so that I know which files are synced, downloading, or have errors.
 
@@ -152,7 +239,7 @@ This specification defines the requirements for systematically verifying and fix
 4. IF D-Bus is unavailable, THEN THE OneMount System SHALL continue operating using extended attributes only
 5. WHILE files are downloading, THE OneMount System SHALL update status to show download progress
 
-### Requirement 10: Error Handling and Recovery Verification
+### Requirement 11: Error Handling and Recovery Verification
 
 **User Story:** As a user, I want the system to handle errors gracefully so that temporary issues don't cause data loss or crashes.
 
@@ -164,7 +251,7 @@ This specification defines the requirements for systematically verifying and fix
 4. WHEN the system restarts after a crash, THE OneMount System SHALL recover incomplete uploads and resume operations
 5. WHERE errors are user-facing, THE OneMount System SHALL display helpful error messages
 
-### Requirement 11: Performance and Concurrency Verification
+### Requirement 12: Performance and Concurrency Verification
 
 **User Story:** As a user, I want the filesystem to be responsive so that file operations don't block or hang.
 
@@ -176,7 +263,7 @@ This specification defines the requirements for systematically verifying and fix
 4. WHERE file operations require locks, THE OneMount System SHALL use appropriate locking granularity
 5. WHEN goroutines are spawned, THE OneMount System SHALL track them with wait groups for clean shutdown
 
-### Requirement 12: Integration Test Coverage
+### Requirement 13: Integration Test Coverage
 
 **User Story:** As a developer, I want comprehensive integration tests so that I can verify the system works end-to-end.
 
@@ -188,7 +275,7 @@ This specification defines the requirements for systematically verifying and fix
 4. THE OneMount System SHALL have integration tests for conflict resolution
 5. THE OneMount System SHALL have integration tests for cache cleanup and expiration
 
-### Requirement 13: Multiple Account and Drive Support
+### Requirement 14: Multiple Account and Drive Support
 
 **User Story:** As a user with multiple OneDrive accounts, I want to mount my personal OneDrive, work OneDrive, and shared drives simultaneously so that I can access all my files.
 
@@ -219,8 +306,11 @@ This specification defines the requirements for systematically verifying and fix
 8. THE OneMount System SHALL store file content cache in the cache directory
 9. THE OneMount System SHALL store metadata database (bbolt) in the cache directory
 10. WHERE the user specifies custom paths via command-line flags, THE OneMount System SHALL use the specified paths instead of XDG defaults
+11. THE OneMount System SHALL create `.xdg-volume-info` files as local-only virtual files that are NOT synced to OneDrive
+12. WHEN creating `.xdg-volume-info` files, THE OneMount System SHALL assign them a local-only ID (prefixed with "local-")
+13. WHEN accessing `.xdg-volume-info` files, THE OneMount System SHALL serve content from the local cache without attempting to sync to OneDrive
 
-### Requirement 17: Docker-Based Test Environment
+### Requirement 16: Docker-Based Test Environment
 
 **User Story:** As a developer, I want to run all tests in isolated Docker containers so that my local environment is not affected by test execution.
 
@@ -234,7 +324,7 @@ This specification defines the requirements for systematically verifying and fix
 6. WHERE FUSE operations are required, THE OneMount System SHALL configure containers with appropriate capabilities and devices
 7. THE OneMount System SHALL provide a test runner container with all required dependencies pre-installed
 
-### Requirement 14: Webhook Subscription Management
+### Requirement 17: Webhook Subscription Management
 
 **User Story:** As a system, I want to use webhook subscriptions to receive real-time notifications of changes so that I can reduce polling frequency and improve responsiveness.
 
@@ -253,7 +343,7 @@ This specification defines the requirements for systematically verifying and fix
 11. IF subscription renewal fails, THEN THE OneMount System SHALL attempt to create a new subscription
 12. WHEN unmounting a drive, THE OneMount System SHALL delete the subscription using DELETE `/subscriptions/{id}`
 
-### Requirement 16: Documentation Alignment
+### Requirement 18: Documentation Alignment
 
 **User Story:** As a developer, I want documentation to match the actual implementation so that I can understand and maintain the code.
 
@@ -264,3 +354,21 @@ This specification defines the requirements for systematically verifying and fix
 3. THE OneMount System SHALL have API documentation that reflects actual function signatures
 4. WHERE implementation differs from design, THE OneMount System SHALL document the rationale
 5. WHEN code changes are made, THE OneMount System SHALL update corresponding documentation
+
+### Requirement 19: Network Error Pattern Recognition
+
+**User Story:** As a system, I want to recognize specific network error patterns so that I can accurately detect offline conditions.
+
+#### Acceptance Criteria
+
+1. WHEN a network error contains "no such host", THE OneMount System SHALL classify it as an offline condition
+2. WHEN a network error contains "network is unreachable", THE OneMount System SHALL classify it as an offline condition
+3. WHEN a network error contains "connection refused", THE OneMount System SHALL classify it as an offline condition
+4. WHEN a network error contains "connection timed out", THE OneMount System SHALL classify it as an offline condition
+5. WHEN a network error contains "dial tcp", THE OneMount System SHALL classify it as an offline condition
+6. WHEN a network error contains "context deadline exceeded", THE OneMount System SHALL classify it as an offline condition
+7. WHEN a network error contains "no route to host", THE OneMount System SHALL classify it as an offline condition
+8. WHEN a network error contains "network is down", THE OneMount System SHALL classify it as an offline condition
+9. WHEN a network error contains "temporary failure in name resolution", THE OneMount System SHALL classify it as an offline condition
+10. WHEN a network error contains "operation timed out", THE OneMount System SHALL classify it as an offline condition
+11. WHEN an offline condition is detected, THE OneMount System SHALL log the specific error pattern that triggered the detection

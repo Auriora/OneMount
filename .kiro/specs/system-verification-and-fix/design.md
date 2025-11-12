@@ -245,6 +245,67 @@ Each mount is completely isolated with:
 - Unmount releases all resources
 - Signal handlers trigger clean shutdown
 - No orphaned processes or mount points after exit
+- Daemon mode forks process and detaches from terminal
+- Mount timeout is configurable and enforced
+- Stale lock files are detected and cleaned up
+
+#### Daemon Mode
+
+**Purpose**: Allow OneMount to run as a background service without blocking the terminal.
+
+**Implementation** (`cmd/onemount/main.go`):
+- Accepts `--daemon` flag to enable daemon mode
+- Forks the process using `syscall.ForkExec`
+- Creates new process group and session
+- Redirects logs to file in cache directory
+- Removes `--daemon` flag from child process arguments to prevent infinite forking
+- Parent process exits after successful fork
+
+**Behavior**:
+- When `--daemon` is specified, the process forks and the parent exits immediately
+- The child process continues running in the background
+- All output is redirected to log files
+- The daemon process can be stopped using standard signals (SIGTERM, SIGINT)
+
+#### Mount Timeout Configuration
+
+**Purpose**: Prevent indefinite hanging during mount operations, especially in containerized environments.
+
+**Implementation** (`cmd/onemount/main.go`):
+- Accepts `--mount-timeout` flag to specify timeout duration (e.g., "120s", "2m")
+- Default timeout: 60 seconds
+- Recommended for Docker: 120 seconds (due to network initialization delays)
+- Uses context with timeout to enforce the limit
+- Provides clear error message if mount times out
+
+**Behavior**:
+- Mount operation is wrapped in a context with the specified timeout
+- If mount doesn't complete within the timeout, the operation is cancelled
+- Error message indicates timeout occurred and suggests increasing the value
+- Pre-mount connectivity check helps identify network issues early
+
+#### Stale Lock File Detection and Cleanup
+
+**Purpose**: Recover from crashes or improper shutdowns that leave database lock files behind.
+
+**Implementation** (`internal/fs/cache.go`):
+- Database initialization includes retry logic with exponential backoff
+- Max retries: 10 attempts
+- Initial backoff: 200ms, max backoff: 5 seconds
+- Database timeout: 10 seconds per attempt
+- **Stale lock detection**: Checks if lock file is older than 5 minutes
+- If stale, attempts to remove the lock file and retry
+- Provides clear error message if database remains locked after all retries
+
+**Behavior**:
+- When opening the BBolt database, if a lock file exists:
+  1. Check the modification time of the lock file
+  2. If older than 5 minutes, consider it stale
+  3. Attempt to remove the stale lock file
+  4. Retry database open operation
+  5. If lock is not stale or removal fails, retry with exponential backoff
+- Logs each retry attempt with backoff duration
+- After 10 failed attempts, returns error with diagnostic information
 
 ### 3. File Operations Component
 
@@ -287,12 +348,39 @@ Each mount is completely isolated with:
 - `CancelDownload()` method
 - Integration with `LoopbackCache`
 
+**Configuration Parameters**:
+- **Worker Pool Size**: Number of concurrent download workers
+  - Default: 3 workers
+  - Valid Range: 1-10 workers
+  - Configurable via: Command-line flag or configuration file
+  - Purpose: Controls download concurrency and resource usage
+  
+- **Recovery Attempts Limit**: Maximum retry attempts for failed downloads
+  - Default: 3 attempts
+  - Valid Range: 1-10 attempts
+  - Configurable via: Command-line flag or configuration file
+  - Purpose: Balances reliability with avoiding infinite retries
+  
+- **Queue Size**: Buffer capacity for pending download requests
+  - Default: 500 requests
+  - Valid Range: 100-5000 requests
+  - Configurable via: Command-line flag or configuration file
+  - Purpose: Prevents memory exhaustion while allowing burst traffic
+  
+- **Chunk Size**: Size of chunks for large file downloads
+  - Default: 10 MB (10485760 bytes)
+  - Valid Range: 1 MB - 100 MB
+  - Configurable via: Command-line flag or configuration file
+  - Purpose: Balances memory usage with download efficiency and resume granularity
+
 **Verification Criteria**:
 - Files download on first access
 - Multiple files download concurrently
 - Failed downloads retry with backoff
 - Downloaded content is cached correctly
 - Download status is tracked and reported
+- Configuration parameters are validated on startup
+- Invalid configuration values display clear error messages with valid ranges
 
 ### 5. Upload Manager Component
 
@@ -359,37 +447,176 @@ Each mount is completely isolated with:
 - bbolt database for metadata
 - Cache cleanup goroutine
 
+**Cache Cleanup Behavior**:
+- **Time-based expiration**: Files older than the configured expiration threshold are removed during periodic cleanup
+- **Deleted file cleanup**: When a file is deleted from the filesystem, the corresponding cache entry should be removed to free disk space
+- **Orphaned cache entries**: During cleanup, cache entries for files that no longer exist in the filesystem metadata should be identified and removed
+- **Cleanup frequency**: Cache cleanup runs periodically (default: every 24 hours) to maintain cache hygiene
+
 **Verification Criteria**:
 - Cached files are served without network access
 - Cache respects expiration settings
 - Cleanup removes old files
+- Cleanup removes cache entries for deleted files
+- Cleanup removes orphaned cache entries (files not in metadata)
 - Statistics accurately reflect cache state
 - Cache survives filesystem restarts
 
 ### 8. Offline Mode Component
 
-**Location**: `internal/fs/offline.go`
+**Location**: `internal/fs/offline.go`, `internal/graph/network_feedback.go`
 
 **Verification Steps**:
-1. Review offline detection logic
+1. Review offline detection logic (passive and active)
 2. Test transition to offline mode
-3. Test read-only enforcement
-4. Test change queuing
+3. Test read-write operations with change queuing
+4. Test change tracking in persistent storage
 5. Test transition back to online mode
+6. Test user notification mechanisms
+7. Test configuration options
 
 **Expected Interfaces**:
 - `IsOffline()` method
 - `SetOffline()` method
+- `NetworkStateMonitor` for connectivity monitoring
+- `ConnectivityChecker` for active checks
+- `FeedbackManager` for user notifications
 - Offline change tracking in database
+- `OfflineChange` struct for tracking modifications
+- `ProcessOfflineChanges()` method for upload queue processing
+
+**Network Detection Mechanisms**:
+1. **Passive Detection**: Monitors API call failures for network error patterns
+2. **Active Detection**: Periodic connectivity checks to Microsoft Graph endpoints
+3. **Error Pattern Analysis**: Recognizes specific network error strings
+
+**User Feedback Levels**:
+- **None**: No user notifications (logging only)
+- **Basic**: Simple connectivity status messages
+- **Detailed**: Comprehensive network and sync information
+
+**Notification Types**:
+- Network Connected/Disconnected
+- Sync Started/Completed
+- Conflicts Detected
+- Sync Failed
+
+**Configuration Options**:
+- `checkInterval`: Network connectivity check frequency (default: 15s)
+- `connectivityTimeout`: Timeout for connectivity checks (default: 10s)
+- `feedbackLevel`: Level of user feedback (default: Basic)
+- `cacheRetention`: Cache retention duration
+- `maxPendingChanges`: Maximum pending changes to track (default: 1000)
+- `conflictResolution`: Default conflict resolution strategy
 
 **Verification Criteria**:
-- Network loss is detected automatically
-- Filesystem becomes read-only when offline
+- Network loss is detected automatically via passive monitoring
+- Active connectivity checks run at configured intervals
+- Filesystem allows read and write operations when offline
 - Cached files remain accessible
-- Changes are queued for later upload
-- Online transition processes queued changes
+- File modifications are tracked in persistent storage
+- Multiple changes to the same file preserve the most recent version
+- Changes are queued for upload when online
+- Online transition processes queued changes in batches
+- User notifications are emitted according to feedback level
+- Configuration options are respected
 
-### 9. File Status and D-Bus Component
+### 9. Offline-to-Online Synchronization Process
+
+**Location**: `internal/fs/sync_manager.go`, `internal/fs/offline.go`
+
+**Synchronization Steps**:
+1. **Change Detection**: Identify all pending offline changes from database
+2. **Conflict Analysis**: Check for server-side changes that conflict with local changes
+3. **Upload Queue**: Queue local changes for upload to the server
+4. **Batch Processing**: Process changes in batches to avoid overwhelming the server
+5. **Verification**: Verify that all changes were successfully synchronized
+6. **Cleanup**: Remove successfully synchronized changes from the pending queue
+
+**Conflict Resolution Strategies**:
+1. **Last Writer Wins**: Most recent modification takes precedence (compare timestamps)
+2. **User Choice**: Present options to user for manual resolution
+3. **Merge**: Attempt automatic merging for compatible changes
+4. **Rename**: Create separate versions with conflict indicators
+5. **Keep Both**: Create separate versions for both local and remote (default)
+
+**Conflict Types**:
+- **Content Conflicts**: Local and server versions have different content
+- **Metadata Conflicts**: File properties differ between local and server
+- **Existence Conflicts**: File exists locally but was deleted on server, or vice versa
+- **Parent Conflicts**: Parent directory was moved or deleted on server
+
+**Verification Criteria**:
+- All pending changes are identified correctly
+- Conflicts are detected before upload attempts
+- Appropriate resolution strategy is applied
+- Both versions are preserved when using keep-both strategy
+- Synchronization completes successfully
+- Failed changes are retried with exponential backoff
+
+### 10. User Notification and Feedback System
+
+**Location**: `internal/graph/network_feedback.go`, `internal/fs/dbus.go`
+
+**Notification Mechanisms**:
+1. **D-Bus Signals**: Primary notification mechanism when D-Bus is available
+2. **Logging**: All notifications are logged regardless of feedback level
+3. **Callbacks**: Application-level callbacks for programmatic handling
+4. **Extended Attributes**: File status information via xattr
+
+**Feedback Levels**:
+- **None**: Suppress user notifications, logging only
+- **Basic**: Simple connectivity status messages (default)
+- **Detailed**: Comprehensive network and sync information
+
+**Notification Types**:
+1. **Network State Changes**:
+   - Network Connected: Emitted when connectivity is restored
+   - Network Disconnected: Emitted when connectivity is lost
+   
+2. **Synchronization Events**:
+   - Sync Started: Emitted when offline-to-online sync begins
+   - Sync Completed: Emitted when all changes are synchronized
+   - Conflicts Detected: Emitted when conflicts require attention
+   - Sync Failed: Emitted when synchronization errors occur
+
+3. **File Status Updates**:
+   - Download Progress: File download status changes
+   - Upload Progress: File upload status changes
+   - Error Status: File operation errors
+
+**D-Bus Signal Format**:
+```
+Interface: com.github.jstaf.onedriver.FileStatus
+Signals:
+  - NetworkStateChanged(connected: bool)
+  - SyncStatusChanged(status: string, details: string)
+  - FileStatusChanged(path: string, status: string)
+```
+
+**Configuration Options**:
+- `--feedback-level`: Set notification verbosity (none, basic, detailed)
+- `--offline-mode`: Enable manual offline mode
+- `--query-offline-status`: Query current network state
+- `--query-cache-status`: Query cached files for offline planning
+
+**User Experience**:
+- Users receive timely notifications about network state changes
+- Synchronization progress is visible and understandable
+- Conflicts are clearly communicated with resolution options
+- Offline mode can be manually controlled for planned disconnections
+- Cache status helps users plan for offline work
+
+**Verification Criteria**:
+- D-Bus notifications are emitted correctly when available
+- Feedback level configuration is respected
+- Network state changes trigger appropriate notifications
+- Synchronization events are communicated to users
+- Manual offline mode can be activated and deactivated
+- Cache status queries provide accurate information
+- Notifications work correctly even when D-Bus is unavailable
+
+### 11. File Status and D-Bus Component
 
 **Location**: `internal/fs/file_status.go`, `internal/fs/dbus.go`
 
@@ -413,7 +640,7 @@ Each mount is completely isolated with:
 - Nemo extension displays status icons
 - Status persists across filesystem restarts
 
-### 10. Error Handling Component
+### 12. Error Handling Component
 
 **Location**: `internal/errors/`, `internal/logging/` throughout codebase
 
@@ -438,7 +665,7 @@ Each mount is completely isolated with:
 - Error messages are user-friendly
 - All tests run in Docker containers
 
-### 11. Webhook Subscription Component
+### 13. Webhook Subscription Component
 
 **Location**: `internal/fs/subscription.go`, `internal/graph/` (subscription API calls)
 
@@ -470,7 +697,7 @@ Each mount is completely isolated with:
 - Polling interval is longer (30min) when subscription active
 - Polling interval is shorter (5min) when no subscription
 
-### 12. Multi-Account Mount Manager Component
+### 14. Multi-Account Mount Manager Component
 
 **Location**: `cmd/onemount/main.go`, `internal/ui/onemount.go`
 
@@ -503,7 +730,7 @@ Each mount is completely isolated with:
 - "Shared with me" accessible via `/me/drive/sharedWithMe`
 - No cross-contamination between mounts
 
-### 13. ETag Cache Validation Component
+### 15. ETag Cache Validation Component
 
 **Location**: `internal/fs/cache.go`, `internal/fs/content_cache.go`
 
@@ -530,7 +757,102 @@ Each mount is completely isolated with:
 - Conflict detection compares local and remote ETags
 - Upload checks remote ETag before overwriting
 
+### 16. Network Error Pattern Recognition Component
+
+**Location**: `internal/graph/network_feedback.go`, `internal/fs/offline.go`
+
+**Verification Steps**:
+1. Review error pattern matching code
+2. Test each recognized error pattern
+3. Test offline state transition on pattern match
+4. Test logging of detected patterns
+
+**Recognized Error Patterns**:
+- "no such host"
+- "network is unreachable"
+- "connection refused"
+- "connection timed out"
+- "dial tcp"
+- "context deadline exceeded"
+- "no route to host"
+- "network is down"
+- "temporary failure in name resolution"
+- "operation timed out"
+
+**Verification Criteria**:
+- All error patterns are recognized correctly
+- Offline state is triggered on pattern match
+- Error patterns are logged with context
+- False positives are minimized
+- Pattern matching is case-insensitive where appropriate
+
 ## Data Models
+
+### User Notification and Feedback Data Model
+
+```go
+type FeedbackLevel int
+const (
+    FeedbackLevelNone FeedbackLevel = iota     // No user notifications
+    FeedbackLevelBasic                          // Simple status messages (default)
+    FeedbackLevelDetailed                       // Comprehensive information
+)
+
+type NotificationType int
+const (
+    NotificationNetworkConnected NotificationType = iota
+    NotificationNetworkDisconnected
+    NotificationSyncStarted
+    NotificationSyncCompleted
+    NotificationConflictsDetected
+    NotificationSyncFailed
+)
+
+type Notification struct {
+    Type      NotificationType
+    Timestamp time.Time
+    Message   string
+    Details   map[string]interface{}
+}
+
+type FeedbackHandler interface {
+    HandleNotification(notification Notification)
+    GetFeedbackLevel() FeedbackLevel
+}
+
+type FeedbackManager struct {
+    handlers      []FeedbackHandler
+    feedbackLevel FeedbackLevel
+    mutex         sync.RWMutex
+}
+
+type DBusNotificationServer struct {
+    conn       *dbus.Conn
+    objectPath dbus.ObjectPath
+    manager    *FeedbackManager
+}
+
+type OfflineStatusQuery struct {
+    IsOffline         bool
+    LastOnlineTime    time.Time
+    PendingChanges    int
+    NetworkState      string
+}
+
+type CacheStatusQuery struct {
+    TotalCachedFiles  int
+    TotalCacheSize    int64
+    CachedFileList    []CachedFileInfo
+    AvailableOffline  bool
+}
+
+type CachedFileInfo struct {
+    Path          string
+    Size          int64
+    CachedAt      time.Time
+    LastAccessed  time.Time
+}
+```
 
 ### Webhook Subscription Data Model
 
@@ -673,6 +995,78 @@ type CachedMetadata struct {
     LastValidated    time.Time        // Last ETag validation
     HasLocalChanges  bool             // Pending upload
     LocalETag        string           // ETag when file was downloaded
+}
+```
+
+### Cache Cleanup Implementation
+
+**Deleted File Handling**:
+
+When a file is deleted from the filesystem (via `Unlink` operation), the cache cleanup process should:
+
+1. **Immediate cleanup on deletion**: When `Unlink` is called, the filesystem should:
+   - Remove the inode from the filesystem's internal tracking
+   - Mark the cache entry for deletion
+   - Optionally remove the cache entry immediately to free disk space
+
+2. **Periodic cleanup of orphaned entries**: During scheduled cache cleanup, the system should:
+   - Iterate through all cache entries
+   - Check if each cached item ID exists in the metadata database
+   - Remove cache entries for items that no longer exist in metadata
+   - Log the number of orphaned entries removed
+
+3. **Cache cleanup algorithm**:
+   ```
+   For each cache entry:
+     - Check if item ID exists in metadata database
+     - If not found in metadata:
+       - Delete cache file from disk
+       - Remove entry from cache index
+       - Update cache statistics
+     - If found but expired (last access > expiration threshold):
+       - Delete cache file from disk
+       - Remove entry from cache index
+       - Update cache statistics
+   ```
+
+**Implementation Notes**:
+- The `LoopbackCache.Open()` method uses `os.O_CREATE` flag, which can create files even for deleted items
+- This behavior is acceptable for performance optimization but requires proper cleanup
+- Cache cleanup should run periodically (default: every 24 hours) to remove orphaned entries
+- Manual cache cleanup can be triggered via command-line or API
+- Cache statistics should reflect the actual state after cleanup
+
+**Rationale for Deferred Cleanup**:
+- Immediate deletion on every `Unlink` could impact performance
+- Periodic cleanup is more efficient for batch operations
+- Allows for potential "undo" functionality if file is restored quickly
+- Balances disk space usage with performance
+
+### Daemon Mode and Mount Configuration Data Model
+
+```go
+type MountConfig struct {
+    MountPoint      string        // Path where filesystem will be mounted
+    DaemonMode      bool          // Run as background daemon
+    MountTimeout    time.Duration // Maximum time to wait for mount (default: 60s)
+    NoSyncTree      bool          // Skip initial tree sync
+    Debug           bool          // Enable debug logging
+    AllowOther      bool          // Allow other users to access mount
+}
+
+type DaemonConfig struct {
+    LogFile         string        // Path to log file for daemon output
+    PIDFile         string        // Path to PID file (optional)
+    WorkingDir      string        // Working directory for daemon
+}
+
+type DatabaseConfig struct {
+    Path            string        // Path to BBolt database file
+    Timeout         time.Duration // Timeout per open attempt (default: 10s)
+    MaxRetries      int           // Maximum retry attempts (default: 10)
+    InitialBackoff  time.Duration // Initial backoff duration (default: 200ms)
+    MaxBackoff      time.Duration // Maximum backoff duration (default: 5s)
+    StaleLockAge    time.Duration // Age threshold for stale locks (default: 5m)
 }
 ```
 

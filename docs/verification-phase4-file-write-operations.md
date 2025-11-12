@@ -124,12 +124,16 @@ This document summarizes the findings from verifying file write operations in th
 - Add integration tests with real OneDrive server to verify directory deletion
 - Document this limitation in the test file
 
-**ACTION REQUIRED**: Directory deletion should be tested as part of file management operations:
-1. Add unit tests for directory deletion logic (without server sync)
-2. Add integration tests with real OneDrive to verify server synchronization
-3. Verify directory deletion is properly handled in the code
-4. Document directory deletion behavior in requirements
-5. See also: Task 5.4 retest results which verified directory operations work correctly
+**ACTION COMPLETED (2025-11-12)**: Directory deletion testing implemented:
+1. ✅ Added unit tests for directory deletion logic (TestUT_FS_DirOps_04_DirectoryDeletion_NonEmptyDirectory)
+2. ✅ Added integration tests with real OneDrive (TestIT_FS_17_01_Directory_Remove_DirectoryIsDeleted)
+3. ✅ Verified directory deletion is properly handled in the code (Rmdir implementation)
+4. ✅ Documented directory deletion behavior in requirements (Requirement 4.9-4.13)
+5. ✅ See also: Task 5.4 retest results which verified directory operations work correctly
+
+**Known Limitation**: Unit test partially skips empty directory deletion verification due to mock environment limitation. Full verification achieved through integration test with real OneDrive. See `docs/updates/2025-11-12-directory-deletion-testing.md` for details.
+
+**ACTION REQUIRED**: Enhance MockGraphClient to support directory deletion (Medium priority, 2-3 hours)
 ## Verification Status
 
 | Task | Status | Notes |

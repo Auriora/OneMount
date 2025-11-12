@@ -548,18 +548,19 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify appropriate error message
   - _Requirements: 6.2_
 
-- [x] 12.4 Test offline write restrictions
+- [x] 12.4 Test offline write operations with change queuing
   - While offline, attempt to create file
-  - Verify operation is rejected (read-only)
+  - Verify operation succeeds and change is queued
   - Attempt to modify file
-  - Verify operation is rejected
-  - _Requirements: 6.3_
+  - Verify modification succeeds and is tracked
+  - Verify changes are stored in persistent storage
+  - _Requirements: 6.3, 6.4_
 
-- [x] 12.5 Test change queuing (if implemented)
-  - If system allows queuing changes while offline
-  - Make changes while offline
-  - Verify changes are queued
-  - _Requirements: 6.4_
+- [x] 12.5 Test multiple changes to same file offline
+  - Make multiple changes to the same file while offline
+  - Verify most recent version is preserved
+  - Verify change tracking updates correctly
+  - _Requirements: 6.5_
 
 - [x] 12.6 Test online transition
   - While offline, reconnect network
@@ -567,14 +568,15 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify online state is detected
   - Check that queued changes are processed
   - Verify delta sync resumes
-  - _Requirements: 6.5_
+  - _Requirements: 6.6_
 
 - [x] 12.7 Create offline mode integration tests
   - Write test for offline detection
   - Write test for offline read operations
-  - Write test for offline write restrictions
+  - Write test for offline write operations with change queuing
+  - Write test for multiple changes to same file
   - Write test for online transition
-  - _Requirements: 6.1, 6.2, 6.3, 6.5_
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
 - [x] 12.8 Document offline mode issues and create fix plan
   - List all discovered issues
@@ -870,7 +872,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Total**: 16 medium-priority issues identified
   - Prioritize based on impact and effort
   
-- [ ] 20.1 Fix Issue #001: Mount Timeout in Docker Container
+- [x] 20.1 Fix Issue #001: Mount Timeout in Docker Container
   - **Status**: ✅ RESOLVED (2025-11-12)
   - **Component**: Filesystem Mounting
   - **Fix**: Added `--mount-timeout` flag with configurable timeout
@@ -1059,7 +1061,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Review all "ACTION REQUIRED" items in verification documents
   - **Total**: 8 action items identified
 
-- [ ] 21.1 Update Requirements for Offline Mode
+- [x] 21.1 Update Requirements for Offline Mode
   - **Source**: Issue #OF-001, `docs/verification-tracking.md`
   - **Action**: Update Requirement 6.3 to specify read-write offline mode
   - **Tasks**:
@@ -1072,7 +1074,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 2 hours
   - _Requirements: 6.3, 6.4, 6.5_
 
-- [ ] 21.2 Document Mounting Features in Requirements
+- [x] 21.2 Document Mounting Features in Requirements
   - **Source**: `docs/verification-phase4-mounting.md`
   - **Action**: Update requirements to document daemon mode and stale lock detection
   - **Tasks**:
@@ -1083,7 +1085,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 1 hour
   - _Requirements: 2.1, 2.2_
 
-- [ ] 21.3 Add Download Manager Configuration Requirements
+- [x] 21.3 Add Download Manager Configuration Requirements
   - **Source**: `docs/verification-phase5-download-manager-review.md`
   - **Action**: Add requirements for configurable download manager parameters
   - **Tasks**:
@@ -1095,33 +1097,28 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 1 hour
   - _Requirements: 3.2, 3.4, 3.5_
 
-- [ ] 21.4 Document Cache Behavior for Deleted Files
+- [x] 21.4 Document Cache Behavior for Deleted Files
   - **Source**: `docs/verification-phase4-file-write-operations.md`
   - **Action**: Document why deleted files remain in cache
   - **Tasks**:
-    - Document use case for keeping deleted files in cache:
-      - Performance optimization - avoid re-downloading if file is restored
-      - Undo/recovery functionality
-      - Cache cleanup happens separately via time-based expiration
-    - Verify this is intentional design
     - Add to cache management requirements
+    - deleted files should be removed from the cache
     - Update design documentation
   - **Estimate**: 1 hour
   - _Requirements: 7.1, 7.2_
 
-- [ ] 21.5 Add Directory Deletion Testing and Requirements
+- [x] 21.5 Add Directory Deletion Testing
   - **Source**: `docs/verification-phase4-file-write-operations.md`
   - **Action**: Ensure directory deletion is properly tested and documented
   - **Tasks**:
     - Add unit tests for directory deletion logic (without server sync)
     - Add integration tests with real OneDrive to verify server synchronization
     - Verify directory deletion is properly handled in the code
-    - Document directory deletion behavior in requirements
     - Note: Task 5.4 retest results already verified directory operations work correctly
   - **Estimate**: 3 hours
   - _Requirements: 4.1_
 
-- [ ] 21.6 Review Offline Functionality Documentation
+- [x] 21.6 Review Offline Functionality Documentation
   - **Source**: `docs/verification-tracking.md` Phase 9
   - **Action**: Review docs/offline-functionality.md for requirements/design elements
   - **Tasks**:
@@ -1132,20 +1129,21 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 1 hour
   - _Requirements: 6.1-6.5_
 
-- [ ] 21.7 Make XDG Volume Info Files Virtual
+- [x] 21.7 Make XDG Volume Info Files Virtual
   - **Source**: Issue #XDG-001, `docs/verification-tracking.md`
   - **Action**: Ensure .xdg-volume-info files are virtual (not synced to OneDrive)
   - **Tasks**:
     - Review `cmd/common/xdg.go` CreateXDGVolumeInfo function
     - Investigate why file causes I/O errors
     - Make file virtual (not synced to OneDrive)
+    - Update the requirements with this
     - Fix file permissions and attributes
     - Test with various desktop environments
     - Add error handling to prevent I/O errors
   - **Estimate**: 1-2 hours
   - _Requirements: 15.1_
 
-- [ ] 21.8 Add Requirements for User Notifications
+- [x] 21.8 Add Requirements for User Notifications
   - **Source**: Issues #OF-002, #OF-003, #OF-004
   - **Action**: Add requirements for offline state notifications and visibility
   - **Tasks**:
@@ -1161,7 +1159,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 16: Documentation Updates
 
-- [ ] 21. Update architecture documentation
+- [ ] 921. Update architecture documentation
   - Review `docs/2-architecture-and-design/software-architecture-specification.md`
   - Update component descriptions to match implementation
   - Update sequence diagrams if flows have changed

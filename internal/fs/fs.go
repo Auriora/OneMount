@@ -26,6 +26,12 @@ func (f *Filesystem) GetInodeContent(i *Inode) *[]byte {
 	return f.getInodeContent(i)
 }
 
+// StoreContent stores content in the cache for the given inode ID.
+// This is useful for creating local-only virtual files that don't sync to OneDrive.
+func (f *Filesystem) StoreContent(id string, content []byte) error {
+	return f.content.Insert(id, content)
+}
+
 // remoteID uploads a file to obtain a Onedrive ID if it doesn't already
 // have one. This is necessary to avoid race conditions against uploads if the
 // file has not already been uploaded.
