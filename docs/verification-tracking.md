@@ -186,7 +186,7 @@ This document tracks the verification and fix process for the OneMount system. I
 
 **Issues Identified**:
 - ⚠️ Issue #XDG-001: `.xdg-volume-info` file causes I/O errors (Low priority - does not affect core functionality)
-- ℹ️ Observation: Shutdown log messages not captured in log file (Low priority - observability only, functionality works correctly)
+- ℹ️ Observation: Shutdown log messages not captured in log file (Low priority - observability only, functionality works correctly) **BC:** Add this to a number table of observations/recommendations for considerations 
 
 **Notes**: 
 - ✅ **Phase 4 COMPLETE** - All core requirements verified and production-ready
@@ -228,7 +228,7 @@ This document tracks the verification and fix process for the OneMount system. I
 - Unit Tests: 4 tests created (with mock challenges)
 - Integration Tests: Test framework established
 - Requirements: 3 core requirements verified (3.1-3.3)
-- Additional Requirements: 3 need verification in other layers (3.4-3.6)
+- Additional Requirements: 3 need verification in other layers (3.4-3.6) 
 
 **Artifacts Created**:
 - `internal/fs/file_read_verification_test.go` (4 test cases)
@@ -564,6 +564,7 @@ ok      github.com/auriora/onemount/internal/fs 0.464s
 - ⚠️ **Medium Priority**: Statistics collection slow for large filesystems (>100k files)
 - ⚠️ **Medium Priority**: Fixed 24-hour cleanup interval (not configurable)
 - ⚠️ **Low Priority**: No cache hit/miss tracking in LoopbackCache itself
+**BC:** Have issues been created for these issues?
 
 **Requirements Verified**:
 - ✅ Requirement 7.1: Content stored in cache with ETag
@@ -579,7 +580,7 @@ ok      github.com/auriora/onemount/internal/fs 0.464s
 - Identified issues are enhancements, not critical defects
 - Time-based expiration works, but size-based limits would be beneficial
 - ETag-based invalidation happens implicitly through delta sync
-- Statistics collection needs optimization for large filesystems
+- Statistics collection needs optimization for large filesystems **BC:** expand on these optimizations needed
 - Ready to proceed to Phase 11 (Offline Mode Verification)
 
 ---
@@ -603,6 +604,8 @@ ok      github.com/auriora/onemount/internal/fs 0.464s
 | 12.8 | Document offline mode issues and create fix plan | ✅ | 2 |
 
 **Code Review Findings** (Task 12.1 - Completed):
+
+**BC:** Review docs/offline-functionality.md - are there requirements /design elements in this document worth incorporating into the requirements spec?
 
 **Architecture Overview**:
 The offline mode implementation consists of several key components:
@@ -653,23 +656,30 @@ The offline mode implementation consists of several key components:
 **Key Implementation Details**:
 
 1. **Read-Write Mode**: Unlike requirements which specify read-only mode, the implementation allows writes in offline mode. Changes are cached locally and queued for upload.
+**BC:** Requirements needs to be modified to match this - read/write offline mode
 
 2. **Automatic Detection**: Offline state is automatically detected through network errors in delta sync loop, not requiring manual network interface monitoring.
+**BC:** On-line/Off-line state should be detect wit the options of forcing an off-line mode through the command-line / config.
 
 3. **Change Queuing**: Implemented via `OfflineChange` tracking in BBolt database with timestamp-ordered processing.
+**BC:** Ensure the requirements match this
 
 4. **Online Transition**: Automatic when delta sync succeeds. Queued changes processed via `ProcessOfflineChanges()` or `ProcessOfflineChangesWithSyncManager()`.
+**BC:** Ensure the requirements match this
 
 5. **File Status Integration**: Offline state exposed via `GetStats()` and checked by sync manager.
+**BC:** Ensure the requirements match this
+
 
 **Discrepancies from Requirements**:
 
-| Requirement | Expected Behavior | Actual Behavior | Severity |
-|-------------|-------------------|-----------------|----------|
-| 6.3 | Filesystem should be read-only while offline | Filesystem allows writes while offline | ⚠️ Medium |
-| 6.1 | Network connectivity loss should be detected | Detected via delta sync errors, not direct network monitoring | ℹ️ Info |
-| 6.4 | Changes should be queued for upload | ✅ Implemented via OfflineChange tracking | ✅ OK |
-| 6.5 | Online transition should process queued uploads | ✅ Implemented via ProcessOfflineChanges() | ✅ OK |
+| Requirement | Expected Behavior                               | Actual Behavior                                               | Severity  |
+| ----------- | ----------------------------------------------- | ------------------------------------------------------------- | --------- |
+| 6.3         | Filesystem should be read-only while offline    | Filesystem allows writes while offline                        | ⚠️ Medium |
+| 6.1         | Network connectivity loss should be detected    | Detected via delta sync errors, not direct network monitoring | ℹ️ Info   |
+| 6.4         | Changes should be queued for upload             | ✅ Implemented via OfflineChange tracking                      | ✅ OK      |
+| 6.5         | Online transition should process queued uploads | ✅ Implemented via ProcessOfflineChanges()                     | ✅ OK      |
+**BC:** Ensure the requirements match this
 
 **Strengths**:
 - ✅ Simple, robust offline state management
@@ -680,7 +690,7 @@ The offline mode implementation consists of several key components:
 - ✅ Graceful degradation (cached files remain accessible)
 
 **Potential Issues**:
-- ⚠️ **Design Deviation**: Allows writes in offline mode (requirements specify read-only)
+- ⚠️ **Design Deviation**: Allows writes in offline mode (requirements specify read-only) - **BC:** Requirements are incorrect
 - ⚠️ **No Direct Network Monitoring**: Relies on delta sync failures to detect offline state
 - ⚠️ **No Explicit Read-Only Enforcement**: File operations check `IsOffline()` but don't block writes
 - ⚠️ **Conservative Error Handling**: Defaults to offline for unknown errors (may cause false positives)
@@ -728,10 +738,10 @@ The offline mode implementation consists of several key components:
 
 **Recommendations**:
 1. **Update Requirement 6.3** to match implementation (read-write with queuing) - **RECOMMENDED**
-2. Add D-Bus notifications for offline state changes
-3. Improve user visibility of offline status
-4. Add cache status information for offline planning
-5. Consider making offline mode configurable (read-only vs read-write)
+2. Add D-Bus notifications for offline state changes **BC:** add to requirements
+3. Improve user visibility of offline status **BC:** add to requirements
+4. Add cache status information for offline planning **BC:** expand on description
+5. Consider making offline mode configurable (read-only vs read-write) **BC:** No need offline will always support read/write.
 
 **Notes**: 
 - Offline mode implementation is well-designed and production-ready
@@ -780,6 +790,7 @@ The offline mode implementation consists of several key components:
   - Some test goroutines lack timeout protection
   - No centralized goroutine management
   - Could optimize critical sections
+**BC:** Add these to the issue list
 
 **Performance Assessment**:
 - Directory listing: Expected to meet <2s requirement for 100+ files (needs benchmark verification)
@@ -1421,6 +1432,8 @@ After a file download completes, the cached file's file pointer is positioned at
 **Expected Behavior**:
 - File pointer should be at the beginning for reading
 - OR documentation should clearly state that seek is required
+
+**BC:** This should behave the same as opening any file on disk in the OS.
 
 **Actual Behavior**:
 - File pointer is at EOF after download
@@ -2205,6 +2218,8 @@ Some critical sections hold locks longer than necessary, which could impact perf
 
 **Description**:
 The `.xdg-volume-info` file created for desktop integration causes I/O errors when accessed. The file appears in directory listings but cannot be read or stat'd, causing some operations like `find` and `du` to fail.
+
+**BC:** It appears that files are created on OneDrive to support this. These files should be virtual.
 
 **Steps to Reproduce**:
 1. Mount filesystem: `./build/onemount --cache-dir=/tmp/cache /tmp/mount`

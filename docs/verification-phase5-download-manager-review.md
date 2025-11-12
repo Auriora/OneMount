@@ -443,7 +443,7 @@ The implementation aligns well with the design document:
 3. **Queue Size**: Design doesn't specify 500 capacity
    - **Assessment**: Reasonable default, could be configurable
 
-**Review Comment:** Add requirement(s) to make these configurable and specify reasonable defaults.
+**BC:** Add requirement(s) to make these configurable and specify reasonable defaults.
 
 ---
 
