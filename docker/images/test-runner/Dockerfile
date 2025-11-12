@@ -30,9 +30,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Go environment for test user
+# Note: GOCACHE and GOMODCACHE are set dynamically in entrypoint to avoid permission issues
 ENV GOPATH="/home/tester/go"
-ENV GOCACHE="/tmp/go-cache"
-ENV GOMODCACHE="/tmp/go-mod-cache"
 
 # Install Python dependencies for OneMount development CLI
 COPY scripts/requirements-dev-cli.txt /tmp/requirements-dev-cli.txt

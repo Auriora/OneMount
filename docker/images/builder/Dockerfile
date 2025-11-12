@@ -52,10 +52,10 @@ RUN wget -O go.tar.gz "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz"
 # Verify Go version matches project requirements
 RUN /usr/local/go/bin/go version && echo "Go ${GO_VERSION} installation verified for Ubuntu $(lsb_release -rs)"
 
-# Set Go environment with standardized cache paths for volume mounting
+# Set Go environment
+# Note: GOCACHE and GOMODCACHE are intentionally not set here to avoid permission issues
+# They will be set dynamically in entrypoint scripts based on the running user
 ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOCACHE="/tmp/go-cache"
-ENV GOMODCACHE="/tmp/go-mod-cache"
 ENV GOSUMDB="sum.golang.org"
 
 # Configure FUSE for testing
@@ -65,8 +65,9 @@ RUN echo 'user_allow_other' >> /etc/fuse.conf
 RUN groupadd -f fuse
 
 # Create standardized cache directories with proper permissions
-RUN mkdir -p /tmp/go-cache /tmp/go-mod-cache && \
-    chmod 777 /tmp/go-cache /tmp/go-mod-cache
+# These directories will be used as mount points for Docker volumes
+RUN mkdir -p /tmp/go-build-cache /tmp/go-mod-cache && \
+    chmod 777 /tmp/go-build-cache /tmp/go-mod-cache
 
 # Create workspace directory (ownership will be set in derived images)
 RUN mkdir -p /workspace

@@ -27,6 +27,9 @@ services:
       - ../../test-artifacts:/tmp/home-tester/.onemount-tests:rw
       # Mount authentication tokens for persistent auth across test runs
       - ${HOME}/.onemount-tests:/tmp/home-tester/.onemount-tests-auth:ro
+      # Cache Go build artifacts to speed up subsequent builds
+      - go-build-cache:/tmp/go-build-cache:rw
+      - go-mod-cache:/tmp/go-mod-cache:rw
 
     # Enable FUSE support for filesystem testing
     devices:
@@ -173,3 +176,11 @@ services:
       service: test-runner
     container_name: onemount-shell
     command: ["shell"]
+
+
+# Named volumes for caching Go build artifacts
+volumes:
+  go-build-cache:
+    name: onemount-go-build-cache
+  go-mod-cache:
+    name: onemount-go-mod-cache
