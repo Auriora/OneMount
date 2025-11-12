@@ -358,13 +358,18 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify eventual success
   - _Requirements: 4.4_
 
-- [x] 9.5 Test upload conflict detection
+- [ ] 9.5 Test upload conflict detection with real OneDrive
   - Modify file locally
   - Modify same file on OneDrive web interface
   - Trigger upload
   - Verify conflict is detected
   - Check conflict resolution (should be tested in delta sync)
-  - _Requirements: 4.4, 5.4_
+  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_FS.*Conflict ./internal/fs`
+  - Verify conflicts are detected when file modified locally and remotely
+  - Verify conflict copies are created correctly
+  - Verify both versions are preserved
+  - Document results in `docs/verification-tracking.md` Phase 6 section
+  - _Requirements: 4.4, 5.4, 5.4, 8.1, 8.2, 8.3_
 
 - [x] 9.6 Create upload manager integration tests
   - Write test for small file upload
@@ -413,14 +418,19 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify new version is downloaded
   - _Requirements: 5.3_
 
-- [x] 10.5 Test conflict detection and resolution
+- [ ] 10.5 Test conflict detection and resolution with real OneDrive
   - Modify a file locally (don't let it upload yet)
-  - Modify same file on OneDrive
+  - Modify same file on OneDrive web interface
   - Trigger delta sync
   - Verify conflict is detected
   - Check that conflict copy is created
   - Verify local version is preserved
-  - _Requirements: 5.4_
+  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_FS.*Conflict ./internal/fs`
+  - Verify delta sync conflict detection works with real API
+  - Verify local changes preserved when remote changes detected
+  - Verify ETag comparison mechanism for conflict detection
+  - Document results in `docs/verification-tracking.md` Phase 7 section
+  - _Requirements: 5.4, 8.1, 8.2, 8.3_
 
 - [x] 10.6 Test delta sync persistence
   - Run delta sync
@@ -468,13 +478,21 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify cache statistics reflect hits and misses
   - _Requirements: 7.5_
 
-- [x] 11.4 Test cache expiration
+- [ ] 11.4 Test cache expiration with manual verification
   - Configure short cache expiration (e.g., 1 day)
   - Create files with old access times
   - Trigger cache cleanup
   - Verify old files are removed
   - Verify recent files are retained
-  - _Requirements: 7.2, 7.3, 7.4_
+  - **Manual retest**: Perform manual cache management verification in Docker
+  - Set short cache expiration time in configuration
+  - Access multiple files to populate cache
+  - Monitor cache cleanup process
+  - Verify cache statistics with large datasets
+  - Test with different cache size limits
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
+  - Document results in `docs/verification-tracking.md` Phase 9 section
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
 - [x] 11.5 Test cache statistics
   - Run `onemount --stats /mount/path`
@@ -577,30 +595,44 @@ This implementation plan breaks down the verification and fix process into discr
   - Review Nemo extension code
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [x] 13.2 Test file status updates
+- [ ] 13.2 Test file status updates with manual verification
   - Monitor file status during various operations
   - Verify status changes appropriately (synced, downloading, error, etc.)
   - Check extended attributes are set correctly
+  - **Manual retest in Docker**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
+  - Run: `./tests/manual/test_file_status_updates.sh`
+  - Verify file status updates work correctly with real OneDrive
+  - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.1_
 
-- [x] 13.3 Test D-Bus integration
+- [ ] 13.3 Test D-Bus integration with manual verification
   - Verify D-Bus server starts successfully
   - Monitor D-Bus signals during file operations
   - Use `dbus-monitor` to observe signals
   - Verify signal format and content
+  - **Manual retest in Docker**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
+  - Run: `./tests/manual/test_dbus_integration.sh`
+  - Verify D-Bus signals are emitted correctly with real OneDrive
+  - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.2_
 
-- [x] 13.4 Test D-Bus fallback
+- [ ] 13.4 Test D-Bus fallback with manual verification
   - Disable D-Bus (or run in environment without D-Bus)
   - Verify system continues operating
   - Check that extended attributes still work
+  - **Manual retest in Docker**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
+  - Run: `./tests/manual/test_dbus_fallback.sh`
+  - Verify fallback to extended attributes works with real OneDrive
+  - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.4_
 
-- [x] 13.5 Test Nemo extension
+- [ ] 13.5 Test Nemo extension with manual verification
   - Open Nemo file manager
   - Navigate to mounted OneDrive
   - Verify status icons appear on files
   - Trigger file operations and watch icons update
+  - **Manual retest**: Test with real OneDrive mount in Docker or local system
+  - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.3_
 
 - [x] 13.6 Create file status integration tests
@@ -738,36 +770,45 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 14: Integration and End-to-End Testing
 
-- [x] 16. Create comprehensive integration tests
-- [x] 16.1 Write authentication to file access integration test
+- [ ] 16. Run comprehensive integration tests with real OneDrive
+- [ ] 16.1 Test authentication to file access with real OneDrive
   - Test complete flow: authenticate → mount → list files → read file
   - Verify each step works correctly
   - Check error handling at each step
+  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_COMPREHENSIVE ./internal/fs`
+  - Verify all components work together end-to-end
+  - Test complete workflows with real API
+  - Verify error handling with real network conditions
+  - Document results in `docs/verification-tracking.md` Phase 13 section
   - _Requirements: 11.1_
 
-- [x] 16.2 Write file modification to sync integration test
+- [ ] 16.2 Test file modification to sync with real OneDrive
   - Test flow: create file → modify → upload → verify on OneDrive
   - Check that all steps complete
   - Verify file appears correctly on OneDrive
+  - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.2_
 
-- [x] 16.3 Write offline mode integration test
+- [ ] 16.3 Test offline mode with real OneDrive
   - Test flow: online → access files → go offline → access cached files → go online
   - Verify offline detection works
   - Check that cached files remain accessible
   - Verify online transition works
+  - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.3_
 
-- [x] 16.4 Write conflict resolution integration test
+- [ ] 16.4 Test conflict resolution with real OneDrive
   - Test flow: modify file locally → modify remotely → sync → verify conflict copy
   - Check that both versions are preserved
   - Verify conflict is detected correctly
+  - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.4_
 
-- [x] 16.5 Write cache cleanup integration test
+- [ ] 16.5 Test cache cleanup with real OneDrive
   - Test flow: access files → wait for expiration → trigger cleanup → verify old files removed
   - Check that cleanup respects expiration settings
   - Verify recent files are retained
+  - **Covered by TestIT_COMPREHENSIVE integration test above**
   - _Requirements: 11.5_
 
 - [x] 17. Create end-to-end workflow tests
@@ -788,18 +829,29 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify all files download correctly
   - _Requirements: 3.2, 4.3, 10.1, 10.2_
 
-- [x] 17.3 Test long-running operations
+- [ ] 17.3 Test long-running operations with real OneDrive
   - Upload a very large file (1GB+)
   - Monitor progress
   - Verify upload completes successfully
   - Test interruption and resume
+  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm -e RUN_E2E_TESTS=1 -e RUN_LONG_TESTS=1 system-tests go test -v -timeout 60m -run TestE2E_17_03 ./internal/fs`
+  - Verify very large file uploads (1GB+)
+  - Monitor progress throughout operation
+  - Test interruption and resume functionality
+  - Document results in `docs/verification-tracking.md` Phase 14 section
   - _Requirements: 4.3, 4.4_
 
-- [x] 17.4 Test stress scenarios
+- [ ] 17.4 Test stress scenarios with real OneDrive
   - Perform many concurrent operations
   - Monitor resource usage (CPU, memory, network)
   - Verify system remains stable
   - Check for memory leaks
+  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm -e RUN_E2E_TESTS=1 -e RUN_STRESS_TESTS=1 system-tests go test -v -timeout 30m -run TestE2E_17_04 ./internal/fs`
+  - Verify many concurrent operations work correctly
+  - Monitor resource usage (CPU, memory, network)
+  - Verify system remains stable under load
+  - Check for memory leaks
+  - Document results in `docs/verification-tracking.md` Phase 14 section
   - _Requirements: 10.1, 10.2_
 
 ---
@@ -887,32 +939,36 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze `cmd/common/config.go`
   - Verify use of `os.UserConfigDir()` and `os.UserCacheDir()`
   - Check directory creation and permissions
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.1, 15.4_
 
 - [ ] 26.2 Test XDG_CONFIG_HOME environment variable
   - Set `XDG_CONFIG_HOME` to custom path
-  - Mount filesystem
+  - Mount filesystem in Docker container
   - Verify config stored in `$XDG_CONFIG_HOME/onemount/`
   - Verify auth tokens in config directory
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.2, 15.7_
 
 - [ ] 26.3 Test XDG_CACHE_HOME environment variable
   - Set `XDG_CACHE_HOME` to custom path
-  - Mount filesystem
+  - Mount filesystem in Docker container
   - Verify cache stored in `$XDG_CACHE_HOME/onemount/`
   - Verify metadata database in cache directory
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.5, 15.9_
 
 - [ ] 26.4 Test default XDG paths
   - Unset XDG environment variables
-  - Mount filesystem
+  - Mount filesystem in Docker container
   - Verify config in `~/.config/onemount/`
   - Verify cache in `~/.cache/onemount/`
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.3, 15.6_
 
 - [ ] 26.5 Test command-line override
   - Use `--config-file` and `--cache-dir` flags
-  - Verify custom paths are used
+  - Verify custom paths are used in Docker container
   - Verify XDG paths are not used
   - _Requirements: 15.10_
 
@@ -920,7 +976,14 @@ This implementation plan breaks down the verification and fix process into discr
   - Check config directory permissions (should be 0700)
   - Check cache directory permissions (should be 0755)
   - Verify auth tokens are not world-readable
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.7_
+
+- [ ] 26.7 Document XDG compliance verification results
+  - Update `docs/verification-tracking.md` with Phase 17 results
+  - Document any issues found
+  - Create fix plan if needed
+  - _Requirements: 15.1-15.10_
 
 ---
 
@@ -931,21 +994,24 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze `internal/fs/subscription.go`
   - Review subscription API calls in `internal/graph/`
   - Check subscription manager implementation
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
 
 - [ ] 27.2 Test subscription creation on mount
-  - Mount filesystem
+  - Mount filesystem in Docker container
   - Verify POST `/subscriptions` API call
   - Check subscription ID is stored
   - Verify expiration time is tracked
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.1, 14.5, 5.2_
 
 - [ ] 27.3 Test webhook notification reception
-  - Set up webhook listener
+  - Set up webhook listener in Docker container
   - Trigger change on OneDrive
   - Verify notification is received
   - Check notification validation
   - Verify delta query is triggered
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.6, 14.7, 5.6_
 
 - [ ] 27.4 Test subscription renewal
@@ -953,24 +1019,28 @@ This implementation plan breaks down the verification and fix process into discr
   - Wait until within 24h of expiration
   - Verify PATCH `/subscriptions/{id}` is called
   - Check new expiration time is stored
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.9, 5.13_
 
 - [ ] 27.5 Test subscription failure fallback
   - Simulate subscription creation failure
   - Verify system continues with polling
   - Check polling interval is shorter (5 min)
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.10, 5.7, 5.14_
 
 - [ ] 27.6 Test subscription deletion on unmount
-  - Mount filesystem with subscription
+  - Mount filesystem with subscription in Docker
   - Unmount filesystem
   - Verify DELETE `/subscriptions/{id}` is called
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.12_
 
 - [ ] 27.7 Test personal vs business subscription limits
   - Test subscription to subfolder on personal OneDrive
   - Test subscription to root only on business OneDrive
   - Verify appropriate restrictions
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 5.3, 5.4_
 
 - [ ] 27.8 Create webhook subscription integration tests
@@ -978,7 +1048,13 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for notification handling
   - Write test for renewal logic
   - Write test for fallback to polling
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests`
+  - _Requirements: 14.1-14.12, 5.2-5.14_
+
+- [ ] 27.9 Document webhook subscription verification results
+  - Update `docs/verification-tracking.md` with Phase 18 results
+  - Document any issues found
+  - Create fix plan if needed
   - _Requirements: 14.1-14.12, 5.2-5.14_
 
 ---
@@ -990,53 +1066,61 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze mount manager implementation
   - Check account isolation (auth, cache, sync)
   - Review drive type handling (personal, business, shared)
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.1, 13.6, 13.7, 13.8_
 
 - [ ] 28.2 Test mounting personal OneDrive
-  - Authenticate with personal account
+  - Authenticate with personal account in Docker
   - Mount at `/mnt/onedrive-personal`
   - Verify access to `/me/drive`
   - Check files are accessible
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.2_
 
 - [ ] 28.3 Test mounting business OneDrive
-  - Authenticate with work account
+  - Authenticate with work account in Docker
   - Mount at `/mnt/onedrive-work`
   - Verify access to `/me/drive`
   - Check files are accessible
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.3_
 
 - [ ] 28.4 Test simultaneous mounts
-  - Mount personal OneDrive
-  - Mount business OneDrive
+  - Mount personal OneDrive in Docker
+  - Mount business OneDrive in Docker
   - Verify both are accessible
   - Check no cross-contamination
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.1_
 
 - [ ] 28.5 Test shared drive mount
   - Get shared drive ID
-  - Mount using `/drives/{drive-id}`
+  - Mount using `/drives/{drive-id}` in Docker
   - Verify access to shared files
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.4_
 
 - [ ] 28.6 Test "Shared with me" access
-  - Access `/me/drive/sharedWithMe`
+  - Access `/me/drive/sharedWithMe` in Docker
   - Verify shared items are visible
   - Test accessing shared files
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.5_
 
 - [ ] 28.7 Test cache isolation
-  - Mount multiple accounts
+  - Mount multiple accounts in Docker
   - Access files in each mount
   - Verify separate cache directories
   - Check no cache conflicts
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.7_
 
 - [ ] 28.8 Test delta sync isolation
-  - Mount multiple accounts
+  - Mount multiple accounts in Docker
   - Trigger changes in each OneDrive
   - Verify independent delta sync loops
   - Check correct updates per mount
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 13.8_
 
 - [ ] 28.9 Create multi-account integration tests
@@ -1044,60 +1128,73 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for cache isolation
   - Write test for sync isolation
   - Write test for different drive types
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests`
+  - _Requirements: 13.1-13.8_
+
+- [ ] 28.10 Document multi-account verification results
+  - Update `docs/verification-tracking.md` with Phase 19 results
+  - Document any issues found
+  - Create fix plan if needed
   - _Requirements: 13.1-13.8_
 
 ---
 
 ## Phase 20: ETag Cache Validation Verification
 
-- [ ] 29. Verify ETag-based cache validation
+- [ ] 29. Verify ETag-based cache validation with real OneDrive
 - [ ] 29.1 Review ETag implementation
   - Read and analyze `internal/fs/cache.go`
   - Review `internal/fs/content_cache.go`
   - Check ETag storage in cache entries
   - Review `if-none-match` header usage
+  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 7.1, 7.3_
 
-- [ ] 29.2 Test cache hit with valid ETag
+- [ ] 29.2 Test cache hit with valid ETag using real OneDrive
   - Download a file (cache it)
   - Access the same file again
   - Verify `if-none-match` header is sent
   - Check 304 Not Modified response
   - Verify content served from cache
+  - **Retest with real OneDrive**: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_FS_ETag ./internal/fs`
+  - Document results in `docs/verification-tracking.md` Phase 20 section
   - _Requirements: 3.4, 3.5, 7.3_
 
-- [ ] 29.3 Test cache miss with changed ETag
+- [ ] 29.3 Test cache miss with changed ETag using real OneDrive
   - Download a file (cache it)
-  - Modify file on OneDrive
+  - Modify file on OneDrive web interface
   - Access the file again
   - Verify `if-none-match` header is sent
   - Check 200 OK response with new content
   - Verify cache is updated with new ETag
+  - **Covered by TestIT_FS_ETag integration test above**
   - _Requirements: 3.6, 7.3_
 
-- [ ] 29.4 Test ETag updates from delta sync
+- [ ] 29.4 Test ETag updates from delta sync with real OneDrive
   - Cache several files
-  - Modify files on OneDrive
+  - Modify files on OneDrive web interface
   - Run delta sync
   - Verify ETags are updated in metadata
   - Check cache entries are invalidated
+  - **Covered by delta sync integration tests**
   - _Requirements: 5.10, 7.4_
 
-- [ ] 29.5 Test conflict detection with ETags
+- [ ] 29.5 Test conflict detection with ETags using real OneDrive
   - Download a file (cache it with ETag)
   - Modify file locally
-  - Modify same file on OneDrive (changes ETag)
+  - Modify same file on OneDrive web interface (changes ETag)
   - Attempt to upload
   - Verify conflict is detected via ETag mismatch
   - Check conflict copy is created
+  - **Covered by upload and delta sync tests**
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 29.6 Create ETag validation integration tests
-  - Write test for cache validation flow
-  - Write test for ETag-based conflict detection
-  - Write test for delta sync ETag updates
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
+- [ ] 29.6 Run ETag validation integration tests with real OneDrive
+  - Run: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_FS_ETag ./internal/fs`
+  - Verify cache validation flow works with real API
+  - Verify ETag-based conflict detection works with real API
+  - Verify delta sync ETag updates work with real API
+  - Document results in `docs/verification-tracking.md` Phase 20 section
   - _Requirements: 3.4-3.6, 7.1-7.4, 8.1-8.3_
 
 ---
