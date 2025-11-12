@@ -59,6 +59,7 @@ services:
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m
       - ONEMOUNT_TEST_VERBOSE=false
+      - ONEMOUNT_AUTH_PATH=/tmp/home-tester/.onemount-tests/.auth_tokens.json
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
       - GOGC=50
       - GOMEMLIMIT=2GiB
@@ -97,6 +98,7 @@ services:
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m
       - ONEMOUNT_TEST_VERBOSE=true
+      - ONEMOUNT_AUTH_PATH=/tmp/home-tester/.onemount-tests/.auth_tokens.json
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
 
     command: ["unit"]
@@ -110,6 +112,7 @@ services:
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m
       - ONEMOUNT_TEST_VERBOSE=true
+      - ONEMOUNT_AUTH_PATH=/tmp/home-tester/.onemount-tests/.auth_tokens.json
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
 
     command: ["integration"]
@@ -141,6 +144,7 @@ services:
     environment:
       - ONEMOUNT_TEST_TIMEOUT=30m
       - ONEMOUNT_TEST_VERBOSE=true
+      - ONEMOUNT_AUTH_PATH=/tmp/home-tester/.onemount-tests/.auth_tokens.json
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
       - GOGC=50
       - GOMEMLIMIT=4GiB
@@ -166,6 +170,7 @@ services:
     environment:
       - ONEMOUNT_TEST_TIMEOUT=5m
       - ONEMOUNT_TEST_VERBOSE=true
+      - ONEMOUNT_AUTH_PATH=/tmp/home-tester/.onemount-tests/.auth_tokens.json
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
 
     command: ["coverage"]
