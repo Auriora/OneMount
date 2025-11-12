@@ -102,6 +102,8 @@ This document summarizes the findings from verifying file write operations in th
 
 **Recommendation:** No fix required. This is expected behavior. The cache is designed to persist data for performance reasons. Document this behavior in the cache implementation.
 
+**Review Comment:** Is the correct behaviour? What is the use case for keeping the deleted file in the cache? 
+
 ### Issue 2: Directory Deletion in Mock Environment
 
 **Severity:** Low (Test Limitation)  
@@ -118,6 +120,7 @@ This document summarizes the findings from verifying file write operations in th
 - Add integration tests with real OneDrive server to verify directory deletion
 - Document this limitation in the test file
 
+**Review Comment:** If we're testing file deletion why not test directory deletion? I would classify directory deletion as a file management operation. This test need to test the code logical before testing in an integrated environment.
 ## Verification Status
 
 | Task | Status | Notes |

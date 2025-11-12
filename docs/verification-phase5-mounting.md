@@ -182,6 +182,8 @@ type CustomRawFileSystem struct {
 - Design doesn't explicitly mention daemon mode (but it's a useful feature)
 - Design doesn't detail the stale lock file detection (but it's a good addition)
 
+**Review Comment:** Update the requirements with these minor deviations. 
+
 ## Issues Identified
 
 ### None Critical

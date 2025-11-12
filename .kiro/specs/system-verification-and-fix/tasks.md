@@ -738,33 +738,33 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 14: Integration and End-to-End Testing
 
-- [ ] 16. Create comprehensive integration tests
-- [ ] 16.1 Write authentication to file access integration test
+- [x] 16. Create comprehensive integration tests
+- [x] 16.1 Write authentication to file access integration test
   - Test complete flow: authenticate → mount → list files → read file
   - Verify each step works correctly
   - Check error handling at each step
   - _Requirements: 11.1_
 
-- [ ] 16.2 Write file modification to sync integration test
+- [x] 16.2 Write file modification to sync integration test
   - Test flow: create file → modify → upload → verify on OneDrive
   - Check that all steps complete
   - Verify file appears correctly on OneDrive
   - _Requirements: 11.2_
 
-- [ ] 16.3 Write offline mode integration test
+- [x] 16.3 Write offline mode integration test
   - Test flow: online → access files → go offline → access cached files → go online
   - Verify offline detection works
   - Check that cached files remain accessible
   - Verify online transition works
   - _Requirements: 11.3_
 
-- [ ] 16.4 Write conflict resolution integration test
+- [x] 16.4 Write conflict resolution integration test
   - Test flow: modify file locally → modify remotely → sync → verify conflict copy
   - Check that both versions are preserved
   - Verify conflict is detected correctly
   - _Requirements: 11.4_
 
-- [ ] 16.5 Write cache cleanup integration test
+- [x] 16.5 Write cache cleanup integration test
   - Test flow: access files → wait for expiration → trigger cleanup → verify old files removed
   - Check that cleanup respects expiration settings
   - Verify recent files are retained
