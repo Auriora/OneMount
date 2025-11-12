@@ -65,27 +65,30 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm shell
 **Run specific tests (pass-through mode):**
 
 ```bash
+# IMPORTANT: Use test-runner service (not integration-tests) for pass-through mode
+# The specialized services (integration-tests, unit-tests) have default commands
+
 # Run specific test pattern - pass-through mode automatically sets up environment
 docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  integration-tests go test -v -run TestIT_FS_ETag ./internal/fs
+  test-runner go test -v -run TestIT_FS_ETag ./internal/fs
 
 # Run tests with custom timeout
 docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  integration-tests go test -v -timeout 10m -run TestPattern ./internal/fs
+  test-runner go test -v -timeout 10m -run TestPattern ./internal/fs
 
 # Run tests with race detector
 docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  integration-tests go test -v -race ./internal/...
+  test-runner go test -v -race ./internal/...
 
 # Run benchmarks
 docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  integration-tests go test -v -bench=. -run=^$ ./internal/fs
+  test-runner go test -v -bench=. -run=^$ ./internal/fs
 ```
 
 **Key Points for AI Agents:**
-- ✅ **Use helper commands** for full test suites: `unit-tests`, `integration-tests`, `system-tests`
-- ✅ **Use pass-through mode** for specific test patterns: `integration-tests go test -v -run TestPattern ./path`
-- ✅ **Both modes work** - the entrypoint automatically detects which mode to use
+- ✅ **Use specialized services** for full test suites: `unit-tests`, `integration-tests`, `system-tests`
+- ✅ **Use test-runner service** for pass-through mode: `test-runner go test -v -run TestPattern ./path`
+- ❌ **Don't use specialized services for pass-through** - they have default commands that will conflict
 - ❌ **Don't use** `--entrypoint /bin/bash` workarounds - pass-through mode handles this
 ```
 

@@ -34,13 +34,15 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm integration-te
 
 ### Pass-Through Mode (new)
 ```bash
+# IMPORTANT: Use test-runner service for pass-through, not specialized services
+
 # Run specific test pattern
 docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  integration-tests go test -v -run TestIT_FS_ETag ./internal/fs
+  test-runner go test -v -run TestIT_FS_ETag ./internal/fs
 
 # Run with custom flags
 docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  integration-tests go test -v -timeout 10m -race ./internal/...
+  test-runner go test -v -timeout 10m -race ./internal/...
 ```
 
 ## Benefits
@@ -58,6 +60,17 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm \
 ## Testing
 
 The entrypoint script passes shell diagnostics and maintains backward compatibility with all existing helper commands while adding the new pass-through capability.
+
+**Important**: After modifying the entrypoint script, the Docker image must be rebuilt:
+```bash
+docker compose -f docker/compose/docker-compose.test.yml build test-runner
+```
+
+Verified working with:
+```bash
+docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go version
+# Output: go version go1.24.2 linux/amd64
+```
 
 ## Rules Consulted
 

@@ -158,21 +158,25 @@ setup_auth_tokens() {
     mkdir -p "$HOME/.onemount-tests/logs"
     
     # Check multiple possible locations for auth tokens
+    # Priority order: test-artifacts (most recent) > mounted home > workspace root (legacy)
     local auth_tokens_file=""
 
-    # Check if auth tokens exist in the workspace (mounted from host)
-    if [[ -f "/workspace/auth_tokens.json" ]]; then
-        auth_tokens_file="/workspace/auth_tokens.json"
-        print_info "Auth tokens found in workspace root"
+    # Check test-artifacts first (preferred location for Docker tests)
+    if [[ -f "/workspace/test-artifacts/.auth_tokens.json" ]]; then
+        auth_tokens_file="/workspace/test-artifacts/.auth_tokens.json"
+        print_info "Auth tokens found in test-artifacts directory (hidden file)"
     elif [[ -f "/workspace/test-artifacts/auth_tokens.json" ]]; then
         auth_tokens_file="/workspace/test-artifacts/auth_tokens.json"
         print_info "Auth tokens found in test-artifacts directory"
-    elif [[ -f "/workspace/test-artifacts/.auth_tokens.json" ]]; then
-        auth_tokens_file="/workspace/test-artifacts/.auth_tokens.json"
-        print_info "Auth tokens found in test-artifacts directory (hidden file)"
+    # Check mounted home directory (from docker-compose volume mount)
     elif [[ -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
         auth_tokens_file="$HOME/.onemount-tests/.auth_tokens.json"
         print_info "Auth tokens found in mounted directory"
+    # Check workspace root last (legacy location, may be stale)
+    elif [[ -f "/workspace/auth_tokens.json" ]]; then
+        auth_tokens_file="/workspace/auth_tokens.json"
+        print_warning "Auth tokens found in workspace root (legacy location - may be stale)"
+        print_info "Consider moving to test-artifacts/.auth_tokens.json"
     fi
 
     if [[ -n "$auth_tokens_file" ]]; then

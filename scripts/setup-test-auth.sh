@@ -114,6 +114,13 @@ if [ -n "$FOUND_TOKEN" ]; then
     
     print_success "Tokens copied to: $TEST_TOKEN_FILE"
     
+    # Also copy to workspace test-artifacts for Docker tests
+    if [ -d "./test-artifacts" ]; then
+        cp "$FOUND_TOKEN" "./test-artifacts/.auth_tokens.json"
+        chmod 600 "./test-artifacts/.auth_tokens.json"
+        print_success "Tokens also copied to: ./test-artifacts/.auth_tokens.json (for Docker tests)"
+    fi
+    
     # Show account info
     ACCOUNT=$(jq -r '.account' "$TEST_TOKEN_FILE")
     EXPIRES_AT=$(jq -r '.expires_at' "$TEST_TOKEN_FILE")
@@ -247,6 +254,14 @@ for token_file in "$TEMP_CACHE"/*/auth_tokens.json; do
             chmod 600 "$TEST_TOKEN_FILE"
             
             print_success "Tokens saved to: $TEST_TOKEN_FILE"
+            
+            # Also copy to workspace test-artifacts for Docker tests
+            if [ -d "./test-artifacts" ]; then
+                cp "$token_file" "./test-artifacts/.auth_tokens.json"
+                chmod 600 "./test-artifacts/.auth_tokens.json"
+                print_success "Tokens also copied to: ./test-artifacts/.auth_tokens.json (for Docker tests)"
+            fi
+            
             TOKEN_FOUND=true
             
             # Show account info
