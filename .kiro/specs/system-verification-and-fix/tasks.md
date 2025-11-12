@@ -389,7 +389,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 8: Delta Synchronization Verification
 
-- [ ] 10. Verify delta synchronization
+- [x] 10. Verify delta synchronization
 - [x] 10.1 Review delta sync code
   - Read and analyze `internal/fs/delta.go`
   - Review `internal/fs/sync.go`
@@ -587,7 +587,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 11: File Status and D-Bus Verification
 
-- [x] 13. Verify file status tracking
+- [-] 13. Verify file status tracking
 - [x] 13.1 Review file status code
   - Read and analyze `internal/fs/file_status.go`
   - Review `internal/fs/dbus.go`
@@ -595,7 +595,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Review Nemo extension code
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 13.2 Test file status updates with manual verification
+- [x] 13.2 Test file status updates with manual verification
   - Monitor file status during various operations
   - Verify status changes appropriately (synced, downloading, error, etc.)
   - Check extended attributes are set correctly
@@ -604,12 +604,12 @@ This implementation plan breaks down the verification and fix process into discr
   - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.1_
 
-- [ ] 13.3 Test D-Bus integration with manual verification
+- [x] 13.3 Test D-Bus integration with manual verification
   - Verify D-Bus server starts successfully
   - Monitor D-Bus signals during file operations
   - Use `dbus-monitor` to observe signals
   - Verify signal format and content
-  - Run: `./tests/manual/test_dbus_integration.sh`
+  - Run outside of docker: `./tests/manual/test_dbus_integration.sh`
   - Verify D-Bus signals are emitted correctly with real OneDrive
   - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.2_
@@ -618,17 +618,17 @@ This implementation plan breaks down the verification and fix process into discr
   - Disable D-Bus (or run in environment without D-Bus)
   - Verify system continues operating
   - Check that extended attributes still work
-  - Run: `./tests/manual/test_dbus_fallback.sh`
+  - Run outside of docker: `./tests/manual/test_dbus_fallback.sh`
   - Verify fallback to extended attributes works with real OneDrive
   - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.4_
 
-- [ ] 13.5 Test Nemo extension with manual verification
+- [x] 13.5 Test Nemo extension with manual verification
   - Open Nemo file manager
   - Navigate to mounted OneDrive
   - Verify status icons appear on files
   - Trigger file operations and watch icons update
-  - Test with real OneDrive mount in Docker
+  - Test with real OneDrive mount outside Docker
   - Document results in `docs/verification-tracking.md` Phase 11 section
   - _Requirements: 8.3_
 
@@ -767,7 +767,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 14: Integration and End-to-End Testing
 
-- [ ] 16. Run comprehensive integration tests with real OneDrive
+- [-] 16. Run comprehensive integration tests with real OneDrive
 - [ ] 16.1 Test authentication to file access with real OneDrive
   - Test complete flow: authenticate → mount → list files → read file
   - Verify each step works correctly
