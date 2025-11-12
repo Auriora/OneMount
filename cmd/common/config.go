@@ -8,10 +8,10 @@ import (
 	"github.com/imdario/mergo"
 	yaml "gopkg.in/yaml.v3"
 
-	"github.com/auriora/onemount/internal/ui"
 	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/ui"
 )
 
 const (
@@ -26,6 +26,7 @@ type Config struct {
 	SyncTree         bool   `yaml:"syncTree"`
 	DeltaInterval    int    `yaml:"deltaInterval"`
 	CacheExpiration  int    `yaml:"cacheExpiration"`
+	MountTimeout     int    `yaml:"mountTimeout"`
 	graph.AuthConfig `yaml:"auth"`
 }
 
@@ -48,6 +49,7 @@ func createDefaultConfig() Config {
 		SyncTree:        true,             // Enable tree sync by default for better performance
 		DeltaInterval:   1,                // Default to 1 second
 		CacheExpiration: 30,               // Default to 30 days
+		MountTimeout:    60,               // Default to 60 seconds
 	}
 }
 
@@ -125,6 +127,14 @@ func validateConfig(config *Config) error {
 			Int("cacheExpiration", config.CacheExpiration).
 			Msg("Cache expiration must be non-negative, using default.")
 		config.CacheExpiration = 30
+	}
+
+	// Validate MountTimeout
+	if config.MountTimeout <= 0 {
+		logging.Warn().
+			Int("mountTimeout", config.MountTimeout).
+			Msg("Mount timeout must be positive, using default.")
+		config.MountTimeout = 60
 	}
 
 	// Validate CacheDir

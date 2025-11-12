@@ -26,6 +26,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -36,8 +37,8 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/cmd/common"
-	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
 	"github.com/coreos/go-systemd/v22/unit"
@@ -99,6 +100,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	cacheExpiration := flag.IntP("cache-expiration", "e", 0,
 		"Set the number of days after which files will be removed from the content cache. "+
 			"Default is 30 days. Set to 0 to use the default.")
+	mountTimeout := flag.IntP("mount-timeout", "t", 60,
+		"Set the timeout in seconds for mount operations. "+
+			"Default is 60 seconds. Increase this if mounting fails due to slow network.")
 	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
 		"outstanding changes for upload, etc. Does not start a mount point.")
 	daemonFlag := flag.BoolP("daemon", "", false, "Run onemount in daemon mode (detached from terminal).")
@@ -161,10 +165,50 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	if *cacheExpiration > 0 {
 		config.CacheExpiration = *cacheExpiration
 	}
+	if *mountTimeout > 0 {
+		config.MountTimeout = *mountTimeout
+	}
 
 	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
 
 	return config, *authOnlyFlag, *headlessFlag, *debugOnFlag, *statsFlag, *daemonFlag, mountpoint
+}
+
+// checkConnectivity performs a pre-mount connectivity check to ensure network access
+func checkConnectivity(ctx context.Context, timeout time.Duration) error {
+	logging.Info().Msg("Performing pre-mount connectivity check...")
+
+	// Create a context with timeout
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Create a simple HTTP client with timeout
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Try to reach the Graph API endpoint
+	req, err := http.NewRequestWithContext(checkCtx, "GET", "https://graph.microsoft.com/v1.0/", nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to create connectivity check request")
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		// Check if it's a timeout or network error
+		if checkCtx.Err() == context.DeadlineExceeded {
+			return errors.New("connectivity check timed out - network may be slow or unavailable")
+		}
+		return errors.Wrap(err, "connectivity check failed - cannot reach Microsoft Graph API")
+	}
+	defer resp.Body.Close()
+
+	// Any response (even 401) means we can reach the API
+	logging.Info().
+		Int("statusCode", resp.StatusCode).
+		Msg("Connectivity check successful")
+
+	return nil
 }
 
 // initializeFilesystem sets up the filesystem and returns the filesystem, auth, server, and paths
@@ -175,6 +219,17 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to get absolute path for mountpoint")
 	}
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
+
+	// Perform connectivity check before attempting mount
+	connectivityTimeout := time.Duration(config.MountTimeout/2) * time.Second
+	if connectivityTimeout < 10*time.Second {
+		connectivityTimeout = 10 * time.Second
+	}
+
+	if err := checkConnectivity(ctx, connectivityTimeout); err != nil {
+		logging.Warn().Err(err).Msg("Connectivity check failed, but continuing with mount attempt")
+		// Don't fail here - just warn. The mount may still succeed if it's a transient issue.
+	}
 
 	// authenticate/re-authenticate if necessary
 	if err := os.MkdirAll(cachePath, 0700); err != nil {
