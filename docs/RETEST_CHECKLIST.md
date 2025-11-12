@@ -4,6 +4,9 @@
 **Authentication**: ✅ Working with saved credentials  
 **Last Updated**: 2025-11-12
 
+> **Note**: This checklist has been converted to a Kiro spec task list at `.kiro/specs/system-verification-and-fix/retest-tasks.md`. 
+> You can execute tasks from that file using Kiro's task execution features.
+
 ## Quick Reference Checklist
 
 ### High Priority (Must Complete)
