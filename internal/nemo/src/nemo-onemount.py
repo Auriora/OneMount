@@ -45,20 +45,37 @@ class OneMountExtension(GObject.GObject, Nemo.InfoProvider, MenuProviderBase):
         # Get list of OneMount mount points
         self.onemount_mounts = self._get_onemount_mounts() or []
 
+    def _discover_dbus_service_name(self):
+        """Discover the D-Bus service name from the service name file"""
+        service_name_file = '/tmp/onemount-dbus-service-name'
+        try:
+            with open(service_name_file, 'r') as f:
+                service_name = f.read().strip()
+                if service_name:
+                    return service_name
+        except (FileNotFoundError, IOError):
+            # File doesn't exist or can't be read, fall back to base name
+            pass
+        # Fall back to base service name (without unique suffix)
+        return 'org.onemount.FileStatus'
+
     def connect_to_dbus(self):
         """Connect to the OneMount D-Bus service"""
         if not getattr(self, 'bus', None):
             self.dbus_proxy = None
             return
         try:
+            # Discover the actual service name (may include unique suffix)
+            service_name = self._discover_dbus_service_name()
             self.dbus_proxy = self.bus.get_object(
-                'org.onemount.FileStatus',
+                service_name,
                 '/org/onemount/FileStatus'
             )
-            print("Connected to OneMount D-Bus service")
-        except Exception:
+            print(f"Connected to OneMount D-Bus service: {service_name}")
+        except Exception as e:
             # Silently handle the case when the D-Bus service is not available
             # This is expected when onemount is not running or D-Bus service is not registered
+            print(f"Failed to connect to D-Bus service: {e}")
             self.dbus_proxy = None
 
     def setup_dbus_signals(self):

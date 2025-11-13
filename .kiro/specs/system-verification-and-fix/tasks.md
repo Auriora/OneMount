@@ -1075,7 +1075,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 4-6 hours
   - _Requirements: 8.1, 10.3_
 
-- [ ] 20.16 Fix Issue #FS-002: D-Bus Service Name Discovery Problem
+- [x] 20.16 Fix Issue #FS-002: D-Bus Service Name Discovery Problem
   - **Component**: D-Bus Server / Nemo Extension
   - **Action**: Implement service discovery mechanism
   - **Tasks**:

@@ -2509,9 +2509,9 @@ Option 3: Document that only signals are supported, not method calls
 
 **Component**: D-Bus Server / Nemo Extension  
 **Severity**: Low  
-**Status**: Open  
+**Status**: ✅ Resolved (2025-11-13)  
 **Discovered**: 2025-11-11  
-**Assigned To**: TBD
+**Resolved By**: Task 20.16
 
 **Description**:
 The D-Bus service name includes a unique suffix (PID + timestamp) to avoid conflicts, but the Nemo extension uses a hardcoded base name `org.onemount.FileStatus`. This mismatch prevents the Nemo extension from connecting to the D-Bus service via method calls.
@@ -2544,20 +2544,42 @@ Mismatch between dynamic service name generation (for multi-instance support) an
 - `internal/fs/dbus.go` (service name generation)
 - `internal/nemo/src/nemo-onemount.py` (hardcoded service name)
 
-**Fix Plan**:
-Option 1: Use well-known service name without unique suffix (may cause conflicts)
-Option 2: Implement service discovery mechanism (e.g., via D-Bus introspection)
-Option 3: Write service name to known location (e.g., /tmp/onemount-dbus-name)
-Option 4: Document that only extended attributes are supported for Nemo
+**Resolution** (2025-11-13):
+Implemented **Option 3**: Write service name to known location for discovery.
 
-**Fix Estimate**:
-3-4 hours (design + implementation + testing)
+**Changes Made**:
+1. **D-Bus Server** (`internal/fs/dbus.go`):
+   - Added `writeServiceNameFile()` to write service name to `/tmp/onemount-dbus-service-name`
+   - Added `removeServiceNameFile()` to clean up on server stop
+   - Modified `Start()` to write service name file after registration
+   - Modified `Stop()` to remove service name file during cleanup
+   - File uses restricted permissions (0600) and atomic write (temp + rename)
+
+2. **Nemo Extension** (`internal/nemo/src/nemo-onemount.py`):
+   - Added `_discover_dbus_service_name()` to read service name from file
+   - Modified `connect_to_dbus()` to use discovered service name
+   - Falls back to base name if file doesn't exist or is unreadable
+
+3. **Tests**:
+   - Created `internal/fs/dbus_service_discovery_test.go` with 3 test cases (all passing)
+   - Created `internal/nemo/tests/test_service_discovery.py` with 5 test cases (all passing)
+
+**Benefits**:
+- Works with multiple OneMount instances (last writer wins)
+- Simple file-based discovery mechanism
+- Graceful fallback to base name if file unavailable
+- Atomic writes prevent race conditions
+- Safe cleanup (only removes file if it contains our service name)
+
+**Documentation**:
+- `docs/updates/2025-11-13-dbus-service-discovery-fix.md`
 
 **Related Issues**:
-- Issue #FS-001: GetFileStatus returns Unknown
+- Issue #FS-001: GetFileStatus returns Unknown (separate issue, not addressed)
 
 **Notes**:
-- Extended attributes fallback works correctly
+- Extended attributes fallback still works correctly as before
+- Multiple instances supported (file contains most recent instance's service name)
 - This only affects D-Bus method calls, not signals
 - Low priority since fallback mechanism is functional
 - May be acceptable to document current behavior

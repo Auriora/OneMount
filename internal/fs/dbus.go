@@ -18,6 +18,8 @@ const (
 	DBusObjectPath = "/org/onemount/FileStatus"
 	// DBusServiceNameBase is the base D-Bus service name for onemount
 	DBusServiceNameBase = "org.onemount.FileStatus"
+	// DBusServiceNameFile is the file where the D-Bus service name is written for discovery
+	DBusServiceNameFile = "/tmp/onemount-dbus-service-name"
 )
 
 // DBusServiceName returns the D-Bus service name, which may be unique in test environments
@@ -199,6 +201,13 @@ func (s *FileStatusDBusServer) Start() error {
 		return err
 	}
 
+	// Write the service name to a file for discovery by clients (e.g., Nemo extension)
+	// This allows clients to discover the actual service name even when it includes a unique suffix
+	if err := s.writeServiceNameFile(); err != nil {
+		// Log warning but don't fail - clients can still use extended attributes as fallback
+		logging.Warn().Err(err).Msg("Failed to write D-Bus service name file")
+	}
+
 	s.started = true
 	logging.Info().Msg("D-Bus server started")
 	return nil
@@ -243,6 +252,12 @@ func (s *FileStatusDBusServer) Stop() {
 		}
 		s.conn = nil
 	}
+
+	// Remove the service name file
+	if err := s.removeServiceNameFile(); err != nil {
+		logging.Warn().Err(err).Msg("Failed to remove D-Bus service name file")
+	}
+
 	s.started = false
 	logging.Info().Msg("D-Bus server stopped and resources cleaned up")
 }
@@ -271,4 +286,91 @@ func (s *FileStatusDBusServer) SendFileStatusUpdate(path string, status string) 
 	if err != nil {
 		logging.Error().Err(err).Str("path", path).Str("status", status).Msg("Failed to emit D-Bus signal")
 	}
+}
+
+// writeServiceNameFile writes the D-Bus service name to a file for discovery by clients
+func (s *FileStatusDBusServer) writeServiceNameFile() error {
+	// Write the service name to a temporary file first, then rename atomically
+	tempFile := DBusServiceNameFile + ".tmp"
+
+	// Create the file with restricted permissions (only owner can read/write)
+	f, err := os.OpenFile(tempFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create service name file: %w", err)
+	}
+	defer f.Close()
+
+	// Write the service name
+	if _, err := f.WriteString(DBusServiceName + "\n"); err != nil {
+		os.Remove(tempFile) // Clean up temp file on error
+		return fmt.Errorf("failed to write service name: %w", err)
+	}
+
+	// Sync to ensure data is written to disk
+	if err := f.Sync(); err != nil {
+		os.Remove(tempFile) // Clean up temp file on error
+		return fmt.Errorf("failed to sync service name file: %w", err)
+	}
+
+	// Close the file before renaming
+	if err := f.Close(); err != nil {
+		os.Remove(tempFile) // Clean up temp file on error
+		return fmt.Errorf("failed to close service name file: %w", err)
+	}
+
+	// Atomically rename the temp file to the final location
+	if err := os.Rename(tempFile, DBusServiceNameFile); err != nil {
+		os.Remove(tempFile) // Clean up temp file on error
+		return fmt.Errorf("failed to rename service name file: %w", err)
+	}
+
+	logging.Debug().
+		Str("file", DBusServiceNameFile).
+		Str("serviceName", DBusServiceName).
+		Msg("Wrote D-Bus service name to file for client discovery")
+
+	return nil
+}
+
+// removeServiceNameFile removes the D-Bus service name file
+func (s *FileStatusDBusServer) removeServiceNameFile() error {
+	// Only remove the file if it contains our service name
+	// This prevents removing a file written by another instance
+	data, err := os.ReadFile(DBusServiceNameFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist, nothing to do
+			return nil
+		}
+		return fmt.Errorf("failed to read service name file: %w", err)
+	}
+
+	// Check if the file contains our service name
+	storedName := string(data)
+	// Trim whitespace and newlines
+	storedName = storedName[:len(storedName)-1] // Remove trailing newline
+	if storedName != DBusServiceName {
+		// File contains a different service name, don't remove it
+		logging.Debug().
+			Str("file", DBusServiceNameFile).
+			Str("storedName", storedName).
+			Str("ourName", DBusServiceName).
+			Msg("Service name file contains different name, not removing")
+		return nil
+	}
+
+	// Remove the file
+	if err := os.Remove(DBusServiceNameFile); err != nil {
+		if os.IsNotExist(err) {
+			// File was already removed, nothing to do
+			return nil
+		}
+		return fmt.Errorf("failed to remove service name file: %w", err)
+	}
+
+	logging.Debug().
+		Str("file", DBusServiceNameFile).
+		Msg("Removed D-Bus service name file")
+
+	return nil
 }
