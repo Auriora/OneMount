@@ -3033,9 +3033,10 @@ The `CleanupCache()` method in `internal/fs/content_cache.go` only checks file m
 
 **Component**: Cache Management / Delta Sync  
 **Severity**: Medium  
-**Status**: Open  
+**Status**: ✅ RESOLVED (2025-11-13)  
 **Discovered**: 2025-11-11  
-**Assigned To**: TBD
+**Resolved By**: Task 20.11  
+**Documentation**: `docs/fixes/cache-invalidation-etag-fix.md`
 
 **Description**:
 When delta sync detects that a file's ETag has changed (indicating remote modification), the cached content is not explicitly invalidated. The system relies on implicit invalidation through the download process, which may serve stale content temporarily.
