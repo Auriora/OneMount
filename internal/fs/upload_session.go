@@ -645,14 +645,21 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 				// Continue with upload
 			}
 
+			// Attempt chunk upload with retry logic for both errors and 5xx status codes
 			resp, status, err = u.uploadChunk(auth, uint64(i)*uploadChunkSize)
-			if err != nil {
-				return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
-			}
 
-			// retry server-side failures with an exponential back-off strategy. Will not
-			// exit this loop unless it receives a non 5xx error or serious failure
-			for backoff := 1; status >= 500; backoff *= 2 {
+			// Retry both errors and server-side failures (5xx) with exponential back-off strategy
+			// Will not exit this loop unless it receives a non-5xx status or exceeds max retries
+			// Max retries is set to 5 to balance reliability with reasonable timeout
+			const maxChunkRetries = 5
+			retryAttempt := 0
+			for (err != nil || status >= 500) && retryAttempt < maxChunkRetries {
+				retryAttempt++
+				backoff := 1 << uint(retryAttempt-1) // Exponential: 1, 2, 4, 8, 16 seconds
+				if backoff > 16 {
+					backoff = 16 // Cap at 16 seconds
+				}
+
 				// Check for context cancellation during retries
 				select {
 				case <-ctx.Done():
@@ -663,18 +670,35 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 				default:
 				}
 
-				logging.Error().
-					Str("id", u.ID).
-					Str("name", u.Name).
-					Int("chunk", i).
-					Int("nchunks", nchunks).
-					Int("status", status).
-					Msgf("The OneDrive server is having issues, retrying chunk upload in %ds.", backoff)
+				if err != nil {
+					logging.Error().
+						Str("id", u.ID).
+						Str("name", u.Name).
+						Int("chunk", i).
+						Int("nchunks", nchunks).
+						Int("retryAttempt", retryAttempt).
+						Int("maxRetries", maxChunkRetries).
+						Err(err).
+						Msgf("Chunk upload failed with error, retrying in %ds.", backoff)
+				} else {
+					logging.Error().
+						Str("id", u.ID).
+						Str("name", u.Name).
+						Int("chunk", i).
+						Int("nchunks", nchunks).
+						Int("status", status).
+						Int("retryAttempt", retryAttempt).
+						Int("maxRetries", maxChunkRetries).
+						Msgf("The OneDrive server is having issues, retrying chunk upload in %ds.", backoff)
+				}
+
 				time.Sleep(time.Duration(backoff) * time.Second)
 				resp, status, err = u.uploadChunk(auth, uint64(i)*uploadChunkSize)
-				if err != nil { // a serious, non 4xx/5xx error
-					return u.setState(uploadErrored, errors.Wrap(err, "failed to perform chunk upload"))
-				}
+			}
+
+			// If we still have an error after all retries, fail the upload
+			if err != nil {
+				return u.setState(uploadErrored, errors.Wrap(err, fmt.Sprintf("failed to perform chunk upload after %d retries", retryAttempt)))
 			}
 
 			// Update progress after successful chunk upload
