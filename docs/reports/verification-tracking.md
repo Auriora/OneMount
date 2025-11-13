@@ -1267,9 +1267,9 @@ The test script guides the user through:
 - **Strengths**: Well-structured worker pools, proper wait groups, context-based cancellation
 - **Medium Priority Issues**: 
   - Issue #PERF-001: No documented lock ordering policy
-  - Issue #PERF-002: Network callbacks lack wait group tracking
+  - Issue #PERF-002: Network callbacks lack wait group tracking ✅ RESOLVED (2025-11-13)
   - Issue #PERF-003: Inconsistent timeout values
-  - Issue #PERF-004: Inode embeds mutex (potential copying issue)
+  - Issue #PERF-004: Inode embeds mutex (potential copying issue) ✅ RESOLVED (2025-11-12)
 - **Low Priority Issues**:
   - Issue #PERF-006: Some test goroutines lack timeout protection
   - Issue #PERF-007: No centralized goroutine management
@@ -2826,9 +2826,10 @@ There is no documented lock ordering policy in the codebase. When multiple locks
 
 **Component**: Network Feedback / Goroutine Management  
 **Severity**: Medium  
-**Status**: Open  
+**Status**: ✅ RESOLVED  
 **Discovered**: 2025-11-12  
-**Assigned To**: TBD
+**Resolved**: 2025-11-13  
+**Assigned To**: AI Agent
 
 **Description**:
 Network feedback callbacks in `internal/graph/network_feedback.go` spawn goroutines without wait group tracking. This means these goroutines may not be properly tracked during shutdown.
@@ -2838,13 +2839,26 @@ Network feedback callbacks in `internal/graph/network_feedback.go` spawn gorouti
 
 **Affected Files**:
 - `internal/graph/network_feedback.go`
+- `internal/graph/network_feedback_test.go` (new)
 
-**Fix Plan**:
-1. Add WaitGroup to NetworkFeedbackManager
-2. Track callback goroutines with WaitGroup.Add/Done
-3. Add timeout for callback completion during shutdown
+**Fix Implemented**:
+1. ✅ Added WaitGroup field to NetworkFeedbackManager struct
+2. ✅ Updated NotifyConnected, NotifyDisconnected, and NotifyStatusUpdate to track goroutines
+3. ✅ Added Shutdown method with configurable timeout
+4. ✅ Created comprehensive tests for wait group tracking and graceful shutdown
+5. ✅ Verified panic recovery doesn't prevent Done() call
 
-**Fix Estimate**: 2 hours (implementation + testing)
+**Test Results**:
+- All 5 new tests pass successfully
+- TestNetworkFeedbackManager_WaitGroupTracking: ✅ PASS
+- TestNetworkFeedbackManager_ShutdownTimeout: ✅ PASS
+- TestNetworkFeedbackManager_ShutdownWithMultipleCallbacks: ✅ PASS
+- TestNetworkFeedbackManager_PanicRecovery: ✅ PASS
+- TestNetworkFeedbackManager_ConcurrentNotifications: ✅ PASS
+
+**Documentation**: `docs/updates/2025-11-13-network-feedback-waitgroup-tracking.md`
+
+**Actual Time**: 2 hours (as estimated)
 
 ---
 

@@ -967,7 +967,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 4 hours
   - _Requirements: 10.1, 10.4_
 
-- [ ] 20.7 Fix Issue #PERF-002: Network Callbacks Lack Wait Group Tracking
+- [x] 20.7 Fix Issue #PERF-002: Network Callbacks Lack Wait Group Tracking
   - **Component**: Network Feedback / Goroutine Management
   - **Action**: Add wait group tracking for callback goroutines
   - **Tasks**:

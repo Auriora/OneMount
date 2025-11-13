@@ -69,6 +69,7 @@ func (h *LoggingFeedbackHandler) OnNetworkStatusUpdate(connected bool, lastCheck
 type NetworkFeedbackManager struct {
 	handlers []NetworkFeedbackHandler
 	mutex    sync.RWMutex
+	wg       sync.WaitGroup // Track callback goroutines for graceful shutdown
 }
 
 // NewNetworkFeedbackManager creates a new feedback manager
@@ -106,7 +107,9 @@ func (m *NetworkFeedbackManager) NotifyConnected() {
 	m.mutex.RUnlock()
 
 	for _, handler := range handlers {
+		m.wg.Add(1)
 		go func(h NetworkFeedbackHandler) {
+			defer m.wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
 					logging.Error().Interface("panic", r).Msg("Network feedback handler panicked")
@@ -125,7 +128,9 @@ func (m *NetworkFeedbackManager) NotifyDisconnected() {
 	m.mutex.RUnlock()
 
 	for _, handler := range handlers {
+		m.wg.Add(1)
 		go func(h NetworkFeedbackHandler) {
+			defer m.wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
 					logging.Error().Interface("panic", r).Msg("Network feedback handler panicked")
@@ -144,7 +149,9 @@ func (m *NetworkFeedbackManager) NotifyStatusUpdate(connected bool, lastCheck ti
 	m.mutex.RUnlock()
 
 	for _, handler := range handlers {
+		m.wg.Add(1)
 		go func(h NetworkFeedbackHandler) {
+			defer m.wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
 					logging.Error().Interface("panic", r).Msg("Network feedback handler panicked")
@@ -152,6 +159,27 @@ func (m *NetworkFeedbackManager) NotifyStatusUpdate(connected bool, lastCheck ti
 			}()
 			h.OnNetworkStatusUpdate(connected, lastCheck)
 		}(handler)
+	}
+}
+
+// Shutdown waits for all callback goroutines to complete with a timeout
+// Returns true if all callbacks completed within the timeout, false otherwise
+func (m *NetworkFeedbackManager) Shutdown(timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		m.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logging.Debug().Msg("All network feedback callbacks completed")
+		return true
+	case <-time.After(timeout):
+		logging.Warn().
+			Dur("timeout", timeout).
+			Msg("Network feedback callbacks did not complete within timeout")
+		return false
 	}
 }
 
