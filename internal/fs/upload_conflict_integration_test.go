@@ -99,9 +99,9 @@ func TestIT_FS_09_05_UploadConflictDetection(t *testing.T) {
 		// Verify initial state
 		inode := fs.GetID(fileID)
 		assert.NotNil(inode, "File inode should exist")
-		inode.RLock()
+		inode.mu.RLock()
 		cachedETag := inode.DriveItem.ETag
-		inode.RUnlock()
+		inode.mu.RUnlock()
 		assert.Equal(initialETag, cachedETag, "Initial ETag should be cached")
 
 		// Step 2: Modify the file locally
@@ -116,11 +116,11 @@ func TestIT_FS_09_05_UploadConflictDetection(t *testing.T) {
 		assert.Equal(modifiedSize, n, "Number of bytes written doesn't match modified content length")
 
 		// Mark the file as having local changes
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.hasChanges = true
 		fileInode.DriveItem.Size = uint64(modifiedSize)
 		fileInode.DriveItem.File.Hashes.QuickXorHash = modifiedQuickXorHash
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		t.Logf("Local modification complete - ETag: %s, Size: %d", initialETag, modifiedSize)
 
@@ -217,9 +217,9 @@ func TestIT_FS_09_05_UploadConflictDetection(t *testing.T) {
 		localInode := fs.GetID(fileID)
 		assert.NotNil(localInode, "Local file should still exist")
 
-		localInode.RLock()
+		localInode.mu.RLock()
 		localHasChanges := localInode.hasChanges
-		localInode.RUnlock()
+		localInode.mu.RUnlock()
 
 		assert.True(localHasChanges, "Local file should still be marked as having changes")
 
@@ -333,11 +333,11 @@ func TestIT_FS_09_05_02_UploadConflictWithDeltaSync(t *testing.T) {
 		assert.Equal(localModifiedSize, n, "Bytes written should match modified content length")
 
 		// Mark as having local changes
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.hasChanges = true
 		fileInode.DriveItem.Size = uint64(localModifiedSize)
 		fileInode.DriveItem.File.Hashes.QuickXorHash = localQuickXorHash
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		t.Logf("Local modification: size=%d, hash=%s", localModifiedSize, localQuickXorHash)
 
@@ -382,9 +382,9 @@ func TestIT_FS_09_05_02_UploadConflictWithDeltaSync(t *testing.T) {
 		// Ensure the local inode has the initial ETag (before remote modification)
 		// This simulates the scenario where the file was cached with one ETag,
 		// modified locally, and then the remote version changed
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.DriveItem.ETag = initialETag
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		conflict, err := conflictResolver.DetectConflict(nil, fileInode, remoteModifiedItem, offlineChange)
 		assert.NoError(err, "Conflict detection should not error")
@@ -406,9 +406,9 @@ func TestIT_FS_09_05_02_UploadConflictWithDeltaSync(t *testing.T) {
 			localInode := fs.GetID(fileID)
 			assert.NotNil(localInode, "Local file should still exist")
 
-			localInode.RLock()
+			localInode.mu.RLock()
 			localStillHasChanges := localInode.hasChanges
-			localInode.RUnlock()
+			localInode.mu.RUnlock()
 
 			assert.True(localStillHasChanges, "Local file should still be marked as having changes")
 

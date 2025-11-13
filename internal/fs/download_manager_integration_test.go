@@ -161,9 +161,9 @@ func TestIT_FS_08_01_DownloadManager_SingleFileDownload(t *testing.T) {
 		// Verify the inode size was updated
 		inode := fs.GetID(fileID)
 		assert.NotNil(inode, "Inode should exist")
-		inode.Lock()
+		inode.mu.Lock()
 		inodeSize := inode.DriveItem.Size
-		inode.Unlock()
+		inode.mu.Unlock()
 		assert.Equal(uint64(len(testFileContent)), inodeSize, "Inode size should match downloaded content size")
 		t.Logf("Inode size verification passed: size=%d bytes", inodeSize)
 

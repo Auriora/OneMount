@@ -227,10 +227,10 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		assert.NotNil(fileInode, "File not found in cache")
 
 		// Manually update the file size and ETag
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.DriveItem.Size = uint64(len(modifiedContent))
 		fileInode.DriveItem.ETag = "modified-etag"
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		// Verify the file has the correct content
 		fileInode = fs.GetID(fileID)
@@ -293,10 +293,10 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		assert.NotNil(fileInode, "File not found in cache")
 
 		// Manually update the file size and ETag
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.DriveItem.Size = uint64(len(finalContent))
 		fileInode.DriveItem.ETag = "final-etag"
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		// Verify the file has the correct content
 		fileInode = fs.GetID(fileID)
@@ -594,11 +594,11 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 		fileInode = fs.GetID(fileID)
 		assert.NotNil(fileInode, "File not found in cache")
 
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.DriveItem.Size = uint64(len(finalContent))
 		fileInode.DriveItem.ETag = "final-etag"
 		fileInode.DriveItem.File.Hashes.QuickXorHash = finalQuickXorHash
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		// Manually update the file status to simulate a successful upload
 		fs.SetFileStatus(fileID, FileStatusInfo{

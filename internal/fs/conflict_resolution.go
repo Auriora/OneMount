@@ -221,10 +221,10 @@ func (cr *ConflictResolver) acceptRemoteChanges(ctx context.Context, conflict *C
 
 	if conflict.LocalItem != nil && conflict.RemoteItem != nil {
 		// Update local item with remote data
-		conflict.LocalItem.Lock()
+		conflict.LocalItem.mu.Lock()
 		conflict.LocalItem.DriveItem = *conflict.RemoteItem
 		conflict.LocalItem.hasChanges = false
-		conflict.LocalItem.Unlock()
+		conflict.LocalItem.mu.Unlock()
 
 		// Invalidate content cache to force re-download
 		cr.fs.content.Delete(conflict.ID)

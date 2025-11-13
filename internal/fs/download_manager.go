@@ -9,12 +9,13 @@ package fs
 import (
 	"context"
 	"encoding/json"
-	"github.com/auriora/onemount/internal/logging"
 	"io"
 	"math"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/auriora/onemount/internal/logging"
 
 	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/graph"
@@ -342,9 +343,9 @@ func (dm *DownloadManager) processDownload(id string) {
 	}
 
 	// Update inode size
-	inode.Lock()
+	inode.mu.Lock()
 	inode.DriveItem.Size = size
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	// Update file status
 	dm.fs.SetFileStatus(id, FileStatusInfo{

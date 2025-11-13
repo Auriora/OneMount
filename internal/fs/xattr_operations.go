@@ -29,8 +29,8 @@ func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name str
 	// Get a logger with the context
 	logger := ctx.Logger()
 
-	inode.RLock()
-	defer inode.RUnlock()
+	inode.mu.RLock()
+	defer inode.mu.RUnlock()
 
 	value, exists := inode.xattrs[name]
 	if !exists {
@@ -84,8 +84,8 @@ func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name strin
 	// Get a logger with the context
 	logger := ctx.Logger()
 
-	inode.Lock()
-	defer inode.Unlock()
+	inode.mu.Lock()
+	defer inode.mu.Unlock()
 
 	// Initialize the xattrs map if it's nil
 	if inode.xattrs == nil {
@@ -122,8 +122,8 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 	// Get a logger with the context
 	logger := ctx.Logger()
 
-	inode.RLock()
-	defer inode.RUnlock()
+	inode.mu.RLock()
+	defer inode.mu.RUnlock()
 
 	// Calculate total size needed for all attribute names
 	var totalSize uint32
@@ -193,8 +193,8 @@ func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name 
 	// Get a logger with the context
 	logger := ctx.Logger()
 
-	inode.Lock()
-	defer inode.Unlock()
+	inode.mu.Lock()
+	defer inode.mu.Unlock()
 
 	if inode.xattrs == nil {
 		logger.Debug().Msg("Xattr map is nil")

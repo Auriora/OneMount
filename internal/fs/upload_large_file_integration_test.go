@@ -173,10 +173,10 @@ func TestIT_FS_09_03_LargeFileUpload_EndToEnd(t *testing.T) {
 		assert.NotNil(updatedInode, "File inode should exist after upload")
 
 		// Verify ETag was updated
-		updatedInode.RLock()
+		updatedInode.mu.RLock()
 		updatedETag := updatedInode.DriveItem.ETag
 		updatedSize := updatedInode.DriveItem.Size
-		updatedInode.RUnlock()
+		updatedInode.mu.RUnlock()
 
 		assert.Equal("uploaded-etag-large-file", updatedETag,
 			"ETag should be updated after successful upload")

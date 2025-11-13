@@ -2,11 +2,12 @@ package fs
 
 import (
 	"context"
-	"github.com/auriora/onemount/internal/logging"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/auriora/onemount/internal/logging"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -164,12 +165,12 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	// we have something on disk-
 	// verify content against what we're supposed to have
-	inode.Lock()
+	inode.mu.Lock()
 
 	// try grabbing from disk
 	fd, err := f.content.Open(id)
 	if err != nil {
-		inode.Unlock()
+		inode.mu.Unlock()
 		logging.LogErrorWithContext(err, logCtx, "Could not create cache file",
 			logging.FieldID, id,
 			logging.FieldPath, path)
@@ -181,7 +182,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	if isLocalID(id) {
 		// just use whatever's present if we're the only ones who have it
-		inode.Unlock()
+		inode.mu.Unlock()
 		return fuse.OK
 	}
 
@@ -192,7 +193,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		// we check size ourselves in case the API file sizes are WRONG (it happens)
 		st, err := fd.Stat()
 		if err != nil {
-			inode.Unlock()
+			inode.mu.Unlock()
 			logging.LogErrorWithContext(err, logCtx, "Could not fetch file stats",
 				logging.FieldID, id,
 				logging.FieldPath, path)
@@ -202,7 +203,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
-		inode.Unlock()
+		inode.mu.Unlock()
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 		}()
@@ -216,7 +217,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		// we check size ourselves in case the API file sizes are WRONG (it happens)
 		st, err := fd.Stat()
 		if err != nil {
-			inode.Unlock()
+			inode.mu.Unlock()
 			logging.LogErrorWithContext(err, logCtx, "Could not fetch file stats",
 				logging.FieldID, id,
 				logging.FieldPath, path)
@@ -226,7 +227,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 			return fuse.EIO
 		}
 		inode.DriveItem.Size = uint64(st.Size())
-		inode.Unlock()
+		inode.mu.Unlock()
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
 		}()
@@ -234,7 +235,7 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	}
 
 	// Release the lock before network operations
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	logger.Info().Msg("Not using cached item due to file hash mismatch, fetching content from API")
 
@@ -420,8 +421,8 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 	}
 
 	// we are locked for the remainder of this op
-	inode.RLock()
-	defer inode.RUnlock()
+	inode.mu.RLock()
+	defer inode.mu.RUnlock()
 
 	result := fuse.ReadResultFd(fd.Fd(), int64(in.Offset), int(in.Size))
 	defer func() {
@@ -514,10 +515,10 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 		return 0, fuse.EIO
 	}
 
-	inode.Lock()
+	inode.mu.Lock()
 	n, err := fd.WriteAt(data, int64(offset))
 	if err != nil {
-		inode.Unlock()
+		inode.mu.Unlock()
 		logging.LogErrorWithContext(err, logCtx, "Error during write",
 			logging.FieldOperation, "file_write",
 			logging.FieldID, id,
@@ -533,7 +534,7 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	st, _ := fd.Stat()
 	inode.DriveItem.Size = uint64(st.Size())
 	inode.hasChanges = true
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	// Mark file as locally modified
 	f.SetFileStatus(id, FileStatusInfo{
@@ -571,7 +572,7 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 		Logger()
 	ctx.Debug().Msg("")
 	if inode.HasChanges() {
-		inode.Lock()
+		inode.mu.Lock()
 		inode.hasChanges = false
 
 		// recompute hashes when saving new content
@@ -591,7 +592,7 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 			}
 		}
 		inode.DriveItem.File.Hashes.QuickXorHash = graph.QuickXORHashStream(fd)
-		inode.Unlock()
+		inode.mu.Unlock()
 
 		// Queue the upload in the background with high priority since it's a mount point request
 		_, err = f.uploads.QueueUploadWithPriority(inode, PriorityHigh)
@@ -637,11 +638,11 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	f.Fsync(cancel, &fuse.FsyncIn{InHeader: in.InHeader})
 
 	// grab a lock to prevent a race condition closing an opened file prior to its use (use after free segfault)
-	inode.Lock()
+	inode.mu.Lock()
 	if err := f.content.Close(id); err != nil {
 		logging.Error().Err(err).Str("id", id).Str("path", inode.Path()).Msg("Failed to close file")
 	}
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	// Update file status attributes after releasing the lock
 	f.updateFileStatus(inode)

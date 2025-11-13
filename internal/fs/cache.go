@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/internal/logging"
-	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/auriora/onemount/internal/logging"
+	"github.com/pkg/errors"
 
 	"github.com/auriora/onemount/internal/graph"
 	bolt "go.etcd.io/bbolt"
@@ -695,7 +696,7 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 	nodeID := inode.NodeID()
 	if nodeID == 0 {
 		// lock ordering is to satisfy deadlock detector
-		inode.Lock()
+		inode.mu.Lock()
 		f.Lock()
 
 		f.lastNodeID++
@@ -704,7 +705,7 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 		inode.nodeID = nodeID
 
 		f.Unlock()
-		inode.Unlock()
+		inode.mu.Unlock()
 	}
 
 	defer func() {
@@ -804,9 +805,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 
 	if id != inode.ID() {
 		// we update the inode IDs here in case they do not match/changed
-		inode.Lock()
+		inode.mu.Lock()
 		inode.DriveItem.ID = id
-		inode.Unlock()
+		inode.mu.Unlock()
 
 		f.Lock()
 		if nodeID <= f.lastNodeID {
@@ -868,8 +869,8 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	// check if the item has already been added to the parent
 	// Lock order is super key here, must go parent->child or the deadlock
 	// detector screams at us.
-	parent.Lock()
-	defer parent.Unlock()
+	parent.mu.Lock()
+	defer parent.mu.Unlock()
 	for _, child := range parent.children {
 		if child == id {
 			// exit early, child cannot be added twice
@@ -894,7 +895,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 
 // InsertChild adds an item as a child of a specified parent ID.
 func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
-	child.Lock()
+	child.mu.Lock()
 	// Initialize Parent if it's nil to avoid nil pointer dereference
 	if child.DriveItem.Parent == nil {
 		child.DriveItem.Parent = &graph.DriveItemParent{}
@@ -902,7 +903,7 @@ func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
 	// should already be set, just double-checking here.
 	child.DriveItem.Parent.ID = parentID
 	id := child.DriveItem.ID
-	child.Unlock()
+	child.mu.Unlock()
 	return f.InsertID(id, child)
 }
 
@@ -913,10 +914,10 @@ func (f *Filesystem) DeleteID(id string) {
 		// If this is a directory, recursively delete all its children first
 		if inode.IsDir() && inode.HasChildren() {
 			// Make a copy of the children slice to avoid concurrent modification issues
-			inode.RLock()
+			inode.mu.RLock()
 			childrenCopy := make([]string, len(inode.children))
 			copy(childrenCopy, inode.children)
-			inode.RUnlock()
+			inode.mu.RUnlock()
 
 			// Delete each child
 			for _, childID := range childrenCopy {
@@ -925,7 +926,7 @@ func (f *Filesystem) DeleteID(id string) {
 		}
 
 		parent := f.GetID(inode.ParentID())
-		parent.Lock()
+		parent.mu.Lock()
 		for i, childID := range parent.children {
 			if childID == id {
 				parent.children = append(parent.children[:i], parent.children[i+1:]...)
@@ -935,7 +936,7 @@ func (f *Filesystem) DeleteID(id string) {
 				break
 			}
 		}
-		parent.Unlock()
+		parent.mu.Unlock()
 	}
 	f.metadata.Delete(id)
 	f.uploads.CancelUpload(id)
@@ -999,7 +1000,7 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 
 	// If item.children is not nil, it means we have the item's children
 	// already and can fetch them directly from the cache
-	inode.RLock()
+	inode.mu.RLock()
 	if inode.children != nil {
 		if logging.IsDebugEnabled() {
 			logger.Debug().
@@ -1020,7 +1021,7 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			}
 			children[strings.ToLower(child.Name())] = child
 		}
-		inode.RUnlock()
+		inode.mu.RUnlock()
 
 		if logging.IsDebugEnabled() {
 			logger.Debug().
@@ -1037,7 +1038,7 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 	}
 	// Update path before unlocking to avoid potential deadlocks
 	pathForLogs = inode.Path()
-	inode.RUnlock()
+	inode.mu.RUnlock()
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
@@ -1142,7 +1143,7 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 	// Store the path before locking to avoid potential deadlocks
 	processingPath := pathForLogs
 
-	inode.Lock()
+	inode.mu.Lock()
 	inode.children = make([]string, 0)
 	for i, item := range fetched {
 		// we will always have an id after fetching from the server
@@ -1178,7 +1179,7 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 			Msg("Finished processing all children")
 	}
 
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
@@ -1385,10 +1386,10 @@ func (f *Filesystem) InsertPath(key string, auth *graph.Auth, inode *Inode) (uin
 	// Coded this way to make sure locks are in the same order for the deadlock
 	// detector (lock ordering needs to be the same as InsertID: Parent->Child).
 	parentID := parent.ID()
-	inode.Lock()
+	inode.mu.Lock()
 	inode.DriveItem.Parent.ID = parentID
 	id := inode.DriveItem.ID
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	return f.InsertID(id, inode), nil
 }
@@ -1408,14 +1409,14 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 
 	// need to rename the child under the parent
 	parent := f.GetID(inode.ParentID())
-	parent.Lock()
+	parent.mu.Lock()
 	for i, child := range parent.children {
 		if child == oldID {
 			parent.children[i] = newID
 			break
 		}
 	}
-	parent.Unlock()
+	parent.mu.Unlock()
 
 	// now actually perform the metadata+content move
 	f.DeleteID(oldID)

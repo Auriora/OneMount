@@ -94,9 +94,9 @@ func TestIT_CRW_01_01_ConflictWorkflow_KeepBothStrategy_WorksCorrectly(t *testin
 		// Update the inode with remote changes
 		remoteInode := filesystem.GetID(testFileID)
 		if remoteInode != nil {
-			remoteInode.Lock()
+			remoteInode.mu.Lock()
 			remoteInode.DriveItem = *remoteItem
-			remoteInode.Unlock()
+			remoteInode.mu.Unlock()
 		}
 
 		// Write remote content to a separate location to simulate server state
@@ -246,9 +246,9 @@ func TestIT_CRW_02_01_ConflictWorkflow_LastWriterWinsStrategy_WorksCorrectly(t *
 		// Update the inode with remote changes
 		remoteInode := filesystem.GetID(testFileID)
 		if remoteInode != nil {
-			remoteInode.Lock()
+			remoteInode.mu.Lock()
 			remoteInode.DriveItem = *remoteItem
-			remoteInode.Unlock()
+			remoteInode.mu.Unlock()
 		}
 
 		// Write remote content to a separate location to simulate server state

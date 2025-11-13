@@ -226,7 +226,7 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 	}
 
 	// create a generic session for all files
-	inode.RLock()
+	inode.mu.RLock()
 
 	// Initialize ModTime with current time if it's nil
 	var modTime time.Time
@@ -252,7 +252,7 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 		RecoveryAttempts:    0,
 		CanResume:           false,
 	}
-	inode.RUnlock()
+	inode.mu.RUnlock()
 
 	// Use the size from the inode if available, otherwise use the data length
 	if inode.DriveItem.Size > 0 {
@@ -296,7 +296,7 @@ func NewUploadSessionWithPath(inode *Inode, contentPath string) (*UploadSession,
 	}
 
 	// create a generic session for all files
-	inode.RLock()
+	inode.mu.RLock()
 
 	// Initialize ModTime with current time if it's nil
 	var modTime time.Time
@@ -323,7 +323,7 @@ func NewUploadSessionWithPath(inode *Inode, contentPath string) (*UploadSession,
 		RecoveryAttempts:    0,
 		CanResume:           false,
 	}
-	inode.RUnlock()
+	inode.mu.RUnlock()
 
 	// Use the file size from disk
 	session.Size = uint64(fileInfo.Size())

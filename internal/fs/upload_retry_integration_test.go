@@ -192,10 +192,10 @@ func TestIT_FS_09_04_UploadFailureAndRetry(t *testing.T) {
 		updatedInode := fs.GetID(fileID)
 		assert.NotNil(updatedInode, "File inode should exist after upload")
 
-		updatedInode.RLock()
+		updatedInode.mu.RLock()
 		updatedETag := updatedInode.DriveItem.ETag
 		updatedSize := updatedInode.DriveItem.Size
-		updatedInode.RUnlock()
+		updatedInode.mu.RUnlock()
 
 		assert.Equal("uploaded-etag-retry", updatedETag,
 			"ETag should be updated after successful upload")
@@ -400,10 +400,10 @@ func TestIT_FS_09_04_02_LargeFileUploadFailureAndRetry(t *testing.T) {
 		updatedInode := fs.GetID(fileID)
 		assert.NotNil(updatedInode, "File inode should exist after upload")
 
-		updatedInode.RLock()
+		updatedInode.mu.RLock()
 		updatedETag := updatedInode.DriveItem.ETag
 		updatedSize := updatedInode.DriveItem.Size
-		updatedInode.RUnlock()
+		updatedInode.mu.RUnlock()
 
 		assert.Equal("uploaded-etag-large-retry", updatedETag,
 			"ETag should be updated after successful upload")

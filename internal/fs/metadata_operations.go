@@ -1,10 +1,11 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/internal/logging"
 	"math"
 	"path/filepath"
 	"time"
+
+	"github.com/auriora/onemount/internal/logging"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -126,7 +127,7 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 	}
 	path := i.Path()
 	isDir := i.IsDir() // holds an rlock
-	i.Lock()
+	i.mu.Lock()
 
 	ctx := logging.DefaultLogger.With().
 		Str("op", "SetAttr").
@@ -172,7 +173,7 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 				logging.FieldID, i.DriveItem.ID,
 				logging.FieldOperation, "SetAttr.truncate",
 				logging.FieldPath, path)
-			i.Unlock()
+			i.mu.Unlock()
 			return fuse.EIO
 		}
 		// the unix syscall does not update the seek position, so neither should we
@@ -182,14 +183,14 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 				logging.FieldOperation, "SetAttr.truncate",
 				logging.FieldPath, path,
 				"size", size)
-			i.Unlock()
+			i.mu.Unlock()
 			return fuse.EIO
 		}
 		i.DriveItem.Size = size
 		i.hasChanges = true
 	}
 
-	i.Unlock()
+	i.mu.Unlock()
 	out.Attr = i.makeAttr()
 	out.SetTimeout(timeout)
 	return fuse.OK

@@ -2,8 +2,9 @@ package fs
 
 import (
 	"bytes"
-	"github.com/auriora/onemount/internal/logging"
 	"time"
+
+	"github.com/auriora/onemount/internal/logging"
 
 	"github.com/auriora/onemount/internal/graph"
 	bolt "go.etcd.io/bbolt"
@@ -178,7 +179,7 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	var statusStrCopy string
 
 	// Lock the inode before getting the status to prevent race conditions
-	inode.Lock()
+	inode.mu.Lock()
 
 	// Get the status after locking the inode
 	status := f.GetFileStatus(id)
@@ -204,7 +205,7 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	}
 
 	// Unlock the inode before sending D-Bus signal to avoid potential deadlocks
-	inode.Unlock()
+	inode.mu.Unlock()
 
 	// Send D-Bus signal if server is available
 	if f.dbusServer != nil {

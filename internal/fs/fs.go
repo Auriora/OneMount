@@ -14,8 +14,8 @@ import (
 const timeout = time.Second
 
 func (f *Filesystem) getInodeContent(i *Inode) *[]byte {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	data := f.content.Get(i.DriveItem.ID)
 	return &data
 }
@@ -30,9 +30,9 @@ func (f *Filesystem) GetInodeContent(i *Inode) *[]byte {
 // This is more memory-efficient than GetInodeContent for large files.
 // This method is part of the FilesystemInterface.
 func (f *Filesystem) GetInodeContentPath(i *Inode) string {
-	i.RLock()
+	i.mu.RLock()
 	id := i.DriveItem.ID
-	i.RUnlock()
+	i.mu.RUnlock()
 	return f.content.contentPath(id)
 }
 
@@ -61,11 +61,11 @@ func (f *Filesystem) remoteID(i *Inode) (string, error) {
 			return originalID, err
 		}
 
-		i.Lock()
+		i.mu.Lock()
 		name := i.DriveItem.Name
 		err = session.Upload(f.auth)
 		if err != nil {
-			i.Unlock()
+			i.mu.Unlock()
 
 			if strings.Contains(err.Error(), "nameAlreadyExists") {
 				// A file with this name already exists on the server, get its ID and
@@ -93,7 +93,7 @@ func (f *Filesystem) remoteID(i *Inode) (string, error) {
 		// we just successfully uploaded a copy, no need to do it again
 		i.hasChanges = false
 		i.DriveItem.ETag = session.ETag
-		i.Unlock()
+		i.mu.Unlock()
 
 		// this is all we really wanted from this transaction
 		err = f.MoveID(originalID, session.ID)

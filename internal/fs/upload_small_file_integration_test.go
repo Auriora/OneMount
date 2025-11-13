@@ -157,10 +157,10 @@ func TestIT_FS_09_02_SmallFileUpload_EndToEnd(t *testing.T) {
 		assert.NotNil(updatedInode, "File inode should exist after upload")
 
 		// Verify ETag was updated
-		updatedInode.RLock()
+		updatedInode.mu.RLock()
 		updatedETag := updatedInode.DriveItem.ETag
 		updatedSize := updatedInode.DriveItem.Size
-		updatedInode.RUnlock()
+		updatedInode.mu.RUnlock()
 
 		assert.Equal("uploaded-etag-small-file", updatedETag,
 			"ETag should be updated after successful upload")
@@ -318,9 +318,9 @@ func TestIT_FS_09_02_02_SmallFileUpload_MultipleFiles(t *testing.T) {
 			assert.NotNil(updatedInode, "File inode should exist after upload for file %d", i)
 
 			// Verify ETag was updated
-			updatedInode.RLock()
+			updatedInode.mu.RLock()
 			updatedETag := updatedInode.DriveItem.ETag
-			updatedInode.RUnlock()
+			updatedInode.mu.RUnlock()
 
 			expectedETag := fmt.Sprintf("uploaded-etag-%d", i)
 			assert.Equal(expectedETag, updatedETag,
@@ -466,10 +466,10 @@ func TestIT_FS_09_02_03_SmallFileUpload_OfflineQueuing(t *testing.T) {
 
 		// Manually update the file metadata to simulate successful upload
 		// (In a real scenario, the upload manager would process queued uploads)
-		fileInode.Lock()
+		fileInode.mu.Lock()
 		fileInode.DriveItem.ETag = "uploaded-etag-offline"
 		fileInode.DriveItem.Size = uint64(testFileSize)
-		fileInode.Unlock()
+		fileInode.mu.Unlock()
 
 		// Update file status to Local
 		fs.SetFileStatus(fileID, FileStatusInfo{
@@ -481,9 +481,9 @@ func TestIT_FS_09_02_03_SmallFileUpload_OfflineQueuing(t *testing.T) {
 		updatedInode := fs.GetID(fileID)
 		assert.NotNil(updatedInode, "File inode should exist after simulated upload")
 
-		updatedInode.RLock()
+		updatedInode.mu.RLock()
 		updatedETag := updatedInode.DriveItem.ETag
-		updatedInode.RUnlock()
+		updatedInode.mu.RUnlock()
 
 		assert.Equal("uploaded-etag-offline", updatedETag,
 			"ETag should be updated after simulated upload")

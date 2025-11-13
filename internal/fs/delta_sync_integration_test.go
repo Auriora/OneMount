@@ -747,11 +747,11 @@ func TestIT_Delta_10_05_ConflictDetection_LocalAndRemoteChanges(t *testing.T) {
 		localModTime := time.Now().Add(-30 * time.Minute)
 
 		// Mark the inode as having local changes
-		inode.Lock()
+		inode.mu.Lock()
 		inode.hasChanges = true
 		inode.DriveItem.Size = uint64(len(localContent))
 		inode.DriveItem.ModTime = &localModTime
-		inode.Unlock()
+		inode.mu.Unlock()
 
 		// Update the cached content with local changes
 		// Note: We need to delete the old cache entry first to avoid "file already closed" error
@@ -852,9 +852,9 @@ func TestIT_Delta_10_05_ConflictDetection_LocalAndRemoteChanges(t *testing.T) {
 			assert.NotNil(originalFile, "Original file should still exist")
 
 			if originalFile != nil {
-				originalFile.RLock()
+				originalFile.mu.RLock()
 				hasChanges := originalFile.hasChanges
-				originalFile.RUnlock()
+				originalFile.mu.RUnlock()
 
 				t.Logf("Original file still has local changes: %v", hasChanges)
 
@@ -881,10 +881,10 @@ func TestIT_Delta_10_05_ConflictDetection_LocalAndRemoteChanges(t *testing.T) {
 			t.Log("No conflict detected - analyzing conditions...")
 
 			// Check if both versions have changes
-			inode.RLock()
+			inode.mu.RLock()
 			hasLocalChanges := inode.hasChanges
 			localETag := inode.ETag
-			inode.RUnlock()
+			inode.mu.RUnlock()
 
 			t.Logf("Local changes: %v", hasLocalChanges)
 			t.Logf("Local ETag: %s", localETag)

@@ -98,9 +98,9 @@ func TestConcurrentFileAccess(t *testing.T) {
 						}
 
 					case 1: // Write operation (simulate)
-						inode.Lock()
+						inode.mu.Lock()
 						inode.hasChanges = true
-						inode.Unlock()
+						inode.mu.Unlock()
 						atomic.AddInt64(&writeCount, 1)
 						atomic.AddInt64(&successCount, 1)
 
@@ -385,13 +385,13 @@ func TestDeadlockPrevention(t *testing.T) {
 
 								case 2: // Mixed read/write operations
 									file := testFiles[rand.Intn(len(testFiles))]
-									file.RLock()
+									file.mu.RLock()
 									_ = file.Name()
-									file.RUnlock()
+									file.mu.RUnlock()
 
-									file.Lock()
+									file.mu.Lock()
 									file.hasChanges = true
-									file.Unlock()
+									file.mu.Unlock()
 
 								case 3: // Filesystem metadata operations
 									for _, file := range testFiles {
@@ -593,10 +593,10 @@ func TestHighConcurrencyStress(t *testing.T) {
 								// Try to acquire lock with timeout
 								lockAcquired := make(chan bool, 1)
 								go func() {
-									file.Lock()
+									file.mu.Lock()
 									lockAcquired <- true
 									time.Sleep(time.Microsecond * time.Duration(rand.Intn(100)))
-									file.Unlock()
+									file.mu.Unlock()
 								}()
 
 								select {
@@ -620,15 +620,15 @@ func TestHighConcurrencyStress(t *testing.T) {
 								file := testFiles[rand.Intn(numFiles)]
 
 								// Simulate read
-								file.RLock()
+								file.mu.RLock()
 								_ = file.Name()
 								_ = file.Size()
-								file.RUnlock()
+								file.mu.RUnlock()
 
 								// Simulate write
-								file.Lock()
+								file.mu.Lock()
 								file.hasChanges = true
-								file.Unlock()
+								file.mu.Unlock()
 
 							case 5: // Filesystem traversal simulation
 								for j := 0; j < 5; j++ {
@@ -860,9 +860,9 @@ func TestConcurrentDirectoryOperations(t *testing.T) {
 						if files, exists := testFiles[dir.ID()]; exists {
 							for k := 0; k < minInt(3, len(files)); k++ {
 								file := files[k]
-								file.RLock()
+								file.mu.RLock()
 								_ = file.Name()
-								file.RUnlock()
+								file.mu.RUnlock()
 							}
 						}
 						atomic.AddInt64(&successCount, 1)

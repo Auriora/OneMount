@@ -416,9 +416,9 @@ func TestIT_FS_09_06_UploadQueueManagement_ConcurrentUploads(t *testing.T) {
 			updatedInode := fs.GetID(fileID)
 			assert.NotNil(updatedInode, "File inode should exist after upload")
 
-			updatedInode.RLock()
+			updatedInode.mu.RLock()
 			updatedETag := updatedInode.DriveItem.ETag
-			updatedInode.RUnlock()
+			updatedInode.mu.RUnlock()
 
 			expectedETag := fmt.Sprintf("uploaded-etag-concurrent-%d", i)
 			assert.Equal(expectedETag, updatedETag, "ETag should be updated for file %d", i)
@@ -556,9 +556,9 @@ func TestIT_FS_09_06_UploadQueueManagement_CancelUpload(t *testing.T) {
 
 		// Step 5: Verify file status
 		// The file should still be marked as having local changes since upload was cancelled
-		fileInode.RLock()
+		fileInode.mu.RLock()
 		stillHasChanges := fileInode.hasChanges
-		fileInode.RUnlock()
+		fileInode.mu.RUnlock()
 
 		t.Logf("File still has changes after cancellation: %v", stillHasChanges)
 
@@ -732,9 +732,9 @@ func TestIT_FS_09_06_UploadQueueManagement_SessionTracking(t *testing.T) {
 			updatedInode := fs.GetID(fileID)
 			assert.NotNil(updatedInode, "File inode should exist after upload")
 
-			updatedInode.RLock()
+			updatedInode.mu.RLock()
 			updatedETag := updatedInode.DriveItem.ETag
-			updatedInode.RUnlock()
+			updatedInode.mu.RUnlock()
 
 			expectedETag := fmt.Sprintf("uploaded-etag-session-%d", i)
 			assert.Equal(expectedETag, updatedETag, "ETag should be updated for file %d", i)

@@ -1,14 +1,15 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/internal/graph"
 	"sync"
+
+	"github.com/auriora/onemount/internal/graph"
 )
 
 // Inode represents a file or folder in the onemount filesystem.
 // It wraps a DriveItem from the Microsoft Graph API and adds filesystem-specific
 // metadata and functionality. The Inode struct is thread-safe, with all methods
-// properly handling concurrent access through its embedded RWMutex.
+// properly handling concurrent access through its mutex pointer.
 //
 // The embedded DriveItem's fields should never be accessed directly, as they are
 // not safe for concurrent access. Instead, use the provided methods to access
@@ -18,8 +19,11 @@ import (
 // a separate file handle interface to minimize the complexity of operations like
 // Flush. All modifications to the Inode are tracked and synchronized with OneDrive
 // when appropriate.
+//
+// Note: The mutex is a pointer to avoid issues with struct copying and to improve
+// performance by reducing the size of the Inode struct when passed by value.
 type Inode struct {
-	sync.RWMutex                      // Protects access to all fields
+	mu              *sync.RWMutex     // Protects access to all fields
 	graph.DriveItem                   // The underlying OneDrive item
 	nodeID          uint64            // Filesystem node ID used by the kernel
 	children        []string          // Slice of child item IDs, nil when uninitialized

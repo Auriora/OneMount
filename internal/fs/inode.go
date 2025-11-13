@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
@@ -28,17 +29,18 @@ func NewInode(name string, mode uint32, parent *Inode) *Inode {
 	itemParent := &graph.DriveItemParent{ID: "", Path: ""}
 	if parent != nil {
 		itemParent.Path = parent.Path()
-		parent.RLock()
+		parent.mu.RLock()
 		itemParent.ID = parent.DriveItem.ID
 		if parent.DriveItem.Parent != nil {
 			itemParent.DriveID = parent.DriveItem.Parent.DriveID
 			itemParent.DriveType = parent.DriveItem.Parent.DriveType
 		}
-		parent.RUnlock()
+		parent.mu.RUnlock()
 	}
 
 	currentTime := time.Now()
 	return &Inode{
+		mu: &sync.RWMutex{},
 		DriveItem: graph.DriveItem{
 			ID:      localID(),
 			Name:    name,
@@ -55,8 +57,8 @@ func NewInode(name string, mode uint32, parent *Inode) *Inode {
 // the API. NOTE: This is intentionally NOT implemented as MarshalJSON because
 // that would break delta syncs for business accounts due to Graph API quirks.
 func (i *Inode) AsJSON() []byte {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	data, _ := json.Marshal(SerializeableInode{
 		DriveItem: i.DriveItem,
 		Children:  i.children,
@@ -76,6 +78,7 @@ func NewInodeJSON(data []byte) (*Inode, error) {
 		return nil, err
 	}
 	return &Inode{
+		mu:        &sync.RWMutex{},
 		DriveItem: raw.DriveItem,
 		children:  raw.Children,
 		mode:      raw.Mode,
@@ -99,6 +102,7 @@ func NewInodeDriveItem(item *graph.DriveItem) *Inode {
 		return nil
 	}
 	return &Inode{
+		mu:        &sync.RWMutex{},
 		DriveItem: *item,
 		xattrs:    make(map[string][]byte),
 	}
@@ -111,30 +115,39 @@ func (i *Inode) String() string {
 
 // Name is used to ensure thread-safe access to the NameInternal field.
 func (i *Inode) Name() string {
-	i.RLock()
-	defer i.RUnlock()
+	if i == nil {
+		return ""
+	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.Name
 }
 
 // SetName sets the name of the item in a thread-safe manner.
 func (i *Inode) SetName(name string) {
-	i.Lock()
+	i.mu.Lock()
 	i.DriveItem.Name = name
-	i.Unlock()
+	i.mu.Unlock()
 }
 
 // NodeID returns the inodes ID in the filesystem
 func (i *Inode) NodeID() uint64 {
-	i.RLock()
-	defer i.RUnlock()
+	if i == nil {
+		return 0
+	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.nodeID
 }
 
 // SetNodeID sets the inode ID for an inode if not already set. Does nothing if
 // the Inode already has an ID.
 func (i *Inode) SetNodeID(id uint64) uint64 {
-	i.Lock()
-	defer i.Unlock()
+	if i == nil {
+		return 0
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if i.nodeID == 0 {
 		i.nodeID = id
 	}
@@ -161,15 +174,18 @@ func isLocalID(id string) bool {
 
 // ID returns the internal ID of the item
 func (i *Inode) ID() string {
-	i.RLock()
-	defer i.RUnlock()
+	if i == nil {
+		return ""
+	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.ID
 }
 
 // ParentID returns the ID of this item's parent.
 func (i *Inode) ParentID() string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.DriveItem.Parent == nil {
 		return ""
 	}
@@ -178,8 +194,8 @@ func (i *Inode) ParentID() string {
 
 // Path returns an inode's full Path
 func (i *Inode) Path() string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 
 	// special case when it's the root item
 	name := i.DriveItem.Name
@@ -198,15 +214,15 @@ func (i *Inode) Path() string {
 // HasChanges returns true if the file has local changes that haven't been
 // uploaded yet.
 func (i *Inode) HasChanges() bool {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.hasChanges
 }
 
 // HasChildren returns true if the item has more than 0 children
 func (i *Inode) HasChildren() bool {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return len(i.children) > 0
 }
 
@@ -244,8 +260,8 @@ func (i *Inode) Mode() uint32 {
 	if i == nil {
 		return 0
 	}
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.mode == 0 { // only 0 if fetched from Graph API
 		if i.DriveItem.IsDir() {
 			return fuse.S_IFDIR | 0755
@@ -258,8 +274,8 @@ func (i *Inode) Mode() uint32 {
 // ModTime returns the Unix timestamp of last modification (to get a time.Time
 // struct, use time.Unix(int64(d.ModTime()), 0))
 func (i *Inode) ModTime() uint64 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.ModTimeUnix()
 }
 
@@ -267,8 +283,8 @@ func (i *Inode) ModTime() uint64 {
 // directory)
 func (i *Inode) NLink() uint32 {
 	if i.IsDir() {
-		i.RLock()
-		defer i.RUnlock()
+		i.mu.RLock()
+		defer i.mu.RUnlock()
 		// we precompute subdir due to mutex lock contention between NLink and
 		// other ops. subdir is modified by cache Insert/Delete and GetChildren.
 		return 2 + i.subdir
@@ -285,8 +301,8 @@ func (i *Inode) Size() uint64 {
 	if i.IsDir() {
 		return 4096
 	}
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.Size
 }
 
@@ -297,29 +313,29 @@ func Octal(i uint32) string {
 
 // GetName returns the name of the Inode.
 func (i *Inode) GetName() string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.Name
 }
 
 // GetNodeID returns the filesystem node ID of the Inode.
 func (i *Inode) GetNodeID() uint64 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.nodeID
 }
 
 // GetID returns the ID of the Inode.
 func (i *Inode) GetID() string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.ID
 }
 
 // GetParentID returns the ID of the parent Inode.
 func (i *Inode) GetParentID() string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.DriveItem.Parent == nil {
 		return ""
 	}
@@ -328,8 +344,8 @@ func (i *Inode) GetParentID() string {
 
 // GetPath returns the path of the Inode.
 func (i *Inode) GetPath() string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.DriveItem.Parent == nil {
 		return "/"
 	}
@@ -341,36 +357,36 @@ func (i *Inode) GetPath() string {
 
 // SetHasChanges sets whether the Inode has changes that need to be uploaded.
 func (i *Inode) SetHasChanges(hasChanges bool) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.hasChanges = hasChanges
 }
 
 // GetChildren returns the children of the Inode.
 func (i *Inode) GetChildren() []string {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.children
 }
 
 // SetChildren sets the children of the Inode.
 func (i *Inode) SetChildren(children []string) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.children = children
 }
 
 // AddChild adds a child to the Inode.
 func (i *Inode) AddChild(child string) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.children = append(i.children, child)
 }
 
 // MakeAttr creates a fuse.Attr from the Inode.
 func (i *Inode) MakeAttr() fuse.Attr {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	attr := fuse.Attr{
 		Ino:  i.nodeID,
 		Mode: i.mode,
@@ -385,8 +401,8 @@ func (i *Inode) MakeAttr() fuse.Attr {
 
 // GetMode returns the mode of the Inode.
 func (i *Inode) GetMode() uint32 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.mode != 0 {
 		return i.mode
 	}
@@ -402,22 +418,22 @@ func (i *Inode) VerifyChecksum(checksum string) bool {
 	if i == nil {
 		return false
 	}
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.VerifyChecksum(checksum)
 }
 
 // SetMode sets the mode of the Inode.
 func (i *Inode) SetMode(mode uint32) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.mode = mode
 }
 
 // GetModTime returns the modification time of the Inode.
 func (i *Inode) GetModTime() uint64 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.DriveItem.ModTime != nil {
 		return uint64(i.DriveItem.ModTime.Unix())
 	}
@@ -426,8 +442,8 @@ func (i *Inode) GetModTime() uint64 {
 
 // GetNLink returns the number of hard links to the Inode.
 func (i *Inode) GetNLink() uint32 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.IsDir() {
 		return 2 + i.subdir
 	}
@@ -436,50 +452,50 @@ func (i *Inode) GetNLink() uint32 {
 
 // GetSubdir returns the number of subdirectories of the Inode.
 func (i *Inode) GetSubdir() uint32 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.subdir
 }
 
 // SetSubdir sets the number of subdirectories of the Inode.
 func (i *Inode) SetSubdir(subdir uint32) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.subdir = subdir
 }
 
 // GetSize returns the size of the Inode.
 func (i *Inode) GetSize() uint64 {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.DriveItem.Size
 }
 
 // GetXattrs returns the extended attributes of the Inode.
 func (i *Inode) GetXattrs() map[string][]byte {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.xattrs
 }
 
 // SetXattr sets an extended attribute of the Inode.
 func (i *Inode) SetXattr(name string, value []byte) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.xattrs[name] = value
 }
 
 // GetXattr gets an extended attribute of the Inode.
 func (i *Inode) GetXattr(name string) ([]byte, bool) {
-	i.RLock()
-	defer i.RUnlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	value, ok := i.xattrs[name]
 	return value, ok
 }
 
 // RemoveXattr removes an extended attribute of the Inode.
 func (i *Inode) RemoveXattr(name string) {
-	i.Lock()
-	defer i.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	delete(i.xattrs, name)
 }

@@ -390,13 +390,13 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					// inode will exist at the new ID now, but we check if inode
 					// is nil to see if the item has been deleted since upload start
 					if inode := u.fs.GetID(session.ID); inode != nil {
-						inode.Lock()
+						inode.mu.Lock()
 						inode.DriveItem.ETag = session.ETag
 
 						// Use the size from the remote DriveItem
 						inode.DriveItem.Size = session.Size
 
-						inode.Unlock()
+						inode.mu.Unlock()
 
 						// Update status to local (synced)
 						u.fs.SetFileStatus(session.ID, FileStatusInfo{
@@ -572,9 +572,9 @@ func (u *UploadManager) QueueUpload(inode *Inode) (*UploadSession, error) {
 // For large files (>= 100MB), this method uses streaming from disk to reduce memory usage.
 func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPriority) (*UploadSession, error) {
 	// Get the file size to determine upload strategy
-	inode.RLock()
+	inode.mu.RLock()
 	fileSize := inode.DriveItem.Size
-	inode.RUnlock()
+	inode.mu.RUnlock()
 
 	const largeFileThreshold = 100 * 1024 * 1024 // 100MB
 
@@ -845,12 +845,12 @@ func (u *UploadManager) WaitForUpload(id string) error {
 
 			// Update the inode's ETag and Size
 			if inode := u.fs.GetID(session.ID); inode != nil {
-				inode.Lock()
+				inode.mu.Lock()
 				inode.DriveItem.ETag = session.ETag
 
 				// Use the size from the remote DriveItem
 				inode.DriveItem.Size = session.Size
-				inode.Unlock()
+				inode.mu.Unlock()
 
 				// Update file status attributes
 				u.fs.UpdateFileStatus(inode)

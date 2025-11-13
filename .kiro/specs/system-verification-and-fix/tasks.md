@@ -989,7 +989,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 2 hours
   - _Requirements: 10.5_
 
-- [ ] 20.9 Fix Issue #PERF-004: Inode Embeds Mutex
+- [x] 20.9 Fix Issue #PERF-004: Inode Embeds Mutex
   - **Component**: Inode / Locking
   - **Action**: Change Inode to use pointer to mutex
   - **Tasks**:

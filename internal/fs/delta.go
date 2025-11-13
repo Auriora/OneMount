@@ -534,26 +534,26 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			logger.Info().Str("delta", "update").
 				Msg("Updating metadata only, content is the same")
 			// update the metadata only
-			local.Lock()
+			local.mu.Lock()
 			local.DriveItem.ModTime = delta.ModTime
 			local.DriveItem.Size = delta.Size
 			local.DriveItem.ETag = delta.ETag
 			local.DriveItem.File = delta.File
 			local.hasChanges = false
-			local.Unlock()
+			local.mu.Unlock()
 			logger.Debug().Msg("Updated metadata")
 		} else {
 			logger.Debug().Msg("Content has changed, invalidating cache")
 			// invalidate the cache
 			f.content.Delete(id)
 			// update the metadata
-			local.Lock()
+			local.mu.Lock()
 			local.DriveItem.ModTime = delta.ModTime
 			local.DriveItem.Size = delta.Size
 			local.DriveItem.ETag = delta.ETag
 			local.DriveItem.File = delta.File
 			local.hasChanges = false
-			local.Unlock()
+			local.mu.Unlock()
 			logger.Debug().Msg("Updated metadata and invalidated content cache")
 		}
 	} else {
