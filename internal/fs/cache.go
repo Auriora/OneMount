@@ -230,6 +230,8 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		auth:                auth,
 		opendirs:            make(map[uint64][]*Inode),
 		statuses:            make(map[string]FileStatusInfo),
+		statusCache:         newStatusCache(5 * time.Second), // 5 second TTL for status determination cache
+		statusCacheTTL:      5 * time.Second,
 		ctx:                 fsCtx,
 		cancel:              fsCancel,
 		cacheExpirationDays: cacheExpirationDays,

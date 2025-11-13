@@ -95,8 +95,10 @@ type Filesystem struct {
 	opendirs  map[uint64][]*Inode // Map of open directories by node ID
 
 	// Track file statuses
-	statusM  sync.RWMutex              // Mutex for file statuses map
-	statuses map[string]FileStatusInfo // Map of file statuses by ID
+	statusM        sync.RWMutex              // Mutex for file statuses map
+	statuses       map[string]FileStatusInfo // Map of file statuses by ID
+	statusCache    *statusCache              // Cache for status determination results
+	statusCacheTTL time.Duration             // TTL for status cache entries (default: 5 seconds)
 
 	// D-Bus server for file status updates
 	dbusServer *FileStatusDBusServer

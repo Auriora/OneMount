@@ -279,6 +279,9 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		filesystem.StartCacheCleanup()
 	}
 
+	// Start the status cache cleanup routine
+	filesystem.StartStatusCacheCleanup()
+
 	common.CreateXDGVolumeInfo(filesystem, auth)
 
 	// Sync the full directory tree if requested

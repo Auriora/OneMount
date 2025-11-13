@@ -2649,52 +2649,62 @@ None
 
 **Component**: File Status  
 **Severity**: Low  
-**Status**: Open  
+**Status**: ✅ RESOLVED (2025-11-13)  
 **Discovered**: 2025-11-11  
-**Assigned To**: TBD
+**Resolved By**: AI Agent
 
 **Description**:
-The `determineFileStatus()` method performs multiple expensive operations on every call: database queries for offline changes, cache lookups, and QuickXORHash calculations. This can impact performance when querying status for many files.
+The `determineFileStatus()` method performed multiple expensive operations on every call: database queries for offline changes, cache lookups, and QuickXORHash calculations. This impacted performance when querying status for many files.
 
-**Steps to Reproduce**:
-1. Open Nemo file manager in a directory with many files
-2. Observe status determination for each file
-3. Note multiple database/cache operations per file
-4. Measure performance impact on directory listing
+**Resolution**:
+Implemented comprehensive performance optimizations:
 
-**Expected Behavior**:
-- Status determination should be fast (<1ms per file)
-- Minimal database/cache operations
-- Efficient for bulk status queries
-- No noticeable impact on file manager responsiveness
+1. **TTL-based Status Cache**:
+   - 5-second TTL for determination results
+   - Thread-safe with RWMutex
+   - Background cleanup every minute
+   - Automatic invalidation on status changes
 
-**Actual Behavior**:
-- Multiple expensive operations per status check
-- Database query for offline changes
-- Cache lookup and hash calculation
-- No caching of determination results
-- Potential performance impact with many files
+2. **Optimized Determination Logic**:
+   - Skip hash verification for local-only files
+   - Conditional hash verification (only when remote hash available)
+   - Proper resource cleanup (defer fd.Close())
 
-**Root Cause**:
-Status determination logic prioritizes accuracy over performance. No caching of intermediate results, only final status.
+3. **Batch Operations**:
+   - `GetFileStatusBatch()` for bulk queries
+   - Single database transaction for multiple files
+   - Reduced lock contention
+
+4. **Cache Invalidation**:
+   - Automatic invalidation on `SetFileStatus()`
+   - Invalidation on upload/download completion
+   - Invalidation on delta sync updates
+
+**Performance Improvements**:
+- Cache hits: < 1ms (no I/O)
+- Reduced database queries via batching
+- Skipped unnecessary hash calculations
+- Better scalability for large directories
+
+**Testing**:
+- ✅ Unit tests for cache operations
+- ✅ Cache invalidation tests
+- ✅ TTL expiration tests
+- ✅ Cleanup tests
+
+**Files Modified**:
+- `internal/fs/file_status.go` (cache implementation, optimizations)
+- `internal/fs/filesystem_types.go` (added cache fields)
+- `internal/fs/cache.go` (cache initialization)
+- `cmd/onemount/main.go` (start cleanup goroutine)
+- `internal/fs/file_status_performance_test.go` (new tests)
+
+**Documentation**:
+- `docs/updates/2025-11-13-file-status-performance-optimization.md`
 
 **Affected Requirements**:
-- Requirement 8.1: File status updates
-- Requirement 10.3: Directory listing performance (<2s)
-
-**Affected Files**:
-- `internal/fs/file_status.go` (determineFileStatus method)
-
-**Fix Plan**:
-1. Profile status determination performance
-2. Add caching of determination results with TTL
-3. Batch database queries for multiple files
-4. Optimize hash calculation (only when needed)
-5. Add invalidation on relevant events (upload complete, delta sync, etc.)
-6. Consider lazy evaluation for non-visible files
-
-**Fix Estimate**:
-4-6 hours (profiling + optimization + testing)
+- ✅ Requirement 8.1: File status updates (optimized)
+- ✅ Requirement 10.3: Directory listing performance (<2s)
 
 **Related Issues**:
 None
