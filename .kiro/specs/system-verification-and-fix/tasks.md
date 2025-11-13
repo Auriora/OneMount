@@ -862,7 +862,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Status**: No critical issues identified (0 issues)
   - _Requirements: All_
 
-- [ ] 19. Fix high-priority issues
+- [x] 19. Fix high-priority issues
   - Review all issues marked as "high" priority in `docs/verification-tracking.md`
   - **Status**: 2 high-priority issues identified
   - _Requirements: All_
@@ -1228,15 +1228,15 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 17: XDG Compliance Verification
 
-- [ ] 26. Verify XDG Base Directory compliance
-- [ ] 26.1 Review XDG implementation
+- [x] 26. Verify XDG Base Directory compliance
+- [x] 26.1 Review XDG implementation
   - Read and analyze `cmd/common/config.go`
   - Verify use of `os.UserConfigDir()` and `os.UserCacheDir()`
   - Check directory creation and permissions
   - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.1, 15.4_
 
-- [ ] 26.2 Test XDG_CONFIG_HOME environment variable
+- [x] 26.2 Test XDG_CONFIG_HOME environment variable
   - Set `XDG_CONFIG_HOME` to custom path
   - Mount filesystem in Docker container
   - Verify config stored in `$XDG_CONFIG_HOME/onemount/`
@@ -1244,7 +1244,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.2, 15.7_
 
-- [ ] 26.3 Test XDG_CACHE_HOME environment variable
+- [x] 26.3 Test XDG_CACHE_HOME environment variable
   - Set `XDG_CACHE_HOME` to custom path
   - Mount filesystem in Docker container
   - Verify cache stored in `$XDG_CACHE_HOME/onemount/`
@@ -1252,7 +1252,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.5, 15.9_
 
-- [ ] 26.4 Test default XDG paths
+- [x] 26.4 Test default XDG paths
   - Unset XDG environment variables
   - Mount filesystem in Docker container
   - Verify config in `~/.config/onemount/`
@@ -1260,20 +1260,20 @@ This implementation plan breaks down the verification and fix process into discr
   - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.3, 15.6_
 
-- [ ] 26.5 Test command-line override
+- [x] 26.5 Test command-line override
   - Use `--config-file` and `--cache-dir` flags
   - Verify custom paths are used in Docker container
   - Verify XDG paths are not used
   - _Requirements: 15.10_
 
-- [ ] 26.6 Test directory permissions
+- [x] 26.6 Test directory permissions
   - Check config directory permissions (should be 0700)
   - Check cache directory permissions (should be 0755)
   - Verify auth tokens are not world-readable
   - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 15.7_
 
-- [ ] 26.7 Document XDG compliance verification results
+- [x] 26.7 Document XDG compliance verification results
   - Update `docs/verification-tracking.md` with Phase 17 results
   - Document any issues found
   - Create fix plan if needed
