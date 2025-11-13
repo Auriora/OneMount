@@ -6,6 +6,7 @@
 3. [Authentication Issues](#authentication-issues)
 4. [Network and Connectivity](#network-and-connectivity)
 5. [File Operation Problems](#file-operation-problems)
+   - [Filesystem Requirements and Extended Attributes](#filesystem-requirements-and-extended-attributes)
 6. [Performance Issues](#performance-issues)
 7. [Debugging and Logging](#debugging-and-logging)
 8. [Getting Help](#getting-help)
@@ -291,6 +292,66 @@ go version
 3. **Check OneDrive permissions:**
    - Verify file permissions in OneDrive web interface
    - Ensure account has necessary access rights
+
+### Filesystem Requirements and Extended Attributes
+
+**Symptoms:**
+- File status icons don't appear in file manager
+- Warnings about extended attributes in logs
+- Some features not working as expected
+
+**Background:**
+OneMount uses extended attributes (xattrs) to store file status information that can be displayed by file managers like Nemo or Nautilus. Not all filesystems support extended attributes.
+
+**Supported Filesystems:**
+- ✅ **ext4** (recommended) - Full support for extended attributes
+- ✅ **ext3** - Full support for extended attributes
+- ✅ **XFS** - Full support for extended attributes
+- ✅ **Btrfs** - Full support for extended attributes
+- ⚠️ **tmpfs** - Limited or no extended attribute support
+- ⚠️ **NFS** - May not support extended attributes depending on configuration
+- ⚠️ **FAT32/exFAT** - No extended attribute support
+
+**Check Extended Attribute Support:**
+```bash
+# Check if your filesystem supports extended attributes
+getfattr --version
+
+# Test extended attributes on your mount point
+touch /path/to/mount/point/test_file
+setfattr -n user.test -v "test_value" /path/to/mount/point/test_file
+getfattr -n user.test /path/to/mount/point/test_file
+rm /path/to/mount/point/test_file
+```
+
+**Check OneMount's Extended Attribute Status:**
+```bash
+# View statistics including xattr support status
+onemount --stats /path/to/mount/point | grep -i xattr
+```
+
+**Solutions:**
+1. **If extended attributes are not supported:**
+   - OneMount will continue to work normally
+   - File status information will still be available via D-Bus
+   - File manager extensions may not show status icons
+   - Consider using a filesystem that supports extended attributes (e.g., ext4)
+
+2. **If you need file status icons:**
+   - Ensure your mount point is on a filesystem that supports extended attributes
+   - Verify the Nemo/Nautilus extension is installed
+   - Check that D-Bus is available and working
+
+3. **Verify D-Bus is working:**
+   ```bash
+   # Check if D-Bus session is available
+   echo $DBUS_SESSION_BUS_ADDRESS
+   
+   # Monitor D-Bus signals from OneMount
+   dbus-monitor --session "interface='com.github.jstaf.onedriver.FileStatus'"
+   ```
+
+**Note:** Extended attributes are optional. OneMount will work without them, but some visual features (like file status icons in file managers) may not be available.
 
 ## Performance Issues
 

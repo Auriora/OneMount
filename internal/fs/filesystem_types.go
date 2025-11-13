@@ -116,6 +116,10 @@ type Filesystem struct {
 	statsConfig   *StatsConfig  // Configuration for statistics collection
 	statsUpdateCh chan struct{} // Channel to trigger background stats update
 
+	// Extended attributes support tracking
+	xattrSupportedM sync.RWMutex // Mutex for xattr support status
+	xattrSupported  bool         // Whether extended attributes are supported on this filesystem
+
 	// Stop synchronization
 	stopOnce sync.Once // Ensures Stop is only called once
 }

@@ -79,6 +79,9 @@ type Stats struct {
 	// Cache metadata
 	CachedAt  time.Time // When these statistics were cached
 	IsSampled bool      // Whether statistics were calculated using sampling
+
+	// Extended attributes support
+	XAttrSupported bool // Whether extended attributes are supported on this filesystem
 }
 
 // CachedStats holds cached statistics with TTL
@@ -178,6 +181,11 @@ func (f *Filesystem) InvalidateStatsCache() {
 
 // calculateStats performs the actual statistics calculation
 func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
+	// Get xattr support status
+	f.xattrSupportedM.RLock()
+	xattrSupported := f.xattrSupported
+	f.xattrSupportedM.RUnlock()
+
 	stats := &Stats{
 		Expiration:     f.cacheExpirationDays,
 		IsOffline:      f.IsOffline(),
@@ -186,6 +194,7 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 		FileSizeRanges: make(map[string]int),
 		FileAgeRanges:  make(map[string]int),
 		CachedAt:       time.Now(),
+		XAttrSupported: xattrSupported,
 	}
 
 	// Count metadata items (fast operation, no optimization needed)
@@ -683,6 +692,11 @@ func (f *Filesystem) GetStatsWithSampling(samplingRate float64) (*Stats, error) 
 
 // GetQuickStats returns a minimal set of statistics quickly without expensive calculations
 func (f *Filesystem) GetQuickStats() (*Stats, error) {
+	// Get xattr support status
+	f.xattrSupportedM.RLock()
+	xattrSupported := f.xattrSupported
+	f.xattrSupportedM.RUnlock()
+
 	stats := &Stats{
 		Expiration:     f.cacheExpirationDays,
 		IsOffline:      f.IsOffline(),
@@ -692,6 +706,7 @@ func (f *Filesystem) GetQuickStats() (*Stats, error) {
 		FileAgeRanges:  make(map[string]int),
 		CachedAt:       time.Now(),
 		IsSampled:      false,
+		XAttrSupported: xattrSupported,
 	}
 
 	// Count metadata items (fast)

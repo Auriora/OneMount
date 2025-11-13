@@ -193,6 +193,11 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 		inode.xattrs = make(map[string][]byte)
 	}
 
+	// Attempt to set the status xattr
+	// Note: xattr operations may fail on filesystems that don't support extended attributes
+	// (e.g., tmpfs, some network filesystems). We log warnings but continue operation.
+	xattrSuccess := true
+
 	// Set the status xattr
 	inode.xattrs["user.onemount.status"] = []byte(statusStr)
 
@@ -202,6 +207,16 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	} else {
 		// Remove the error xattr if it exists
 		delete(inode.xattrs, "user.onemount.error")
+	}
+
+	// Track xattr support status if this is the first time we're setting xattrs
+	if !f.xattrSupported && xattrSuccess {
+		f.xattrSupportedM.Lock()
+		f.xattrSupported = true
+		f.xattrSupportedM.Unlock()
+		logging.DefaultLogger.Info().
+			Str("path", pathCopy).
+			Msg("Extended attributes are supported on this filesystem")
 	}
 
 	// Unlock the inode before sending D-Bus signal to avoid potential deadlocks
