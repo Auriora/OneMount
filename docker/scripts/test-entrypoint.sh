@@ -36,6 +36,7 @@ Helper Command Options:
   --verbose              Enable verbose output
   --timeout DURATION     Set test timeout (default: 5m)
   --sequential           Run tests sequentially (no parallel execution)
+  --log-to-file          Redirect verbose output to log files (keeps console clean)
 
 Pass-Through Mode:
   Any command not matching the helper commands above will be executed directly
@@ -60,6 +61,8 @@ Examples:
 Environment Variables:
   ONEMOUNT_TEST_TIMEOUT   Test timeout duration (default: 5m)
   ONEMOUNT_TEST_VERBOSE   Enable verbose output (true/false)
+  ONEMOUNT_LOG_TO_FILE    Redirect verbose output to log files (true/false)
+  ONEMOUNT_LOG_DIR        Directory for log files (default: ~/.onemount-tests/logs)
   ONEMOUNT_AUTH_TOKENS    Path to OneDrive auth tokens for system tests
 
 Notes:
@@ -445,6 +448,8 @@ COMMAND="${1:-help}"
 TIMEOUT="${ONEMOUNT_TEST_TIMEOUT:-5m}"
 VERBOSE="${ONEMOUNT_TEST_VERBOSE:-false}"
 SEQUENTIAL="false"
+LOG_TO_FILE="${ONEMOUNT_LOG_TO_FILE:-false}"
+LOG_DIR="${ONEMOUNT_LOG_DIR:-$HOME/.onemount-tests/logs}"
 
 # Check if first argument is a known helper command
 case "$COMMAND" in
@@ -469,6 +474,10 @@ case "$COMMAND" in
                     ;;
                 --sequential)
                     SEQUENTIAL="true"
+                    shift
+                    ;;
+                --log-to-file)
+                    LOG_TO_FILE="true"
                     shift
                     ;;
                 *)

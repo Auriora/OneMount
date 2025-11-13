@@ -1312,7 +1312,9 @@ The test script guides the user through:
 **Status**: ⚠️ Tests Exist But Need Refactoring  
 **Requirements**: 11.1, 11.2, 11.3, 11.4, 11.5  
 **Tasks**: 16.1-16.5  
-**Last Updated**: 2025-11-12
+**Last Updated**: 2025-11-13
+
+**Note**: `docs/INTEGRATION_TEST_STATUS.md` (dated 2025-11-12) shows 17 failing tests out of 33 total. Most failures are already documented in this tracking document. The document notes that many failures may be due to expired OneDrive authentication tokens. Recommend re-running integration tests with fresh auth tokens to identify real issues vs. authentication failures.
 
 | Task | Description | Status | Issues |
 |------|-------------|--------|--------|
@@ -1713,9 +1715,9 @@ Use this template when documenting new issues:
 
 ### Active Issues
 
-**Total Issues**: 33  
+**Total Issues**: 35  
 **Critical**: 0  
-**High**: 0  
+**High**: 2  
 **Medium**: 16  
 **Low**: 17
 
@@ -2245,6 +2247,141 @@ None
 - No user-facing impact
 
 **Status**: Documented as expected behavior. No fix required.
+
+---
+
+#### Issue #010: Large File Upload Retry Logic Not Working
+
+**Component**: Upload Manager / Upload Session  
+**Severity**: High  
+**Status**: Open  
+**Discovered**: 2025-11-13  
+**Assigned To**: TBD
+
+**Description**:
+The large file upload retry logic is not functioning correctly. When a chunk upload fails, the retry mechanism does not properly retry the failed chunk, and the upload session does not recover from transient failures.
+
+**Steps to Reproduce**:
+1. Run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestIT_FS_09_04_02_LargeFileUploadFailureAndRetry ./internal/fs`
+2. Observe test failures:
+   - "Expected no error, but got failed to perform chunk upload"
+   - "First chunk should have been attempted at least 3 times (was 1)"
+   - "ETag should be updated after successful upload" (ETag remains initial value)
+   - "File status should be Local after successful upload" (status is Syncing)
+
+**Expected Behavior**:
+- Failed chunk uploads should be retried with exponential backoff
+- Retry attempts should be tracked correctly
+- After successful retry, ETag should be updated
+- File status should transition to Local after successful upload
+- Upload should eventually succeed after retries
+
+**Actual Behavior**:
+- Chunk upload fails on first attempt
+- No retry attempts are made (only 1 attempt instead of 3+)
+- ETag remains at initial value (not updated)
+- File status remains Syncing (not Local)
+- Upload does not recover from transient failures
+
+**Root Cause**:
+The upload session retry logic in `internal/fs/upload_session.go` may not be properly handling chunk upload failures. The retry mechanism either isn't being triggered or isn't tracking attempts correctly.
+
+**Affected Requirements**:
+- Requirement 4.4: Retry failed uploads with exponential backoff
+- Requirement 4.5: ETag updated after successful upload
+- Requirement 8.1: File status tracking
+
+**Affected Files**:
+- `internal/fs/upload_session.go` (chunk upload retry logic)
+- `internal/fs/upload_manager.go` (upload session management)
+- `internal/fs/upload_retry_integration_test.go` (test file)
+
+**Fix Plan**:
+1. Review chunk upload retry logic in `PerformChunkedUpload()`
+2. Verify retry attempt tracking is working correctly
+3. Ensure exponential backoff is applied between retries
+4. Fix ETag update after successful upload
+5. Fix file status transition after upload completion
+6. Add logging to track retry attempts
+7. Update tests to verify retry behavior
+
+**Fix Estimate**:
+4-6 hours (investigation + fix + testing)
+
+**Related Issues**:
+- Issue #011: Upload Max Retries Exceeded Not Working
+
+**Notes**:
+- High priority - affects reliability of large file uploads
+- Transient network failures should not cause upload failures
+- Retry logic is critical for production use
+
+---
+
+#### Issue #011: Upload Max Retries Exceeded Not Working
+
+**Component**: Upload Manager / Upload Session  
+**Severity**: High  
+**Status**: Open  
+**Discovered**: 2025-11-13  
+**Assigned To**: TBD
+
+**Description**:
+When upload retries are exhausted (max retries exceeded), the upload session does not properly transition to error state, and the file status does not reflect the failure.
+
+**Steps to Reproduce**:
+1. Run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestIT_FS_09_04_03_UploadMaxRetriesExceeded ./internal/fs`
+2. Observe test failures:
+   - "Upload session should be in error state after max retries" (state is 1 instead of 3)
+   - "File status should indicate error or local modification after failed upload" (status is Syncing)
+   - Test takes 20 seconds (expected behavior for max retries)
+
+**Expected Behavior**:
+- After max retries exceeded, upload session state should be Error (3)
+- File status should indicate error or local modification
+- User should be notified of upload failure
+- File should remain available locally with changes preserved
+- Upload can be retried manually or automatically later
+
+**Actual Behavior**:
+- Upload session state is 1 (not Error state 3)
+- File status remains Syncing (not Error or LocalModified)
+- No clear indication to user that upload failed
+- System appears to be still trying to upload
+
+**Root Cause**:
+The upload session state machine in `internal/fs/upload_session.go` may not be properly transitioning to error state when max retries are exceeded. The state update logic or error handling may be missing.
+
+**Affected Requirements**:
+- Requirement 4.4: Retry failed uploads with exponential backoff
+- Requirement 8.1: File status tracking
+- Requirement 9.5: Clear error messages
+
+**Affected Files**:
+- `internal/fs/upload_session.go` (state machine)
+- `internal/fs/upload_manager.go` (error handling)
+- `internal/fs/file_status.go` (status determination)
+- `internal/fs/upload_retry_integration_test.go` (test file)
+
+**Fix Plan**:
+1. Review upload session state machine transitions
+2. Ensure Error state (3) is set when max retries exceeded
+3. Update file status determination to reflect upload errors
+4. Add user notification for upload failures
+5. Ensure file remains accessible locally after failure
+6. Add logging for max retries exceeded
+7. Update tests to verify error state behavior
+
+**Fix Estimate**:
+3-4 hours (investigation + fix + testing)
+
+**Related Issues**:
+- Issue #010: Large File Upload Retry Logic Not Working
+
+**Notes**:
+- High priority - affects user experience and data reliability
+- Users need clear indication when uploads fail
+- Failed uploads should be retryable
 
 ---
 

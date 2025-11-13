@@ -47,6 +47,7 @@ inclusion: always
 
 ```bash
 # Unit tests (no FUSE required, fast)
+# Verbose output is automatically redirected to test-artifacts/logs/
 docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests
 
 # Integration tests (requires FUSE, moderate speed)
@@ -60,6 +61,10 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner al
 
 # Interactive debugging shell
 docker compose -f docker/compose/docker-compose.test.yml run --rm shell
+
+# Disable log file redirection (show all output on console)
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  -e ONEMOUNT_LOG_TO_FILE=false unit-tests
 ```
 
 **Run specific tests (pass-through mode):**

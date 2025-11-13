@@ -862,12 +862,42 @@ This implementation plan breaks down the verification and fix process into discr
   - **Status**: No critical issues identified (0 issues)
   - _Requirements: All_
 
-- [x] 19. Fix high-priority issues
+- [ ] 19. Fix high-priority issues
   - Review all issues marked as "high" priority in `docs/verification-tracking.md`
-  - **Status**: No high-priority issues identified (0 issues)
+  - **Status**: 2 high-priority issues identified
   - _Requirements: All_
 
-- [ ] 20. Fix medium-priority issues
+- [ ] 19.1 Fix Issue #010: Large File Upload Retry Logic Not Working
+  - **Component**: Upload Manager / Upload Session
+  - **Action**: Fix chunk upload retry mechanism
+  - **Tasks**:
+    - Review chunk upload retry logic in `PerformChunkedUpload()`
+    - Verify retry attempt tracking is working correctly
+    - Ensure exponential backoff is applied between retries
+    - Fix ETag update after successful upload
+    - Fix file status transition after upload completion
+    - Add logging to track retry attempts
+    - Update tests to verify retry behavior
+  - **Test**: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestIT_FS_09_04_02_LargeFileUploadFailureAndRetry ./internal/fs`
+  - **Estimate**: 4-6 hours
+  - _Requirements: 4.4, 4.5, 8.1_
+
+- [ ] 19.2 Fix Issue #011: Upload Max Retries Exceeded Not Working
+  - **Component**: Upload Manager / Upload Session
+  - **Action**: Fix upload session state machine for max retries
+  - **Tasks**:
+    - Review upload session state machine transitions
+    - Ensure Error state (3) is set when max retries exceeded
+    - Update file status determination to reflect upload errors
+    - Add user notification for upload failures
+    - Ensure file remains accessible locally after failure
+    - Add logging for max retries exceeded
+    - Update tests to verify error state behavior
+  - **Test**: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestIT_FS_09_04_03_UploadMaxRetriesExceeded ./internal/fs`
+  - **Estimate**: 3-4 hours
+  - _Requirements: 4.4, 8.1, 9.5_
+
+- [-] 20. Fix medium-priority issues
   - Review all issues marked as "medium" priority in `docs/verification-tracking.md`
   - **Total**: 16 medium-priority issues identified
   - Prioritize based on impact and effort
@@ -1159,21 +1189,22 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 16: Documentation Updates
 
-- [ ] 921. Update architecture documentation
+- [ ] 22. Update documentation
+- [ ] 22.1 Update architecture documentation
   - Review `docs/2-architecture-and-design/software-architecture-specification.md`
   - Update component descriptions to match implementation
   - Update sequence diagrams if flows have changed
   - Document any architectural decisions made during fixes
   - _Requirements: 12.1_
 
-- [ ] 22. Update design documentation
+- [ ] 22.2 Update design documentation
   - Review `docs/2-architecture-and-design/software-design-specification.md`
   - Update data models to match implementation
   - Update interface descriptions
   - Document design patterns used
   - _Requirements: 12.2_
 
-- [ ] 23. Update API documentation
+- [ ] 22.3 Update API documentation
   - Review all public APIs
   - Ensure godoc comments are accurate
   - Update function signatures if changed
