@@ -60,7 +60,7 @@ func TestIT_FS_ETag_01_CacheValidationWithIfNoneMatch(t *testing.T) {
 	defer cancel()
 
 	// Create filesystem
-	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestIT_FS_ETag_02_CacheUpdateOnETagChange(t *testing.T) {
 	defer cancel()
 
 	// Create filesystem
-	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -429,7 +429,7 @@ func TestIT_FS_ETag_03_304NotModifiedResponse(t *testing.T) {
 	defer cancel()
 
 	// Create filesystem
-	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}

@@ -20,14 +20,15 @@ const (
 )
 
 type Config struct {
-	CacheDir         string `yaml:"cacheDir"`
-	LogLevel         string `yaml:"log"`
-	LogOutput        string `yaml:"logOutput"`
-	SyncTree         bool   `yaml:"syncTree"`
-	DeltaInterval    int    `yaml:"deltaInterval"`
-	CacheExpiration  int    `yaml:"cacheExpiration"`
-	MountTimeout     int    `yaml:"mountTimeout"`
-	graph.AuthConfig `yaml:"auth"`
+	CacheDir             string `yaml:"cacheDir"`
+	LogLevel             string `yaml:"log"`
+	LogOutput            string `yaml:"logOutput"`
+	SyncTree             bool   `yaml:"syncTree"`
+	DeltaInterval        int    `yaml:"deltaInterval"`
+	CacheExpiration      int    `yaml:"cacheExpiration"`
+	CacheCleanupInterval int    `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
+	MountTimeout         int    `yaml:"mountTimeout"`
+	graph.AuthConfig     `yaml:"auth"`
 }
 
 // DefaultConfigPath returns the default config location for onemount
@@ -43,13 +44,14 @@ func DefaultConfigPath() string {
 func createDefaultConfig() Config {
 	xdgCacheDir, _ := os.UserCacheDir()
 	return Config{
-		CacheDir:        filepath.Join(xdgCacheDir, "onemount"),
-		LogLevel:        "debug",
-		LogOutput:       DefaultLogOutput, // Default to standard output
-		SyncTree:        true,             // Enable tree sync by default for better performance
-		DeltaInterval:   1,                // Default to 1 second
-		CacheExpiration: 30,               // Default to 30 days
-		MountTimeout:    60,               // Default to 60 seconds
+		CacheDir:             filepath.Join(xdgCacheDir, "onemount"),
+		LogLevel:             "debug",
+		LogOutput:            DefaultLogOutput, // Default to standard output
+		SyncTree:             true,             // Enable tree sync by default for better performance
+		DeltaInterval:        1,                // Default to 1 second
+		CacheExpiration:      30,               // Default to 30 days
+		CacheCleanupInterval: 24,               // Default to 24 hours
+		MountTimeout:         60,               // Default to 60 seconds
 	}
 }
 
@@ -127,6 +129,14 @@ func validateConfig(config *Config) error {
 			Int("cacheExpiration", config.CacheExpiration).
 			Msg("Cache expiration must be non-negative, using default.")
 		config.CacheExpiration = 30
+	}
+
+	// Validate CacheCleanupInterval (1 hour to 30 days = 720 hours)
+	if config.CacheCleanupInterval < 1 || config.CacheCleanupInterval > 720 {
+		logging.Warn().
+			Int("cacheCleanupInterval", config.CacheCleanupInterval).
+			Msg("Cache cleanup interval must be between 1 and 720 hours (1 hour to 30 days), using default.")
+		config.CacheCleanupInterval = 24
 	}
 
 	// Validate MountTimeout

@@ -100,6 +100,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	cacheExpiration := flag.IntP("cache-expiration", "e", 0,
 		"Set the number of days after which files will be removed from the content cache. "+
 			"Default is 30 days. Set to 0 to use the default.")
+	cacheCleanupInterval := flag.IntP("cache-cleanup-interval", "", 0,
+		"Set the interval in hours between cache cleanup runs. "+
+			"Default is 24 hours. Valid range: 1-720 hours (1 hour to 30 days). Set to 0 to use the default.")
 	mountTimeout := flag.IntP("mount-timeout", "t", 60,
 		"Set the timeout in seconds for mount operations. "+
 			"Default is 60 seconds. Increase this if mounting fails due to slow network.")
@@ -164,6 +167,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	}
 	if *cacheExpiration > 0 {
 		config.CacheExpiration = *cacheExpiration
+	}
+	if *cacheCleanupInterval > 0 {
+		config.CacheCleanupInterval = *cacheCleanupInterval
 	}
 	if *mountTimeout > 0 {
 		config.MountTimeout = *mountTimeout
@@ -262,7 +268,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 	}
 
-	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration)
+	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval)
 	if err != nil {
 		logging.LogError(err, "Failed to initialize filesystem",
 			logging.FieldOperation, "initializeFilesystem",
@@ -361,7 +367,7 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	}
 
 	// Initialize the filesystem without mounting
-	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration)
+	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval)
 	if err != nil {
 		logging.Error().Err(err).Msg("Failed to initialize filesystem")
 		os.Exit(1)

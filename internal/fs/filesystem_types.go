@@ -74,6 +74,7 @@ type Filesystem struct {
 
 	// Cache cleanup configuration
 	cacheExpirationDays  int            // Number of days after which cached files expire
+	cacheCleanupInterval time.Duration  // Interval between cache cleanup runs
 	cacheCleanupStop     chan struct{}  // Channel to signal cache cleanup to stop
 	cacheCleanupStopOnce sync.Once      // Ensures cleanup is stopped only once
 	cacheCleanupWg       sync.WaitGroup // Wait group for cache cleanup goroutine

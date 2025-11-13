@@ -83,7 +83,7 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestE2E_17_01_CompleteUserWorkflow(t *testing.T) {
 	defer cancel2()
 
 	cacheDir2 := filepath.Join(tempDir, "cache2")
-	fs2, err := NewFilesystemWithContext(ctx2, auth, cacheDir2, 30)
+	fs2, err := NewFilesystemWithContext(ctx2, auth, cacheDir2, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create new filesystem instance: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestE2E_17_02_MultiFileOperations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestE2E_17_03_LongRunningOperations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -630,7 +630,7 @@ func TestE2E_17_04_StressScenarios(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+	fs, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}

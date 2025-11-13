@@ -55,7 +55,7 @@ func TestIT_FS_Mount(t *testing.T) {
 		defer cancel()
 
 		// Create filesystem
-		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 		if err != nil {
 			t.Fatalf("Failed to create filesystem: %v", err)
 		}
@@ -137,7 +137,7 @@ func TestIT_FS_Mount(t *testing.T) {
 			// Try to mount at the same location (should fail)
 			invalidMountPoint := mountPoint // Already mounted
 
-			filesystem2, err := NewFilesystemWithContext(ctx, auth, filepath.Join(tempDir, "cache2"), 30)
+			filesystem2, err := NewFilesystemWithContext(ctx, auth, filepath.Join(tempDir, "cache2"), 30, 24)
 			if err != nil {
 				t.Fatalf("Failed to create second filesystem: %v", err)
 			}
@@ -260,7 +260,7 @@ func TestIT_FS_Mount_ValidationScenarios(t *testing.T) {
 			defer cancel()
 
 			// Create filesystem
-			filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30)
+			filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
 			if err != nil {
 				t.Logf("Filesystem creation failed (may be expected): %v", err)
 				if !tt.shouldFail {

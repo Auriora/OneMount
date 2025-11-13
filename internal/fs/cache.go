@@ -49,11 +49,12 @@ type OfflineChange struct {
 //   - auth: Authentication information for Microsoft Graph API
 //   - cacheDir: Directory where filesystem data will be cached
 //   - cacheExpirationDays: Number of days after which cached files expire
+//   - cacheCleanupIntervalHours: Interval in hours between cache cleanup runs (1-720 hours)
 //
 // Returns:
 //   - A new Filesystem instance and nil error on success
 //   - nil and an error if initialization fails
-func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
+func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir string, cacheExpirationDays int, cacheCleanupIntervalHours int) (*Filesystem, error) {
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
@@ -220,25 +221,35 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		return nil, err
 	}
 
+	// Validate and set cache cleanup interval (default to 24 hours if invalid)
+	cleanupInterval := time.Duration(cacheCleanupIntervalHours) * time.Hour
+	if cacheCleanupIntervalHours < 1 || cacheCleanupIntervalHours > 720 {
+		logging.Warn().
+			Int("cacheCleanupIntervalHours", cacheCleanupIntervalHours).
+			Msg("Invalid cache cleanup interval, using default of 24 hours")
+		cleanupInterval = 24 * time.Hour
+	}
+
 	// ok, ready to start fs
 	fsCtx, fsCancel := context.WithCancel(ctx)
 	deltaCtx, deltaCancel := context.WithCancel(fsCtx)
 	fs := &Filesystem{
-		content:             content,
-		thumbnails:          thumbnails,
-		db:                  db,
-		auth:                auth,
-		opendirs:            make(map[uint64][]*Inode),
-		statuses:            make(map[string]FileStatusInfo),
-		statusCache:         newStatusCache(5 * time.Second), // 5 second TTL for status determination cache
-		statusCacheTTL:      5 * time.Second,
-		ctx:                 fsCtx,
-		cancel:              fsCancel,
-		cacheExpirationDays: cacheExpirationDays,
-		cacheCleanupStop:    make(chan struct{}),
-		deltaLoopStop:       make(chan struct{}),
-		deltaLoopCtx:        deltaCtx,
-		deltaLoopCancel:     deltaCancel,
+		content:              content,
+		thumbnails:           thumbnails,
+		db:                   db,
+		auth:                 auth,
+		opendirs:             make(map[uint64][]*Inode),
+		statuses:             make(map[string]FileStatusInfo),
+		statusCache:          newStatusCache(5 * time.Second), // 5 second TTL for status determination cache
+		statusCacheTTL:       5 * time.Second,
+		ctx:                  fsCtx,
+		cancel:               fsCancel,
+		cacheExpirationDays:  cacheExpirationDays,
+		cacheCleanupInterval: cleanupInterval,
+		cacheCleanupStop:     make(chan struct{}),
+		deltaLoopStop:        make(chan struct{}),
+		deltaLoopCtx:         deltaCtx,
+		deltaLoopCancel:      deltaCancel,
 	}
 
 	// Initialize with our custom RawFileSystem implementation
@@ -1456,7 +1467,7 @@ func (f *Filesystem) MovePath(oldParent, newParent, oldName, newName string, aut
 
 // StartCacheCleanup starts a background goroutine that periodically cleans up
 // the content cache by removing files that haven't been modified for the specified
-// number of days.
+// number of days. The cleanup runs at the configured interval.
 func (f *Filesystem) StartCacheCleanup() {
 	// Don't start cleanup if expiration days is 0 or negative
 	if f.cacheExpirationDays <= 0 {
@@ -1464,7 +1475,10 @@ func (f *Filesystem) StartCacheCleanup() {
 		return
 	}
 
-	logging.Info().Int("expirationDays", f.cacheExpirationDays).Msg("Starting content cache cleanup routine")
+	logging.Info().
+		Int("expirationDays", f.cacheExpirationDays).
+		Dur("cleanupInterval", f.cacheCleanupInterval).
+		Msg("Starting content cache cleanup routine")
 
 	// Add to wait group to track this goroutine
 	f.cacheCleanupWg.Add(1)
@@ -1483,8 +1497,8 @@ func (f *Filesystem) StartCacheCleanup() {
 			logging.Info().Int("removedFiles", count).Msg("Initial content cache cleanup completed")
 		}
 
-		// Set up ticker for periodic cleanup (once per day)
-		ticker := time.NewTicker(24 * time.Hour)
+		// Set up ticker for periodic cleanup using configured interval
+		ticker := time.NewTicker(f.cacheCleanupInterval)
 		defer ticker.Stop()
 
 		for {
@@ -1738,5 +1752,6 @@ func (f *Filesystem) SerializeAll() {
 func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
 	// Create a background context for backward compatibility
 	ctx := context.Background()
-	return NewFilesystemWithContext(ctx, auth, cacheDir, cacheExpirationDays)
+	// Use default cleanup interval of 24 hours for backward compatibility
+	return NewFilesystemWithContext(ctx, auth, cacheDir, cacheExpirationDays, 24)
 }

@@ -634,7 +634,7 @@ ok      github.com/auriora/onemount/internal/fs 0.464s
 - ⚠️ Issue #CACHE-001: No cache size limit enforcement (only time-based expiration) - Medium Priority
 - ⚠️ Issue #CACHE-002: No explicit cache invalidation when ETag changes - Medium Priority
 - ⚠️ Issue #CACHE-003: Statistics collection slow for large filesystems (>100k files) - Medium Priority
-- ⚠️ Issue #CACHE-004: Fixed 24-hour cleanup interval (not configurable) - Medium Priority
+- ✅ Issue #CACHE-004: Fixed 24-hour cleanup interval (not configurable) - RESOLVED (2025-11-13)
 - ⚠️ Issue #CACHE-005: No cache hit/miss tracking in LoopbackCache itself - Low Priority
 
 **Requirements Verified**:
@@ -3213,48 +3213,43 @@ The `GetStats()` method performs full traversal of metadata and content director
 
 **Component**: Cache Management  
 **Severity**: Medium  
-**Status**: Open  
+**Status**: ✅ RESOLVED (2025-11-13)  
 **Discovered**: 2025-11-11  
-**Assigned To**: TBD
+**Resolved By**: Task 20.13
 
 **Description**:
 The cache cleanup process runs every 24 hours with no configuration option. Users cannot adjust the cleanup frequency for different use cases (e.g., more frequent cleanup for limited disk space, less frequent for performance).
 
-**Steps to Reproduce**:
-1. Review `StartCacheCleanup()` in `internal/fs/cache.go`
-2. Observe hardcoded `24 * time.Hour` interval
-3. Note no configuration option for cleanup interval
+**Resolution**:
+Made the cache cleanup interval configurable through command-line flag and configuration file.
 
-**Expected Behavior**:
-- Cleanup interval should be configurable
-- Default: 24 hours (current behavior)
-- Allow users to set custom interval (e.g., 1 hour, 12 hours, 7 days)
-- Configuration via command-line flag or config file
+**Changes Made**:
+1. ✅ Added `--cache-cleanup-interval` command-line flag
+2. ✅ Added `CacheCleanupInterval` to Config struct with YAML support
+3. ✅ Updated `NewFilesystemWithContext()` to accept cleanup interval parameter
+4. ✅ Updated `StartCacheCleanup()` to use configured interval
+5. ✅ Added validation for reasonable intervals (1-720 hours)
+6. ✅ Updated all test files to use new signature
+7. ✅ Created documentation in `docs/updates/2025-11-13-cache-cleanup-interval-configuration.md`
 
-**Actual Behavior**:
-- Cleanup runs every 24 hours (hardcoded)
-- No configuration option
-- Cannot adjust for different use cases
-
-**Root Cause**:
-Hardcoded cleanup interval in `StartCacheCleanup()` method. No configuration parameter for cleanup frequency.
+**Configuration**:
+- **Default**: 24 hours
+- **Valid Range**: 1-720 hours (1 hour to 30 days)
+- **Command-Line**: `--cache-cleanup-interval <hours>`
+- **Config File**: `cacheCleanupInterval: <hours>`
 
 **Affected Requirements**:
 - Requirement 7.2: Cache access time tracking and expiration
 
 **Affected Files**:
-- `internal/fs/cache.go` (StartCacheCleanup method)
-- `cmd/onemount/main.go` (configuration)
+- `internal/fs/filesystem_types.go` (added cacheCleanupInterval field)
+- `internal/fs/cache.go` (updated NewFilesystemWithContext and StartCacheCleanup)
+- `cmd/common/config.go` (added CacheCleanupInterval field and validation)
+- `cmd/onemount/main.go` (added command-line flag)
+- Multiple test files (updated to use new signature)
 
-**Fix Plan**:
-1. Add `--cache-cleanup-interval` command-line flag
-2. Add configuration option to config file
-3. Update `StartCacheCleanup()` to use configured interval
-4. Document cleanup interval configuration
-5. Add validation for reasonable intervals (e.g., 1 hour to 30 days)
-
-**Fix Estimate**:
-2-3 hours (implementation + testing + documentation)
+**Documentation**:
+- `docs/updates/2025-11-13-cache-cleanup-interval-configuration.md`
 
 **Related Issues**:
 - Issue #CACHE-001: No cache size limit enforcement
