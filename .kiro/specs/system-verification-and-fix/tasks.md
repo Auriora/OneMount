@@ -944,7 +944,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 1 hour (requirements update)
   - _Requirements: 6.3_
 
-- [-] 20.5 Fix Issue #FS-001: D-Bus GetFileStatus Returns Unknown
+- [x] 20.5 Fix Issue #FS-001: D-Bus GetFileStatus Returns Unknown
   - **Component**: File Status / D-Bus Server
   - **Action**: Add GetPath() method or implement path-to-ID mapping
   - **Tasks**:

@@ -2455,9 +2455,10 @@ None
 
 **Component**: File Status / D-Bus Server  
 **Severity**: Medium  
-**Status**: Open  
+**Status**: ✅ RESOLVED (2025-11-13)  
 **Discovered**: 2025-11-11  
-**Assigned To**: TBD
+**Resolved By**: AI Agent  
+**Resolution**: Implemented path-to-inode mapping in D-Bus server
 
 **Description**:
 The `GetFileStatus()` D-Bus method always returns "Unknown" for all file paths because the `GetPath()` method is not available in the `FilesystemInterface`. This limits the usefulness of the D-Bus method interface, as clients cannot query file status via method calls.
@@ -2472,7 +2473,7 @@ The `GetFileStatus()` D-Bus method always returns "Unknown" for all file paths b
 - Method should work for files within OneMount mounts
 - Status should match the file's actual state
 
-**Actual Behavior**:
+**Actual Behavior** (Before Fix):
 - GetFileStatus always returns "Unknown"
 - Comment in code indicates "GetPath not available in FilesystemInterface"
 - Only D-Bus signals work, not method calls
@@ -2480,23 +2481,30 @@ The `GetFileStatus()` D-Bus method always returns "Unknown" for all file paths b
 **Root Cause**:
 The `FilesystemInterface` does not include a `GetPath(id string) string` method to convert file IDs to paths. The D-Bus server needs this to look up file status by path.
 
+**Resolution**:
+Implemented **Option 2**: Path-to-ID mapping in D-Bus server
+- Added `findInodeByPath()` method to traverse filesystem tree
+- Enhanced `GetFileStatus()` to use path traversal
+- Added `splitPath()` helper for path parsing
+- Created comprehensive unit tests
+
 **Affected Requirements**:
-- Requirement 8.2: D-Bus integration for status updates
+- Requirement 8.2: D-Bus integration for status updates ✅ SATISFIED
 
 **Affected Files**:
-- `internal/fs/dbus.go` (GetFileStatus method)
-- `internal/fs/filesystem_types.go` (FilesystemInterface definition)
+- `internal/fs/dbus.go` (GetFileStatus method, findInodeByPath, splitPath)
+- `internal/fs/dbus_test.go` (new tests added)
 
-**Fix Plan**:
-Option 1: Add `GetPath(id string) string` method to FilesystemInterface
-Option 2: Implement path-to-ID mapping in D-Bus server
-Option 3: Document that only signals are supported, not method calls
+**Tests Added**:
+- `TestSplitPath()` - Path splitting logic ✅ PASSING
+- `TestFindInodeByPath_PathTraversal()` - Path traversal logic ✅ PASSING
+- `TestDBusServer_GetFileStatus_WithRealFiles()` - Integration test (requires D-Bus)
 
-**Fix Estimate**:
-2-3 hours (implementation + testing)
+**Documentation**:
+- `docs/updates/2025-11-13-dbus-getfilestatus-fix.md` - Complete implementation details
 
 **Related Issues**:
-- Issue #FS-002: D-Bus service name discovery
+- Issue #FS-002: D-Bus service name discovery (resolved separately)
 
 **Notes**:
 - D-Bus signals work correctly and provide real-time updates

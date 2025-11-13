@@ -8,6 +8,7 @@ import (
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
 // TestIT_FS_02_01_DBusServer_BasicFunctionality_WorksCorrectly tests D-Bus server functionality.
@@ -175,7 +176,7 @@ func TestDBusServer_GetFileStatus(t *testing.T) {
 		assert.True(ok, "Expected UnitTestFixture")
 
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
-		filesystem := fsFixture.FS.(FilesystemInterface)
+		filesystem := fsFixture.FS.(*Filesystem)
 
 		// Set a unique D-Bus service name prefix for this test
 		SetDBusServiceNamePrefix("test_get_file_status")
@@ -186,22 +187,102 @@ func TestDBusServer_GetFileStatus(t *testing.T) {
 		assert.NoError(err, "D-Bus server should start successfully")
 		defer dbusServer.Stop()
 
-		// Test GetFileStatus with various paths
+		// Test GetFileStatus with non-existent paths - should return Unknown
 		testPaths := []string{
 			"/test/path/file.txt",
 			"/another/path/document.pdf",
-			"/root/file.doc",
-			"",
-			"/path/with/unicode/файл.txt",
+			"/nonexistent/file.doc",
 		}
 
 		for _, path := range testPaths {
 			status, dbusErr := dbusServer.GetFileStatus(path)
 			assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for path: %s", path)
-			// Currently the implementation returns "Unknown" for all paths
-			// since GetPath is not available in FilesystemInterface
-			assert.Equal("Unknown", status, "GetFileStatus should return Unknown for path: %s", path)
+			assert.Equal("Unknown", status, "GetFileStatus should return Unknown for non-existent path: %s", path)
 		}
+
+		// Test with empty path - should return Unknown or root status
+		status, dbusErr := dbusServer.GetFileStatus("")
+		assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for empty path")
+		// Empty path maps to root, which should have a status
+		assert.NotEqual("", status, "GetFileStatus should return a status for empty path")
+
+		// Test with root path
+		status, dbusErr = dbusServer.GetFileStatus("/")
+		assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for root path")
+		assert.NotEqual("", status, "GetFileStatus should return a status for root path")
+	})
+}
+
+// TestDBusServer_GetFileStatus_WithRealFiles tests GetFileStatus with actual files in the filesystem.
+func TestDBusServer_GetFileStatus_WithRealFiles(t *testing.T) {
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusRealFilesFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		assert.True(ok, "Expected UnitTestFixture")
+
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*Filesystem)
+
+		// Set a unique D-Bus service name prefix for this test
+		SetDBusServiceNamePrefix("test_get_file_status_real")
+
+		// Create some test files in the filesystem
+		// Create a directory
+		testDir := NewInode("testdir", fuse.S_IFDIR|0755, filesystem.GetID("root"))
+		filesystem.InsertID(testDir.ID(), testDir)
+		filesystem.InsertNodeID(testDir)
+
+		// Add the directory to root's children
+		root := filesystem.GetID("root")
+		if root != nil {
+			root.SetChildren(append(root.GetChildren(), testDir.ID()))
+		}
+
+		// Create a file in the directory
+		testFile := NewInode("testfile.txt", fuse.S_IFREG|0644, testDir)
+		filesystem.InsertID(testFile.ID(), testFile)
+		filesystem.InsertNodeID(testFile)
+		testDir.SetChildren([]string{testFile.ID()})
+
+		// Set file status to a known value
+		filesystem.SetFileStatus(testFile.ID(), FileStatusInfo{
+			Status: StatusLocal,
+		})
+
+		// Create and start D-Bus server
+		dbusServer := NewFileStatusDBusServer(filesystem)
+		err := dbusServer.StartForTesting()
+		assert.NoError(err, "D-Bus server should start successfully")
+		defer dbusServer.Stop()
+
+		// Test GetFileStatus for the directory
+		status, dbusErr := dbusServer.GetFileStatus("/testdir")
+		assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for directory")
+		assert.NotEqual("Unknown", status, "GetFileStatus should return actual status for existing directory")
+
+		// Test GetFileStatus for the file
+		status, dbusErr = dbusServer.GetFileStatus("/testdir/testfile.txt")
+		assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for file")
+		assert.Equal("Local", status, "GetFileStatus should return Local status for the test file")
+
+		// Test with non-existent file in existing directory
+		status, dbusErr = dbusServer.GetFileStatus("/testdir/nonexistent.txt")
+		assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for non-existent file")
+		assert.Equal("Unknown", status, "GetFileStatus should return Unknown for non-existent file")
 	})
 }
 
@@ -353,6 +434,170 @@ func TestDBusServer_MultipleInstances(t *testing.T) {
 			server.Stop()
 			assert.False(server.started, "Server %d should be stopped", i)
 			assert.Nil(server.conn, "Server %d connection should be nil", i)
+		}
+	})
+}
+
+// TestSplitPath tests the splitPath helper function.
+func TestSplitPath(t *testing.T) {
+	// Create assertions helper
+	assert := framework.NewAssert(t)
+
+	testCases := []struct {
+		input    string
+		expected []string
+	}{
+		{"", []string{}},
+		{"/", []string{}},
+		{"file.txt", []string{"file.txt"}},
+		{"/file.txt", []string{"file.txt"}},
+		{"dir/file.txt", []string{"dir", "file.txt"}},
+		{"/dir/file.txt", []string{"dir", "file.txt"}},
+		{"dir1/dir2/file.txt", []string{"dir1", "dir2", "file.txt"}},
+		{"/dir1/dir2/file.txt", []string{"dir1", "dir2", "file.txt"}},
+		{"//double//slash//", []string{"double", "slash"}},
+		{"/path/with/trailing/", []string{"path", "with", "trailing"}},
+	}
+
+	for _, tc := range testCases {
+		result := splitPath(tc.input)
+		assert.Equal(len(tc.expected), len(result), "Length mismatch for input: %s", tc.input)
+		for i := range tc.expected {
+			assert.Equal(tc.expected[i], result[i], "Component %d mismatch for input: %s", i, tc.input)
+		}
+	}
+}
+
+// TestFindInodeByPath_PathTraversal tests the path traversal logic without D-Bus.
+func TestFindInodeByPath_PathTraversal(t *testing.T) {
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "PathTraversalFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the filesystem from the fixture
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		assert.True(ok, "Expected UnitTestFixture")
+
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*Filesystem)
+
+		// Create a directory structure:
+		// /
+		// ├── dir1/
+		// │   ├── file1.txt
+		// │   └── subdir/
+		// │       └── file2.txt
+		// └── dir2/
+		//     └── file3.txt
+
+		// Get the actual root inode
+		root := filesystem.GetID(filesystem.root)
+		assert.NotNil(root, "Root inode should exist")
+
+		// Create dir1
+		dir1 := NewInode("dir1", fuse.S_IFDIR|0755, root)
+		filesystem.InsertID(dir1.ID(), dir1)
+		filesystem.InsertNodeID(dir1)
+
+		// Create file1.txt in dir1
+		file1 := NewInode("file1.txt", fuse.S_IFREG|0644, dir1)
+		filesystem.InsertID(file1.ID(), file1)
+		filesystem.InsertNodeID(file1)
+
+		// Create subdir in dir1
+		subdir := NewInode("subdir", fuse.S_IFDIR|0755, dir1)
+		filesystem.InsertID(subdir.ID(), subdir)
+		filesystem.InsertNodeID(subdir)
+
+		// Create file2.txt in subdir
+		file2 := NewInode("file2.txt", fuse.S_IFREG|0644, subdir)
+		filesystem.InsertID(file2.ID(), file2)
+		filesystem.InsertNodeID(file2)
+
+		// Create dir2
+		dir2 := NewInode("dir2", fuse.S_IFDIR|0755, root)
+		filesystem.InsertID(dir2.ID(), dir2)
+		filesystem.InsertNodeID(dir2)
+
+		// Create file3.txt in dir2
+		file3 := NewInode("file3.txt", fuse.S_IFREG|0644, dir2)
+		filesystem.InsertID(file3.ID(), file3)
+		filesystem.InsertNodeID(file3)
+
+		// Set up the directory structure
+		root.SetChildren([]string{dir1.ID(), dir2.ID()})
+		dir1.SetChildren([]string{file1.ID(), subdir.ID()})
+		subdir.SetChildren([]string{file2.ID()})
+		dir2.SetChildren([]string{file3.ID()})
+
+		// Set file statuses
+		filesystem.SetFileStatus(file1.ID(), FileStatusInfo{Status: StatusLocal})
+		filesystem.SetFileStatus(file2.ID(), FileStatusInfo{Status: StatusCloud})
+		filesystem.SetFileStatus(file3.ID(), FileStatusInfo{Status: StatusLocalModified})
+
+		// Create D-Bus server (without starting it to avoid D-Bus dependency)
+		dbusServer := NewFileStatusDBusServer(filesystem)
+
+		// Test path traversal
+		testCases := []struct {
+			path        string
+			expectedID  string
+			shouldBeNil bool
+			description string
+		}{
+			{"/", filesystem.root, false, "Root path"},
+			{"", filesystem.root, false, "Empty path (maps to root)"},
+			{"/dir1", dir1.ID(), false, "First level directory"},
+			{"/dir1/file1.txt", file1.ID(), false, "File in first level directory"},
+			{"/dir1/subdir", subdir.ID(), false, "Second level directory"},
+			{"/dir1/subdir/file2.txt", file2.ID(), false, "File in second level directory"},
+			{"/dir2", dir2.ID(), false, "Another first level directory"},
+			{"/dir2/file3.txt", file3.ID(), false, "File in another directory"},
+			{"/nonexistent", "", true, "Non-existent path"},
+			{"/dir1/nonexistent.txt", "", true, "Non-existent file in existing directory"},
+			{"/dir1/subdir/nonexistent", "", true, "Non-existent path in deep directory"},
+		}
+
+		for _, tc := range testCases {
+			inode := dbusServer.findInodeByPath(tc.path)
+			if tc.shouldBeNil {
+				assert.Nil(inode, "Expected nil inode for path: %s (%s)", tc.path, tc.description)
+			} else {
+				assert.NotNil(inode, "Expected non-nil inode for path: %s (%s)", tc.path, tc.description)
+				if inode != nil {
+					assert.Equal(tc.expectedID, inode.ID(), "Inode ID mismatch for path: %s (%s)", tc.path, tc.description)
+				}
+			}
+		}
+
+		// Test GetFileStatus method (without D-Bus connection)
+		// This will use the findInodeByPath logic we just tested
+		testStatusCases := []struct {
+			path           string
+			expectedStatus string
+			description    string
+		}{
+			{"/dir1/file1.txt", "Local", "File with Local status"},
+			{"/dir1/subdir/file2.txt", "Cloud", "File with Cloud status"},
+			{"/dir2/file3.txt", "LocalModified", "File with LocalModified status"},
+			{"/nonexistent", "Unknown", "Non-existent file"},
+		}
+
+		for _, tc := range testStatusCases {
+			status, dbusErr := dbusServer.GetFileStatus(tc.path)
+			assert.Nil(dbusErr, "GetFileStatus should not return D-Bus error for path: %s", tc.path)
+			assert.Equal(tc.expectedStatus, status, "Status mismatch for path: %s (%s)", tc.path, tc.description)
 		}
 	})
 }

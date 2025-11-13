@@ -262,13 +262,120 @@ func (s *FileStatusDBusServer) Stop() {
 	logging.Info().Msg("D-Bus server stopped and resources cleaned up")
 }
 
-// GetFileStatus returns the status of a file
+// GetFileStatus returns the status of a file by path
 func (s *FileStatusDBusServer) GetFileStatus(path string) (string, *dbus.Error) {
-	// Since GetPath is not available in the FilesystemInterface,
-	// we need to handle this differently.
-	// For now, return "Unknown" status
-	logging.Warn().Str("path", path).Msg("GetPath not available in FilesystemInterface, returning Unknown status")
-	return "Unknown", nil
+	// Find the inode for this path by traversing the filesystem tree
+	inode := s.findInodeByPath(path)
+	if inode == nil {
+		logging.Debug().Str("path", path).Msg("File not found in filesystem")
+		return "Unknown", nil
+	}
+
+	// Get the file status for this inode
+	status := s.fs.GetFileStatus(inode.ID())
+
+	// Convert FileStatusInfo to string representation
+	statusStr := status.Status.String()
+
+	logging.Debug().
+		Str("path", path).
+		Str("id", inode.ID()).
+		Str("status", statusStr).
+		Msg("Retrieved file status via D-Bus method")
+
+	return statusStr, nil
+}
+
+// findInodeByPath traverses the filesystem tree to find an inode by its path
+// The path should be relative to the mount point (e.g., "/Documents/file.txt")
+func (s *FileStatusDBusServer) findInodeByPath(path string) *Inode {
+	// Get the root inode - need to cast to *Filesystem to access the root field
+	fs, ok := s.fs.(*Filesystem)
+	if !ok {
+		logging.Warn().Msg("Filesystem is not of type *Filesystem")
+		return nil
+	}
+
+	if path == "" || path == "/" {
+		// Root path - get the root inode using the filesystem's root ID
+		return fs.GetID(fs.root)
+	}
+
+	// Split the path into components
+	// Remove leading slash if present
+	if path[0] == '/' {
+		path = path[1:]
+	}
+
+	// If path is now empty, it was just "/"
+	if path == "" {
+		return fs.GetID(fs.root)
+	}
+
+	// Split by '/' to get path components
+	components := splitPath(path)
+	if len(components) == 0 {
+		return fs.GetID(fs.root)
+	}
+
+	// Start from root and traverse down
+	current := fs.GetID(fs.root)
+	if current == nil {
+		logging.Warn().Msg("Root inode not found")
+		return nil
+	}
+
+	// Traverse each component
+	for i, component := range components {
+		// Look for this component in the current directory's children
+		found := false
+		children := current.GetChildren()
+		for _, childID := range children {
+			child := s.fs.GetID(childID)
+			if child != nil && child.Name() == component {
+				current = child
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			logging.Debug().
+				Str("path", path).
+				Str("component", component).
+				Int("depth", i).
+				Msg("Path component not found in filesystem")
+			return nil
+		}
+	}
+
+	return current
+}
+
+// splitPath splits a path into components, handling empty strings
+func splitPath(path string) []string {
+	if path == "" {
+		return []string{}
+	}
+
+	components := []string{}
+	start := 0
+
+	for i := 0; i < len(path); i++ {
+		if path[i] == '/' {
+			if i > start {
+				components = append(components, path[start:i])
+			}
+			start = i + 1
+		}
+	}
+
+	// Add the last component if there is one
+	if start < len(path) {
+		components = append(components, path[start:])
+	}
+
+	return components
 }
 
 // SendFileStatusUpdate sends a D-Bus signal with the updated file status
