@@ -522,10 +522,18 @@ func TestIT_FS_09_04_03_UploadMaxRetriesExceeded(t *testing.T) {
 		assert.NotNil(uploadSession, "Upload session should not be nil")
 
 		// Give the upload manager time to process and retry
-		// The upload manager retries up to 5 times, so we need to wait long enough
-		// for all retries to complete. With exponential backoff, this could take
-		// several seconds.
-		time.Sleep(15 * time.Second)
+		// The upload manager retries up to 2 times at the session level.
+		// Each attempt includes the graph API's own retry logic (5 retries with exponential backoff).
+		// Based on actual timing from logs, each session-level attempt takes ~36 seconds:
+		// - Graph API retries with delays: 1s, 2s, 4.6s, 9.2s, 17s = ~34s
+		// - Plus 2s ticker delay for manager to process
+		// Timeline:
+		// - Attempt 1: 0-36s (graph API retries + processing)
+		// - Manager processes at 38s: retries=1, resets to uploadNotStarted
+		// - Attempt 2: 40-76s (graph API retries + processing)
+		// - Manager processes at 78s: retries=2, triggers max retries exceeded
+		// Total: ~80 seconds needed for complete processing
+		time.Sleep(80 * time.Second)
 
 		// Step 3: Verify that multiple attempts were made
 		attemptMutex.Lock()

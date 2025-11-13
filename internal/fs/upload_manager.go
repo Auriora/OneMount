@@ -328,8 +328,22 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					}
 
 				case uploadErrored:
+					// Decrement inFlight since the upload goroutine has completed
+					if u.inFlight > 0 {
+						u.inFlight--
+					}
+
 					session.retries++
 					session.RecoveryAttempts++
+
+					logging.Debug().
+						Str("id", session.ID).
+						Str("name", session.Name).
+						Int("retries", session.retries).
+						Int("recoveryAttempts", session.RecoveryAttempts).
+						Bool("canResume", session.CanResume).
+						Int("lastChunk", session.LastSuccessfulChunk).
+						Msg("Processing upload error")
 
 					// Check if we can attempt recovery instead of full restart
 					if session.CanResume && session.LastSuccessfulChunk >= 0 && session.retries <= 3 {
@@ -349,16 +363,29 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 							b, _ := tx.CreateBucketIfNotExists(bucketUploads)
 							return b.Put([]byte(session.ID), contents)
 						})
-					} else if session.retries > 5 {
+					} else if session.retries >= 2 {
 						logging.Error().
 							Str("id", session.ID).
 							Str("name", session.Name).
 							Err(session).
 							Int("retries", session.retries).
 							Int("recoveryAttempts", session.RecoveryAttempts).
-							Msg("Upload session failed too many times, cancelling session.")
-						// Update status to error
+							Msg("Upload max retries exceeded - upload failed permanently.")
+
+						// Keep session in error state (don't reset to uploadNotStarted)
+						// This ensures the session state reflects the permanent failure
+						// The state is already uploadErrored from the upload attempt
+
+						// Update file status to error so user knows upload failed
 						u.fs.MarkFileError(session.ID, session.error)
+
+						// Log that file remains accessible locally
+						logging.Info().
+							Str("id", session.ID).
+							Str("name", session.Name).
+							Msg("File remains accessible locally with unsynchronized changes.")
+
+						// Remove the session from tracking
 						u.finishUpload(session.ID)
 					} else {
 						logging.Warn().
@@ -377,6 +404,11 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					}
 
 				case uploadComplete:
+					// Decrement inFlight since the upload goroutine has completed
+					if u.inFlight > 0 {
+						u.inFlight--
+					}
+
 					logging.Info().
 						Str("id", session.ID).
 						Str("oldID", session.OldID).
@@ -722,9 +754,8 @@ func (u *UploadManager) finishUpload(id string) {
 		}
 		return nil
 	})
-	if u.inFlight > 0 {
-		u.inFlight--
-	}
+	// Note: inFlight is decremented when upload completes (uploadComplete or uploadErrored),
+	// not here in finishUpload, to avoid double-decrementing
 	delete(u.sessions, id)
 	delete(u.sessionPriorities, id) // Also remove from sessionPriorities map
 
