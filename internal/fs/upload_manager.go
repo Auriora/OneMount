@@ -568,11 +568,38 @@ func (u *UploadManager) QueueUpload(inode *Inode) (*UploadSession, error) {
 // pendingHighPriorityUploads or pendingLowPriorityUploads maps until it's processed
 // by the uploadLoop. This allows WaitForUpload to detect sessions that have been
 // queued but not yet processed.
+//
+// For large files (>= 100MB), this method uses streaming from disk to reduce memory usage.
 func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPriority) (*UploadSession, error) {
-	data := u.fs.GetInodeContent(inode)
-	session, err := NewUploadSession(inode, data)
-	if err != nil {
-		return nil, err
+	// Get the file size to determine upload strategy
+	inode.RLock()
+	fileSize := inode.DriveItem.Size
+	inode.RUnlock()
+
+	const largeFileThreshold = 100 * 1024 * 1024 // 100MB
+
+	var session *UploadSession
+	var err error
+
+	if fileSize >= largeFileThreshold {
+		// Use streaming upload for large files to save memory
+		contentPath := u.fs.GetInodeContentPath(inode)
+		session, err = NewUploadSessionWithPath(inode, contentPath)
+		if err != nil {
+			return nil, err
+		}
+		logging.Info().
+			Str("id", session.ID).
+			Str("name", session.Name).
+			Uint64("size", fileSize).
+			Msg("Queuing large file upload with streaming")
+	} else {
+		// Use in-memory upload for small files (faster)
+		data := u.fs.GetInodeContent(inode)
+		session, err = NewUploadSession(inode, data)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Check if there's already an upload session for this ID

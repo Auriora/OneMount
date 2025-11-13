@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,6 +42,9 @@ const (
 // would break the upload). It is not recommended to directly deserialize into
 // this structure from API responses in case Microsoft ever adds a size, data,
 // or modTime field to the response.
+//
+// For memory efficiency, large files (>100MB) use ContentPath to stream from disk
+// instead of loading the entire file into Data []byte.
 type UploadSession struct {
 	ID                 string    `json:"id"`
 	OldID              string    `json:"oldID"`
@@ -49,7 +53,8 @@ type UploadSession struct {
 	Name               string    `json:"name"`
 	ExpirationDateTime time.Time `json:"expirationDateTime"`
 	Size               uint64    `json:"size,omitempty"`
-	Data               []byte    `json:"data,omitempty"`
+	Data               []byte    `json:"data,omitempty"`        // Used for small files (<100MB)
+	ContentPath        string    `json:"contentPath,omitempty"` // Used for large files (>=100MB) to stream from disk
 	QuickXORHash       string    `json:"quickxorhash,omitempty"`
 	ModTime            time.Time `json:"modTime,omitempty"`
 	retries            int
@@ -85,6 +90,7 @@ func (u *UploadSession) MarshalJSON() ([]byte, error) {
 		ExpirationDateTime time.Time `json:"expirationDateTime"`
 		Size               uint64    `json:"size,omitempty"`
 		Data               []byte    `json:"data,omitempty"`
+		ContentPath        string    `json:"contentPath,omitempty"`
 		QuickXORHash       string    `json:"quickxorhash,omitempty"`
 		ModTime            time.Time `json:"modTime,omitempty"`
 
@@ -109,6 +115,7 @@ func (u *UploadSession) MarshalJSON() ([]byte, error) {
 		ExpirationDateTime:  u.ExpirationDateTime,
 		Size:                u.Size,
 		Data:                u.Data,
+		ContentPath:         u.ContentPath,
 		QuickXORHash:        u.QuickXORHash,
 		ModTime:             u.ModTime,
 		LastSuccessfulChunk: u.LastSuccessfulChunk,
@@ -211,6 +218,8 @@ func (u *UploadSession) setState(state int, err error) error {
 
 // NewUploadSession wraps an upload of a file into an UploadSession struct
 // responsible for performing uploads for a file.
+// For files >= 100MB, it uses streaming from disk via contentPath.
+// For files < 100MB, it loads the data into memory for faster uploads.
 func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 	if data == nil {
 		return nil, errors.NewValidationError("data to upload cannot be nil", nil)
@@ -233,7 +242,6 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 		ParentID: inode.DriveItem.Parent.ID,
 		NodeID:   inode.nodeID,
 		Name:     inode.DriveItem.Name,
-		Data:     *data,
 		ModTime:  modTime,
 
 		// Initialize recovery fields
@@ -252,7 +260,94 @@ func NewUploadSession(inode *Inode, data *[]byte) (*UploadSession, error) {
 	} else {
 		session.Size = uint64(len(*data))
 	}
+
+	// For large files (>= 100MB), use streaming from disk to save memory
+	const largeFileThreshold = 100 * 1024 * 1024 // 100MB
+	if session.Size >= largeFileThreshold {
+		// Don't store data in memory, we'll stream from disk
+		session.Data = nil
+		session.ContentPath = "" // Will be set by the caller if needed
+		logging.Info().
+			Str("id", session.ID).
+			Str("name", session.Name).
+			Uint64("size", session.Size).
+			Msg("Using streaming upload for large file")
+	} else {
+		// For small files, keep the data in memory for faster uploads
+		session.Data = *data
+		session.ContentPath = ""
+	}
+
 	session.QuickXORHash = graph.QuickXORHash(data)
+	return &session, nil
+}
+
+// NewUploadSessionWithPath creates an upload session that streams from a file path.
+// This is more memory-efficient for large files.
+func NewUploadSessionWithPath(inode *Inode, contentPath string) (*UploadSession, error) {
+	if contentPath == "" {
+		return nil, errors.NewValidationError("content path cannot be empty", nil)
+	}
+
+	// Verify the file exists and get its size
+	fileInfo, err := os.Stat(contentPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to stat content file")
+	}
+
+	// create a generic session for all files
+	inode.RLock()
+
+	// Initialize ModTime with current time if it's nil
+	var modTime time.Time
+	if inode.DriveItem.ModTime != nil {
+		modTime = *inode.DriveItem.ModTime
+	} else {
+		modTime = time.Now()
+	}
+
+	session := UploadSession{
+		ID:          inode.DriveItem.ID,
+		OldID:       inode.DriveItem.ID,
+		ParentID:    inode.DriveItem.Parent.ID,
+		NodeID:      inode.nodeID,
+		Name:        inode.DriveItem.Name,
+		ContentPath: contentPath,
+		ModTime:     modTime,
+
+		// Initialize recovery fields
+		LastSuccessfulChunk: -1,
+		TotalChunks:         0,
+		BytesUploaded:       0,
+		LastProgressTime:    time.Now(),
+		RecoveryAttempts:    0,
+		CanResume:           false,
+	}
+	inode.RUnlock()
+
+	// Use the file size from disk
+	session.Size = uint64(fileInfo.Size())
+
+	// Calculate hash by reading the file
+	file, err := os.Open(contentPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open content file for hashing")
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read content file for hashing")
+	}
+	session.QuickXORHash = graph.QuickXORHash(&data)
+
+	logging.Info().
+		Str("id", session.ID).
+		Str("name", session.Name).
+		Uint64("size", session.Size).
+		Str("path", contentPath).
+		Msg("Created streaming upload session")
+
 	return &session, nil
 }
 
@@ -277,6 +372,8 @@ func (u *UploadSession) cancel(auth *graph.Auth) {
 // well when we need to add custom headers. Will return without an error if
 // irrespective of HTTP status (errors are reserved for stuff that prevented
 // the HTTP request at all).
+//
+// This method supports both in-memory (Data []byte) and streaming (ContentPath) uploads.
 func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, int, error) {
 	u.Lock()
 	uploadURL := u.UploadURL
@@ -284,6 +381,8 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 		u.Unlock()
 		return nil, -1, errors.NewValidationError("UploadSession UploadURL cannot be empty", nil)
 	}
+	contentPath := u.ContentPath
+	hasData := u.Data != nil && len(u.Data) > 0
 	u.Unlock()
 
 	// how much of the file are we going to upload?
@@ -299,12 +398,41 @@ func (u *UploadSession) uploadChunk(auth *graph.Auth, offset uint64) ([]byte, in
 
 	auth.Refresh(nil) // nil context will use context.Background() internally
 
+	// Create a reader for the chunk data
+	var chunkReader io.Reader
+	if hasData {
+		// Use in-memory data for small files
+		chunkReader = bytes.NewReader((u.Data)[offset:end])
+	} else if contentPath != "" {
+		// Stream from disk for large files
+		file, err := os.Open(contentPath)
+		if err != nil {
+			return nil, -1, errors.Wrap(err, "failed to open content file for upload")
+		}
+		defer file.Close()
+
+		// Seek to the offset
+		if _, err := file.Seek(int64(offset), 0); err != nil {
+			return nil, -1, errors.Wrap(err, "failed to seek in content file")
+		}
+
+		// Read only the chunk we need
+		chunkData := make([]byte, end-offset)
+		n, err := io.ReadFull(file, chunkData)
+		if err != nil && err != io.ErrUnexpectedEOF {
+			return nil, -1, errors.Wrap(err, "failed to read chunk from content file")
+		}
+		chunkReader = bytes.NewReader(chunkData[:n])
+	} else {
+		return nil, -1, errors.NewValidationError("upload session has neither Data nor ContentPath", nil)
+	}
+
 	// Use the configured HTTP client (which may be a mock client for testing)
 	client := graph.GetHTTPClient()
 	request, _ := http.NewRequest(
 		"PUT",
 		uploadURL,
-		bytes.NewReader((u.Data)[offset:end]),
+		chunkReader,
 	)
 	// no Authorization header - it will throw a 401 if present
 	request.Header.Add("Content-Length", strconv.Itoa(int(reqChunkSize)))
@@ -365,9 +493,31 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 				url.PathEscape(u.ID),
 			)
 		}
+
+		// Create a reader for the upload data
+		var dataReader io.Reader
+		u.Lock()
+		if u.Data != nil && len(u.Data) > 0 {
+			// Use in-memory data
+			dataReader = bytes.NewReader(u.Data)
+		} else if u.ContentPath != "" {
+			// Stream from disk
+			file, err := os.Open(u.ContentPath)
+			if err != nil {
+				u.Unlock()
+				return u.setState(uploadErrored, errors.Wrap(err, "failed to open content file for small upload"))
+			}
+			defer file.Close()
+			dataReader = file
+		} else {
+			u.Unlock()
+			return u.setState(uploadErrored, errors.NewValidationError("upload session has neither Data nor ContentPath", nil))
+		}
+		u.Unlock()
+
 		// small files handled in this block - use context-aware version
 		var err error
-		resp, err = graph.PutWithContext(ctx, uploadPath, auth, bytes.NewReader(u.Data))
+		resp, err = graph.PutWithContext(ctx, uploadPath, auth, dataReader)
 		if err != nil {
 			// Check if the error was due to context cancellation
 			if ctx.Err() != nil {
@@ -380,7 +530,23 @@ func (u *UploadSession) UploadWithContext(ctx context.Context, auth *graph.Auth,
 			if strings.Contains(err.Error(), "resourceModified") {
 				// retry the request after a second, likely the server is having issues
 				time.Sleep(time.Second)
-				resp, err = graph.PutWithContext(ctx, uploadPath, auth, bytes.NewReader(u.Data))
+
+				// Recreate the reader for retry
+				u.Lock()
+				if u.Data != nil && len(u.Data) > 0 {
+					dataReader = bytes.NewReader(u.Data)
+				} else if u.ContentPath != "" {
+					file, fileErr := os.Open(u.ContentPath)
+					if fileErr != nil {
+						u.Unlock()
+						return u.setState(uploadErrored, errors.Wrap(fileErr, "failed to open content file for retry"))
+					}
+					defer file.Close()
+					dataReader = file
+				}
+				u.Unlock()
+
+				resp, err = graph.PutWithContext(ctx, uploadPath, auth, dataReader)
 				// Check for context cancellation after retry
 				if err != nil && ctx.Err() != nil {
 					logging.Info().

@@ -26,6 +26,16 @@ func (f *Filesystem) GetInodeContent(i *Inode) *[]byte {
 	return f.getInodeContent(i)
 }
 
+// GetInodeContentPath returns the file path to the inode's content in the cache.
+// This is more memory-efficient than GetInodeContent for large files.
+// This method is part of the FilesystemInterface.
+func (f *Filesystem) GetInodeContentPath(i *Inode) string {
+	i.RLock()
+	id := i.DriveItem.ID
+	i.RUnlock()
+	return f.content.contentPath(id)
+}
+
 // StoreContent stores content in the cache for the given inode ID.
 // This is useful for creating local-only virtual files that don't sync to OneDrive.
 func (f *Filesystem) StoreContent(id string, content []byte) error {

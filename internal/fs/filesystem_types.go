@@ -2,11 +2,12 @@ package fs
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	bolt "go.etcd.io/bbolt"
-	"sync"
-	"time"
 )
 
 // FilesystemInterface defines the interface for the filesystem operations
@@ -27,6 +28,7 @@ type FilesystemInterface interface {
 	GetID(id string) *Inode
 	MoveID(oldID string, newID string) error
 	GetInodeContent(inode *Inode) *[]byte
+	GetInodeContentPath(inode *Inode) string
 
 	// IsOffline Filesystem state methods
 	IsOffline() bool

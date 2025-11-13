@@ -267,4 +267,5 @@ func (m *mockFilesystemInterface) InodePath(inode *Inode) string              { 
 func (m *mockFilesystemInterface) GetID(id string) *Inode                     { return nil }
 func (m *mockFilesystemInterface) MoveID(oldID string, newID string) error    { return nil }
 func (m *mockFilesystemInterface) GetInodeContent(inode *Inode) *[]byte       { return nil }
+func (m *mockFilesystemInterface) GetInodeContentPath(inode *Inode) string    { return "" }
 func (m *mockFilesystemInterface) IsOffline() bool                            { return false }
