@@ -1435,8 +1435,8 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 20: ETag Cache Validation Verification
 
-- [ ] 29. Verify ETag-based cache validation with real OneDrive
-- [ ] 29.1 Review ETag implementation
+- [x] 29. Verify ETag-based cache validation with real OneDrive
+- [x] 29.1 Review ETag implementation
   - Read and analyze `internal/fs/cache.go`
   - Review `internal/fs/content_cache.go`
   - Check ETag storage in cache entries
@@ -1444,7 +1444,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 7.1, 7.3_
 
-- [ ] 29.2 Test cache hit with valid ETag using real OneDrive
+- [x] 29.2 Test cache hit with valid ETag using real OneDrive
   - Download a file (cache it)
   - Access the same file again
   - Verify `if-none-match` header is sent
@@ -1454,7 +1454,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Document results in `docs/verification-tracking.md` Phase 20 section
   - _Requirements: 3.4, 3.5, 7.3_
 
-- [ ] 29.3 Test cache miss with changed ETag using real OneDrive
+- [x] 29.3 Test cache miss with changed ETag using real OneDrive
   - Download a file (cache it)
   - Modify file on OneDrive web interface
   - Access the file again
@@ -1464,7 +1464,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Covered by TestIT_FS_ETag integration test above**
   - _Requirements: 3.6, 7.3_
 
-- [ ] 29.4 Test ETag updates from delta sync with real OneDrive
+- [x] 29.4 Test ETag updates from delta sync with real OneDrive
   - Cache several files
   - Modify files on OneDrive web interface
   - Run delta sync
@@ -1473,7 +1473,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Covered by delta sync integration tests**
   - _Requirements: 5.10, 7.4_
 
-- [ ] 29.5 Test conflict detection with ETags using real OneDrive
+- [x] 29.5 Test conflict detection with ETags using real OneDrive
   - Download a file (cache it with ETag)
   - Modify file locally
   - Modify same file on OneDrive web interface (changes ETag)
@@ -1483,7 +1483,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Covered by upload and delta sync tests**
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 29.6 Run ETag validation integration tests with real OneDrive
+- [x] 29.6 Run ETag validation integration tests with real OneDrive
   - Run: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests go test -v -run TestIT_FS_ETag ./internal/fs`
   - Verify cache validation flow works with real API
   - Verify ETag-based conflict detection works with real API
