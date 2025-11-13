@@ -134,15 +134,19 @@ This specification defines the requirements for systematically verifying and fix
 5. WHILE offline, THE OneMount System SHALL allow read and write operations with changes queued for synchronization when connectivity is restored
 6. WHEN a file is modified offline, THE OneMount System SHALL track the change in persistent storage for later upload
 7. WHEN multiple changes are made to the same file offline, THE OneMount System SHALL preserve the most recent version for upload
-8. WHEN network connectivity is restored, THE OneMount System SHALL process queued uploads in batches
-9. WHEN processing offline changes, THE OneMount System SHALL verify each change was successfully synchronized before removing it from the queue
-10. WHERE the user configures connectivity check interval, THE OneMount System SHALL use the specified interval for active connectivity checks
-11. IF the connectivity check interval is not specified, THEN THE OneMount System SHALL use a default interval of 15 seconds
-12. WHERE the user configures connectivity timeout, THE OneMount System SHALL use the specified timeout for connectivity checks
-13. IF the connectivity timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 10 seconds
-14. WHERE the user configures maximum pending changes limit, THE OneMount System SHALL enforce the specified limit for offline change tracking
-15. IF the maximum pending changes limit is not specified, THEN THE OneMount System SHALL use a default limit of 1000 changes
-16. WHEN network connectivity is restored, THE OneMount System SHALL resume delta sync operations
+8. WHEN a file is created offline, THE OneMount System SHALL queue the creation operation for synchronization when connectivity is restored
+9. WHEN a file is deleted offline, THE OneMount System SHALL queue the deletion operation for synchronization when connectivity is restored
+10. WHEN network connectivity is restored, THE OneMount System SHALL process queued uploads in batches
+11. WHEN processing offline changes, THE OneMount System SHALL verify each change was successfully synchronized before removing it from the queue
+12. WHEN processing offline changes, THE OneMount System SHALL detect conflicts between local and remote versions using ETag comparison
+13. IF a conflict is detected during offline-to-online synchronization, THEN THE OneMount System SHALL apply the configured conflict resolution strategy
+14. WHERE the user configures connectivity check interval, THE OneMount System SHALL use the specified interval for active connectivity checks
+15. IF the connectivity check interval is not specified, THEN THE OneMount System SHALL use a default interval of 15 seconds
+16. WHERE the user configures connectivity timeout, THE OneMount System SHALL use the specified timeout for connectivity checks
+17. IF the connectivity timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 10 seconds
+18. WHERE the user configures maximum pending changes limit, THE OneMount System SHALL enforce the specified limit for offline change tracking
+19. IF the maximum pending changes limit is not specified, THEN THE OneMount System SHALL use a default limit of 1000 changes
+20. WHEN network connectivity is restored, THE OneMount System SHALL resume delta sync operations
 
 ### Requirement 7: Cache Management Verification
 
