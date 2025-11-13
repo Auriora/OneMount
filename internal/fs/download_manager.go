@@ -5,6 +5,20 @@ package fs
 // This helps decouple the local file system logic from the OneDrive sync logic by running
 // file downloads in separate worker threads. This improves performance by handling the
 // OneDrive cloud file sync in the background, except when waiting for a file or folder to download.
+//
+// ETag-Based Cache Validation:
+// This download manager does NOT use HTTP if-none-match headers for conditional GET requests.
+// Microsoft Graph API's pre-authenticated download URLs (from @microsoft.graph.downloadUrl)
+// point directly to Azure Blob Storage and do not support conditional GET with ETags.
+//
+// Instead, ETag-based cache validation occurs via the delta sync process:
+// 1. Delta sync fetches metadata changes including updated ETags
+// 2. When an ETag changes, the content cache entry is invalidated
+// 3. Next file access triggers a full re-download via this download manager
+// 4. QuickXORHash checksum verification ensures content integrity
+//
+// This approach is more efficient than per-file conditional GET because delta sync
+// proactively detects changes in batch, reducing API calls and network overhead.
 
 import (
 	"context"

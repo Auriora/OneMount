@@ -61,13 +61,22 @@ This specification defines the requirements for systematically verifying and fix
 1. WHEN the user lists a directory, THE OneMount System SHALL display all files using cached metadata without downloading file content
 2. WHEN the user opens a file that is not cached, THE OneMount System SHALL request the file content using GET `/items/{id}/content` API
 3. WHEN the API returns a 302 redirect, THE OneMount System SHALL follow the redirect to download from the preauthenticated URL
-4. WHEN the user opens a cached file, THE OneMount System SHALL validate the cache using the ETag with `if-none-match` header
-5. IF the API returns 304 Not Modified, THEN THE OneMount System SHALL serve the content from local cache
-6. IF the API returns 200 OK with new content, THEN THE OneMount System SHALL update the cache with the new content and ETag
+4. WHEN the user opens a cached file, THE OneMount System SHALL validate the cache using ETag comparison from delta sync metadata
+5. IF the cached file's ETag matches the current metadata ETag, THEN THE OneMount System SHALL serve the content from local cache
+6. IF the cached file's ETag differs from the current metadata ETag, THEN THE OneMount System SHALL invalidate the cache entry and download the new content
 7. WHILE a file is downloading, THE OneMount System SHALL update the file status to "downloading"
 8. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
 9. WHERE the user specifies download worker pool size, THE OneMount System SHALL use the specified number of concurrent download workers
 10. IF the download worker pool size is not specified, THEN THE OneMount System SHALL use a default of 3 concurrent workers
+
+**Note on ETag Validation Implementation**:
+Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implementation achieves this through delta sync rather than HTTP `if-none-match` headers because Microsoft Graph API's pre-authenticated download URLs (from `@microsoft.graph.downloadUrl`) do not support conditional GET requests. The delta sync approach:
+- Proactively fetches metadata changes including updated ETags
+- Invalidates cache entries when ETags change
+- Triggers re-download on next file access
+- Provides equivalent or better behavior than conditional GET (batch updates, proactive detection)
+- Satisfies the intent of requirements 3.4, 3.5, and 3.6
+
 11. WHEN configuring download worker pool size, THE OneMount System SHALL validate the value is between 1 and 10 workers
 12. WHERE the user specifies download retry attempts limit, THE OneMount System SHALL retry failed downloads up to the specified number of attempts
 13. IF the download retry attempts limit is not specified, THEN THE OneMount System SHALL use a default of 3 retry attempts

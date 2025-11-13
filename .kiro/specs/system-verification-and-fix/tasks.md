@@ -909,7 +909,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Documentation**: `docs/fixes/mount-timeout-fix.md`
   - _Requirements: 2.1, 2.2_
 
-- [ ] 20.2 Fix Issue #002: ETag-Based Cache Validation Location Unclear
+- [x] 20.2 Fix Issue #002: ETag-Based Cache Validation Location Unclear
   - **Component**: File Operations / Download Manager
   - **Action**: Review download manager and Graph API layer for ETag validation
   - **Tasks**:

@@ -13,7 +13,24 @@ import (
 )
 
 // DeltaLoop creates a new thread to poll the server for changes and should be
-// called as a goroutine
+// called as a goroutine.
+//
+// ETag-Based Cache Invalidation:
+// This delta sync process is the primary mechanism for ETag-based cache validation.
+// When remote files change, the delta query returns updated metadata including new ETags.
+// The sync process:
+// 1. Fetches changed items from OneDrive API (via delta query)
+// 2. Compares new ETags with cached metadata ETags
+// 3. Invalidates content cache entries when ETags differ
+// 4. Updates metadata cache with new ETags
+// 5. Next file access triggers re-download of invalidated content
+//
+// This approach is more efficient than using HTTP if-none-match headers for conditional
+// GET requests because:
+// - Batch metadata updates reduce API calls
+// - Changes are detected proactively before file access
+// - Pre-authenticated download URLs don't support conditional GET
+// - Only changed files are re-downloaded
 func (f *Filesystem) DeltaLoop(interval time.Duration) {
 	logging.Info().Msg("Starting delta goroutine.")
 

@@ -80,6 +80,19 @@ func GetItemContent(id string, auth *Auth) ([]byte, uint64, error) {
 // output reader. This function assumes a brand-new io.Writer is used, so
 // "output" must be truncated if there is content already in the io.Writer
 // prior to use.
+//
+// ETag Validation Note:
+// This function does NOT use HTTP if-none-match headers for conditional GET requests.
+// The Microsoft Graph API returns pre-authenticated download URLs via the
+// @microsoft.graph.downloadUrl property. These URLs point directly to Azure Blob Storage
+// and do not support conditional GET with ETags or 304 Not Modified responses.
+//
+// ETag-based cache validation occurs at a higher level via the delta sync process,
+// which proactively detects metadata changes (including ETag updates) and invalidates
+// cache entries when files change remotely. This approach is more efficient than
+// per-file conditional GET requests.
+//
+// Download URLs expire after approximately 1 hour and must be refreshed via the API.
 func GetItemContentStream(id string, auth *Auth, output io.Writer) (uint64, error) {
 	// determine the size of the item
 	item, err := GetItem(id, auth)

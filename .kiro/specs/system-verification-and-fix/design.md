@@ -147,51 +147,81 @@ Each mount is completely isolated with:
 
 ### ETag-Based Cache Validation
 
+**Note**: This flow uses delta sync for ETag validation, NOT HTTP `if-none-match` headers.
+Pre-authenticated download URLs from Microsoft Graph API do not support conditional GET.
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │              ETag Cache Validation Flow                      │
+│         (via Delta Sync, not if-none-match)                 │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  File Access Request                                         │
-│       │                                                      │
-│       ▼                                                      │
+│  Background: Delta Sync Loop (Proactive)                    │
 │  ┌──────────────┐                                          │
-│  │ Check Cache  │                                          │
-│  │   Exists?    │                                          │
-│  └──────┬───────┘                                          │
-│         │                                                    │
-│    Yes  │  No                                               │
-│    ┌────┴────┐                                             │
-│    │         │                                              │
-│    ▼         ▼                                              │
-│  ┌────┐  ┌────────┐                                        │
-│  │Get │  │Download│                                        │
-│  │ETag│  │  Full  │                                        │
-│  └─┬──┘  │  File  │                                        │
-│    │     └────────┘                                        │
-│    │                                                        │
-│    ▼                                                        │
-│  GET /items/{id}/content                                   │
-│  Header: if-none-match: "{etag}"                           │
-│    │                                                        │
-│    ├──► 304 Not Modified                                   │
-│    │     └─► Serve from cache                              │
-│    │                                                        │
-│    └──► 200 OK (new content)                               │
-│          ├─► Update cache                                   │
-│          ├─► Store new ETag                                 │
-│          └─► Serve new content                              │
-│                                                              │
-│  Delta Sync Updates ETags:                                  │
-│  ┌──────────────┐                                          │
-│  │ Delta Query  │──► Detects remote changes                │
+│  │ Delta Query  │──► Fetches metadata changes              │
+│  │ (Periodic)   │    including updated ETags                │
 │  └──────┬───────┘                                          │
 │         │                                                    │
 │         ▼                                                    │
 │  ┌──────────────┐                                          │
-│  │ Update ETag  │──► Invalidates cache entry               │
+│  │ Compare ETag │──► Old ETag vs New ETag                  │
 │  │  in Metadata │                                          │
-│  └──────────────┘                                          │
+│  └──────┬───────┘                                          │
+│         │                                                    │
+│    ETag Changed?                                            │
+│    ┌────┴────┐                                             │
+│    │         │                                              │
+│   Yes        No                                             │
+│    │         │                                              │
+│    ▼         ▼                                              │
+│  ┌────────┐ ┌────────┐                                    │
+│  │Inval-  │ │Keep    │                                    │
+│  │idate   │ │Cache   │                                    │
+│  │Cache   │ │Valid   │                                    │
+│  └────────┘ └────────┘                                    │
+│                                                              │
+│  Foreground: File Access Request                            │
+│  ┌──────────────┐                                          │
+│  │ User Opens   │                                          │
+│  │    File      │                                          │
+│  └──────┬───────┘                                          │
+│         │                                                    │
+│         ▼                                                    │
+│  ┌──────────────┐                                          │
+│  │ Check Cache  │                                          │
+│  │   Valid?     │                                          │
+│  └──────┬───────┘                                          │
+│         │                                                    │
+│    Valid Cache?                                             │
+│    ┌────┴────┐                                             │
+│    │         │                                              │
+│   Yes        No (Invalidated by Delta Sync)                │
+│    │         │                                              │
+│    ▼         ▼                                              │
+│  ┌────────┐ ┌────────────┐                                │
+│  │ Serve  │ │ Download   │                                │
+│  │  from  │ │ Full File  │                                │
+│  │ Cache  │ │ (GET)      │                                │
+│  └────────┘ └──────┬─────┘                                │
+│                     │                                        │
+│                     ▼                                        │
+│              ┌──────────────┐                              │
+│              │ QuickXORHash │                              │
+│              │ Verification │                              │
+│              └──────┬───────┘                              │
+│                     │                                        │
+│                     ▼                                        │
+│              ┌──────────────┐                              │
+│              │ Update Cache │                              │
+│              │ & Metadata   │                              │
+│              └──────────────┘                              │
+│                                                              │
+│  Key Differences from Conditional GET:                      │
+│  • No if-none-match header (not supported by download URLs) │
+│  • No 304 Not Modified responses                            │
+│  • Proactive change detection via delta sync                │
+│  • More efficient: batch metadata updates                   │
+│  • Cache invalidation before file access                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -810,30 +840,46 @@ Signals:
 
 ### 15. ETag Cache Validation Component
 
-**Location**: `internal/fs/cache.go`, `internal/fs/content_cache.go`
+**Location**: `internal/fs/cache.go`, `internal/fs/content_cache.go`, `internal/fs/delta.go`
 
 **Verification Steps**:
 1. Review ETag storage and validation code
-2. Test cache hit with valid ETag (304 Not Modified)
-3. Test cache miss with changed ETag (200 OK)
+2. Test cache hit when ETag hasn't changed (via delta sync)
+3. Test cache invalidation when ETag changes (via delta sync)
 4. Test ETag updates from delta sync
 5. Test conflict detection using ETag comparison
 
+**Implementation Note**:
+ETag-based cache validation does NOT use HTTP `if-none-match` headers for conditional GET requests. Microsoft Graph API's pre-authenticated download URLs (`@microsoft.graph.downloadUrl`) point directly to Azure Blob Storage and do not support conditional GET with ETags or 304 Not Modified responses.
+
+Instead, ETag validation occurs via the delta sync process:
+1. Delta sync fetches metadata changes including updated ETags
+2. When an ETag changes, the content cache entry is invalidated
+3. Next file access triggers a full re-download
+4. QuickXORHash checksum verification ensures content integrity
+
+This approach is more efficient than per-file conditional GET because:
+- Delta sync proactively detects changes in batch
+- Reduces API calls and network overhead
+- Only changed files are re-downloaded
+- Works with pre-authenticated download URLs
+
 **Expected Interfaces**:
-- Cache entries store ETag alongside content
-- `ValidateCache(itemId, etag)` method
-- `UpdateETag(itemId, newEtag)` method
-- HTTP requests include `if-none-match` header
+- Cache entries store ETag alongside content in metadata
+- `content.Delete(id)` method for cache invalidation
 - Delta sync updates ETags in metadata cache
+- Cache invalidation triggered when ETag changes
+- QuickXORHash verification in download manager
 
 **Verification Criteria**:
-- ETags are stored with cached files
-- Cache validation uses `if-none-match` header
-- 304 response serves from cache
-- 200 response updates cache and ETag
+- ETags are stored with file metadata
+- Cache validation occurs via delta sync ETag comparison
+- Unchanged files are served from cache without re-download
+- Changed files (detected by ETag) trigger cache invalidation
 - Delta sync invalidates cache when ETag changes
 - Conflict detection compares local and remote ETags
 - Upload checks remote ETag before overwriting
+- QuickXORHash ensures downloaded content integrity
 
 ### 16. Network Error Pattern Recognition Component
 
