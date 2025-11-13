@@ -16,9 +16,9 @@ This document outlines how to get help with OneMount. Please read through the av
 Before seeking support, please check if your question is answered in our documentation:
 
 - [README](README.md) - Overview of the project and basic usage
-- [Quickstart Guide](docs/guides/quickstart-guide.md) - Step-by-step guide to get started quickly
-- [Installation Guide](docs/guides/installation-guide.md) - Detailed installation and configuration instructions
-- [Development Guidelines](docs/DEVELOPMENT.md) - Information for developers
+- [Quickstart Guide](docs/guides/user/quickstart-guide.md) - Step-by-step guide to get started quickly
+- [Installation Guide](docs/guides/user/installation-guide.md) - Detailed installation and configuration instructions
+- [Development Guidelines](docs/guides/developer/DEVELOPMENT.md) - Information for developers
 
 ## Troubleshooting {: #troubleshooting }
 

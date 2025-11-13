@@ -180,7 +180,7 @@ Get started with OneMount by installing it using your distribution's package man
    # RPM packages available in releases
    ```
 
-For detailed installation instructions including Ubuntu 22.04/Linux Mint 21 support, see our [Ubuntu Installation Guide](docs/UBUNTU_INSTALLATION.md).
+For detailed installation instructions including Ubuntu 22.04/Linux Mint 21 support, see our [Ubuntu Installation Guide](docs/guides/user/UBUNTU_INSTALLATION.md).
 
 #### Getting Started
 
@@ -197,13 +197,13 @@ For detailed installation instructions including Ubuntu 22.04/Linux Mint 21 supp
 2. **Authenticate** with your Microsoft account when prompted.
 
 For detailed installation and configuration instructions, troubleshooting, and advanced usage, please refer to:
-- [Ubuntu Installation Guide](docs/UBUNTU_INSTALLATION.md) - Ubuntu/Linux Mint specific instructions
-- [Complete Installation Guide](docs/guides/installation-guide.md) - All distributions
-- [Quickstart Guide](docs/guides/quickstart-guide.md) - Step-by-step getting started
+- [Ubuntu Installation Guide](docs/guides/user/UBUNTU_INSTALLATION.md) - Ubuntu/Linux Mint specific instructions
+- [Complete Installation Guide](docs/guides/user/installation-guide.md) - All distributions
+- [Quickstart Guide](docs/guides/user/quickstart-guide.md) - Step-by-step getting started
 
 ## Contributing guidelines
 
-If you're interested in contributing to OneMount or understanding its internals, please refer to our [Development Guidelines](docs/DEVELOPMENT.md) document. It provides information about:
+If you're interested in contributing to OneMount or understanding its internals, please refer to our [Development Guidelines](docs/guides/developer/DEVELOPMENT.md) document. It provides information about:
 
 * Project structure
 * Tech stack
@@ -259,7 +259,7 @@ The project uses separate workflows for different purposes:
 - **Coverage analysis** - Tracks code coverage trends
 - **System tests** - End-to-end testing with real OneDrive accounts
 
-See [RELEASE_CANDIDATE_USAGE.md](docs/RELEASE_CANDIDATE_USAGE.md) for detailed version management documentation.
+See [RELEASE_CANDIDATE_USAGE.md](docs/guides/developer/RELEASE_CANDIDATE_USAGE.md) for detailed version management documentation.
 
 ### Building from source
 
@@ -399,17 +399,16 @@ make deb
 For more information about OneMount:
 
 ### User Documentation
-* [Quickstart Guide](docs/guides/quickstart-guide.md) - Step-by-step guide to get started quickly
-* [Installation Guide](docs/guides/installation-guide.md) - Detailed installation and configuration instructions
-* [Troubleshooting Guide](docs/guides/troubleshooting-guide.md) - Solutions for common issues and problems
-* [Offline Functionality](docs/offline-functionality.md) - Complete guide to offline features and synchronization
+* [Quickstart Guide](docs/guides/user/quickstart-guide.md) - Step-by-step guide to get started quickly
+* [Installation Guide](docs/guides/user/installation-guide.md) - Detailed installation and configuration instructions
+* [Troubleshooting Guide](docs/guides/user/troubleshooting-guide.md) - Solutions for common issues and problems
+* [Offline Functionality](docs/3-implementation/offline-functionality.md) - Complete guide to offline features and synchronization
 
 ### Developer Documentation
-* [Development Guidelines](docs/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
-* [Debugging Guide](docs/guides/debugging.md) - Developer-focused procedures for logs, tracing, and quick diagnostics
-* [OneMount Consolidated Action Plan](docs/OneMount-Consolidated-Action-Plan.md) - **Current project status, priorities, and AI implementation prompts**
-* [Solo Developer AI Process](docs/Solo-Developer-AI-Process.md) - Project-agnostic development methodology
-* [Documentation Consolidation Summary](docs/0-project-management/DOCUMENTATION_CONSOLIDATION_SUMMARY.md) - Overview of recent documentation updates
+* [Development Guidelines](docs/guides/developer/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
+* [Debugging Guide](docs/guides/developer/debugging.md) - Developer-focused procedures for logs, tracing, and quick diagnostics
+* [Solo Developer AI Process](docs/guides/ai-agent/Solo-Developer-AI-Process.md) - Project-agnostic development methodology
+* [Testing Documentation](docs/4-testing/) - Comprehensive testing guides and framework documentation
 
 ### Project Resources
 * [GitHub Issues](https://github.com/auriora/OneMount/issues) - Report bugs or request features
@@ -431,8 +430,8 @@ For more information about OneMount:
 
 If you encounter issues with OneMount:
 
-1. **Check the troubleshooting guide**: [Troubleshooting Guide](docs/guides/troubleshooting-guide.md) - comprehensive solutions for common issues
-2. **Review installation documentation**: [Installation Guide](docs/guides/installation-guide.md) - detailed setup and configuration instructions
+1. **Check the troubleshooting guide**: [Troubleshooting Guide](docs/guides/user/troubleshooting-guide.md) - comprehensive solutions for common issues
+2. **Review installation documentation**: [Installation Guide](docs/guides/user/installation-guide.md) - detailed setup and configuration instructions
 3. **Search existing issues**: [GitHub Issues](https://github.com/auriora/OneMount/issues) to see if your problem has been reported
 4. **Report new issues** with:
    - System information (Linux distribution, OneMount version)
