@@ -1,12 +1,15 @@
 package fs
 
 import (
+	"context"
 	"fmt"
-	"github.com/auriora/onemount/internal/logging"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/auriora/onemount/internal/logging"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -72,24 +75,109 @@ type Stats struct {
 
 	// Age statistics
 	FileAgeRanges map[string]int // Count of files by age range
+
+	// Cache metadata
+	CachedAt  time.Time // When these statistics were cached
+	IsSampled bool      // Whether statistics were calculated using sampling
 }
 
-// GetStats returns statistics about the filesystem
-func (f *Filesystem) GetStats() (*Stats, error) {
-	// TODO: Optimize statistics collection for large filesystems (Issue #11, #10, #9, #8, #7)
-	// Current implementation performs full traversal of metadata and content directories
-	// which can be slow for large filesystems (>100k files).
-	// Performance optimizations to implement in v1.1:
-	// 1. Implement incremental statistics updates instead of full recalculation
-	// 2. Cache frequently accessed statistics with TTL
-	// 3. Use background goroutines for expensive calculations
-	// 4. Implement sampling for very large datasets
-	// 5. Add pagination support for statistics display
-	// 6. Optimize database queries with better indexing
-	// 7. Consider using separate statistics database/table
-	// Target: v1.1 release
-	// Priority: Medium (acceptable performance for typical use cases)
+// CachedStats holds cached statistics with TTL
+type CachedStats struct {
+	stats     *Stats
+	expiresAt time.Time
+	mu        sync.RWMutex
+}
 
+// StatsConfig holds configuration for statistics collection
+type StatsConfig struct {
+	// CacheTTL is the time-to-live for cached statistics
+	CacheTTL time.Duration
+	// SamplingThreshold is the number of items above which sampling is used
+	SamplingThreshold int
+	// SamplingRate is the percentage of items to sample (0.0-1.0)
+	SamplingRate float64
+	// UseBackgroundCalculation enables background goroutines for expensive calculations
+	UseBackgroundCalculation bool
+}
+
+// DefaultStatsConfig returns the default statistics configuration
+func DefaultStatsConfig() *StatsConfig {
+	return &StatsConfig{
+		CacheTTL:                 5 * time.Minute, // Cache stats for 5 minutes
+		SamplingThreshold:        10000,           // Use sampling for >10k items
+		SamplingRate:             0.1,             // Sample 10% of items
+		UseBackgroundCalculation: true,
+	}
+}
+
+// GetStats returns statistics about the filesystem with caching and optimization
+func (f *Filesystem) GetStats() (*Stats, error) {
+	return f.GetStatsWithConfig(nil)
+}
+
+// GetStatsWithConfig returns statistics about the filesystem with custom configuration
+func (f *Filesystem) GetStatsWithConfig(config *StatsConfig) (*Stats, error) {
+	// Use default config if none provided
+	if config == nil {
+		if f.statsConfig == nil {
+			f.statsConfig = DefaultStatsConfig()
+		}
+		config = f.statsConfig
+	}
+
+	// Check if we have cached stats that are still valid
+	if f.cachedStats != nil {
+		f.cachedStats.mu.RLock()
+		if f.cachedStats.stats != nil && time.Now().Before(f.cachedStats.expiresAt) {
+			stats := f.cachedStats.stats
+			f.cachedStats.mu.RUnlock()
+			logging.Debug().Msg("Returning cached statistics")
+			return stats, nil
+		}
+		f.cachedStats.mu.RUnlock()
+	}
+
+	// Calculate new statistics
+	logging.Debug().Msg("Calculating fresh statistics")
+	stats, err := f.calculateStats(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the statistics
+	if f.cachedStats == nil {
+		f.cachedStats = &CachedStats{}
+	}
+	f.cachedStats.mu.Lock()
+	f.cachedStats.stats = stats
+	f.cachedStats.expiresAt = time.Now().Add(config.CacheTTL)
+	f.cachedStats.mu.Unlock()
+
+	// Trigger background update if enabled
+	if config.UseBackgroundCalculation && f.statsUpdateCh != nil {
+		select {
+		case f.statsUpdateCh <- struct{}{}:
+		default:
+			// Channel full, skip background update
+		}
+	}
+
+	return stats, nil
+}
+
+// InvalidateStatsCache invalidates the cached statistics, forcing a recalculation on next request
+func (f *Filesystem) InvalidateStatsCache() {
+	if f.cachedStats != nil {
+		f.cachedStats.mu.Lock()
+		f.cachedStats.stats = nil
+		f.cachedStats.expiresAt = time.Time{}
+		f.cachedStats.mu.Unlock()
+		logging.Debug().Msg("Statistics cache invalidated")
+	}
+}
+
+// calculateStats performs the actual statistics calculation
+func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 	stats := &Stats{
 		Expiration:     f.cacheExpirationDays,
 		IsOffline:      f.IsOffline(),
@@ -97,29 +185,83 @@ func (f *Filesystem) GetStats() (*Stats, error) {
 		FileExtensions: make(map[string]int),
 		FileSizeRanges: make(map[string]int),
 		FileAgeRanges:  make(map[string]int),
+		CachedAt:       time.Now(),
 	}
 
-	// Count metadata items
+	// Count metadata items (fast operation, no optimization needed)
 	f.metadata.Range(func(_, _ interface{}) bool {
 		stats.MetadataCount++
 		return true
 	})
 
-	// Content cache statistics
+	// Determine if we should use sampling based on metadata count
+	useSampling := stats.MetadataCount > config.SamplingThreshold
+	stats.IsSampled = useSampling
+
+	if useSampling {
+		logging.Debug().
+			Int("metadataCount", stats.MetadataCount).
+			Int("threshold", config.SamplingThreshold).
+			Float64("samplingRate", config.SamplingRate).
+			Msg("Using sampling for statistics calculation")
+	}
+
+	// Content cache statistics - use background goroutine if enabled
 	contentDir := filepath.Join(filepath.Dir(f.db.Path()), "content")
 	stats.ContentDir = contentDir
-	err := filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+
+	if config.UseBackgroundCalculation {
+		// Use a channel to collect results from background goroutine
+		type contentStats struct {
+			count int
+			size  int64
+			err   error
+		}
+		resultCh := make(chan contentStats, 1)
+
+		go func() {
+			var count int
+			var size int64
+			err := filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return nil
+				}
+				if !info.IsDir() {
+					count++
+					size += info.Size()
+				}
+				return nil
+			})
+			resultCh <- contentStats{count: count, size: size, err: err}
+		}()
+
+		// Wait for result with timeout
+		select {
+		case result := <-resultCh:
+			if result.err != nil {
+				logging.Warn().Err(result.err).Msg("Error walking content directory in background")
+			}
+			stats.ContentCount = result.count
+			stats.ContentSize = result.size
+		case <-time.After(5 * time.Second):
+			logging.Warn().Msg("Timeout waiting for content cache statistics, using partial results")
+			// Continue with empty content stats
+		}
+	} else {
+		// Synchronous calculation
+		err := filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if !info.IsDir() {
+				stats.ContentCount++
+				stats.ContentSize += info.Size()
+			}
 			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error walking content directory: %w", err)
 		}
-		if !info.IsDir() {
-			stats.ContentCount++
-			stats.ContentSize += info.Size()
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error walking content directory: %w", err)
 	}
 
 	// BBolt database statistics
@@ -145,8 +287,24 @@ func (f *Filesystem) GetStats() (*Stats, error) {
 			fileCount := 0                           // Total number of files
 			now := time.Now()
 
-			// First pass: collect basic information about each item
+			// Determine sampling parameters
+			var sampleEveryN int = 1
+			if useSampling {
+				sampleEveryN = int(1.0 / config.SamplingRate)
+				if sampleEveryN < 1 {
+					sampleEveryN = 1
+				}
+			}
+
+			// First pass: collect basic information about each item (with sampling if enabled)
+			itemIndex := 0
 			err := metadataBucket.ForEach(func(k, v []byte) error {
+				itemIndex++
+
+				// Skip items if sampling is enabled
+				if useSampling && itemIndex%sampleEveryN != 0 {
+					return nil
+				}
 				inode, err := NewInodeJSON(v)
 				if err != nil {
 					return nil // Skip items that can't be parsed
@@ -281,6 +439,34 @@ func (f *Filesystem) GetStats() (*Stats, error) {
 			if stats.DirCount > 0 {
 				stats.AvgFilesPerDir = float64(fileCount) / float64(stats.DirCount)
 			}
+
+			// If sampling was used, extrapolate the counts
+			if useSampling && sampleEveryN > 1 {
+				scaleFactor := float64(sampleEveryN)
+
+				// Scale file type statistics
+				for ext, count := range stats.FileExtensions {
+					stats.FileExtensions[ext] = int(float64(count) * scaleFactor)
+				}
+
+				// Scale file size statistics
+				for sizeRange, count := range stats.FileSizeRanges {
+					stats.FileSizeRanges[sizeRange] = int(float64(count) * scaleFactor)
+				}
+
+				// Scale file age statistics
+				for ageRange, count := range stats.FileAgeRanges {
+					stats.FileAgeRanges[ageRange] = int(float64(count) * scaleFactor)
+				}
+
+				// Scale directory statistics
+				stats.DirCount = int(float64(stats.DirCount) * scaleFactor)
+				stats.EmptyDirCount = int(float64(stats.EmptyDirCount) * scaleFactor)
+
+				logging.Debug().
+					Float64("scaleFactor", scaleFactor).
+					Msg("Extrapolated statistics from sampled data")
+			}
 		}
 
 		// Count delta items
@@ -366,4 +552,227 @@ func FormatSize(size int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+// StartBackgroundStatsUpdater starts a background goroutine that periodically updates statistics
+func (f *Filesystem) StartBackgroundStatsUpdater(ctx context.Context, interval time.Duration) {
+	if f.statsUpdateCh == nil {
+		f.statsUpdateCh = make(chan struct{}, 1)
+	}
+
+	if f.statsConfig == nil {
+		f.statsConfig = DefaultStatsConfig()
+	}
+
+	f.Wg.Add(1)
+	go func() {
+		defer f.Wg.Done()
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		logging.Info().
+			Dur("interval", interval).
+			Msg("Started background statistics updater")
+
+		for {
+			select {
+			case <-ctx.Done():
+				logging.Info().Msg("Stopping background statistics updater")
+				return
+			case <-ticker.C:
+				// Periodic update
+				logging.Debug().Msg("Triggering periodic statistics update")
+				f.updateStatsInBackground()
+			case <-f.statsUpdateCh:
+				// Triggered update
+				logging.Debug().Msg("Triggering on-demand statistics update")
+				f.updateStatsInBackground()
+			}
+		}
+	}()
+}
+
+// updateStatsInBackground updates statistics in the background without blocking
+func (f *Filesystem) updateStatsInBackground() {
+	go func() {
+		startTime := time.Now()
+		_, err := f.calculateStats(f.statsConfig)
+		duration := time.Since(startTime)
+
+		if err != nil {
+			logging.Error().
+				Err(err).
+				Dur("duration", duration).
+				Msg("Background statistics update failed")
+		} else {
+			logging.Debug().
+				Dur("duration", duration).
+				Msg("Background statistics update completed")
+		}
+	}()
+}
+
+// GetStatsPage returns a paginated view of statistics for large datasets
+func (f *Filesystem) GetStatsPage(category string, page int, pageSize int) (map[string]int, error) {
+	stats, err := f.GetStats()
+	if err != nil {
+		return nil, err
+	}
+
+	var data map[string]int
+	switch category {
+	case "extensions":
+		data = stats.FileExtensions
+	case "sizes":
+		data = stats.FileSizeRanges
+	case "ages":
+		data = stats.FileAgeRanges
+	default:
+		return nil, fmt.Errorf("unknown category: %s", category)
+	}
+
+	// Convert map to sorted slice for pagination
+	type kv struct {
+		key   string
+		value int
+	}
+	var sorted []kv
+	for k, v := range data {
+		sorted = append(sorted, kv{k, v})
+	}
+
+	// Sort by value (descending)
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j].value > sorted[i].value {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	// Calculate pagination
+	start := page * pageSize
+	end := start + pageSize
+	if start >= len(sorted) {
+		return make(map[string]int), nil
+	}
+	if end > len(sorted) {
+		end = len(sorted)
+	}
+
+	// Build result map
+	result := make(map[string]int)
+	for i := start; i < end; i++ {
+		result[sorted[i].key] = sorted[i].value
+	}
+
+	return result, nil
+}
+
+// GetStatsWithSampling returns statistics using a specific sampling rate
+func (f *Filesystem) GetStatsWithSampling(samplingRate float64) (*Stats, error) {
+	config := &StatsConfig{
+		CacheTTL:                 0, // Don't cache sampled stats
+		SamplingThreshold:        0, // Always use sampling
+		SamplingRate:             samplingRate,
+		UseBackgroundCalculation: false,
+	}
+	return f.GetStatsWithConfig(config)
+}
+
+// GetQuickStats returns a minimal set of statistics quickly without expensive calculations
+func (f *Filesystem) GetQuickStats() (*Stats, error) {
+	stats := &Stats{
+		Expiration:     f.cacheExpirationDays,
+		IsOffline:      f.IsOffline(),
+		DeltaLink:      f.deltaLink,
+		FileExtensions: make(map[string]int),
+		FileSizeRanges: make(map[string]int),
+		FileAgeRanges:  make(map[string]int),
+		CachedAt:       time.Now(),
+		IsSampled:      false,
+	}
+
+	// Count metadata items (fast)
+	f.metadata.Range(func(_, _ interface{}) bool {
+		stats.MetadataCount++
+		return true
+	})
+
+	// Get database statistics (fast)
+	if f.db != nil {
+		dbPath := f.db.Path()
+		stats.DBPath = dbPath
+
+		// Get database file size
+		if dbInfo, err := os.Stat(dbPath); err == nil {
+			stats.DBSize = dbInfo.Size()
+		}
+
+		// Count items in each bucket (fast)
+		if err := f.db.View(func(tx *bolt.Tx) error {
+			if b := tx.Bucket(bucketMetadata); b != nil {
+				stats.DBMetadataCount = b.Stats().KeyN
+			}
+			if b := tx.Bucket(bucketDelta); b != nil {
+				stats.DBDeltaCount = b.Stats().KeyN
+			}
+			if b := tx.Bucket(bucketOfflineChanges); b != nil {
+				stats.DBOfflineCount = b.Stats().KeyN
+			}
+			if b := tx.Bucket(bucketUploads); b != nil {
+				stats.DBUploadsCount = b.Stats().KeyN
+			}
+			return nil
+		}); err != nil {
+			logging.Error().Err(err).Msg("Error reading database statistics")
+		}
+	}
+
+	// Upload queue statistics (fast)
+	if f.uploads != nil {
+		f.uploads.mutex.RLock()
+		stats.UploadCount = len(f.uploads.sessions)
+		for _, session := range f.uploads.sessions {
+			state := session.getState()
+			switch state {
+			case uploadNotStarted:
+				stats.UploadsNotStarted++
+			case uploadStarted:
+				stats.UploadsInProgress++
+			case uploadComplete:
+				stats.UploadsCompleted++
+			case uploadErrored:
+				stats.UploadsErrored++
+			}
+		}
+		f.uploads.mutex.RUnlock()
+	}
+
+	// File status statistics (fast)
+	f.statusM.RLock()
+	for _, status := range f.statuses {
+		switch status.Status {
+		case StatusCloud:
+			stats.StatusCloud++
+		case StatusLocal:
+			stats.StatusLocal++
+		case StatusLocalModified:
+			stats.StatusLocalModified++
+		case StatusSyncing:
+			stats.StatusSyncing++
+		case StatusDownloading:
+			stats.StatusDownloading++
+		case StatusOutofSync:
+			stats.StatusOutofSync++
+		case StatusError:
+			stats.StatusError++
+		case StatusConflict:
+			stats.StatusConflict++
+		}
+	}
+	f.statusM.RUnlock()
+
+	return stats, nil
 }

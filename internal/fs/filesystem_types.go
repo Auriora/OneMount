@@ -111,6 +111,11 @@ type Filesystem struct {
 	// Sync progress tracking
 	syncProgress *SyncProgress // Progress tracking for directory tree sync
 
+	// Statistics caching
+	cachedStats   *CachedStats  // Cached statistics with TTL
+	statsConfig   *StatsConfig  // Configuration for statistics collection
+	statsUpdateCh chan struct{} // Channel to trigger background stats update
+
 	// Stop synchronization
 	stopOnce sync.Once // Ensures Stop is only called once
 }
