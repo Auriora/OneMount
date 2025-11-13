@@ -134,6 +134,15 @@ type UploadManager struct {
 func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterface, auth *graph.Auth) *UploadManager {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Get timeout from filesystem configuration if available
+	gracefulTimeout := 30 * time.Second // Default fallback
+	if fs != nil {
+		// Type assert to *Filesystem to access timeoutConfig
+		if fsImpl, ok := fs.(*Filesystem); ok && fsImpl.timeoutConfig != nil {
+			gracefulTimeout = fsImpl.timeoutConfig.UploadGracefulShutdown
+		}
+	}
+
 	manager := UploadManager{
 		highPriorityQueue:          make(chan *UploadSession, 100), // Buffered to allow multiple high priority uploads to be queued
 		lowPriorityQueue:           make(chan *UploadSession, 100), // Buffered to allow multiple low priority uploads to be queued
@@ -153,7 +162,7 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 		signalChan:      make(chan os.Signal, 1),
 		shutdownContext: ctx,
 		shutdownCancel:  cancel,
-		gracefulTimeout: 30 * time.Second, // 30 seconds for large uploads to complete
+		gracefulTimeout: gracefulTimeout, // Use configured timeout for large uploads to complete
 		isShuttingDown:  false,
 	}
 	db.View(func(tx *bolt.Tx) error {

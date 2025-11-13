@@ -1506,6 +1506,103 @@ The implementation will follow this sequence:
    - Update API docs
    - Create troubleshooting guide
 
+## Timeout Configuration
+
+### Overview
+
+All timeout values across OneMount components are centralized in the `TimeoutConfig` struct to ensure consistency and ease of configuration. This addresses Issue #PERF-003 (Inconsistent Timeout Values) by providing a single source of truth for all timeout-related settings.
+
+### Timeout Categories
+
+**Short Operations (< 5 seconds)**:
+- Download Worker Shutdown: 5 seconds
+- Network Callback Shutdown: 5 seconds
+- Content Stats Timeout: 5 seconds
+
+**Medium Operations (5-30 seconds)**:
+- Metadata Request Timeout: 30 seconds
+
+**Long Operations (30 seconds - 2 minutes)**:
+- Upload Graceful Shutdown: 30 seconds
+
+**Graceful Shutdown (10-60 seconds)**:
+- Filesystem Shutdown: 10 seconds
+
+### Configuration Structure
+
+```go
+type TimeoutConfig struct {
+    DownloadWorkerShutdown  time.Duration // Time to wait for download workers to finish
+    UploadGracefulShutdown  time.Duration // Time to wait for active uploads to complete
+    FilesystemShutdown      time.Duration // Time to wait for all filesystem goroutines to stop
+    NetworkCallbackShutdown time.Duration // Time to wait for network feedback callbacks
+    MetadataRequestTimeout  time.Duration // Time to wait for metadata requests
+    ContentStatsTimeout     time.Duration // Time to wait for content cache statistics
+}
+```
+
+### Default Values
+
+```go
+DefaultTimeoutConfig() returns:
+- DownloadWorkerShutdown:  5 * time.Second
+- UploadGracefulShutdown:  30 * time.Second
+- FilesystemShutdown:      10 * time.Second
+- NetworkCallbackShutdown: 5 * time.Second
+- MetadataRequestTimeout:  30 * time.Second
+- ContentStatsTimeout:     5 * time.Second
+```
+
+### Validation
+
+All timeout values are validated on initialization:
+- Must be positive (> 0)
+- Should be at least 1 second (for most timeouts)
+- Should not exceed 5 minutes (to prevent indefinite hangs)
+
+Invalid configurations result in clear error messages indicating the problem field and valid ranges.
+
+### Usage in Components
+
+**Download Manager**:
+- Uses `DownloadWorkerShutdown` when stopping workers
+- Logs timeout duration if workers don't finish in time
+
+**Upload Manager**:
+- Uses `UploadGracefulShutdown` for active upload completion
+- Type asserts to `*Filesystem` to access configuration
+
+**Filesystem**:
+- Uses `FilesystemShutdown` when stopping all goroutines
+- Initializes with `DefaultTimeoutConfig()` on creation
+
+**Metadata Requests**:
+- Uses `MetadataRequestTimeout` for fetch operations
+- Logs timeout duration if requests don't complete
+
+**Content Statistics**:
+- Uses `ContentStatsTimeout` for statistics collection
+- Falls back to partial results on timeout
+
+### Future Enhancements
+
+1. **Command-Line Configuration**: Add flags for timeout customization
+2. **Configuration File**: Support timeout settings in config file
+3. **Dynamic Adjustment**: Automatically adjust based on network conditions
+4. **Timeout Metrics**: Collect metrics on timeout occurrences
+5. **Timeout Profiles**: Predefined profiles for different environments
+
+### Documentation
+
+Detailed timeout policy documentation is available in:
+- `docs/guides/developer/timeout-policy.md`
+
+This document includes:
+- Rationale for each timeout value
+- Guidelines for when to adjust timeouts
+- Troubleshooting timeout-related issues
+- Best practices for timeout configuration
+
 ## Success Criteria
 
 The verification and fix process is complete when:

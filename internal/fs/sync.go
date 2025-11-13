@@ -204,9 +204,12 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 			case result := <-resultChan:
 				children = result.children
 				err = result.err
-			case <-time.After(30 * time.Second):
+			case <-time.After(f.timeoutConfig.MetadataRequestTimeout):
 				err = context.DeadlineExceeded
-				logging.Warn().Str("dirID", dirID).Msg("Metadata request timed out")
+				logging.Warn().
+					Str("dirID", dirID).
+					Dur("timeout", f.timeoutConfig.MetadataRequestTimeout).
+					Msg("Metadata request timed out")
 			case <-ctx.Done():
 				return ctx.Err()
 			}

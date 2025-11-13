@@ -123,6 +123,9 @@ type Filesystem struct {
 	xattrSupportedM sync.RWMutex // Mutex for xattr support status
 	xattrSupported  bool         // Whether extended attributes are supported on this filesystem
 
+	// Timeout configuration
+	timeoutConfig *TimeoutConfig // Centralized timeout configuration for all components
+
 	// Stop synchronization
 	stopOnce sync.Once // Ensures Stop is only called once
 }

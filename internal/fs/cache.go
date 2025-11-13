@@ -251,6 +251,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		deltaLoopStop:        make(chan struct{}),
 		deltaLoopCtx:         deltaCtx,
 		deltaLoopCancel:      deltaCancel,
+		timeoutConfig:        DefaultTimeoutConfig(), // Initialize with default timeout values
 	}
 
 	// Initialize with our custom RawFileSystem implementation
@@ -1686,12 +1687,20 @@ func (f *Filesystem) Stop() {
 			close(done)
 		}()
 
-		// Wait for all goroutines to finish or timeout after 10 seconds
+		// Get timeout from configuration
+		timeout := 10 * time.Second // Default fallback
+		if f.timeoutConfig != nil {
+			timeout = f.timeoutConfig.FilesystemShutdown
+		}
+
+		// Wait for all goroutines to finish or timeout
 		select {
 		case <-done:
 			logging.Info().Msg("All filesystem goroutines stopped successfully")
-		case <-time.After(10 * time.Second):
-			logging.Warn().Msg("Timed out waiting for filesystem goroutines to stop")
+		case <-time.After(timeout):
+			logging.Warn().
+				Dur("timeout", timeout).
+				Msg("Timed out waiting for filesystem goroutines to stop")
 		}
 
 		// Close the database connection

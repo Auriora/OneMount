@@ -978,7 +978,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 2 hours
   - _Requirements: 10.5_
 
-- [ ] 20.8 Fix Issue #PERF-003: Inconsistent Timeout Values
+- [x] 20.8 Fix Issue #PERF-003: Inconsistent Timeout Values
   - **Component**: Shutdown / Configuration
   - **Action**: Standardize timeout values across components
   - **Tasks**:

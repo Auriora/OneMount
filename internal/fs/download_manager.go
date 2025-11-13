@@ -558,6 +558,12 @@ func (dm *DownloadManager) Stop() {
 	logging.Info().Msg("Stopping download manager...")
 	close(dm.stopChan)
 
+	// Get timeout from filesystem configuration
+	timeout := 5 * time.Second // Default fallback
+	if dm.fs != nil && dm.fs.timeoutConfig != nil {
+		timeout = dm.fs.timeoutConfig.DownloadWorkerShutdown
+	}
+
 	// Wait for all workers to finish with a timeout
 	done := make(chan struct{})
 	go func() {
@@ -565,12 +571,14 @@ func (dm *DownloadManager) Stop() {
 		close(done)
 	}()
 
-	// Wait for workers to finish or timeout after 5 seconds
+	// Wait for workers to finish or timeout
 	select {
 	case <-done:
 		logging.Info().Msg("Download manager stopped successfully")
-	case <-time.After(5 * time.Second):
-		logging.Warn().Msg("Timed out waiting for download manager to stop")
+	case <-time.After(timeout):
+		logging.Warn().
+			Dur("timeout", timeout).
+			Msg("Timed out waiting for download manager to stop")
 	}
 }
 

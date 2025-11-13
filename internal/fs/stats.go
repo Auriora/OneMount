@@ -263,8 +263,10 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 			}
 			stats.ContentCount = result.count
 			stats.ContentSize = result.size
-		case <-time.After(5 * time.Second):
-			logging.Warn().Msg("Timeout waiting for content cache statistics, using partial results")
+		case <-time.After(f.timeoutConfig.ContentStatsTimeout):
+			logging.Warn().
+				Dur("timeout", f.timeoutConfig.ContentStatsTimeout).
+				Msg("Timeout waiting for content cache statistics, using partial results")
 			// Continue with empty content stats
 		}
 	} else {
