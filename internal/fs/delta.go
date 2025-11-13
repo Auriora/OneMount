@@ -132,6 +132,8 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 				// of a read-only state is a successful delta call
 				logging.Error().Err(err).
 					Msg("Error during delta fetch, marking fs as offline.")
+				// Lock ordering: filesystem.RWMutex only (no other locks held)
+				// See docs/guides/developer/concurrency-guidelines.md
 				f.Lock()
 				f.offline = true
 				f.Unlock()
@@ -250,6 +252,8 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		}
 
 		if pollSuccess {
+			// Lock ordering: filesystem.RWMutex only (no other locks held)
+			// See docs/guides/developer/concurrency-guidelines.md
 			f.Lock()
 			wasOffline := f.offline
 			if f.offline {

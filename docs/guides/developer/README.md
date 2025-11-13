@@ -30,7 +30,8 @@ This directory contains documentation for OneMount developers and contributors.
 - [error_handling_examples.md](error_handling_examples.md) - Error handling examples
 - [logging-guidelines.md](logging-guidelines.md) - Logging standards
 - [logging-examples.md](logging-examples.md) - Logging examples
-- [threading-guidelines.md](threading-guidelines.md) - Concurrency and threading
+- [threading-guidelines.md](threading-guidelines.md) - Concurrency and threading overview
+- [concurrency-guidelines.md](concurrency-guidelines.md) - **Lock ordering policy and deadlock prevention**
 - [project-structure-guidelines.md](project-structure-guidelines.md) - Project organization
 
 ## Integration

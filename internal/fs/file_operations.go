@@ -163,8 +163,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 			Msg("Opening file")
 	}
 
-	// we have something on disk-
-	// verify content against what we're supposed to have
+	// Lock ordering: inode.mu only (no filesystem lock needed)
+	// Content cache operations use internal locks.
+	// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
 	inode.mu.Lock()
 
 	// try grabbing from disk

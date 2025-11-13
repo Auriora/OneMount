@@ -91,6 +91,8 @@ func (f *Filesystem) SyncDirectoryTreeWithContext(ctx context.Context, auth *gra
 	}
 
 	// Store progress in filesystem for external access
+	// Lock ordering: filesystem.RWMutex only (no other locks held)
+	// See docs/guides/developer/concurrency-guidelines.md
 	f.Lock()
 	f.syncProgress = progress
 	f.Unlock()

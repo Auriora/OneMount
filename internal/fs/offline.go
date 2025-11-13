@@ -17,6 +17,8 @@ const (
 )
 
 // SetOfflineMode sets the offline mode
+// Lock ordering: filesystem.RWMutex only (no other locks held)
+// See docs/guides/developer/concurrency-guidelines.md
 func (f *Filesystem) SetOfflineMode(mode OfflineMode) {
 	f.Lock()
 	defer f.Unlock()

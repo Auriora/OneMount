@@ -955,7 +955,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 2-3 hours
   - _Requirements: 8.2_
 
-- [ ] 20.6 Fix Issue #PERF-001: No Documented Lock Ordering Policy
+- [x] 20.6 Fix Issue #PERF-001: No Documented Lock Ordering Policy
   - **Component**: Concurrency / Locking
   - **Action**: Document lock ordering policy
   - **Tasks**:

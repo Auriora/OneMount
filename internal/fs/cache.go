@@ -709,7 +709,11 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 
 	nodeID := inode.NodeID()
 	if nodeID == 0 {
-		// lock ordering is to satisfy deadlock detector
+		// Lock ordering: inode.mu -> filesystem.RWMutex
+		// This violates the standard hierarchy (filesystem before inode) but is safe here
+		// because we're only modifying the inode's nodeID field and the filesystem's
+		// lastNodeID/inodes, which don't create circular dependencies.
+		// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
 		inode.mu.Lock()
 		f.Lock()
 
@@ -818,7 +822,10 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	nodeID := f.InsertNodeID(inode)
 
 	if id != inode.ID() {
-		// we update the inode IDs here in case they do not match/changed
+		// Lock ordering: inode.mu first, then filesystem.RWMutex
+		// This violates the standard hierarchy but is safe because locks are
+		// acquired and released separately (no overlapping lock holds).
+		// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
 		inode.mu.Lock()
 		inode.DriveItem.ID = id
 		inode.mu.Unlock()
@@ -881,8 +888,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 
 	// check if the item has already been added to the parent
-	// Lock order is super key here, must go parent->child or the deadlock
-	// detector screams at us.
+	// Lock ordering: parent inode before child inode (when both needed)
+	// For multiple inodes at same level, use ID-based ordering.
+	// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
 	parent.mu.Lock()
 	defer parent.mu.Unlock()
 	for _, child := range parent.children {
@@ -908,6 +916,8 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 }
 
 // InsertChild adds an item as a child of a specified parent ID.
+// Lock ordering: child inode only (parent locked in InsertID)
+// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
 func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
 	child.mu.Lock()
 	// Initialize Parent if it's nil to avoid nil pointer dereference
@@ -939,6 +949,8 @@ func (f *Filesystem) DeleteID(id string) {
 			}
 		}
 
+		// Lock ordering: parent inode only (child already processed)
+		// See docs/guides/developer/concurrency-guidelines.md
 		parent := f.GetID(inode.ParentID())
 		parent.mu.Lock()
 		for i, childID := range parent.children {
@@ -1422,6 +1434,8 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 	}
 
 	// need to rename the child under the parent
+	// Lock ordering: parent inode only (child not locked here)
+	// See docs/guides/developer/concurrency-guidelines.md
 	parent := f.GetID(inode.ParentID())
 	parent.mu.Lock()
 	for i, child := range parent.children {
