@@ -268,7 +268,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 	}
 
-	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval)
+	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval, config.MaxCacheSize)
 	if err != nil {
 		logging.LogError(err, "Failed to initialize filesystem",
 			logging.FieldOperation, "initializeFilesystem",
@@ -367,7 +367,7 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	}
 
 	// Initialize the filesystem without mounting
-	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval)
+	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval, config.MaxCacheSize)
 	if err != nil {
 		logging.Error().Err(err).Msg("Failed to initialize filesystem")
 		os.Exit(1)

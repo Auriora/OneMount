@@ -27,6 +27,7 @@ type Config struct {
 	DeltaInterval        int    `yaml:"deltaInterval"`
 	CacheExpiration      int    `yaml:"cacheExpiration"`
 	CacheCleanupInterval int    `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
+	MaxCacheSize         int64  `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
 	MountTimeout         int    `yaml:"mountTimeout"`
 	graph.AuthConfig     `yaml:"auth"`
 }
@@ -51,6 +52,7 @@ func createDefaultConfig() Config {
 		DeltaInterval:        1,                // Default to 1 second
 		CacheExpiration:      30,               // Default to 30 days
 		CacheCleanupInterval: 24,               // Default to 24 hours
+		MaxCacheSize:         0,                // Default to unlimited (0 = no limit)
 		MountTimeout:         60,               // Default to 60 seconds
 	}
 }

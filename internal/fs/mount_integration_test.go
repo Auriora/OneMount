@@ -41,7 +41,7 @@ func TestMountIntegration_SuccessfulMount(t *testing.T) {
 
 	// Note: This test requires a mock Graph API implementation
 	// For now, we test the filesystem initialization without actual mounting
-	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
+	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestMountIntegration_MountFailureScenarios(t *testing.T) {
 
 			// Create filesystem
 			ctx := context.Background()
-			filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
+			filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 			if err != nil {
 				// Some errors may occur during filesystem creation
 				t.Logf("Filesystem creation error (may be expected): %v", err)
@@ -192,7 +192,7 @@ func TestMountIntegration_GracefulUnmount(t *testing.T) {
 
 	// Create filesystem
 	ctx, cancel := context.WithCancel(context.Background())
-	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
+	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestMountIntegration_WithMockGraphAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
+	filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 	if err != nil {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
@@ -298,7 +298,7 @@ func BenchmarkFilesystemInitialization(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cacheDir := filepath.Join(tempDir, "cache", string(rune(i)))
 		ctx := context.Background()
-		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24)
+		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 		if err != nil {
 			b.Fatalf("Failed to create filesystem: %v", err)
 		}

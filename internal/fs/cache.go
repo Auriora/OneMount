@@ -50,11 +50,12 @@ type OfflineChange struct {
 //   - cacheDir: Directory where filesystem data will be cached
 //   - cacheExpirationDays: Number of days after which cached files expire
 //   - cacheCleanupIntervalHours: Interval in hours between cache cleanup runs (1-720 hours)
+//   - maxCacheSize: Maximum cache size in bytes (0 = unlimited)
 //
 // Returns:
 //   - A new Filesystem instance and nil error on success
 //   - nil and an error if initialization fails
-func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir string, cacheExpirationDays int, cacheCleanupIntervalHours int) (*Filesystem, error) {
+func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir string, cacheExpirationDays int, cacheCleanupIntervalHours int, maxCacheSize int64) (*Filesystem, error) {
 	// prepare cache directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		if err = os.Mkdir(cacheDir, 0700); err != nil {
@@ -172,7 +173,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		return nil, errors.Wrap(err, "could not create thumbnail cache directory")
 	}
 
-	content := NewLoopbackCache(contentDir)
+	content := NewLoopbackCacheWithSize(contentDir, maxCacheSize)
 	thumbnails := NewThumbnailCache(thumbnailDir)
 	err = db.Update(func(tx *bolt.Tx) error {
 		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
@@ -1752,6 +1753,6 @@ func (f *Filesystem) SerializeAll() {
 func NewFilesystem(auth *graph.Auth, cacheDir string, cacheExpirationDays int) (*Filesystem, error) {
 	// Create a background context for backward compatibility
 	ctx := context.Background()
-	// Use default cleanup interval of 24 hours for backward compatibility
-	return NewFilesystemWithContext(ctx, auth, cacheDir, cacheExpirationDays, 24)
+	// Use default cleanup interval of 24 hours and unlimited cache size for backward compatibility
+	return NewFilesystemWithContext(ctx, auth, cacheDir, cacheExpirationDays, 24, 0)
 }

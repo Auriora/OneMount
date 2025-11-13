@@ -20,10 +20,12 @@ type Stats struct {
 	MetadataCount int
 
 	// Content cache statistics
-	ContentCount int
-	ContentSize  int64
-	ContentDir   string
-	Expiration   int
+	ContentCount   int
+	ContentSize    int64
+	ContentDir     string
+	Expiration     int
+	MaxCacheSize   int64   // Maximum cache size limit (0 = unlimited)
+	CacheSizeUsage float64 // Percentage of max cache size used (0-100, or -1 if unlimited)
 
 	// Upload queue statistics
 	UploadCount       int
@@ -218,6 +220,15 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 	// Content cache statistics - use background goroutine if enabled
 	contentDir := filepath.Join(filepath.Dir(f.db.Path()), "content")
 	stats.ContentDir = contentDir
+
+	// Get cache size limits from content cache
+	stats.MaxCacheSize = f.content.GetMaxCacheSize()
+	currentCacheSize := f.content.GetCacheSize()
+	if stats.MaxCacheSize > 0 {
+		stats.CacheSizeUsage = (float64(currentCacheSize) / float64(stats.MaxCacheSize)) * 100.0
+	} else {
+		stats.CacheSizeUsage = -1 // Unlimited
+	}
 
 	if config.UseBackgroundCalculation {
 		// Use a channel to collect results from background goroutine
@@ -714,6 +725,15 @@ func (f *Filesystem) GetQuickStats() (*Stats, error) {
 		stats.MetadataCount++
 		return true
 	})
+
+	// Get cache size limits from content cache (fast)
+	stats.MaxCacheSize = f.content.GetMaxCacheSize()
+	currentCacheSize := f.content.GetCacheSize()
+	if stats.MaxCacheSize > 0 {
+		stats.CacheSizeUsage = (float64(currentCacheSize) / float64(stats.MaxCacheSize)) * 100.0
+	} else {
+		stats.CacheSizeUsage = -1 // Unlimited
+	}
 
 	// Get database statistics (fast)
 	if f.db != nil {

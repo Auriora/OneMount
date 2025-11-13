@@ -631,9 +631,9 @@ ok      github.com/auriora/onemount/internal/fs 0.464s
 - Performance is reasonable for typical workloads (50 files in <0.5s)
 
 **Issues Identified**:
-- ⚠️ Issue #CACHE-001: No cache size limit enforcement (only time-based expiration) - Medium Priority
-- ⚠️ Issue #CACHE-002: No explicit cache invalidation when ETag changes - Medium Priority
-- ⚠️ Issue #CACHE-003: Statistics collection slow for large filesystems (>100k files) - Medium Priority
+- ✅ Issue #CACHE-001: No cache size limit enforcement (only time-based expiration) - RESOLVED (2025-11-13)
+- ✅ Issue #CACHE-002: No explicit cache invalidation when ETag changes - RESOLVED (2025-11-13)
+- ✅ Issue #CACHE-003: Statistics collection slow for large filesystems (>100k files) - RESOLVED (2025-11-13)
 - ✅ Issue #CACHE-004: Fixed 24-hour cleanup interval (not configurable) - RESOLVED (2025-11-13)
 - ⚠️ Issue #CACHE-005: No cache hit/miss tracking in LoopbackCache itself - Low Priority
 
@@ -3026,9 +3026,9 @@ Some critical sections hold locks longer than necessary, which could impact perf
 
 **Component**: Cache Management  
 **Severity**: Medium  
-**Status**: Open  
+**Status**: ✅ RESOLVED (2025-11-13)  
 **Discovered**: 2025-11-11  
-**Assigned To**: TBD
+**Resolved By**: AI Agent
 
 **Description**:
 The cache only expires based on time (`cacheExpirationDays`), not size. This means the cache can grow unbounded until files reach the expiration age, potentially consuming all available disk space.
@@ -3062,12 +3062,21 @@ The `CleanupCache()` method in `internal/fs/content_cache.go` only checks file m
 - `internal/fs/content_cache.go` (CleanupCache method)
 - `internal/fs/cache.go` (cache configuration)
 
-**Fix Plan**:
-1. Add cache size tracking to LoopbackCache
-2. Implement LRU eviction algorithm
-3. Add configuration for max cache size
-4. Update CleanupCache to enforce size limits
-5. Add cache size metrics to GetStats()
+**Resolution** (2025-11-13):
+1. ✅ Added cache size tracking to LoopbackCache with `CacheEntry` struct
+2. ✅ Implemented LRU eviction algorithm in `evictIfNeeded()`
+3. ✅ Added `maxCacheSize` configuration option (default: 0 = unlimited)
+4. ✅ Updated `CleanupCache()` to enforce size limits after time-based cleanup
+5. ✅ Added cache size metrics to `GetStats()` (MaxCacheSize, CacheSizeUsage)
+6. ✅ Updated all test files to pass maxCacheSize parameter
+7. ✅ Created documentation: `docs/updates/2025-11-13-cache-size-limit-enforcement.md`
+
+**Verification**:
+- ✅ Code compiles without errors
+- ✅ Existing tests pass (TestUT_FS_Cache_02_ContentCache_Operations)
+- ✅ Cache tracking logs show "Updated cache entry" and "Removed cache entry"
+- ⏳ Manual testing with size limits pending
+- ⏳ Integration tests for LRU eviction pending
 6. Document cache management behavior
 
 **Fix Estimate**:

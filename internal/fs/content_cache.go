@@ -1,15 +1,24 @@
 package fs
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/auriora/onemount/internal/logging"
 )
+
+// CacheEntry represents a cached file with LRU tracking
+type CacheEntry struct {
+	id           string
+	size         int64
+	lastAccessed time.Time
+}
 
 // LoopbackCache stores the content for files under a folder as regular files
 type LoopbackCache struct {
@@ -17,9 +26,22 @@ type LoopbackCache struct {
 	fds       sync.Map
 	// lastCleanup tracks when the last cache cleanup was performed
 	lastCleanup time.Time
+	// LRU tracking
+	entriesM     sync.RWMutex
+	entries      map[string]*CacheEntry // Map of file ID to cache entry
+	totalSize    int64                  // Total size of all cached files
+	maxCacheSize int64                  // Maximum cache size in bytes (0 = unlimited)
 }
 
+// NewLoopbackCache creates a new LoopbackCache with optional size limit
+// maxCacheSize: Maximum cache size in bytes (0 = unlimited)
 func NewLoopbackCache(directory string) *LoopbackCache {
+	return NewLoopbackCacheWithSize(directory, 0)
+}
+
+// NewLoopbackCacheWithSize creates a new LoopbackCache with a specified size limit
+// maxCacheSize: Maximum cache size in bytes (0 = unlimited)
+func NewLoopbackCacheWithSize(directory string, maxCacheSize int64) *LoopbackCache {
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		// Log the error properly
 		logging.Error().Err(err).Str("directory", directory).Msg("Failed to create content cache directory")
@@ -33,11 +55,60 @@ func NewLoopbackCache(directory string) *LoopbackCache {
 			logging.Error().Err(err).Str("directory", directory).Msg("Second attempt to create content cache directory failed")
 		}
 	}
-	return &LoopbackCache{
-		directory:   directory,
-		fds:         sync.Map{},
-		lastCleanup: time.Now(),
+
+	cache := &LoopbackCache{
+		directory:    directory,
+		fds:          sync.Map{},
+		lastCleanup:  time.Now(),
+		entries:      make(map[string]*CacheEntry),
+		totalSize:    0,
+		maxCacheSize: maxCacheSize,
 	}
+
+	// Initialize cache size tracking by scanning existing files
+	cache.initializeCacheTracking()
+
+	return cache
+}
+
+// initializeCacheTracking scans the cache directory and builds the LRU tracking data
+func (l *LoopbackCache) initializeCacheTracking() {
+	l.entriesM.Lock()
+	defer l.entriesM.Unlock()
+
+	err := filepath.Walk(l.directory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip files with errors
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Get the file ID from the path
+		id := filepath.Base(path)
+
+		// Add to tracking
+		l.entries[id] = &CacheEntry{
+			id:           id,
+			size:         info.Size(),
+			lastAccessed: info.ModTime(),
+		}
+		l.totalSize += info.Size()
+
+		return nil
+	})
+
+	if err != nil {
+		logging.Error().Err(err).Msg("Error initializing cache tracking")
+	}
+
+	logging.Info().
+		Int64("totalSize", l.totalSize).
+		Int("fileCount", len(l.entries)).
+		Int64("maxCacheSize", l.maxCacheSize).
+		Msg("Initialized cache tracking")
 }
 
 // contentPath returns the path for the given content file
@@ -58,7 +129,22 @@ func (l *LoopbackCache) Get(id string) []byte {
 
 // Insert InsertContent writes file content to disk in a single bulk insert.
 func (l *LoopbackCache) Insert(id string, content []byte) error {
-	return os.WriteFile(l.contentPath(id), content, 0600)
+	size := int64(len(content))
+
+	// Evict old entries if necessary to make room
+	if err := l.evictIfNeeded(size); err != nil {
+		return err
+	}
+
+	// Write the file
+	if err := os.WriteFile(l.contentPath(id), content, 0600); err != nil {
+		return err
+	}
+
+	// Update tracking
+	l.updateCacheEntry(id, size)
+
+	return nil
 }
 
 // InsertStream inserts a stream of data
@@ -75,6 +161,9 @@ func (l *LoopbackCache) InsertStream(id string, reader io.Reader) (int64, error)
 		return n, err
 	}
 
+	// Update tracking with the actual size written
+	l.updateCacheEntry(id, n)
+
 	return n, nil
 }
 
@@ -85,6 +174,9 @@ func (l *LoopbackCache) Delete(id string) error {
 
 	// Try to remove the file regardless of close error
 	removeErr := os.Remove(l.contentPath(id))
+
+	// Update tracking - remove from cache size tracking
+	l.removeCacheEntry(id)
 
 	// Handle remove error - ignore "file not found" errors
 	if removeErr != nil && !os.IsNotExist(removeErr) {
@@ -154,6 +246,8 @@ func (l *LoopbackCache) HasContent(id string) bool {
 func (l *LoopbackCache) Open(id string) (*os.File, error) {
 	if fd, ok := l.fds.Load(id); ok {
 		// already opened, return existing fd
+		// Touch the cache entry to update last accessed time
+		l.touchCacheEntry(id)
 		return fd.(*os.File), nil
 	}
 
@@ -176,6 +270,10 @@ func (l *LoopbackCache) Open(id string) (*os.File, error) {
 	// https://github.com/hanwen/go-fuse/issues/371#issuecomment-694799535
 	runtime.SetFinalizer(fd, nil)
 	l.fds.Store(id, fd)
+
+	// Touch the cache entry to update last accessed time
+	l.touchCacheEntry(id)
+
 	return fd, nil
 }
 
@@ -206,7 +304,8 @@ func (l *LoopbackCache) Close(id string) error {
 }
 
 // CleanupCache removes files from the content cache that haven't been modified
-// for the specified number of days. Returns the number of files removed and any error.
+// for the specified number of days. Also enforces cache size limits if configured.
+// Returns the number of files removed and any error.
 func (l *LoopbackCache) CleanupCache(expirationDays int) (int, error) {
 	// Update the last cleanup time
 	l.lastCleanup = time.Now()
@@ -251,11 +350,221 @@ func (l *LoopbackCache) CleanupCache(expirationDays int) (int, error) {
 				return nil
 			}
 
+			// Update tracking
+			l.removeCacheEntry(id)
+
 			removedCount++
 		}
 
 		return nil
 	})
 
+	// After time-based cleanup, enforce size limits if configured
+	if l.maxCacheSize > 0 {
+		l.entriesM.RLock()
+		currentSize := l.totalSize
+		l.entriesM.RUnlock()
+
+		if currentSize > l.maxCacheSize {
+			logging.Info().
+				Int64("currentSize", currentSize).
+				Int64("maxCacheSize", l.maxCacheSize).
+				Msg("Cache size exceeds limit after time-based cleanup, performing LRU eviction")
+
+			// Evict entries to get under the limit
+			spaceToFree := currentSize - l.maxCacheSize
+			if evictErr := l.evictIfNeeded(0); evictErr != nil {
+				logging.Error().Err(evictErr).Msg("Failed to enforce cache size limit during cleanup")
+			} else {
+				logging.Info().
+					Int64("freedSpace", spaceToFree).
+					Msg("Successfully enforced cache size limit")
+			}
+		}
+	}
+
 	return removedCount, err
+}
+
+// updateCacheEntry updates the cache entry for a file
+func (l *LoopbackCache) updateCacheEntry(id string, size int64) {
+	l.entriesM.Lock()
+	defer l.entriesM.Unlock()
+
+	// Remove old size if entry exists
+	if entry, exists := l.entries[id]; exists {
+		l.totalSize -= entry.size
+	}
+
+	// Add new entry
+	l.entries[id] = &CacheEntry{
+		id:           id,
+		size:         size,
+		lastAccessed: time.Now(),
+	}
+	l.totalSize += size
+
+	logging.Debug().
+		Str("id", id).
+		Int64("size", size).
+		Int64("totalSize", l.totalSize).
+		Int64("maxCacheSize", l.maxCacheSize).
+		Msg("Updated cache entry")
+}
+
+// removeCacheEntry removes a cache entry
+func (l *LoopbackCache) removeCacheEntry(id string) {
+	l.entriesM.Lock()
+	defer l.entriesM.Unlock()
+
+	if entry, exists := l.entries[id]; exists {
+		l.totalSize -= entry.size
+		delete(l.entries, id)
+
+		logging.Debug().
+			Str("id", id).
+			Int64("size", entry.size).
+			Int64("totalSize", l.totalSize).
+			Msg("Removed cache entry")
+	}
+}
+
+// touchCacheEntry updates the last accessed time for a cache entry
+func (l *LoopbackCache) touchCacheEntry(id string) {
+	l.entriesM.Lock()
+	defer l.entriesM.Unlock()
+
+	if entry, exists := l.entries[id]; exists {
+		entry.lastAccessed = time.Now()
+	}
+}
+
+// evictIfNeeded evicts old entries if the cache size would exceed the limit
+func (l *LoopbackCache) evictIfNeeded(newSize int64) error {
+	// If no size limit is set, no eviction needed
+	if l.maxCacheSize == 0 {
+		return nil
+	}
+
+	l.entriesM.Lock()
+	defer l.entriesM.Unlock()
+
+	// Calculate how much space we need
+	spaceNeeded := (l.totalSize + newSize) - l.maxCacheSize
+	if spaceNeeded <= 0 {
+		return nil // No eviction needed
+	}
+
+	logging.Info().
+		Int64("currentSize", l.totalSize).
+		Int64("newSize", newSize).
+		Int64("maxCacheSize", l.maxCacheSize).
+		Int64("spaceNeeded", spaceNeeded).
+		Msg("Cache size limit exceeded, evicting old entries")
+
+	// Build a sorted list of entries by last accessed time (oldest first)
+	type entryWithTime struct {
+		id           string
+		size         int64
+		lastAccessed time.Time
+	}
+
+	entries := make([]entryWithTime, 0, len(l.entries))
+	for id, entry := range l.entries {
+		// Skip files that are currently open
+		if l.IsOpen(id) {
+			continue
+		}
+
+		entries = append(entries, entryWithTime{
+			id:           id,
+			size:         entry.size,
+			lastAccessed: entry.lastAccessed,
+		})
+	}
+
+	// Sort by last accessed time (oldest first)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].lastAccessed.Before(entries[j].lastAccessed)
+	})
+
+	// Evict entries until we have enough space
+	var evictedSize int64
+	var evictedCount int
+
+	for _, entry := range entries {
+		if evictedSize >= spaceNeeded {
+			break
+		}
+
+		// Remove the file
+		if err := os.Remove(l.contentPath(entry.id)); err != nil && !os.IsNotExist(err) {
+			logging.Warn().Err(err).Str("id", entry.id).Msg("Failed to evict cache entry")
+			continue
+		}
+
+		// Update tracking
+		delete(l.entries, entry.id)
+		l.totalSize -= entry.size
+		evictedSize += entry.size
+		evictedCount++
+
+		logging.Debug().
+			Str("id", entry.id).
+			Int64("size", entry.size).
+			Time("lastAccessed", entry.lastAccessed).
+			Msg("Evicted cache entry")
+	}
+
+	logging.Info().
+		Int("evictedCount", evictedCount).
+		Int64("evictedSize", evictedSize).
+		Int64("newTotalSize", l.totalSize).
+		Msg("Cache eviction completed")
+
+	// Check if we freed enough space
+	if l.totalSize+newSize > l.maxCacheSize {
+		return fmt.Errorf("unable to free enough cache space: need %d bytes, freed %d bytes", spaceNeeded, evictedSize)
+	}
+
+	return nil
+}
+
+// GetCacheSize returns the current total size of cached files
+func (l *LoopbackCache) GetCacheSize() int64 {
+	l.entriesM.RLock()
+	defer l.entriesM.RUnlock()
+	return l.totalSize
+}
+
+// GetMaxCacheSize returns the maximum cache size limit
+func (l *LoopbackCache) GetMaxCacheSize() int64 {
+	l.entriesM.RLock()
+	defer l.entriesM.RUnlock()
+	return l.maxCacheSize
+}
+
+// SetMaxCacheSize sets the maximum cache size limit
+func (l *LoopbackCache) SetMaxCacheSize(maxSize int64) {
+	l.entriesM.Lock()
+	l.maxCacheSize = maxSize
+	l.entriesM.Unlock()
+
+	logging.Info().
+		Int64("maxCacheSize", maxSize).
+		Msg("Updated maximum cache size")
+
+	// Trigger eviction if we're over the new limit
+	if maxSize > 0 {
+		if err := l.evictIfNeeded(0); err != nil {
+			logging.Error().Err(err).Msg("Failed to evict entries after setting new cache size limit")
+		}
+	}
+}
+
+// GetCacheEntryCount returns the number of cached files
+func (l *LoopbackCache) GetCacheEntryCount() int {
+	l.entriesM.RLock()
+	defer l.entriesM.RUnlock()
+	return len(l.entries)
 }
