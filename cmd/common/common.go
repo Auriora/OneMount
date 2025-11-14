@@ -75,35 +75,49 @@ func GetXDGVolumeInfoName(path string) (string, error) {
 // corner of the mountpoint and shows the account name in the nautilus sidebar.
 // This file is created as a local-only virtual file and is NOT synced to OneDrive.
 func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
-	if child, _ := filesystem.GetPath("/.xdg-volume-info", auth); child != nil {
-		return
+	const fileName = ".xdg-volume-info"
+
+	child, _ := filesystem.GetPath("/.xdg-volume-info", auth)
+	if child != nil && !strings.HasPrefix(child.ID(), "local-") {
+		logging.Info().
+			Str("id", child.ID()).
+			Msg("Replacing cloud-synced .xdg-volume-info with local virtual file")
+		if err := graph.Remove(child.ID(), auth); err != nil {
+			logging.Warn().Err(err).Str("id", child.ID()).Msg("Failed to delete remote .xdg-volume-info; continuing with local replacement")
+		} else {
+			logging.Info().Str("id", child.ID()).Msg("Removed remote .xdg-volume-info copy")
+		}
+		filesystem.DeleteID(child.ID())
+		child = nil
 	}
-	logging.Info().Msg("Creating .xdg-volume-info as local-only virtual file")
+
 	user, err := graph.GetUser(auth)
 	if err != nil {
 		logging.Error().Err(err).Msg("Could not create .xdg-volume-info")
 		return
 	}
-	xdgVolumeInfo := TemplateXDGVolumeInfo(user.UserPrincipalName)
-
-	// Create as a local-only virtual file (not synced to OneDrive)
-	// This prevents I/O errors and keeps the file local to the filesystem
-	root, _ := filesystem.GetPath("/", auth) // cannot fail
-	inode := fs.NewInode(".xdg-volume-info", 0644, root)
-
-	// Store the content in the local cache
-	content := []byte(xdgVolumeInfo)
-
-	// Set file size and modification time directly on the DriveItem
-	inode.DriveItem.Size = uint64(len(content))
+	content := []byte(TemplateXDGVolumeInfo(user.UserPrincipalName))
 	now := time.Now()
+
+	if child != nil {
+		child.DriveItem.Size = uint64(len(content))
+		child.DriveItem.ModTime = &now
+		if err := filesystem.StoreContent(child.ID(), content); err != nil {
+			logging.Error().Err(err).Msg("Failed to refresh cached .xdg-volume-info content")
+			return
+		}
+		logging.Debug().
+			Str("id", child.ID()).
+			Msg("Refreshed local .xdg-volume-info content")
+		return
+	}
+
+	logging.Info().Msg("Creating .xdg-volume-info as local-only virtual file")
+	root, _ := filesystem.GetPath("/", auth) // cannot fail
+	inode := fs.NewInode(fileName, 0644, root)
+	inode.DriveItem.Size = uint64(len(content))
 	inode.DriveItem.ModTime = &now
-
-	// Insert the inode into the filesystem
-	// The ID will be a local-* ID, marking it as local-only
 	filesystem.InsertID(inode.ID(), inode)
-
-	// Store the content in the cache so it can be read
 	if err := filesystem.StoreContent(inode.ID(), content); err != nil {
 		logging.Error().Err(err).Msg("Failed to cache .xdg-volume-info content")
 	}

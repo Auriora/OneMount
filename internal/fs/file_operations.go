@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -392,6 +393,26 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 
 	id := inode.ID()
 	path := inode.Path()
+	if strings.EqualFold(inode.Name(), xdgVolumeInfoName) && isLocalID(id) {
+		offset := int(in.Offset)
+		size := int(in.Size)
+		content := f.content.Get(id)
+		if content == nil {
+			content = []byte{}
+		}
+		if offset >= len(content) {
+			result := fuse.ReadResultData([]byte{})
+			logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+			return result, fuse.OK
+		}
+		end := offset + size
+		if end > len(content) {
+			end = len(content)
+		}
+		result := fuse.ReadResultData(content[offset:end])
+		logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
+		return result, fuse.OK
+	}
 
 	// Create a context for this operation with request ID, user ID, and path
 	logCtx := logging.NewLogContextWithRequestAndUserID("file_read").

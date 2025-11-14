@@ -1,51 +1,84 @@
 package common
 
 import (
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"os"
+	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/auriora/onemount/internal/fs"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
-// TestUT_CMD_01_01_XDGVolumeInfo_ValidInput_MatchesExpected verifies that XDG volume info can be read and written correctly.
-//
-//	Test Case ID    UT-CMD-01-01
-//	Title           XDG Volume Info Handling
-//	Description     Tests reading and writing .xdg-volume-info files
-//	Preconditions   None
-//	Steps           1. Create a temporary file
-//	                2. Write XDG volume info with a specific name
-//	                3. Read the name from the file
-//	Expected Result The read name matches the written name
-//	Notes: This test verifies the functionality for handling .xdg-volume-info files.
-func TestUT_CMD_01_01_XDGVolumeInfo_ValidInput_MatchesExpected(t *testing.T) {
-	// Create a test fixture
-	fixture := framework.NewUnitTestFixture("XDGVolumeInfoFixture")
-
-	// Set up the fixture
-	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
-		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp("", "onemount-test-*")
-		if err != nil {
-			return nil, err
-		}
-
-		return map[string]interface{}{
-			"tempDir": tempDir,
-		}, nil
-	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
-		// Clean up the temporary directory
-		data := fixture.(map[string]interface{})
-		tempDir := data["tempDir"].(string)
-		return os.RemoveAll(tempDir)
+// TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior verifies that
+// CreateXDGVolumeInfo replaces an existing cloud copy with a local-only virtual
+// file and refreshes the cached content.
+func TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "XDGVolumeInfoVirtualFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return fs.NewFilesystem(auth, mountPoint, cacheTTL)
 	})
 
-	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement the test case
-		// 1. Create a temporary file
-		// 2. Write XDG volume info with a specific name
-		// 3. Read the name from the file
-		// 4. Verify the read name matches the written name
-		t.Skip("Test not implemented yet")
+		assert := framework.NewAssert(t)
+
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+		}
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*fs.Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		remoteID := "remote-xdg-id"
+		remoteItem := &graph.DriveItem{
+			ID:   remoteID,
+			Name: ".xdg-volume-info",
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{QuickXorHash: "remotehash=="},
+			},
+			Size: 85,
+		}
+		inode := fs.NewInodeDriveItem(remoteItem)
+		filesystem.InsertChild(rootID, inode)
+
+		mockClient.AddMockResponse("/me", []byte(`{"userPrincipalName":"virtual@example.com"}`), http.StatusOK, nil)
+		mockClient.AddMockResponse("/me/drive/items/"+remoteID, nil, http.StatusNoContent, nil)
+
+		CreateXDGVolumeInfo(filesystem, fsFixture.Auth)
+
+		virtualInode, err := filesystem.GetPath("/.xdg-volume-info", fsFixture.Auth)
+		assert.NoError(err, "Virtual .xdg-volume-info should resolve without error")
+		if assert.NotNil(virtualInode, "Virtual inode should exist") {
+			assert.True(strings.HasPrefix(virtualInode.ID(), "local-"), "Virtual inode must use local ID, got %s", virtualInode.ID())
+			content := filesystem.GetInodeContent(virtualInode)
+			assert.NotNil(content, "Cached content should be available")
+			if content != nil {
+				expected := TemplateXDGVolumeInfo("virtual@example.com")
+				assert.Equal(expected, string(*content), "Virtual file content should match template")
+			}
+		}
+		assert.Nil(filesystem.GetID(remoteID), "Remote inode should be removed from cache")
+
+		calls := mockClient.GetRecorder().GetCalls()
+		deleted := false
+		for _, call := range calls {
+			if call.Method != "RoundTrip" || len(call.Args) == 0 {
+				continue
+			}
+			req, ok := call.Args[0].(*http.Request)
+			if !ok {
+				continue
+			}
+			if req.Method == http.MethodDelete && strings.Contains(req.URL.Path, "/me/drive/items/"+remoteID) {
+				deleted = true
+				break
+			}
+		}
+		assert.True(deleted, "Remote .xdg-volume-info should be deleted from OneDrive")
 	})
 }

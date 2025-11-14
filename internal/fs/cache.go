@@ -1173,6 +1173,15 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 	inode.mu.Lock()
 	inode.children = make([]string, 0)
 	for i, item := range fetched {
+		if strings.EqualFold(item.Name, xdgVolumeInfoName) {
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, item.ID).
+					Str(logging.FieldPath, processingPath).
+					Msg("Skipping remote .xdg-volume-info entry in favor of virtual file")
+			}
+			continue
+		}
 		// we will always have an id after fetching from the server
 		child := NewInodeDriveItem(item)
 		f.InsertNodeID(child)

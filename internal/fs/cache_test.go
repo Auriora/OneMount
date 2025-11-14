@@ -1,11 +1,12 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"github.com/auriora/onemount/internal/testutil/helpers"
+	"strings"
 	"testing"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
 // TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly tests various cache operations.
@@ -124,5 +125,62 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		// Test that cache pointers are working correctly
 		assert.Equal(fileInode, fs.GetNodeID(nodeID), "Node ID pointer should be consistent")
 		assert.Equal(fileInode, fs.GetID(testFileID), "ID pointer should be consistent")
+	})
+}
+
+// TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer verifies that remote
+// .xdg-volume-info entries returned by the Graph API are ignored so the local
+// virtual file can be used instead.
+func TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "SkipXDGVolumeInfoFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		assert := framework.NewAssert(t)
+
+		unitTestFixture, ok := fixture.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+		}
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		xdgItem := &graph.DriveItem{
+			ID:   "remote-xdg-id",
+			Name: ".xdg-volume-info",
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{QuickXorHash: "fakehash=="},
+			},
+		}
+		regularItem := &graph.DriveItem{
+			ID:   "regular-file-id",
+			Name: "regular.txt",
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{QuickXorHash: "anotherhash=="},
+			},
+			Size: 42,
+		}
+
+		mockClient.AddMockItem("/me/drive/items/"+rootID, &graph.DriveItem{ID: rootID, Name: "root", Folder: &graph.Folder{}})
+		mockClient.AddMockItem("/me/drive/items/"+regularItem.ID, regularItem)
+		mockClient.AddMockItem("/me/drive/items/"+xdgItem.ID, xdgItem)
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{xdgItem, regularItem})
+
+		children, err := fs.GetChildrenID(rootID, fsFixture.Auth)
+		assert.NoError(err, "GetChildrenID should not error")
+		assert.NotNil(children, "Children map should not be nil")
+		if _, exists := children[strings.ToLower(xdgItem.Name)]; exists {
+			t.Fatalf("Remote .xdg-volume-info should be ignored but was present in children map")
+		}
+		assert.Nil(fs.GetID(xdgItem.ID), "Remote .xdg-volume-info should not be cached")
 	})
 }
