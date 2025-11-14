@@ -36,6 +36,7 @@ onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
 		-o $(OUTPUT_DIR)/onemount \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
+	cp $(OUTPUT_DIR)/onemount $(BUILD_DIR)/onemount
 
 
 onemount-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onemount/main.go
@@ -52,6 +53,7 @@ onemount-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onemount-l
 		-o $(OUTPUT_DIR)/onemount-launcher \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount-launcher
+	cp $(OUTPUT_DIR)/onemount-launcher $(BUILD_DIR)/onemount-launcher
 
 
 install: onemount onemount-launcher
