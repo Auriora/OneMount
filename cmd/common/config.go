@@ -103,6 +103,7 @@ func validateConfig(config *Config) error {
 		case "STDOUT", "STDERR":
 			config.LogOutput = strings.ToUpper(config.LogOutput)
 		default:
+			config.LogOutput = expandUserPath(config.LogOutput)
 			// For file paths, ensure the directory exists
 			logDir := filepath.Dir(config.LogOutput)
 			if logDir != "." {
@@ -155,6 +156,7 @@ func validateConfig(config *Config) error {
 		xdgCacheDir, _ := os.UserCacheDir()
 		config.CacheDir = filepath.Join(xdgCacheDir, "onemount")
 	}
+	config.CacheDir = expandUserPath(config.CacheDir)
 
 	// Validate AuthConfig if provided
 	if config.AuthConfig.ClientID != "" {
@@ -174,11 +176,32 @@ func LoadConfig(path string) *Config {
 	// Read configuration file
 	conf, err := readConfigFile(path)
 	if err != nil {
-		logging.Warn().
-			Err(err).
-			Str("path", path).
-			Msg("Configuration file not found, using defaults.")
-		return &defaults
+		if os.IsNotExist(err) {
+			if createErr := writeDefaultConfigFile(path, defaults); createErr != nil {
+				logging.Warn().
+					Err(createErr).
+					Str("path", path).
+					Msg("Failed to create default configuration file, using in-memory defaults.")
+				return &defaults
+			}
+			logging.Info().
+				Str("path", path).
+				Msg("Configuration file missing. Created default configuration file.")
+			conf, err = readConfigFile(path)
+			if err != nil {
+				logging.Warn().
+					Err(err).
+					Str("path", path).
+					Msg("Failed to read newly created configuration file, using defaults.")
+				return &defaults
+			}
+		} else {
+			logging.Warn().
+				Err(err).
+				Str("path", path).
+				Msg("Configuration file could not be read, using defaults.")
+			return &defaults
+		}
 	}
 
 	// Parse configuration
@@ -213,6 +236,43 @@ func LoadConfig(path string) *Config {
 	}
 
 	return config
+}
+
+// writeDefaultConfigFile persists the provided configuration to disk if it does not already exist.
+func writeDefaultConfigFile(path string, cfg Config) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
+}
+
+func expandUserPath(p string) string {
+	if p == "" {
+		return p
+	}
+	if p[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return p
+		}
+		switch len(p) {
+		case 1:
+			return home
+		default:
+			if p[1] == '/' {
+				return filepath.Join(home, p[2:])
+			}
+		}
+	}
+	return p
 }
 
 // WriteConfig - Write config to a file

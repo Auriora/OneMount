@@ -56,7 +56,7 @@ func TestDBusServiceNameFileCreation(t *testing.T) {
 	}
 
 	// Verify the service name has the expected format
-	if !strings.HasPrefix(serviceName, DBusServiceNameBase+".test_") {
+	if serviceName != DBusServiceNameBase+".test" {
 		t.Errorf("Service name has unexpected format: %s", serviceName)
 	}
 }

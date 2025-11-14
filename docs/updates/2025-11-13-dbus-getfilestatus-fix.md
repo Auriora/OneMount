@@ -164,7 +164,7 @@ To verify the fix works correctly:
    
    # In another terminal, query file status via D-Bus
    dbus-send --session --print-reply \
-     --dest=org.onemount.FileStatus.instance_<pid>_<timestamp> \
+     --dest=org.onemount.FileStatus.mnt_<escaped-mount> \
      /org/onemount/FileStatus \
      org.onemount.FileStatus.GetFileStatus \
      string:"/path/to/file.txt"

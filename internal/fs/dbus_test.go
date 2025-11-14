@@ -360,27 +360,34 @@ func TestDBusServiceNameGeneration(t *testing.T) {
 
 	// Test with custom prefix
 	SetDBusServiceNamePrefix("test_prefix")
-	assert.Contains(DBusServiceName, "test_prefix", "Service name should contain custom prefix")
-	assert.Contains(DBusServiceName, DBusServiceNameBase, "Service name should contain base name")
+	assert.Equal(DBusServiceNameBase+".test_prefix", DBusServiceName, "Service name should include custom prefix deterministically")
 
 	// Test with empty prefix
 	SetDBusServiceNamePrefix("")
-	assert.Contains(DBusServiceName, "instance", "Service name should contain default prefix when empty")
+	assert.Equal(DBusServiceNameBase+".instance", DBusServiceName, "Empty prefix should fall back to default")
 
-	// Test uniqueness - generate multiple service names
-	names := make(map[string]bool)
-	for i := 0; i < 10; i++ {
-		SetDBusServiceNamePrefix("unique_test")
-		names[DBusServiceName] = true
-	}
-
-	// All names should be unique due to timestamp/PID components
-	assert.Equal(10, len(names), "All generated service names should be unique")
+	// Repeated calls with same prefix should keep identical name
+	SetDBusServiceNamePrefix("stable")
+	first := DBusServiceName
+	SetDBusServiceNamePrefix("stable")
+	assert.Equal(first, DBusServiceName, "Deterministic naming should produce identical values for same prefix")
 
 	// Test service name format
 	SetDBusServiceNamePrefix("format_test")
 	assert.True(len(DBusServiceName) > len(DBusServiceNameBase), "Generated name should be longer than base")
 	assert.True(strings.HasPrefix(DBusServiceName, DBusServiceNameBase), "Generated name should start with base")
+}
+
+func TestSetDBusServiceNameForMount(t *testing.T) {
+	assert := framework.NewAssert(t)
+	original := DBusServiceName
+	defer func() { DBusServiceName = original }()
+
+	SetDBusServiceNameForMount("/home/bcherrington/OneMountTest")
+	assert.Equal("org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest", DBusServiceName)
+
+	SetDBusServiceNameForMount("/tmp/onemount auth")
+	assert.Equal("org.onemount.FileStatus.mnt_tmp-onemount\\x20auth", DBusServiceName)
 }
 
 // TestDBusServer_MultipleInstances tests running multiple D-Bus server instances.

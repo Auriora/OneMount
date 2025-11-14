@@ -1,0 +1,15 @@
+# Default OneMount configuration. Values can be customized after installation.
+log: debug
+logOutput: STDOUT
+cacheDir: ~/.cache/onemount
+syncTree: true
+deltaInterval: 10
+cacheExpiration: 30
+cacheCleanupInterval: 24
+maxCacheSize: 0
+mountTimeout: 60
+auth:
+  clientID: ""
+  codeURL: ""
+  tokenURL: ""
+  redirectURL: ""

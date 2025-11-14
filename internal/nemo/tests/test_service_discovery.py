@@ -47,7 +47,7 @@ class TestServiceDiscovery(unittest.TestCase):
     def test_discover_service_name_from_file(self):
         """Test that service name is discovered from file"""
         # Write a service name to the temp file
-        service_name = 'org.onemount.FileStatus.instance_12345_67890'
+        service_name = 'org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest'
         with open(self.temp_file, 'w') as f:
             f.write(service_name + '\n')
         
@@ -60,7 +60,7 @@ class TestServiceDiscovery(unittest.TestCase):
     def test_discover_service_name_with_whitespace(self):
         """Test that service name is discovered correctly even with extra whitespace"""
         # Write a service name with extra whitespace
-        service_name = 'org.onemount.FileStatus.instance_99999_12345'
+        service_name = 'org.onemount.FileStatus.mnt_tmp-onemount\\x20auth'
         with open(self.temp_file, 'w') as f:
             f.write('  ' + service_name + '  \n')
         

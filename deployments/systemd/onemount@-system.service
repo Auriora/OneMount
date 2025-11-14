@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=dbus
-BusName=org.onemount.FileStatus
+BusName=org.onemount.FileStatus.mnt_%i
 ExecStart=/usr/bin/onemount %f
 ExecStopPost=/usr/bin/fusermount3 -uz /%I
 Restart=on-abnormal

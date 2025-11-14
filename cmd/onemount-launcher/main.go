@@ -15,10 +15,10 @@ import (
 	"unsafe"
 
 	"github.com/auriora/onemount/cmd/common"
-	"github.com/auriora/onemount/internal/ui"
-	"github.com/auriora/onemount/internal/ui/systemd"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/ui"
+	"github.com/auriora/onemount/internal/ui/systemd"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -77,7 +77,7 @@ func setupLogging(config *common.Config) error {
 	}
 
 	// Set up the logger with console formatting
-	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(output, "15:04:05"))
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(output, logging.HumanReadableTimeFormat))
 	return nil
 }
 
@@ -118,7 +118,7 @@ func main() {
 	}
 
 	// loading config can emit an unformatted log message, so we do this first with a basic logger
-	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(os.Stderr, "15:04:05"))
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(os.Stderr, logging.HumanReadableTimeFormat))
 
 	// command line options override config options
 	config := common.LoadConfig(*configPath)

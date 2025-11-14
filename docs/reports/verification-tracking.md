@@ -1003,13 +1003,13 @@ The offline mode implementation consists of several key components:
 
 3. ✅ **Filesystem Mount with D-Bus**
    - Mounted OneMount filesystem successfully
-   - D-Bus service name: `org.onemount.FileStatus.instance_2660895_7748` ✅
-   - Unique service name generated (PID + timestamp) ✅
+   - D-Bus service name: `org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest` ✅
+   - Service name derived from mountpoint (systemd-escaped path) ✅
    - **Verification**: D-Bus service registered on mount
 
 4. ✅ **D-Bus Service Registration**
-   - Service found in D-Bus name list: `org.onemount.FileStatus.instance_2660895_7748` ✅
-   - Service uses unique name to avoid conflicts ✅
+   - Service found in D-Bus name list: `org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest` ✅
+   - Service uses per-mount deterministic name to avoid conflicts ✅
    - **Verification**: D-Bus service properly registered
 
 5. ✅ **File Operations Trigger D-Bus Signals**
@@ -1063,7 +1063,7 @@ The offline mode implementation consists of several key components:
 - ✅ File read: Status unchanged (correct behavior)
 
 **D-Bus Implementation Details**:
-- Service name format: `org.onemount.FileStatus.instance_{PID}_{timestamp}`
+- Service name format: `org.onemount.FileStatus.mnt_<systemd-escaped-mount>`
 - Object path: `/org/onemount/FileStatus`
 - Interface: `org.onemount.FileStatus`
 - Signal: `FileStatusChanged(string path, string status)`
@@ -3006,7 +3006,7 @@ The D-Bus service name includes a unique suffix (PID + timestamp) to avoid confl
 
 **Steps to Reproduce**:
 1. Start OneMount with D-Bus server
-2. Observe service name: `org.onemount.FileStatus.instance_12345_67890`
+2. Observe service name: `org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest`
 3. Nemo extension tries to connect to: `org.onemount.FileStatus`
 4. Connection fails, extension falls back to extended attributes
 

@@ -22,6 +22,9 @@
 //   - constants.go (this file): Constants used throughout the logging package
 package logging
 
+// HumanReadableTimeFormat is the default time layout (YYYY-MM-DD HH:MM:SS) used by console logs.
+const HumanReadableTimeFormat = "2006-01-02 15:04:05"
+
 // Standard field names for logging
 const (
 	// Common field names

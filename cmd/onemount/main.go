@@ -226,6 +226,9 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	}
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
 
+	// Configure D-Bus service name deterministically for this mountpoint before the filesystem starts
+	fs.SetDBusServiceNameForMount(absMountPath)
+
 	// Perform connectivity check before attempting mount
 	connectivityTimeout := time.Duration(config.MountTimeout/2) * time.Second
 	if connectivityTimeout < 10*time.Second {
@@ -357,6 +360,9 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	}
 	absMountPath, _ := filepath.Abs(mountpoint)
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
+
+	// Ensure deterministic D-Bus name for stats mode as well (even though the service won't be awaited).
+	fs.SetDBusServiceNameForMount(absMountPath)
 
 	// Authenticate to get access to the filesystem
 	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
@@ -547,14 +553,14 @@ func setupLogging(config *common.Config, daemon bool) error {
 	}
 
 	// Set up the logger with console formatting
-	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(output, "15:04:05"))
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(output, logging.HumanReadableTimeFormat))
 	return nil
 }
 
 func main() {
 	// Initialize with a basic logger that outputs to stderr
 	// This will be replaced after loading the configuration
-	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(os.Stderr, "15:04:05"))
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(os.Stderr, logging.HumanReadableTimeFormat))
 
 	// Create a root context that can be canceled
 	ctx, cancel := context.WithCancel(context.Background())

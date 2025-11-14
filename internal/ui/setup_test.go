@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	// Configure logging to write to the log file
-	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(logFile, "15:04:05"))
+	logging.DefaultLogger = logging.New(logging.NewConsoleWriterWithOptions(logFile, logging.HumanReadableTimeFormat))
 
 	// Run the tests and exit with the appropriate status code
 	os.Exit(m.Run())

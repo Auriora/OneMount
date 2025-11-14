@@ -3,11 +3,12 @@
 **Date**: 2025-11-13  
 **Issue**: #FS-002  
 **Component**: D-Bus Server / Nemo Extension  
-**Status**: ✅ Resolved
+**Status**: ✅ Resolved  
+**Update (2025-11-14)**: Service names now encode the mountpoint deterministically as `org.onemount.FileStatus.mnt_<escaped-path>`, so the discovery workflow below still applies but examples reflect the new format.
 
 ## Problem
 
-The D-Bus service name includes a unique suffix (PID + timestamp) to avoid conflicts between multiple OneMount instances, but the Nemo extension used a hardcoded base name `org.onemount.FileStatus`. This mismatch prevented the Nemo extension from connecting to the D-Bus service via method calls.
+The D-Bus service name includes a deterministic mount-specific suffix (`mnt_<systemd-escaped-path>`) to avoid conflicts between multiple OneMount instances, but the Nemo extension used a hardcoded base name `org.onemount.FileStatus`. This mismatch prevented the Nemo extension from connecting to the D-Bus service via method calls.
 
 ### Symptoms
 
@@ -19,7 +20,7 @@ The D-Bus service name includes a unique suffix (PID + timestamp) to avoid confl
 ### Root Cause
 
 Mismatch between:
-- **Server**: Dynamic service name generation (e.g., `org.onemount.FileStatus.instance_12345_67890`)
+- **Server**: Deterministic per-mount service name generation (e.g., `org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest`)
 - **Client**: Static service name (e.g., `org.onemount.FileStatus`)
 
 ## Solution
@@ -59,14 +60,14 @@ Added service discovery functionality:
 
 ```
 1. OneMount starts D-Bus server
-   └─> Generates unique service name: org.onemount.FileStatus.instance_12345_67890
+   └─> Generates mount-specific service name: org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest
    └─> Registers with D-Bus
    └─> Writes service name to /tmp/onemount-dbus-service-name
 
 2. Nemo extension initializes
    └─> Calls _discover_dbus_service_name()
    └─> Reads /tmp/onemount-dbus-service-name
-   └─> Gets actual service name: org.onemount.FileStatus.instance_12345_67890
+   └─> Gets actual service name: org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest
    └─> Connects to D-Bus using discovered name
 
 3. OneMount stops

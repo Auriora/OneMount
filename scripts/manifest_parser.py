@@ -108,6 +108,15 @@ class InstallManifestParser:
                 'type': 'nemo_extension'
             })
 
+        # Add configuration files
+        for config in self.manifest.get('configs', []):
+            files.append({
+                'source': self.expand_variables(config['source']),
+                'dest': self.expand_variables(config[f'dest_{install_type}']),
+                'mode': config['mode'],
+                'type': 'config'
+            })
+
         return files
     
     def generate_makefile_install(self, install_type, dry_run=False):
@@ -220,8 +229,15 @@ class InstallManifestParser:
 
                     else:
                         # Regular file copy
-                        commands.append(colored_echo(f"{sudo_prefix}cp {source} → {dest}", Colors.YELLOW))
-                        commands.append(f"{sudo_prefix}cp {source} {dest}")
+                        if file_info['type'] == 'config':
+                            commands.append(colored_echo(f"{sudo_prefix}install (if missing) {source} → {dest}", Colors.YELLOW))
+                            commands.append(
+                                f"{sudo_prefix}if [ ! -e '{dest}' ]; then install -D -m {file_info['mode']} {source} {dest}; "
+                                f"else echo 'Config exists: {dest} (skipped)'; fi"
+                            )
+                        else:
+                            commands.append(colored_echo(f"{sudo_prefix}cp {source} → {dest}", Colors.YELLOW))
+                            commands.append(f"{sudo_prefix}cp {source} {dest}")
         
         # Post-install commands
         post_install = self.manifest['post_install'][install_type]

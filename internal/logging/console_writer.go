@@ -19,12 +19,25 @@
 package logging
 
 import (
+	"fmt"
 	"io"
+	"time"
 
 	"github.com/rs/zerolog"
 )
 
 // NewConsoleWriterWithOptions creates a new console writer with custom settings.
 func NewConsoleWriterWithOptions(output io.Writer, timeFormat string) io.Writer {
-	return zerolog.ConsoleWriter{Out: output, TimeFormat: timeFormat}
+	writer := zerolog.ConsoleWriter{Out: output, TimeFormat: timeFormat}
+	writer.FormatTimestamp = func(input interface{}) string {
+		switch v := input.(type) {
+		case time.Time:
+			return v.Format(timeFormat)
+		case string:
+			return v
+		default:
+			return fmt.Sprint(v)
+		}
+	}
+	return writer
 }

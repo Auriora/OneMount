@@ -110,7 +110,7 @@ func New(w io.Writer) Logger {
 
 // NewConsoleWriter creates a new console writer.
 func NewConsoleWriter() io.Writer {
-	return zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	return NewConsoleWriterWithOptions(os.Stdout, HumanReadableTimeFormat)
 }
 
 // Output duplicates the current logger and sets w as its output.

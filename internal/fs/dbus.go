@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/coreos/go-systemd/v22/unit"
 	dbus "github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 )
@@ -25,20 +25,23 @@ const (
 // DBusServiceName returns the D-Bus service name, which may be unique in test environments
 var DBusServiceName string
 
-// SetDBusServiceNamePrefix sets the DBusServiceName with the given prefix
-// This allows tests to set a custom prefix without relying on environment variables
+// SetDBusServiceNamePrefix sets DBusServiceName with the given suffix component (no randomness).
+// Tests can supply custom prefixes, and production code can use this helper via higher-level functions.
 func SetDBusServiceNamePrefix(prefix string) {
-	// Always generate a unique name to avoid conflicts in tests and parallel mounts
-	// Generate a unique suffix based on process ID and a random number
-	uniqueSuffix := fmt.Sprintf("%d_%d", os.Getpid(), time.Now().UnixNano()%10000)
-
-	// Use the provided prefix or default to "instance"
 	if prefix == "" {
 		prefix = "instance"
 	}
+	DBusServiceName = fmt.Sprintf("%s.%s", DBusServiceNameBase, prefix)
+	logging.Debug().Str("dbusName", DBusServiceName).Msg("Using deterministic D-Bus service name")
+}
 
-	DBusServiceName = fmt.Sprintf("%s.%s_%s", DBusServiceNameBase, prefix, uniqueSuffix)
-	logging.Debug().Str("dbusName", DBusServiceName).Msg("Using unique D-Bus service name")
+// SetDBusServiceNameForMount derives a deterministic D-Bus service name from the mount path.
+func SetDBusServiceNameForMount(mountPath string) {
+	escaped := unit.UnitNamePathEscape(mountPath)
+	if escaped == "" {
+		escaped = "root"
+	}
+	SetDBusServiceNamePrefix("mnt_" + escaped)
 }
 
 func init() {

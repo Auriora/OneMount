@@ -107,6 +107,15 @@
       "mode": "0755"
     }
   ],
+  "configs": [
+    {
+      "source": "configs/default-config.yml",
+      "dest_user": "$(HOME)/.config/onemount/config.yml",
+      "dest_system": "/etc/onemount/config.yml",
+      "dest_package": "etc/onemount/config.yml",
+      "mode": "0644"
+    }
+  ],
   "directories": {
     "user": [
       "$(HOME)/.local/bin",
@@ -114,7 +123,8 @@
       "$(HOME)/.local/share/applications",
       "$(HOME)/.config/systemd/user",
       "$(HOME)/.local/share/man/man1",
-      "$(HOME)/.local/share/nemo-python/extensions"
+      "$(HOME)/.local/share/nemo-python/extensions",
+      "$(HOME)/.config/onemount"
     ],
     "system": [
       "/usr/local/bin",
@@ -122,7 +132,8 @@
       "/usr/local/share/applications",
       "/usr/local/lib/systemd/system",
       "/usr/local/share/man/man1",
-      "/usr/local/share/nemo-python/extensions"
+      "/usr/local/share/nemo-python/extensions",
+      "/etc/onemount"
     ],
     "package": [
       "usr/bin",
@@ -130,7 +141,8 @@
       "usr/share/applications",
       "usr/lib/systemd/system",
       "usr/share/man/man1",
-      "usr/share/nemo-python/extensions"
+      "usr/share/nemo-python/extensions",
+      "etc/onemount"
     ]
   },
   "post_install": {
