@@ -50,30 +50,38 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		// Step 1: Create a directory hierarchy
 		// Root -> documents -> projects -> file.txt
 
-		// Create documents directory
-		documentsID := "documents-dir-id"
-		documentsName := "documents"
-		mockClient.AddMockResponse("/me/drive/items/"+rootID+"/children", []byte(`{"id":"documents-dir-id","name":"documents","folder":{}}`), 201, nil)
+	// Create documents directory
+	documentsID := "documents-dir-id"
+	documentsName := "documents"
+	mockClient.AddMockResponse("/me/drive/items/"+rootID+"/children", []byte(`{"id":"documents-dir-id","name":"documents","folder":{}}`), 201, nil)
 
-		mkdirIn := &fuse.MkdirIn{
-			InHeader: fuse.InHeader{NodeId: 1}, // Root node ID
-			Mode:     0755,
-		}
-		documentsEntryOut := &fuse.EntryOut{}
+	mkdirIn := &fuse.MkdirIn{
+		InHeader: fuse.InHeader{NodeId: 1}, // Root node ID
+		Mode:     0755,
+	}
+	documentsEntryOut := &fuse.EntryOut{}
 
-		status := fs.Mkdir(nil, mkdirIn, documentsName, documentsEntryOut)
-		assert.Equal(fuse.OK, status, "Documents directory creation should succeed")
+	status := fs.Mkdir(nil, mkdirIn, documentsName, documentsEntryOut)
+	assert.Equal(fuse.OK, status, "Documents directory creation should succeed")
+	documentsNode := fs.GetNodeID(documentsEntryOut.NodeId)
+	assert.NotNil(documentsNode, "Documents inode should exist after Mkdir")
+	documentsID = documentsNode.ID()
+	helpers.CreateMockDirectory(mockClient, rootID, documentsName, documentsID)
 
-		// Create projects directory inside documents
-		projectsID := "projects-dir-id"
-		projectsName := "projects"
-		mockClient.AddMockResponse("/me/drive/items/"+documentsID+"/children", []byte(`{"id":"projects-dir-id","name":"projects","folder":{}}`), 201, nil)
+	// Create projects directory inside documents
+	projectsID := "projects-dir-id"
+	projectsName := "projects"
+	mockClient.AddMockResponse("/me/drive/items/"+documentsID+"/children", []byte(`{"id":"projects-dir-id","name":"projects","folder":{}}`), 201, nil)
 
-		mkdirIn.NodeId = documentsEntryOut.NodeId
-		projectsEntryOut := &fuse.EntryOut{}
+	mkdirIn.NodeId = documentsEntryOut.NodeId
+	projectsEntryOut := &fuse.EntryOut{}
 
-		status = fs.Mkdir(nil, mkdirIn, projectsName, projectsEntryOut)
-		assert.Equal(fuse.OK, status, "Projects directory creation should succeed")
+	status = fs.Mkdir(nil, mkdirIn, projectsName, projectsEntryOut)
+	assert.Equal(fuse.OK, status, "Projects directory creation should succeed")
+	projectsNode := fs.GetNodeID(projectsEntryOut.NodeId)
+	assert.NotNil(projectsNode, "Projects inode should exist after Mkdir")
+	projectsID = projectsNode.ID()
+	helpers.CreateMockDirectory(mockClient, documentsID, projectsName, projectsID)
 
 		// Create a file inside projects
 		fileName := "test_file.txt"
@@ -89,9 +97,10 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		assert.Equal(fuse.OK, status, "File creation should succeed")
 
 		// Get the actual file ID that was created
-		fileInode := fs.GetNodeID(fileEntryOut.NodeId)
-		assert.NotNil(fileInode, "File inode should exist")
-		fileID := fileInode.ID()
+	fileInode := fs.GetNodeID(fileEntryOut.NodeId)
+	assert.NotNil(fileInode, "File inode should exist")
+	fileID := fileInode.ID()
+	helpers.CreateMockFile(mockClient, projectsID, fileName, fileID, "Test file content")
 
 		// Step 2: Test path-to-ID resolution
 
@@ -291,33 +300,19 @@ func TestUT_FS_Path_03_PathMovement_Operations(t *testing.T) {
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
 		}
-		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
-		fs := fsFixture.FS.(*Filesystem)
-		rootID := fsFixture.RootID
+	fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+	fs := fsFixture.FS.(*Filesystem)
+	rootID := fsFixture.RootID
+	mockClient := fsFixture.MockClient
 
-		// Step 1: Create test files with known IDs
+	// Step 1: Create test files with known IDs
 
-		// Create a test file
-		testFileID := "movable-file-id"
-		testFileName := "movable_file.txt"
-		fileItem := &graph.DriveItem{
-			ID:   testFileID,
-			Name: testFileName,
-			Size: 1024,
-			File: &graph.File{
-				Hashes: graph.Hashes{
-					QuickXorHash: "test-hash",
-				},
-			},
-			Parent: &graph.DriveItemParent{
-				ID: rootID,
-			},
-		}
-
-		// Insert the file into the filesystem
-		fileInode := NewInodeDriveItem(fileItem)
-		fs.InsertNodeID(fileInode)
-		fs.InsertChild(rootID, fileInode)
+	// Create a test file via the helpers to ensure DriveChildren payloads stay consistent
+	testFileID := "movable-file-id"
+	testFileName := "movable_file.txt"
+	fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, "deterministic test content")
+	fileInode := NewInodeDriveItem(fileItem)
+	fs.InsertID(fileItem.ID, fileInode)
 
 		// Verify initial path
 		initialPath := fileInode.Path()
