@@ -30,6 +30,7 @@ func generateTestName() string {
 
 // TestStatsCaching verifies that statistics are cached and reused
 func TestStatsCaching(t *testing.T) {
+	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
 	if err != nil {
@@ -99,6 +100,7 @@ func TestStatsCaching(t *testing.T) {
 
 // TestStatsSampling verifies that sampling works correctly for large datasets
 func TestStatsSampling(t *testing.T) {
+	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
 	if err != nil {
@@ -159,6 +161,7 @@ func TestStatsSampling(t *testing.T) {
 
 // TestQuickStats verifies that quick stats are fast and contain basic information
 func TestQuickStats(t *testing.T) {
+	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
 	if err != nil {

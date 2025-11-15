@@ -313,6 +313,8 @@ func TestUT_FS_Path_03_PathMovement_Operations(t *testing.T) {
 	fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, "deterministic test content")
 	fileInode := NewInodeDriveItem(fileItem)
 	fs.InsertID(fileItem.ID, fileInode)
+	// ensure there is cached content so MoveID can rename the on-disk file
+	_ = fs.content.Insert(testFileID, []byte("deterministic test content"))
 
 		// Verify initial path
 		initialPath := fileInode.Path()
