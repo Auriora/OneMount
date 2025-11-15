@@ -347,10 +347,7 @@ func TestUT_FS_FileRead_03_DirectoryListing(t *testing.T) {
 		contentDownloadCount := 0
 		for i := 0; i < fileCount; i++ {
 			fileID := fmt.Sprintf("test-file-id-%03d", i)
-			fd, err := fs.content.Open(fileID)
-			if err == nil {
-				// File is in cache
-				fd.Close()
+			if fs.content.HasContent(fileID) {
 				contentDownloadCount++
 			}
 		}

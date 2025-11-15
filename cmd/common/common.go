@@ -102,13 +102,14 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	if child != nil {
 		child.DriveItem.Size = uint64(len(content))
 		child.DriveItem.ModTime = &now
-		if err := filesystem.StoreContent(child.ID(), content); err != nil {
-			logging.Error().Err(err).Msg("Failed to refresh cached .xdg-volume-info content")
-			return
-		}
+		child.SetVirtualContent(content)
+		filesystem.RegisterVirtualFile(child)
 		logging.Debug().
 			Str("id", child.ID()).
 			Msg("Refreshed local .xdg-volume-info content")
+		if root, _ := filesystem.GetPath("/", auth); root != nil {
+			root.ClearChildren()
+		}
 		return
 	}
 
@@ -117,15 +118,17 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	inode := fs.NewInode(fileName, 0644, root)
 	inode.DriveItem.Size = uint64(len(content))
 	inode.DriveItem.ModTime = &now
-	filesystem.InsertID(inode.ID(), inode)
-	if err := filesystem.StoreContent(inode.ID(), content); err != nil {
-		logging.Error().Err(err).Msg("Failed to cache .xdg-volume-info content")
-	}
+	inode.SetVirtualContent(content)
+	filesystem.RegisterVirtualFile(inode)
 
 	logging.Debug().
 		Str("id", inode.ID()).
 		Str("name", inode.Name()).
 		Msg("Created local-only .xdg-volume-info file")
+
+	if root != nil {
+		root.ClearChildren()
+	}
 }
 
 // IsUserAllowOtherEnabled checks if the 'user_allow_other' option is enabled in /etc/fuse.conf

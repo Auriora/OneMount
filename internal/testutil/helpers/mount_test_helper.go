@@ -25,6 +25,7 @@ type MountTestHelper struct {
 	mountPoint string
 	filesystem FilesystemInterface
 	auth       *graph.Auth
+	mockClient *graph.MockGraphClient
 	cleanup    []func() error
 }
 
@@ -49,6 +50,21 @@ func (h *MountTestHelper) SetupMountWithFactory(factory FilesystemFactory) error
 	if err := os.MkdirAll(h.mountPoint, 0755); err != nil {
 		return fmt.Errorf("failed to create mount point: %w", err)
 	}
+
+	// Initialize mock graph client so filesystem creation never hits real network
+	mockClient := graph.NewMockGraphClient()
+	h.mockClient = mockClient
+
+	rootID := "root-id"
+	rootItem := &graph.DriveItem{
+		ID:   rootID,
+		Name: "root",
+		Folder: &graph.Folder{
+			ChildCount: 0,
+		},
+	}
+	mockClient.AddMockItem("/me/drive/root", rootItem)
+	mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
 
 	// Create authentication for testing
 	auth := GetTestAuth()
@@ -190,6 +206,10 @@ func (h *MountTestHelper) GetMountStats() (*syscall.Statfs_t, error) {
 func (h *MountTestHelper) Cleanup() error {
 	var lastErr error
 
+	if h.mockClient != nil {
+		h.mockClient.Cleanup()
+	}
+
 	// Run cleanup functions in reverse order
 	for i := len(h.cleanup) - 1; i >= 0; i-- {
 		if err := h.cleanup[i](); err != nil {
@@ -224,4 +244,18 @@ func SetupMountTestFixtureWithFactory(_ *testing.T, fixtureName string, factory 
 			helper := fixture.(*MountTestHelper)
 			return helper.Cleanup()
 		})
+}
+
+// MustGetMountHelper unwraps the UnitTestFixture payload and returns the MountTestHelper.
+func MustGetMountHelper(t *testing.T, fixture interface{}) *MountTestHelper {
+	t.Helper()
+	unitFixture, ok := fixture.(*framework.UnitTestFixture)
+	if !ok {
+		t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+	}
+	helper, ok := unitFixture.SetupData.(*MountTestHelper)
+	if !ok {
+		t.Fatalf("Expected SetupData to be of type *helpers.MountTestHelper, but got %T", unitFixture.SetupData)
+	}
+	return helper
 }

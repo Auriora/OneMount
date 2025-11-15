@@ -26,6 +26,7 @@ RUN apt-get update \
         libfuse3-dev \
         libgdk-pixbuf2.0-0 \
         libglib2.0-0 \
+        libglib2.0-bin \
         libgl1 \
         libglu1-mesa \
         libgtk-3-0 \
@@ -72,8 +73,12 @@ RUN apt-get update \
         sudo \
         unzip \
         xz-utils \
+        x11-apps \
+        xdg-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --chmod=0755 .devcontainer/bin/host-open /usr/local/bin/host-open
 
 # Configure locale so JetBrains backend and Go tooling agree on UTF-8 defaults
 RUN locale-gen en_US.UTF-8

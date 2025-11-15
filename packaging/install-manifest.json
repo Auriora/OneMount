@@ -48,10 +48,10 @@
   ],
   "desktop": [
     {
-      "source_template": "deployments/desktop/onemount-launcher.desktop.template",
-      "dest_user": "$(HOME)/.local/share/applications/onemount-launcher.desktop",
-      "dest_system": "/usr/local/share/applications/onemount-launcher.desktop",
-      "dest_package": "usr/share/applications/onemount-launcher.desktop",
+      "source_template": "deployments/desktop/com.github.auriora.onemount.desktop.template",
+      "dest_user": "$(HOME)/.local/share/applications/com.github.auriora.onemount.desktop",
+      "dest_system": "/usr/local/share/applications/com.github.auriora.onemount.desktop",
+      "dest_package": "usr/share/applications/com.github.auriora.onemount.desktop",
       "mode": "0644",
       "substitutions_user": {
         "@BIN_PATH@": "$(HOME)/.local/bin",
@@ -61,7 +61,7 @@
         "@BIN_PATH@": "/usr/local/bin",
         "@ICON_PATH@": "/usr/local/share/icons/onemount"
       },
-      "source_package": "deployments/desktop/onemount-launcher-system.desktop"
+      "source_package": "deployments/desktop/com.github.auriora.onemount-system.desktop"
     }
   ],
   "systemd": [

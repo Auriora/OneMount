@@ -31,6 +31,8 @@ type Inode struct {
 	subdir          uint32            // Number of subdirectories, used by NLink()
 	mode            uint32            // File mode/permissions, do not set manually
 	xattrs          map[string][]byte // Extended attributes
+	virtual         bool              // Whether this inode represents a virtual (local-only) file
+	virtualContent  []byte            // Content for virtual files served directly from memory
 }
 
 // SerializeableInode is like a Inode, but can be serialized for local storage
@@ -54,4 +56,56 @@ type InodeInfo interface {
 
 	// IsDir returns true if the inode represents a directory
 	IsDir() bool
+}
+
+// SetVirtualContent marks the inode as a virtual file and stores its content entirely in memory.
+func (i *Inode) SetVirtualContent(content []byte) {
+	i.mu.Lock()
+	i.virtual = true
+	if content == nil {
+		i.virtualContent = nil
+		i.DriveItem.Size = 0
+		i.mu.Unlock()
+		return
+	}
+	copied := make([]byte, len(content))
+	copy(copied, content)
+	i.virtualContent = copied
+	i.DriveItem.Size = uint64(len(copied))
+	i.mu.Unlock()
+}
+
+// IsVirtual returns true if the inode represents a virtual file that should not hit the content cache.
+func (i *Inode) IsVirtual() bool {
+	if i == nil {
+		return false
+	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	return i.virtual
+}
+
+// ReadVirtualContent returns a slice of the virtual file content for the requested offset/size.
+func (i *Inode) ReadVirtualContent(offset, size int) []byte {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	if !i.virtual || len(i.virtualContent) == 0 || offset >= len(i.virtualContent) {
+		return []byte{}
+	}
+	end := offset + size
+	if end > len(i.virtualContent) || size == 0 {
+		end = len(i.virtualContent)
+	}
+	slice := i.virtualContent[offset:end]
+	result := make([]byte, len(slice))
+	copy(result, slice)
+	return result
+}
+
+// ClearChildren clears the cached children slice and resets the subdirectory count.
+func (i *Inode) ClearChildren() {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.children = nil
+	i.subdir = 0
 }

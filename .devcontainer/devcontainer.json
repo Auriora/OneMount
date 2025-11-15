@@ -18,8 +18,26 @@
     "--security-opt=apparmor:unconfined"
   ],
   "mounts": [
-    "type=tmpfs,target=/tmp"
+    "type=tmpfs,target=/tmp",
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.Xauthority,target=/tmp/.Xauthority,type=bind,consistency=cached,readonly",
+    "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind,consistency=cached,propagation=rshared",
+    "source=/usr/share/applications,target=/usr/share/applications,type=bind,consistency=cached,readonly",
+    "source=/usr/share/mime,target=/usr/share/mime,type=bind,consistency=cached,readonly",
+    "source=${localEnv:HOME}/.local/share,target=/run/host-data,type=bind,consistency=cached,readonly",
+    "source=${localEnv:HOME}/.config,target=/run/host-config,type=bind,consistency=cached,readonly"
   ],
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "XAUTHORITY": "/tmp/.Xauthority",
+    "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+    "DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}",
+    "XDG_CONFIG_HOME": "/run/host-config",
+    "XDG_DATA_HOME": "/run/host-data",
+    "XDG_DATA_DIRS": "/run/host-data:/usr/local/share:/usr/share",
+    "GIO_USE_PORTALS": "1",
+    "GTK_USE_PORTAL": "1"
+  },
   "remoteEnv": {
     "GO111MODULE": "on",
     "GOPATH": "/home/vscode/go",

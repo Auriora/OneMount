@@ -252,6 +252,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		deltaLoopCtx:         deltaCtx,
 		deltaLoopCancel:      deltaCancel,
 		timeoutConfig:        DefaultTimeoutConfig(), // Initialize with default timeout values
+		virtualFiles:         make(map[string]*Inode),
 	}
 
 	// Initialize with our custom RawFileSystem implementation
@@ -745,6 +746,12 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 //   - nil if the item is not found in the cache
 func (f *Filesystem) GetID(id string) *Inode {
 	methodName, startTime := logging.LogMethodEntry("GetID", id)
+	if inode, ok := f.getVirtualFile(id); ok {
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), inode)
+		}()
+		return inode
+	}
 
 	entry, exists := f.metadata.Load(id)
 	if !exists {
@@ -969,17 +976,59 @@ func (f *Filesystem) DeleteID(id string) {
 	f.uploads.CancelUpload(id)
 }
 
-// GetChild fetches a named child of an item. Wraps GetChildrenID.
+// GetChild fetches a named child of an item. Wraps GetChildrenID and refreshes stale caches on demand.
 func (f *Filesystem) GetChild(id string, name string, auth *graph.Auth) (*Inode, error) {
+	findChild := func(children map[string]*Inode) *Inode {
+		for _, child := range children {
+			if strings.EqualFold(child.Name(), name) {
+				return child
+			}
+		}
+		return nil
+	}
+
 	children, err := f.GetChildrenID(id, auth)
 	if err != nil {
 		return nil, err
 	}
-	for _, child := range children {
-		if strings.EqualFold(child.Name(), name) {
-			return child, nil
-		}
+
+	if child := findChild(children); child != nil {
+		return child, nil
 	}
+
+	parent := f.GetID(id)
+	if parent == nil {
+		return nil, errors.New("child does not exist")
+	}
+
+	parent.mu.RLock()
+	hasCachedChildren := parent.children != nil
+	var cachedChildren []string
+	var cachedSubdir uint32
+	if hasCachedChildren {
+		cachedChildren = append([]string(nil), parent.children...)
+		cachedSubdir = parent.subdir
+	}
+	parent.mu.RUnlock()
+
+	if !hasCachedChildren {
+		return nil, errors.New("child does not exist")
+	}
+
+	parent.ClearChildren()
+	children, err = f.GetChildrenID(id, auth)
+	if err != nil {
+		parent.mu.Lock()
+		parent.children = cachedChildren
+		parent.subdir = cachedSubdir
+		parent.mu.Unlock()
+		return nil, err
+	}
+
+	if child := findChild(children); child != nil {
+		return child, nil
+	}
+
 	return nil, errors.New("child does not exist")
 }
 
@@ -1205,6 +1254,8 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 				Msg("Processing children progress")
 		}
 	}
+
+	f.appendVirtualChildrenLocked(inode, children)
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().

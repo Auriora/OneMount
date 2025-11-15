@@ -2,7 +2,9 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"reflect"
 	"testing"
@@ -26,6 +28,25 @@ type FSTestFixture struct {
 	FS interface{}
 	// Additional data for the test
 	Data map[string]interface{}
+}
+
+type driveChildrenPayload struct {
+	Children []*graph.DriveItem `json:"value"`
+	NextLink string             `json:"@odata.nextLink,omitempty"`
+}
+
+func appendChildItems(mockClient *graph.MockGraphClient, parentID string, items ...*graph.DriveItem) {
+	resource := "/me/drive/items/" + parentID + "/children"
+	payload := driveChildrenPayload{}
+	if resp, ok := mockClient.RequestResponses[resource]; ok && len(resp.Body) > 0 {
+		_ = json.Unmarshal(resp.Body, &payload)
+	}
+	payload.Children = append(payload.Children, items...)
+	body, _ := json.Marshal(payload)
+	mockClient.RequestResponses[resource] = graph.MockResponse{
+		Body:       body,
+		StatusCode: http.StatusOK,
+	}
 }
 
 // SetupFSTest sets up a common filesystem test environment.
@@ -133,12 +154,7 @@ func CreateMockDirectory(mockClient *graph.MockGraphClient, parentID, dirName, d
 	mockClient.AddMockItem("/me/drive/items/"+dirID, dirItem)
 	mockClient.AddMockItems("/me/drive/items/"+dirID+"/children", []*graph.DriveItem{})
 
-	// Get the parent's children
-	parentResource := "/me/drive/items/" + parentID + "/children"
-	// Add the directory to the parent's children
-	// We need to get the existing children first, but since we can't directly access them,
-	// we'll create a new list with just this item
-	mockClient.AddMockItems(parentResource, []*graph.DriveItem{dirItem})
+	appendChildItems(mockClient, parentID, dirItem)
 
 	return dirItem
 }
@@ -172,11 +188,7 @@ func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileI
 	mockClient.AddMockResponse(contentResource, []byte(content), 200, nil)
 
 	// Get the parent's children
-	parentResource := "/me/drive/items/" + parentID + "/children"
-	// Add the file to the parent's children
-	// We need to get the existing children first, but since we can't directly access them,
-	// we'll create a new list with just this item
-	mockClient.AddMockItems(parentResource, []*graph.DriveItem{fileItem})
+	appendChildItems(mockClient, parentID, fileItem)
 
 	return fileItem
 }

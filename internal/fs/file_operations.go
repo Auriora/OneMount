@@ -58,6 +58,12 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 
 // Create creates a regular file and opens it. The server doesn't have this yet.
 func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name string, out *fuse.CreateOut) fuse.Status {
+	if hooks := f.testHooks; hooks != nil && hooks.CreateHook != nil {
+		if status, handled := hooks.CreateHook(f, in, name, out); handled {
+			return status
+		}
+	}
+
 	// we reuse mknod here
 	result := f.Mknod(
 		cancel,
@@ -148,6 +154,33 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		WithPath(path)
 
 	logger := logging.WithLogContext(logCtx)
+
+	if hooks := f.testHooks; hooks != nil && hooks.OpenHook != nil {
+		if status, handled := hooks.OpenHook(f, in, out); handled {
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), status)
+			}()
+			return status
+		}
+	}
+
+	// Short-circuit directory opens so we never touch the content cache
+	// or queue bogus downloads when a caller (like a directory listing)
+	// accidentally routes through Open instead of OpenDir.
+	if inode.IsDir() {
+		if logging.IsDebugEnabled() {
+			logger.Debug().
+				Uint64("nodeID", in.NodeId).
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, path).
+				Msg("Opening directory without triggering downloads")
+		}
+		f.updateFileStatus(inode)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		}()
+		return fuse.OK
+	}
 
 	flags := int(in.Flags)
 	if flags&os.O_RDWR+flags&os.O_WRONLY > 0 && f.IsOffline() {
@@ -393,23 +426,9 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 
 	id := inode.ID()
 	path := inode.Path()
-	if strings.EqualFold(inode.Name(), xdgVolumeInfoName) && isLocalID(id) {
-		offset := int(in.Offset)
-		size := int(in.Size)
-		content := f.content.Get(id)
-		if content == nil {
-			content = []byte{}
-		}
-		if offset >= len(content) {
-			result := fuse.ReadResultData([]byte{})
-			logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
-			return result, fuse.OK
-		}
-		end := offset + size
-		if end > len(content) {
-			end = len(content)
-		}
-		result := fuse.ReadResultData(content[offset:end])
+	if inode.IsVirtual() && strings.EqualFold(inode.Name(), xdgVolumeInfoName) {
+		chunk := inode.ReadVirtualContent(int(in.Offset), int(in.Size))
+		result := fuse.ReadResultData(chunk)
 		logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
 		return result, fuse.OK
 	}
@@ -491,6 +510,15 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 		WithPath(path)
 
 	logger := logging.WithLogContext(logCtx)
+
+	if hooks := f.testHooks; hooks != nil && hooks.WriteHook != nil {
+		if bytes, status, handled := hooks.WriteHook(f, in, data); handled {
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), bytes, int32(status))
+			}()
+			return bytes, status
+		}
+	}
 
 	// Check for cancellation before starting the write operation
 	select {

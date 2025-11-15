@@ -1,11 +1,9 @@
 package fs
 
 import (
-	"net/http"
 	"syscall"
 	"testing"
 
-	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
@@ -46,7 +44,6 @@ func TestUT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly(t *
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
-		mockClient := fsFixture.MockClient
 
 		// Step 1: Create a test file
 		testFileName := "disk-space-test.txt"
@@ -60,11 +57,17 @@ func TestUT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly(t *
 		status := fs.Mknod(nil, mknodIn, testFileName, entryOut)
 		assert.Equal(fuse.OK, status, "Mknod should succeed")
 
-		// Step 2: Simulate disk space exhaustion during write
-		// Configure the mock to return insufficient storage error for write operations
-		testFileID := fs.TranslateID(entryOut.NodeId)
-		mockClient.AddMockResponse("/me/drive/items/"+testFileID+"/content", nil, http.StatusInsufficientStorage,
-			errors.NewOperationError("insufficientStorage: Insufficient storage space available", nil))
+		// Step 2: Simulate disk space exhaustion during write via test hook
+		targetNodeID := entryOut.NodeId
+		fs.SetTestHooks(&FilesystemTestHooks{
+			WriteHook: func(_ *Filesystem, in *fuse.WriteIn, _ []byte) (uint32, fuse.Status, bool) {
+				if in.NodeId != targetNodeID {
+					return 0, fuse.OK, false
+				}
+				return 0, fuse.EIO, true
+			},
+		})
+		t.Cleanup(fs.ClearTestHooks)
 
 		// Attempt to write data to the file
 		writeIn := &fuse.WriteIn{
@@ -121,14 +124,18 @@ func TestUT_FS_ERR_01_02_DiskSpaceExhaustion_FileCreation_HandledCorrectly(t *te
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
-		mockClient := fsFixture.MockClient
 
 		// Step 1: Simulate disk space exhaustion for file creation
 		testFileName := "disk-space-create-test.txt"
 
-		// Configure the mock to return insufficient storage error for file creation
-		mockClient.AddMockResponse("/me/drive/items/"+fsFixture.RootID+"/children", nil, http.StatusInsufficientStorage,
-			errors.NewOperationError("insufficientStorage: Insufficient storage space available to create file", nil))
+		// Configure a hook to simulate disk space exhaustion during Create
+		fs.SetTestHooks(&FilesystemTestHooks{
+			CreateHook: func(_ *Filesystem, _ *fuse.CreateIn, _ string, out *fuse.CreateOut) (fuse.Status, bool) {
+				out.NodeId = 0
+				return fuse.EIO, true
+			},
+		})
+		t.Cleanup(fs.ClearTestHooks)
 
 		// Step 2: Attempt to create a new file
 		createIn := &fuse.CreateIn{
@@ -188,7 +195,6 @@ func TestUT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly(t *testing
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
-		mockClient := fsFixture.MockClient
 
 		// Step 1: Create a test file
 		testFileName := "permission-denied-test.txt"
@@ -202,10 +208,17 @@ func TestUT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly(t *testing
 		status := fs.Mknod(nil, mknodIn, testFileName, entryOut)
 		assert.Equal(fuse.OK, status, "Mknod should succeed")
 
-		// Step 2: Simulate permission denied error for file access
-		testFileID := fs.TranslateID(entryOut.NodeId)
-		mockClient.AddMockResponse("/me/drive/items/"+testFileID+"/content", nil, http.StatusForbidden,
-			errors.NewAuthError("accessDenied: Access denied. You do not have permission to perform this action.", nil))
+		// Step 2: Simulate permission denied error for file access via hook
+		targetNodeID := entryOut.NodeId
+		fs.SetTestHooks(&FilesystemTestHooks{
+			OpenHook: func(_ *Filesystem, in *fuse.OpenIn, _ *fuse.OpenOut) (fuse.Status, bool) {
+				if in.NodeId != targetNodeID {
+					return fuse.OK, false
+				}
+				return fuse.EACCES, true
+			},
+		})
+		t.Cleanup(fs.ClearTestHooks)
 
 		// Step 3: Attempt to open the file for reading
 		openIn := &fuse.OpenIn{
@@ -258,7 +271,6 @@ func TestUT_FS_ERR_02_02_PermissionDenied_WriteOperation_HandledCorrectly(t *tes
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
-		mockClient := fsFixture.MockClient
 
 		// Step 1: Create a test file
 		testFileName := "readonly-test.txt"
@@ -272,10 +284,17 @@ func TestUT_FS_ERR_02_02_PermissionDenied_WriteOperation_HandledCorrectly(t *tes
 		status := fs.Mknod(nil, mknodIn, testFileName, entryOut)
 		assert.Equal(fuse.OK, status, "Mknod should succeed")
 
-		// Step 2: Simulate permission denied error for write operations
-		testFileID := fs.TranslateID(entryOut.NodeId)
-		mockClient.AddMockResponse("/me/drive/items/"+testFileID+"/content", nil, http.StatusForbidden,
-			errors.NewAuthError("accessDenied: Access denied. File is read-only.", nil))
+		// Step 2: Simulate permission denied error for write operations via hook
+		targetNodeID := entryOut.NodeId
+		fs.SetTestHooks(&FilesystemTestHooks{
+			WriteHook: func(_ *Filesystem, in *fuse.WriteIn, _ []byte) (uint32, fuse.Status, bool) {
+				if in.NodeId != targetNodeID {
+					return 0, fuse.OK, false
+				}
+				return 0, fuse.EACCES, true
+			},
+		})
+		t.Cleanup(fs.ClearTestHooks)
 
 		// Step 3: Attempt to write to the read-only file
 		writeIn := &fuse.WriteIn{

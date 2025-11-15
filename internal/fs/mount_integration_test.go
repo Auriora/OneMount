@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
-	"github.com/auriora/onemount/internal/graph/mock"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -17,6 +16,8 @@ func TestMountIntegration_SuccessfulMount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
+
+	ensureMockGraphRoot(t)
 
 	// Create temporary directories for test
 	tempDir := t.TempDir()
@@ -123,6 +124,8 @@ func TestMountIntegration_MountFailureScenarios(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ensureMockGraphRoot(t)
+
 			mountPoint, cacheDir := tt.setupFunc(t)
 
 			// Create mock auth
@@ -178,6 +181,8 @@ func TestMountIntegration_GracefulUnmount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
+
+	ensureMockGraphRoot(t)
 
 	// Create temporary directories
 	tempDir := t.TempDir()
@@ -240,8 +245,8 @@ func TestMountIntegration_WithMockGraphAPI(t *testing.T) {
 		t.Fatalf("Failed to create mount point: %v", err)
 	}
 
-	// Create mock Graph API
-	mockGraph := mock.NewMockGraphClient()
+	// Create mock Graph API (shared HTTP client)
+	mockGraph := ensureMockGraphRoot(t)
 
 	// Create mock auth
 	auth := &graph.Auth{
@@ -287,6 +292,8 @@ func TestMountIntegration_WithMockGraphAPI(t *testing.T) {
 // Benchmark for filesystem initialization
 func BenchmarkFilesystemInitialization(b *testing.B) {
 	tempDir := b.TempDir()
+
+	ensureMockGraphRoot(b)
 
 	auth := &graph.Auth{
 		AccessToken:  "mock_access_token",

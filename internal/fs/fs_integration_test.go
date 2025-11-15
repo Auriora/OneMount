@@ -11,6 +11,19 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
+func getFSTestFixture(t *testing.T, fixture interface{}) *helpers.FSTestFixture {
+	t.Helper()
+	unitFixture, ok := fixture.(*framework.UnitTestFixture)
+	if !ok {
+		t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", fixture)
+	}
+	fsFixture, ok := unitFixture.SetupData.(*helpers.FSTestFixture)
+	if !ok {
+		t.Fatalf("Expected SetupData to be of type *helpers.FSTestFixture, but got %T", unitFixture.SetupData)
+	}
+	return fsFixture
+}
+
 // TestIT_FS_12_01_Directory_ReadContents_EntriesCorrectlyReturned tests reading directory contents.
 //
 //	Test Case ID    IT-FS-12-01
@@ -39,10 +52,7 @@ func TestIT_FS_12_01_Directory_ReadContents_EntriesCorrectlyReturned(t *testing.
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -68,6 +78,9 @@ func TestIT_FS_12_01_Directory_ReadContents_EntriesCorrectlyReturned(t *testing.
 		file2Content := "This is test file 2"
 		file2Item := helpers.CreateMockFile(mockClient, dirID, file2Name, file2ID, file2Content)
 		assert.NotNil(file2Item, "Failed to create mock file 2")
+
+		// Ensure the directory children collection includes both files
+		mockClient.AddMockItems("/me/drive/items/"+dirID+"/children", []*graph.DriveItem{file1Item, file2Item})
 
 		// Step 2: Call Readdir on the directory
 		// Get the directory inode
@@ -128,10 +141,7 @@ func TestIT_FS_13_01_Directory_ListContents_OutputMatchesExpected(t *testing.T) 
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -159,6 +169,8 @@ func TestIT_FS_13_01_Directory_ListContents_OutputMatchesExpected(t *testing.T) 
 		file2Content := "This is test file 2 for ls command"
 		file2Item := helpers.CreateMockFile(mockClient, dirID, file2Name, file2ID, file2Content)
 		assert.NotNil(file2Item, "Failed to create mock file 2")
+
+		mockClient.AddMockItems("/me/drive/items/"+dirID+"/children", []*graph.DriveItem{file1Item, file2Item})
 
 		// Make sure the directory inode is in the filesystem
 		dirInode := fs.GetID(dirID)
@@ -229,10 +241,7 @@ func TestIT_FS_14_01_Touch_CreateAndUpdate_FilesCorrectlyModified(t *testing.T) 
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -417,10 +426,7 @@ func TestIT_FS_17_01_Directory_Remove_DirectoryIsDeleted(t *testing.T) {
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		fs := fsFixture.FS.(*Filesystem)
 
@@ -548,7 +554,7 @@ func TestIT_FS_18_01_File_BasicOperations_DataCorrectlyManaged(t *testing.T) {
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture := fixture.(*helpers.FSTestFixture)
+		fsFixture := getFSTestFixture(t, fixture)
 		fs := fsFixture.FS.(*Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
@@ -703,7 +709,7 @@ func TestIT_FS_21_01_File_PositionalOperations_WorkCorrectly(t *testing.T) {
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture := fixture.(*helpers.FSTestFixture)
+		fsFixture := getFSTestFixture(t, fixture)
 		fs := fsFixture.FS.(*Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
@@ -809,7 +815,7 @@ func TestIT_FS_22_01_FileSystem_BasicOperations_WorkCorrectly(t *testing.T) {
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture := fixture.(*helpers.FSTestFixture)
+		fsFixture := getFSTestFixture(t, fixture)
 		fs := fsFixture.FS.(*Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID

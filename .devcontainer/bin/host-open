@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: host-open <URI-or-path>" >&2
+  exit 1
+fi
+
+export GIO_USE_PORTALS=1
+
+target="$1"
+if [[ ! $target =~ ^[a-zA-Z][a-zA-Z0-9+.-]*:// ]]; then
+  target="$(realpath -m "$target")"
+fi
+
+shift || true
+exec gio open "$target" "$@"

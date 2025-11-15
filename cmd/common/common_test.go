@@ -55,12 +55,10 @@ func TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
 		assert.NoError(err, "Virtual .xdg-volume-info should resolve without error")
 		if assert.NotNil(virtualInode, "Virtual inode should exist") {
 			assert.True(strings.HasPrefix(virtualInode.ID(), "local-"), "Virtual inode must use local ID, got %s", virtualInode.ID())
-			content := filesystem.GetInodeContent(virtualInode)
-			assert.NotNil(content, "Cached content should be available")
-			if content != nil {
-				expected := TemplateXDGVolumeInfo("virtual@example.com")
-				assert.Equal(expected, string(*content), "Virtual file content should match template")
-			}
+			assert.True(virtualInode.IsVirtual(), "Inode should be marked virtual")
+			expected := TemplateXDGVolumeInfo("virtual@example.com")
+			actual := string(virtualInode.ReadVirtualContent(0, len(expected)))
+			assert.Equal(expected, actual, "Virtual file content should match template")
 		}
 		assert.Nil(filesystem.GetID(remoteID), "Remote inode should be removed from cache")
 
