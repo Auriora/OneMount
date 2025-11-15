@@ -29,6 +29,11 @@ var (
 // so we can tell what format the db has
 const fsVersion = "1"
 
+const (
+	defaultDeltaLink     = "/me/drive/root/delta?token=latest"
+	defaultSubscribeLink = "/me/drive/root/subscriptions/socketIo"
+)
+
 // OfflineChange represents a change made while offline
 type OfflineChange struct {
 	ID        string    `json:"id"`
@@ -304,29 +309,18 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 				return nil, errors.New("offline and could not fetch the filesystem root item from disk")
 			}
 			// when offline, we load the cache deltaLink from disk
-			var deltaLinkErr error
-			if viewErr := fs.db.View(func(tx *bolt.Tx) error {
-				if link := tx.Bucket(bucketDelta).Get([]byte("deltaLink")); link != nil {
-					fs.deltaLink = string(link)
-				} else {
-					// Only reached if a previous online session never survived
-					// long enough to save its delta link. We explicitly disallow these
-					// types of startups as it's possible for things to get out of sync
-					// this way.
-					logging.Error().Msg("Cannot perform an offline startup without a valid " +
-						"delta link from a previous session.")
-					deltaLinkErr = errors.New("cannot perform an offline startup without a valid delta link from a previous session")
-				}
-				return nil
-			}); viewErr != nil {
-				logging.LogError(viewErr, "Failed to read delta link from database",
+			storedLink, loadErr := fs.loadDeltaLinkFromDB()
+			if loadErr != nil {
+				logging.LogError(loadErr, "Failed to read delta link from database",
 					logging.FieldOperation, "NewFilesystem",
 					logging.FieldPath, dbPath)
-				return nil, errors.Wrap(viewErr, "failed to read delta link from database")
+				return nil, errors.Wrap(loadErr, "failed to read delta link from database")
 			}
-			if deltaLinkErr != nil {
-				return nil, deltaLinkErr
+			if storedLink == "" {
+				logging.Error().Msg("Cannot perform an offline startup without a valid delta link from a previous session.")
+				return nil, errors.New("cannot perform an offline startup without a valid delta link from a previous session")
 			}
+			fs.deltaLink = storedLink
 		} else {
 			logging.LogError(err, "Could not fetch root item of filesystem",
 				logging.FieldOperation, "NewFilesystem")
@@ -384,10 +378,22 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 			}
 		}
 
-		// using token=latest because we don't care about existing items - they'll
-		// be downloaded on-demand by the cache
-		fs.deltaLink = "/me/drive/root/delta?token=latest"
-		fs.subscribeChangesLink = "/me/drive/root/subscriptions/socketIo"
+		// Initialize delta link for online operation
+		storedLink, loadErr := fs.loadDeltaLinkFromDB()
+		if loadErr != nil {
+			logging.LogError(loadErr, "Failed to read delta link from database",
+				logging.FieldOperation, "NewFilesystem",
+				logging.FieldPath, dbPath)
+		}
+		if storedLink == "" {
+			storedLink = defaultDeltaLink
+			if persistErr := fs.persistDeltaLink(storedLink); persistErr != nil {
+				logging.LogError(persistErr, "Failed to persist default delta link",
+					logging.FieldOperation, "NewFilesystem")
+			}
+		}
+		fs.deltaLink = storedLink
+		fs.subscribeChangesLink = defaultSubscribeLink
 	}
 
 	// deltaloop is started manually
@@ -401,6 +407,33 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	}
 
 	return fs, nil
+}
+
+func (f *Filesystem) loadDeltaLinkFromDB() (string, error) {
+	var storedLink string
+	if err := f.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketDelta)
+		if b == nil {
+			return nil
+		}
+		if link := b.Get([]byte("deltaLink")); link != nil {
+			storedLink = string(link)
+		}
+		return nil
+	}); err != nil {
+		return "", err
+	}
+	return storedLink, nil
+}
+
+func (f *Filesystem) persistDeltaLink(link string) error {
+	return f.db.Batch(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(bucketDelta)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte("deltaLink"), []byte(link))
+	})
 }
 
 // IsOffline returns whether the filesystem is currently in offline mode.
@@ -1306,7 +1339,7 @@ func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
 		}()
-		return make(map[string]*Inode), err
+		return nil, err
 	}
 
 	if logging.IsDebugEnabled() {
@@ -1325,7 +1358,7 @@ func (f *Filesystem) GetChildrenPath(path string, auth *graph.Auth) (map[string]
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
 		}()
-		return make(map[string]*Inode), err
+		return nil, err
 	}
 
 	if logging.IsDebugEnabled() {
@@ -1353,8 +1386,19 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 
 	logger := logging.WithLogContext(ctx)
 
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		err := errors.New("path cannot be empty")
+		logging.LogErrorWithContext(err, ctx, "Empty path provided to GetPath",
+			logging.FieldPath, path)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+		}()
+		return nil, err
+	}
+
 	lastID := f.root
-	if path == "/" {
+	if trimmedPath == "/" {
 		result := f.GetID(lastID)
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), result, nil)
@@ -1364,7 +1408,7 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 
 	// from the root directory, traverse the chain of items till we reach our
 	// target ID.
-	path = strings.TrimSuffix(strings.ToLower(path), "/")
+	path = strings.TrimSuffix(strings.ToLower(trimmedPath), "/")
 	split := strings.Split(path, "/")[1:] //omit leading "/"
 
 	if logging.IsDebugEnabled() {

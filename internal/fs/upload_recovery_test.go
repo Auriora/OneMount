@@ -143,16 +143,21 @@ func TestUT_UR_02_02_DownloadSession_CanResumeDownload(t *testing.T) {
 	session := &DownloadSession{
 		CanResume:           true,
 		LastSuccessfulChunk: 1,
-		DownloadURL:         "https://example.com/download",
+		TotalChunks:         4,
 	}
 	assert.True(t, session.canResumeDownload())
 
-	// Test case 2: Session that cannot be resumed (no download URL)
-	session.DownloadURL = ""
+	// Test case 2: Session that cannot be resumed (no chunks completed yet)
+	session.LastSuccessfulChunk = -1
 	assert.False(t, session.canResumeDownload())
 
-	// Test case 3: Session that cannot be resumed (not marked as resumable)
-	session.DownloadURL = "https://example.com/download"
+	// Test case 3: Session that cannot be resumed (total chunks unknown)
+	session.LastSuccessfulChunk = 1
+	session.TotalChunks = 0
+	assert.False(t, session.canResumeDownload())
+
+	// Test case 4: Session that cannot be resumed (not marked as resumable)
+	session.TotalChunks = 4
 	session.CanResume = false
 	assert.False(t, session.canResumeDownload())
 }

@@ -31,8 +31,8 @@ import (
 //	Requirements    3.2 (On-Demand File Download)
 //	Notes: Integration test for single file download workflow
 func TestIT_FS_08_01_DownloadManager_SingleFileDownload(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Parallel execution disabled: these fixtures mutate the shared Graph mock client
+	// and must run serially to avoid HTTP client races with other download suites.
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "SingleFileDownloadIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -200,8 +200,7 @@ func TestIT_FS_08_01_DownloadManager_SingleFileDownload(t *testing.T) {
 //	Requirements    3.2 (On-Demand File Download)
 //	Notes: Integration test for cache hit scenario
 func TestIT_FS_08_02_DownloadManager_CachedFileAccess(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Parallel execution disabled for the same reason as TestIT_FS_08_01.
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "CachedFileAccessIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -341,8 +340,7 @@ func TestIT_FS_08_02_DownloadManager_CachedFileAccess(t *testing.T) {
 //	Requirements    3.4 (Concurrent Downloads), 10.1 (Handle concurrent operations safely)
 //	Notes: Integration test for concurrent download workflow
 func TestIT_FS_08_03_DownloadManager_ConcurrentDownloads(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Parallel execution disabled to keep the mock Graph client state isolated.
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ConcurrentDownloadsIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -552,8 +550,7 @@ func TestIT_FS_08_03_DownloadManager_ConcurrentDownloads(t *testing.T) {
 //	Requirements    3.5 (Download failure and retry), 9.1 (Error handling with retry)
 //	Notes: Integration test for download retry logic
 func TestIT_FS_08_04_DownloadManager_DownloadFailureAndRetry(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Parallel execution disabled to prevent races with shared mock Graph client state.
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DownloadFailureRetryIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -687,8 +684,7 @@ func TestIT_FS_08_04_DownloadManager_DownloadFailureAndRetry(t *testing.T) {
 //	Requirements    3.4 (Download status tracking), 8.1 (File status updates)
 //	Notes: Integration test for download status tracking
 func TestIT_FS_08_05_DownloadManager_DownloadStatusTracking(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Parallel execution disabled to shield shared mock Graph client fixtures.
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DownloadStatusTrackingIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
