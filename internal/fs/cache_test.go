@@ -107,8 +107,10 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		children, err := fs.GetChildrenID(rootID, fs.auth)
 		assert.NoError(err, "GetChildrenID should not return error")
 		assert.NotNil(children, "Children map should not be nil")
-		assert.Contains(children, testFileName, "Children should contain our test file")
-		assert.Equal(testFileID, children[testFileName].ID(), "Child in map should have correct ID")
+		childKey := strings.ToLower(testFileName)
+		childInode, exists := children[childKey]
+		assert.True(exists, "Children should contain our test file")
+		assert.Equal(testFileID, childInode.ID(), "Child in map should have correct ID")
 
 		// Step 5: Test path operations
 		expectedPath := "/" + testFileName

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -23,6 +24,10 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 	}
 	id := inode.ID()
 	path := filepath.Join(inode.Path(), name)
+	if existing, _ := f.GetChild(id, name, f.auth); existing != nil {
+		return fuse.Status(syscall.EEXIST)
+	}
+	currentTime := time.Now()
 	ctx := logging.DefaultLogger.With().
 		Str("op", "Mkdir").
 		Uint64("nodeID", in.NodeId).
@@ -39,11 +44,13 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 		// In offline mode, create a local directory that will be synced when online
 		ctx.Info().Msg("Directory creation in offline mode will be cached locally")
 		item = &graph.DriveItem{
+			ID:     localID(),
 			Name:   name,
 			Folder: &graph.Folder{},
 			Parent: &graph.DriveItemParent{
 				ID: id,
 			},
+			ModTime: &currentTime,
 		}
 	} else {
 		// create the new directory on the server
@@ -55,6 +62,9 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 				logging.FieldPath, path,
 				"name", name)
 			return fuse.EREMOTEIO
+		}
+		if item.ModTime == nil {
+			item.ModTime = &currentTime
 		}
 	}
 

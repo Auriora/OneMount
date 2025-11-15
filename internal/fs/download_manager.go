@@ -92,7 +92,7 @@ func (ds *DownloadSession) updateProgress(chunkIndex int, bytesDownloaded uint64
 func (ds *DownloadSession) canResumeDownload() bool {
 	ds.mutex.RLock()
 	defer ds.mutex.RUnlock()
-	return ds.CanResume && ds.LastSuccessfulChunk >= 0 && ds.DownloadURL != ""
+	return ds.CanResume && ds.LastSuccessfulChunk >= 0 && ds.TotalChunks > 0
 }
 
 // getResumeOffset returns the byte offset from which to resume the download
@@ -372,6 +372,9 @@ func (dm *DownloadManager) processDownload(id string) {
 	session.State = downloadCompleted
 	session.EndTime = time.Now()
 	// Update progress tracking to reflect completed download
+	if session.Size == 0 {
+		session.Size = size
+	}
 	session.BytesDownloaded = size
 	if session.CanResume && session.TotalChunks > 0 {
 		session.LastSuccessfulChunk = session.TotalChunks - 1 // All chunks completed

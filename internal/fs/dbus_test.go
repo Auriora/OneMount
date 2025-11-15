@@ -177,6 +177,9 @@ func TestDBusServer_GetFileStatus(t *testing.T) {
 
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		filesystem := fsFixture.FS.(*Filesystem)
+		rootID := fsFixture.RootID
+		root := filesystem.GetID(rootID)
+		assert.NotNil(root, "Root inode should exist")
 
 		// Set a unique D-Bus service name prefix for this test
 		SetDBusServiceNamePrefix("test_get_file_status")
@@ -236,27 +239,23 @@ func TestDBusServer_GetFileStatus_WithRealFiles(t *testing.T) {
 
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		filesystem := fsFixture.FS.(*Filesystem)
+		rootID := fsFixture.RootID
+		root := filesystem.GetID(rootID)
+		assert.NotNil(root, "Root inode should exist")
 
 		// Set a unique D-Bus service name prefix for this test
 		SetDBusServiceNamePrefix("test_get_file_status_real")
 
 		// Create some test files in the filesystem
 		// Create a directory
-		testDir := NewInode("testdir", fuse.S_IFDIR|0755, filesystem.GetID("root"))
-		filesystem.InsertID(testDir.ID(), testDir)
+		testDir := NewInode("testdir", fuse.S_IFDIR|0755, root)
 		filesystem.InsertNodeID(testDir)
-
-		// Add the directory to root's children
-		root := filesystem.GetID("root")
-		if root != nil {
-			root.SetChildren(append(root.GetChildren(), testDir.ID()))
-		}
+		filesystem.InsertChild(rootID, testDir)
 
 		// Create a file in the directory
 		testFile := NewInode("testfile.txt", fuse.S_IFREG|0644, testDir)
-		filesystem.InsertID(testFile.ID(), testFile)
 		filesystem.InsertNodeID(testFile)
-		testDir.SetChildren([]string{testFile.ID()})
+		filesystem.InsertChild(testDir.ID(), testFile)
 
 		// Set file status to a known value
 		filesystem.SetFileStatus(testFile.ID(), FileStatusInfo{

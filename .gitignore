@@ -85,3 +85,4 @@ venv/
 .obsidian/workspace.json
 .gocache/
 /.mock_children.json
+.home/

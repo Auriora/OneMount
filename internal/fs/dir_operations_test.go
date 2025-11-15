@@ -44,6 +44,8 @@ func TestUT_FS_DirOps_01_DirectoryCreation_BasicOperations(t *testing.T) {
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
+		fs.SetOfflineMode(OfflineModeReadWrite)
+		defer fs.SetOfflineMode(OfflineModeDisabled)
 
 		// Step 1: Test directory creation using Mkdir
 

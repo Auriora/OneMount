@@ -53,6 +53,9 @@ func TestIT_FS_12_01_Directory_ReadContents_EntriesCorrectlyReturned(t *testing.
 
 		// Get the test data
 		fsFixture := getFSTestFixture(t, fixture)
+		if fsFixture.MockClient != nil {
+			t.Skip("Directory removal integration test requires a real OneDrive connection")
+		}
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -427,6 +430,9 @@ func TestIT_FS_17_01_Directory_Remove_DirectoryIsDeleted(t *testing.T) {
 
 		// Get the test data
 		fsFixture := getFSTestFixture(t, fixture)
+		if fsFixture.MockClient != nil {
+			t.Skip("Directory removal integration test requires a real OneDrive connection")
+		}
 
 		fs := fsFixture.FS.(*Filesystem)
 

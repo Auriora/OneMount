@@ -65,15 +65,8 @@ func TestUT_FS_FileRead_01_UncachedFile(t *testing.T) {
 		// Update the root's children to include this file
 		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})
 
-		// Step 2: Ensure the file is not in cache by checking cache directly
-		// The file should not exist in the content cache yet
-		cachedFd, err := fs.content.Open(testFileID)
-		if err == nil {
-			// If file exists in cache, delete it to ensure clean test
-			cachedFd.Close()
-			err = fs.content.Delete(testFileID)
-			assert.Nil(err, "Should be able to delete cached file for clean test")
-		}
+		// Step 2: Ensure the file is not in cache by clearing any stale entry
+		_ = fs.content.Delete(testFileID)
 
 		// Step 3: Get the file inode (this should fetch metadata but not content)
 		child, err := fs.GetChild(rootID, testFileName, fs.auth)
@@ -113,7 +106,7 @@ func TestUT_FS_FileRead_01_UncachedFile(t *testing.T) {
 		assert.NotNil(readResult, "Read result should not be nil")
 
 		// Step 6: Verify file is now cached
-		cachedFd, err = fs.content.Open(testFileID)
+		cachedFd, err := fs.content.Open(testFileID)
 		assert.Nil(err, "File should now be in cache")
 		assert.NotNil(cachedFd, "Cached file descriptor should exist")
 		if cachedFd != nil {
@@ -435,11 +428,8 @@ func TestUT_FS_FileRead_04_FileMetadata(t *testing.T) {
 		assert.True(attr.Ctime > 0, "File should have creation time")
 
 		// Step 5: Verify no content download occurred
-		fd, err := fs.content.Open(testFileID)
-		if err == nil {
-			fd.Close()
-			t.Errorf("File content should not be downloaded for metadata operations")
-		}
+		cachedContent := fs.content.Get(testFileID)
+		assert.Equal(0, len(cachedContent), "File content should not be downloaded for metadata operations")
 
 		t.Logf("File metadata verified: name=%s, size=%d bytes", testFileName, expectedSize)
 	})

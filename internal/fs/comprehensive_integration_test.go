@@ -43,10 +43,7 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -75,12 +72,14 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 		file1Content := "This is the first test document"
 		file1Item := helpers.CreateMockFile(mockClient, rootID, file1Name, file1ID, file1Content)
 		assert.NotNil(file1Item, "Failed to create mock file 1")
+		file1Inode := registerDriveItem(fs, rootID, file1Item)
 
 		file2ID := "test-file-2-id"
 		file2Name := "document2.txt"
 		file2Content := "This is the second test document"
 		file2Item := helpers.CreateMockFile(mockClient, rootID, file2Name, file2ID, file2Content)
 		assert.NotNil(file2Item, "Failed to create mock file 2")
+		registerDriveItem(fs, rootID, file2Item)
 
 		// List the children of the root directory
 		children, err := fs.GetChildrenID(rootID, auth)
@@ -98,9 +97,8 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 
 		// Step 4: Read a file from the filesystem
 		// Get the file inode
-		file1Inode := fs.GetID(file1ID)
+		file1Inode = fs.GetID(file1ID)
 		if file1Inode == nil {
-			// If not in cache, fetch it
 			file1Inode, _ = fs.GetChild(rootID, file1Name, auth)
 			assert.NotNil(file1Inode, "File1 inode should exist")
 		}
@@ -182,10 +180,7 @@ func TestIT_COMPREHENSIVE_02_FileModificationToSync_CompleteFlow_WorksCorrectly(
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -315,10 +310,7 @@ func TestIT_COMPREHENSIVE_03_OfflineMode_CompleteFlow_WorksCorrectly(t *testing.
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -464,10 +456,7 @@ func TestIT_COMPREHENSIVE_04_ConflictResolution_CompleteFlow_WorksCorrectly(t *t
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
@@ -641,10 +630,7 @@ func TestIT_COMPREHENSIVE_05_CacheCleanup_CompleteFlow_WorksCorrectly(t *testing
 		assert := framework.NewAssert(t)
 
 		// Get the test data
-		fsFixture, ok := fixture.(*helpers.FSTestFixture)
-		if !ok {
-			t.Fatalf("Expected fixture to be of type *helpers.FSTestFixture, but got %T", fixture)
-		}
+		fsFixture := getFSTestFixture(t, fixture)
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)

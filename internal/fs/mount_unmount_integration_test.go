@@ -35,6 +35,9 @@ func TestIT_MU_01_01_MountUnmount_BasicCycle_WorksCorrectly(t *testing.T) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 		helper := helpers.MustGetMountHelper(t, fixture)
+		if helper.UsesMockGraph() {
+			t.Skip("Mount/unmount integration tests require a real OneDrive connection")
+		}
 
 		// Step 1: Verify the filesystem is mounted
 		assert.True(helper.IsMounted(), "Filesystem should be mounted")
@@ -92,6 +95,9 @@ func TestIT_MU_02_01_MountUnmount_MultipleCycles_WorksCorrectly(t *testing.T) {
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 		helper := helpers.MustGetMountHelper(t, fixture)
+		if helper.UsesMockGraph() {
+			t.Skip("Mount/unmount integration tests require a real OneDrive connection")
+		}
 
 		// Test parameters
 		const numCycles = 3
@@ -160,6 +166,9 @@ func TestIT_MU_03_01_MountUnmount_WithActiveOperations_HandlesGracefully(t *test
 		// Create assertions helper
 		assert := framework.NewAssert(t)
 		helper := helpers.MustGetMountHelper(t, fixture)
+		if helper.UsesMockGraph() {
+			t.Skip("Mount/unmount integration tests require a real OneDrive connection")
+		}
 
 		// Step 1: Verify filesystem is mounted
 		assert.True(helper.IsMounted(), "Filesystem should be mounted")

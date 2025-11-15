@@ -203,6 +203,7 @@ func TestQuickStats(t *testing.T) {
 
 // TestStatsPagination verifies that pagination works correctly
 func TestStatsPagination(t *testing.T) {
+	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
 	if err != nil {
@@ -258,6 +259,7 @@ func TestStatsPagination(t *testing.T) {
 
 // TestBackgroundStatsUpdater verifies background statistics updates
 func TestBackgroundStatsUpdater(t *testing.T) {
+	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
 	if err != nil {

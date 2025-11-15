@@ -425,8 +425,7 @@ func TestUT_FS_07_05_DownloadManager_ProcessDownload_ChecksumError(t *testing.T)
 //	Expected Result The file is successfully downloaded using chunk-based operations with proper progress tracking
 //	Notes: Tests chunk-based download operations for large files.
 func TestUT_FS_10_DownloadManager_ChunkBasedDownload_LargeFile(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Note: parallel execution disabled to avoid mock HTTP client cleanup races
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ChunkBasedDownloadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -529,8 +528,7 @@ func TestUT_FS_10_DownloadManager_ChunkBasedDownload_LargeFile(t *testing.T) {
 //	Expected Result The download resumes correctly from the last successful chunk
 //	Notes: Tests download resume functionality for interrupted transfers.
 func TestUT_FS_11_DownloadManager_ResumeDownload_InterruptedTransfer(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Note: parallel execution disabled to avoid mock HTTP client cleanup races
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ResumeDownloadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -642,8 +640,7 @@ func TestUT_FS_11_DownloadManager_ResumeDownload_InterruptedTransfer(t *testing.
 //	Expected Result Multiple downloads are managed concurrently with proper queue management
 //	Notes: Tests concurrent transfer management and queue handling for downloads.
 func TestUT_FS_12_DownloadManager_ConcurrentDownloads_QueueManagement(t *testing.T) {
-	// Mark the test for parallel execution
-	t.Parallel()
+	// Note: parallel execution disabled to avoid mock HTTP client cleanup races
 
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ConcurrentDownloadsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {

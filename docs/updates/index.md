@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-15** – [Graph HTTP Client Reset Fix](./2025-11-15-graph-http-client-reset.md)
 - **2025-11-15** – [Deadlock Harness Instrumentation & Stress Fixes](./2025-11-15-deadlock-harness.md)
 - **2025-11-15** – [Devcontainer X11 + Portal Support](./2025-11-15-devcontainer-x11-portal-support.md)
 - **2025-11-15** – [Filesystem Error Scenario Hook Support](./2025-11-15-filesystem-error-test-hooks.md)

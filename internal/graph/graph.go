@@ -32,6 +32,7 @@ const defaultRequestTimeout = 60 * time.Second
 // responseCache is a singleton cache for API responses
 var (
 	httpClient    HTTPClient
+	httpClientMu  sync.RWMutex
 	responseCache *ResponseCache
 	clientOnce    sync.Once
 	cacheOnce     sync.Once
@@ -51,6 +52,9 @@ func init() {
 }
 
 func SetHTTPClient(client *http.Client) {
+	httpClientMu.Lock()
+	defer httpClientMu.Unlock()
+
 	if client == nil {
 		httpClient = getSharedHTTPClient()
 		isMockClientMutex.Lock()
@@ -69,12 +73,38 @@ func SetHTTPClient(client *http.Client) {
 }
 
 func getHTTPClient() HTTPClient {
+	httpClientMu.RLock()
+	defer httpClientMu.RUnlock()
+	if httpClient == nil {
+		return getSharedHTTPClient()
+	}
 	return httpClient
 }
 
 // GetHTTPClient returns the configured HTTP client (public version for external use)
 func GetHTTPClient() HTTPClient {
+	httpClientMu.RLock()
+	defer httpClientMu.RUnlock()
+	if httpClient == nil {
+		return getSharedHTTPClient()
+	}
 	return httpClient
+}
+
+// releaseHTTPClient resets the HTTP client to the shared default if the caller owns the current client.
+func releaseHTTPClient(current HTTPClient) {
+	if current == nil {
+		return
+	}
+
+	httpClientMu.Lock()
+	defer httpClientMu.Unlock()
+	if httpClient == current {
+		httpClient = getSharedHTTPClient()
+		isMockClientMutex.Lock()
+		isMockClient = false
+		isMockClientMutex.Unlock()
+	}
 }
 
 // Graph represents a client for interacting with the Microsoft Graph API.

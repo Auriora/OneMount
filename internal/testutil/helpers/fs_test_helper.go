@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil"
@@ -138,6 +139,7 @@ func CleanupFSTest(t *testing.T, fixture *FSTestFixture) error {
 
 // CreateMockDirectory creates a mock directory in the filesystem.
 func CreateMockDirectory(mockClient *graph.MockGraphClient, parentID, dirName, dirID string) *graph.DriveItem {
+	now := time.Now()
 	// Create a directory item
 	dirItem := &graph.DriveItem{
 		ID:   dirID,
@@ -148,6 +150,7 @@ func CreateMockDirectory(mockClient *graph.MockGraphClient, parentID, dirName, d
 		Folder: &graph.Folder{
 			ChildCount: 0,
 		},
+		ModTime: &now,
 	}
 
 	// Add the directory to the mock client
@@ -164,6 +167,7 @@ func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileI
 	// Convert content to bytes and calculate hash
 	contentBytes := []byte(content)
 	quickXorHash := graph.QuickXORHash(&contentBytes)
+	now := time.Now()
 
 	// Create a file item
 	fileItem := &graph.DriveItem{
@@ -177,7 +181,8 @@ func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileI
 				QuickXorHash: quickXorHash,
 			},
 		},
-		Size: uint64(len(content)),
+		Size:    uint64(len(content)),
+		ModTime: &now,
 	}
 
 	// Add the file to the mock client

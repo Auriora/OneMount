@@ -587,8 +587,8 @@ func (m *MockGraphClient) Cleanup() {
 	m.RequestResponses = make(map[string]MockResponse)
 	m.mu.Unlock()
 
-	// Reset the test HTTP client
-	SetHTTPClient(nil)
+	// Reset the test HTTP client only if this mock still owns it
+	releaseHTTPClient(m.httpClient)
 }
 
 // simulateNetworkConditions applies the configured network conditions to a request.

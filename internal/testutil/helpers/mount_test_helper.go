@@ -188,6 +188,11 @@ func (h *MountTestHelper) VerifyFileExists(relativePath string) bool {
 	return err == nil
 }
 
+// UsesMockGraph reports whether the helper is backed by the in-memory mock client.
+func (h *MountTestHelper) UsesMockGraph() bool {
+	return h.mockClient != nil
+}
+
 // GetMountStats returns statistics about the mounted filesystem
 func (h *MountTestHelper) GetMountStats() (*syscall.Statfs_t, error) {
 	if !h.IsMounted() {

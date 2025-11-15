@@ -6,9 +6,10 @@ import (
 	"time"
 )
 
+var defaultHTTPClient HTTPClient
+
 // getSharedHTTPClient returns the shared HTTP client with connection pooling
 func getSharedHTTPClient() HTTPClient {
-	var sharedHTTPClient HTTPClient
 	clientOnce.Do(func() {
 		// Create a custom transport with connection pooling settings
 		transport := &http.Transport{
@@ -18,7 +19,7 @@ func getSharedHTTPClient() HTTPClient {
 		}
 
 		// Create the shared client with the custom transport and timeout
-		sharedHTTPClient = &http.Client{
+		defaultHTTPClient = &http.Client{
 			Transport: transport,
 			Timeout:   defaultRequestTimeout,
 		}
@@ -26,5 +27,5 @@ func getSharedHTTPClient() HTTPClient {
 		logging.Info().Msg("Initialized shared HTTP client with connection pooling")
 	})
 
-	return sharedHTTPClient
+	return defaultHTTPClient
 }

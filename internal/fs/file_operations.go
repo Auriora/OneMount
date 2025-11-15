@@ -40,8 +40,15 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 		ctx.Info().Msg("File creation in offline mode will be cached locally")
 	}
 
-	if child, _ := f.GetChild(parentID, name, f.auth); child != nil {
-		return fuse.Status(syscall.EEXIST)
+	lower := strings.ToLower(name)
+	for _, childID := range parent.GetChildren() {
+		child := f.GetID(childID)
+		if child == nil {
+			continue
+		}
+		if strings.ToLower(child.Name()) == lower {
+			return fuse.Status(syscall.EEXIST)
+		}
 	}
 
 	inode := NewInode(name, in.Mode, parent)
