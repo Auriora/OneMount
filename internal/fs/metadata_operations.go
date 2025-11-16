@@ -167,6 +167,20 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 			Uint64("oldSize", i.DriveItem.Size).
 			Uint64("newSize", size).
 			Msg("")
+		if i.IsVirtual() {
+			if err := i.TruncateVirtualContent(size); err != nil {
+				i.mu.Unlock()
+				logging.LogError(err, "Failed to truncate virtual file",
+					logging.FieldOperation, "SetAttr.truncate",
+					logging.FieldID, i.DriveItem.ID,
+					logging.FieldPath, path)
+				return fuse.EIO
+			}
+			i.mu.Unlock()
+			out.Attr = i.makeAttr()
+			out.SetTimeout(timeout)
+			return fuse.OK
+		}
 		fd, err := f.content.Open(i.DriveItem.ID)
 		if err != nil {
 			logging.LogError(err, "Failed to open file for truncation",

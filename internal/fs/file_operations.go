@@ -141,6 +141,31 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		return fuse.ENOENT
 	}
 
+	path := inode.Path()
+	if logging.IsDebugEnabled() {
+		logging.Debug().
+			Str("op", "OpenEntry").
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldPath, path).
+			Msg("Received Open request")
+	}
+
+	// Short-circuit virtual files before any cache interaction
+	if inode.IsVirtual() {
+		if logging.IsDebugEnabled() {
+			logging.Debug().
+				Uint64("nodeID", in.NodeId).
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, path).
+				Msg("Opening virtual file")
+		}
+		f.updateFileStatus(inode)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), fuse.OK)
+		}()
+		return fuse.OK
+	}
+
 	// Check if this is a thumbnail request
 	name := inode.Name()
 	if _, _, ok := parseThumbnailRequest(name); ok {
@@ -155,7 +180,6 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 		return status
 	}
 
-	path := inode.Path()
 	// Create a context for this operation with request ID, user ID, and path
 	logCtx := logging.NewLogContextWithRequestAndUserID("file_open").
 		WithPath(path)
@@ -433,7 +457,17 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 
 	id := inode.ID()
 	path := inode.Path()
-	if inode.IsVirtual() && strings.EqualFold(inode.Name(), xdgVolumeInfoName) {
+	if logging.IsDebugEnabled() {
+		logging.Debug().
+			Str("op", "ReadEntry").
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldID, id).
+			Str(logging.FieldPath, path).
+			Int(logging.FieldOffset, int(in.Offset)).
+			Int(logging.FieldSize, int(in.Size)).
+			Msg("Received Read request")
+	}
+	if inode.IsVirtual() {
 		chunk := inode.ReadVirtualContent(int(in.Offset), int(in.Size))
 		result := fuse.ReadResultData(chunk)
 		logging.LogMethodExit(methodName, time.Since(startTime), result, fuse.OK)
@@ -511,6 +545,28 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	nWrite := len(data)
 	offset := int(in.Offset)
 	path := inode.Path()
+
+	if inode.IsVirtual() {
+		written, err := inode.WriteVirtualContent(offset, data)
+		if err != nil {
+			logging.LogError(err, "Failed to write virtual file",
+				logging.FieldID, id,
+				logging.FieldOperation, "file_write",
+				logging.FieldPath, path)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EIO))
+			}()
+			return 0, fuse.EIO
+		}
+		f.SetFileStatus(id, FileStatusInfo{
+			Status:    StatusLocalModified,
+			Timestamp: time.Now(),
+		})
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), uint32(written), int32(fuse.OK))
+		}()
+		return uint32(written), fuse.OK
+	}
 
 	// Create a context for this operation with request ID, user ID, and path
 	logCtx := logging.NewLogContextWithRequestAndUserID("file_write").
@@ -620,6 +676,9 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 	if inode == nil {
 		return fuse.EBADF
 	}
+	if inode.IsVirtual() {
+		return fuse.OK
+	}
 
 	ctx := logging.DefaultLogger.With().
 		Str("op", "Fsync").
@@ -684,8 +743,19 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 	if inode == nil {
 		return fuse.EBADF
 	}
+	if inode.IsVirtual() {
+		return fuse.OK
+	}
 
 	id := inode.ID()
+	if logging.IsDebugEnabled() {
+		logging.Debug().
+			Str("op", "FlushEntry").
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldID, id).
+			Str(logging.FieldPath, inode.Path()).
+			Msg("Received Flush request")
+	}
 	logging.Trace().
 		Str("op", "Flush").
 		Str("id", id).
@@ -703,5 +773,12 @@ func (f *Filesystem) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status
 
 	// Update file status attributes after releasing the lock
 	f.updateFileStatus(inode)
+	if logging.IsDebugEnabled() {
+		logging.Debug().
+			Str("op", "FlushExit").
+			Uint64("nodeID", in.NodeId).
+			Str(logging.FieldID, id).
+			Msg("Completed Flush request")
+	}
 	return 0
 }

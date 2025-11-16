@@ -1,7 +1,9 @@
 package fs
 
 import (
+	"errors"
 	"sync"
+	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 )
@@ -83,6 +85,58 @@ func (i *Inode) IsVirtual() bool {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.virtual
+}
+
+// WriteVirtualContent writes data to the virtual file buffer at the given offset.
+// It returns the number of bytes written or an error if the inode is not virtual
+// or if the offset is invalid.
+func (i *Inode) WriteVirtualContent(offset int, data []byte) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if !i.virtual {
+		return 0, errors.New("inode is not virtual")
+	}
+	if offset < 0 {
+		return 0, errors.New("negative offset for virtual write")
+	}
+	end := offset + len(data)
+	if end > len(i.virtualContent) {
+		newBuf := make([]byte, end)
+		copy(newBuf, i.virtualContent)
+		i.virtualContent = newBuf
+	}
+	copy(i.virtualContent[offset:], data)
+	i.DriveItem.Size = uint64(len(i.virtualContent))
+	now := time.Now()
+	i.DriveItem.ModTime = &now
+	return len(data), nil
+}
+
+// TruncateVirtualContent resizes the virtual file buffer to the requested size.
+// When expanding, the new tail region is zero-filled.
+func (i *Inode) TruncateVirtualContent(size uint64) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if !i.virtual {
+		return errors.New("inode is not virtual")
+	}
+	current := uint64(len(i.virtualContent))
+	if size == current {
+		return nil
+	}
+	if size < current {
+		i.virtualContent = append([]byte(nil), i.virtualContent[:size]...)
+	} else {
+		extend := make([]byte, size-current)
+		i.virtualContent = append(i.virtualContent, extend...)
+	}
+	i.DriveItem.Size = uint64(len(i.virtualContent))
+	now := time.Now()
+	i.DriveItem.ModTime = &now
+	return nil
 }
 
 // ReadVirtualContent returns a slice of the virtual file content for the requested offset/size.

@@ -14,6 +14,7 @@ import (
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
 const version = "0.1.0rc1"
@@ -100,6 +101,7 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	now := time.Now()
 
 	if child != nil {
+		child.SetMode(fuse.S_IFREG | 0644)
 		child.DriveItem.Size = uint64(len(content))
 		child.DriveItem.ModTime = &now
 		child.SetVirtualContent(content)
@@ -115,7 +117,7 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 
 	logging.Info().Msg("Creating .xdg-volume-info as local-only virtual file")
 	root, _ := filesystem.GetPath("/", auth) // cannot fail
-	inode := fs.NewInode(fileName, 0644, root)
+	inode := fs.NewInode(fileName, fuse.S_IFREG|0644, root)
 	inode.DriveItem.Size = uint64(len(content))
 	inode.DriveItem.ModTime = &now
 	inode.SetVirtualContent(content)
