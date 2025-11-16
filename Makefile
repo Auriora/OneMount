@@ -9,6 +9,9 @@ RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 # -Wno-deprecated-declarations is for gotk3, which uses deprecated methods for older
 # glib compatibility: https://github.com/gotk3/gotk3/issues/762#issuecomment-919035313
 CGO_CFLAGS := CGO_CFLAGS=-Wno-deprecated-declarations
+GOTK3_GLIB_TAG ?= $(shell bash scripts/detect-glib-build-tag.sh)
+GO_BUILD_TAGS := $(strip $(GOTK3_GLIB_TAG))
+GO_TAGS_FLAG := $(if $(GO_BUILD_TAGS),-tags "$(GO_BUILD_TAGS)",)
 
 # Build directory structure
 BUILD_DIR := build
@@ -32,7 +35,7 @@ build: all
 onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
 	bash scripts/cgo-helper.sh
 	mkdir -p $(OUTPUT_DIR)
-	$(CGO_CFLAGS) go build -v \
+	$(CGO_CFLAGS) go build -v $(GO_TAGS_FLAG) \
 		-o $(OUTPUT_DIR)/onemount \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
@@ -41,7 +44,7 @@ onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
 
 onemount-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onemount/main.go
 	mkdir -p $(OUTPUT_DIR)
-	CGO_ENABLED=0 go build -v \
+	CGO_ENABLED=0 go build -v $(GO_TAGS_FLAG) \
 		-o $(OUTPUT_DIR)/onemount-headless \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount
@@ -49,7 +52,7 @@ onemount-headless: $(shell find internal/fs/ cmd/common/ -type f) cmd/onemount/m
 
 onemount-launcher: $(shell find internal/ui/ cmd/common/ -type f) cmd/onemount-launcher/main.go
 	mkdir -p $(OUTPUT_DIR)
-	$(CGO_CFLAGS) go build -v \
+	$(CGO_CFLAGS) go build -v $(GO_TAGS_FLAG) \
 		-o $(OUTPUT_DIR)/onemount-launcher \
 		-ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(shell git rev-parse HEAD)" \
 		./cmd/onemount-launcher

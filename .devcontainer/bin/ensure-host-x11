@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+
+# This helper runs on the host before the devcontainer starts. It mirrors the
+# xcalc recipe by automatically granting the container user access to the host
+# X server so DISPLAY forwarding works without manual xhost calls.
+
+if ! command -v xhost >/dev/null 2>&1; then
+  echo "[ensure-host-x11] 'xhost' not found on the host; skipping display authorization." >&2
+  exit 0
+fi
+
+display="${HOST_DISPLAY:-${DISPLAY:-}}"
+if [[ -z "${display}" ]]; then
+  echo "[ensure-host-x11] DISPLAY is not set; skipping xhost helper." >&2
+  exit 0
+fi
+
+target_user="${HOST_X11_USER:-$(whoami)}"
+
+export DISPLAY="${display}"
+if xhost +SI:localuser:"${target_user}" >/dev/null 2>&1; then
+  echo "[ensure-host-x11] Authorized local user '${target_user}' for ${display}."
+else
+  echo "[ensure-host-x11] Failed to authorize '${target_user}' with xhost." >&2
+fi

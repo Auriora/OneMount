@@ -11,6 +11,7 @@
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "containerUser": "vscode",
+  "initializeCommand": "bash -lc '.devcontainer/bin/ensure-host-x11'",
   "runArgs": [
     "--device=/dev/fuse",
     "--cap-add=SYS_ADMIN",
@@ -18,7 +19,6 @@
     "--security-opt=apparmor:unconfined"
   ],
   "mounts": [
-    "type=tmpfs,target=/tmp",
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.Xauthority,target=/tmp/.Xauthority,type=bind,consistency=cached,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind,consistency=cached,propagation=rshared",
