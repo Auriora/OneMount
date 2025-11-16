@@ -53,6 +53,23 @@ func findLogoPath(filename string) string {
 	return ""
 }
 
+// setWindowIcon tries the provided candidate logo files in order until one loads successfully.
+func setWindowIcon(window *gtk.ApplicationWindow, candidates ...string) {
+	for _, candidate := range candidates {
+		logoPath := findLogoPath(candidate)
+		if logoPath == "" {
+			continue
+		}
+		if err := window.SetIconFromFile(logoPath); err != nil {
+			logging.Warn().Err(err).Str("path", logoPath).Msg("Could not load logo.")
+			continue
+		}
+		logging.Debug().Str("path", logoPath).Msg("Window icon set.")
+		return
+	}
+	logging.Warn().Strs("candidates", candidates).Msg("Could not set window icon from any candidate logo.")
+}
+
 // setupLogging configures the logger based on the configuration
 func setupLogging(config *common.Config) error {
 	// Set the global log level
@@ -163,13 +180,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	header.SetTitle("OneMount")
 	window.SetTitlebar(header)
 
-	logoPath := findLogoPath("onemount.svg")
-	if logoPath != "" {
-		err := window.SetIconFromFile(logoPath)
-		if err != nil {
-			logging.Warn().Err(err).Str("path", logoPath).Msg("Could not load logo.")
-		}
-	}
+	setWindowIcon(window, "onemount.svg", "onemount.png", "onemount-128.png")
 
 	listbox, _ := gtk.ListBoxNew()
 	window.Add(listbox)

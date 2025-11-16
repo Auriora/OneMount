@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-16** – [Launcher Icon SVG Fallback](./2025-11-16-launcher-icon-svg-fallback.md)
 - **2025-11-16** – [GLib Build Tag Auto-Detection](./2025-11-16-gotk3-glib-tag-detection.md)
 - **2025-11-16** – [Devcontainer Codex Config Snapshot](./2025-11-16-devcontainer-codex-config-sync.md)
 - **2025-11-16** – [Devcontainer X11 Bootstrap Helper](./2025-11-16-devcontainer-x11-bootstrap.md)
