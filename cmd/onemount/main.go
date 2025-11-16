@@ -285,6 +285,11 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		filesystem.ConfigureWebhooks(webhookOpts)
 	}
 
+	filesystem.ConfigureDeltaTuning(fs.DeltaTuning{
+		ActiveInterval: time.Duration(config.ActiveDeltaInterval) * time.Second,
+		ActiveWindow:   time.Duration(config.ActiveDeltaWindow) * time.Second,
+	})
+
 	logging.Info().Msgf("Setting base delta query interval to %d second(s)", config.DeltaInterval)
 	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Second)
 

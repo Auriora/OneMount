@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
@@ -112,11 +113,14 @@ type Filesystem struct {
 	metadataRefresh        sync.Map                // Tracks in-flight metadata refreshes by directory ID
 
 	// Webhook / subscription management
-	webhookOptions      *WebhookOptions
-	subscriptionManager *SubscriptionManager
-	deltaInterval       time.Duration
-	lastDeltaInterval   time.Duration
-	lastDeltaReason     string
+	webhookOptions         *WebhookOptions
+	subscriptionManager    *SubscriptionManager
+	deltaInterval          time.Duration
+	lastDeltaInterval      time.Duration
+	lastDeltaReason        string
+	activeDeltaInterval    time.Duration
+	activeDeltaWindow      time.Duration
+	lastForegroundActivity atomic.Int64
 
 	// Sync progress tracking
 	syncProgress *SyncProgress // Progress tracking for directory tree sync

@@ -182,6 +182,9 @@ func (m *MetadataRequestManager) queueRequest(request *MetadataRequest) error {
 	var queueName string
 
 	if request.Priority == PriorityForeground {
+		if m.fs != nil {
+			m.fs.RecordForegroundActivity()
+		}
 		targetQueue = m.highPriorityQueue
 		queueName = "high"
 	} else {

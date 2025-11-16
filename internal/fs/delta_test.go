@@ -354,3 +354,31 @@ func TestIT_FS_10_01_Delta_MissingHash_HandledCorrectly(t *testing.T) {
 		t.Skip("Test not implemented yet")
 	})
 }
+
+func TestDesiredDeltaIntervalUsesActiveWindow(t *testing.T) {
+	fs := &Filesystem{}
+	fs.ConfigureDeltaTuning(DeltaTuning{
+		ActiveInterval: time.Minute,
+		ActiveWindow:   2 * time.Minute,
+	})
+	fs.deltaInterval = 5 * time.Minute
+	fs.RecordForegroundActivity()
+
+	if interval := fs.desiredDeltaInterval(); interval != time.Minute {
+		t.Fatalf("expected active interval 1m, got %s", interval)
+	}
+}
+
+func TestDesiredDeltaIntervalFallsBackAfterWindow(t *testing.T) {
+	fs := &Filesystem{}
+	fs.ConfigureDeltaTuning(DeltaTuning{
+		ActiveInterval: 30 * time.Second,
+		ActiveWindow:   30 * time.Second,
+	})
+	fs.deltaInterval = 2 * time.Minute
+	fs.lastForegroundActivity.Store(time.Now().Add(-time.Minute).UnixNano())
+
+	if interval := fs.desiredDeltaInterval(); interval != 2*time.Minute {
+		t.Fatalf("expected base interval 2m, got %s", interval)
+	}
+}

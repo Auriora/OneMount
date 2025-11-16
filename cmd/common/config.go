@@ -28,6 +28,8 @@ type Config struct {
 	LogOutput            string        `yaml:"logOutput"`
 	SyncTree             bool          `yaml:"syncTree"`
 	DeltaInterval        int           `yaml:"deltaInterval"`
+	ActiveDeltaInterval  int           `yaml:"activeDeltaInterval"`
+	ActiveDeltaWindow    int           `yaml:"activeDeltaWindow"`
 	CacheExpiration      int           `yaml:"cacheExpiration"`
 	CacheCleanupInterval int           `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
 	MaxCacheSize         int64         `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
@@ -68,6 +70,8 @@ func createDefaultConfig() Config {
 		LogOutput:            DefaultLogOutput,                 // Default to standard output
 		SyncTree:             true,                             // Enable tree sync by default for better performance
 		DeltaInterval:        int((5 * time.Minute).Seconds()), // Default to 5 minutes per requirements
+		ActiveDeltaInterval:  60,                               // Foreground interaction window polls every 60 seconds
+		ActiveDeltaWindow:    120,                              // Keep the faster cadence for 2 minutes after activity
 		CacheExpiration:      30,                               // Default to 30 days
 		CacheCleanupInterval: 24,                               // Default to 24 hours
 		MaxCacheSize:         0,                                // Default to unlimited (0 = no limit)
@@ -162,6 +166,20 @@ func validateConfig(config *Config) error {
 			Int("cacheExpiration", config.CacheExpiration).
 			Msg("Cache expiration must be non-negative, using default.")
 		config.CacheExpiration = 30
+	}
+
+	// Validate active delta tuning
+	if config.ActiveDeltaInterval <= 0 {
+		logging.Warn().
+			Int("activeDeltaInterval", config.ActiveDeltaInterval).
+			Msg("Active delta interval must be positive, using default (60s).")
+		config.ActiveDeltaInterval = 60
+	}
+	if config.ActiveDeltaWindow <= 0 {
+		logging.Warn().
+			Int("activeDeltaWindow", config.ActiveDeltaWindow).
+			Msg("Active delta window must be positive, using default (120s).")
+		config.ActiveDeltaWindow = 120
 	}
 
 	// Validate CacheCleanupInterval (1 hour to 30 days = 720 hours)

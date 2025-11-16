@@ -70,6 +70,21 @@ func (f *Filesystem) logDeltaInterval(interval time.Duration, mode string, expec
 		Msg("Delta polling interval deviates from requirement; continuing with configured value")
 }
 
+func (f *Filesystem) shouldUseActiveInterval(baseInterval time.Duration) bool {
+	if f.activeDeltaInterval <= 0 || f.activeDeltaWindow <= 0 {
+		return false
+	}
+	if f.activeDeltaInterval >= baseInterval {
+		return false
+	}
+	last := f.lastForegroundActivity.Load()
+	if last == 0 {
+		return false
+	}
+	lastTime := time.Unix(0, last)
+	return time.Since(lastTime) <= f.activeDeltaWindow
+}
+
 func (f *Filesystem) desiredDeltaInterval() time.Duration {
 	if f.subscriptionManager != nil && f.subscriptionManager.IsActive() {
 		expected := defaultWebhookFallbackInterval
@@ -80,11 +95,15 @@ func (f *Filesystem) desiredDeltaInterval() time.Duration {
 		f.logDeltaInterval(interval, "webhook", expected)
 		return interval
 	}
-	interval := f.deltaInterval
-	if interval <= 0 {
-		interval = defaultPollingInterval
+	baseInterval := f.deltaInterval
+	if baseInterval <= 0 {
+		baseInterval = defaultPollingInterval
 	}
-	f.logDeltaInterval(interval, "polling", defaultPollingInterval)
+	interval := baseInterval
+	if f.shouldUseActiveInterval(baseInterval) {
+		interval = f.activeDeltaInterval
+	}
+	f.logDeltaInterval(interval, "polling", baseInterval)
 	return interval
 }
 

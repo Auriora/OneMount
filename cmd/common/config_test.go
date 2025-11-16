@@ -215,3 +215,28 @@ func TestValidateWebhookConfigRequiresHTTPS(t *testing.T) {
 		t.Fatalf("expected HTTPS webhook url to validate, got %v", err)
 	}
 }
+
+func TestDefaultActiveDeltaTuning(t *testing.T) {
+	cfg := createDefaultConfig()
+	if cfg.ActiveDeltaInterval != 60 {
+		t.Fatalf("expected default active delta interval 60 seconds, got %d", cfg.ActiveDeltaInterval)
+	}
+	if cfg.ActiveDeltaWindow != 120 {
+		t.Fatalf("expected default active delta window 120 seconds, got %d", cfg.ActiveDeltaWindow)
+	}
+}
+
+func TestValidateConfigResetsInvalidActiveDeltaTuning(t *testing.T) {
+	cfg := createDefaultConfig()
+	cfg.ActiveDeltaInterval = -5
+	cfg.ActiveDeltaWindow = 0
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error: %v", err)
+	}
+	if cfg.ActiveDeltaInterval != 60 {
+		t.Fatalf("active delta interval not reset; got %d", cfg.ActiveDeltaInterval)
+	}
+	if cfg.ActiveDeltaWindow != 120 {
+		t.Fatalf("active delta window not reset; got %d", cfg.ActiveDeltaWindow)
+	}
+}
