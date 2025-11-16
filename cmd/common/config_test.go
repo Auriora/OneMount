@@ -1,10 +1,12 @@
 package common
 
 import (
-	"github.com/auriora/onemount/internal/testutil/framework"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/auriora/onemount/internal/testutil/framework"
 )
 
 // TestUT_CMD_02_01_Config_ValidConfigFile_LoadsCorrectValues verifies that configuration can be loaded from a file.
@@ -189,4 +191,27 @@ func TestUT_CMD_05_01_Config_ValidSettings_WritesSuccessfully(t *testing.T) {
 		// 3. Check if the write operation succeeds
 		t.Skip("Test not implemented yet")
 	})
+}
+
+func TestDefaultDeltaIntervalIsFiveMinutes(t *testing.T) {
+	cfg := createDefaultConfig()
+	expected := int((5 * time.Minute).Seconds())
+	if cfg.DeltaInterval != expected {
+		t.Fatalf("expected default delta interval %d seconds, got %d", expected, cfg.DeltaInterval)
+	}
+}
+
+func TestValidateWebhookConfigRequiresHTTPS(t *testing.T) {
+	cfg := &WebhookConfig{
+		Enabled:   true,
+		PublicURL: "http://example.com/onemount/webhook",
+	}
+	if err := validateWebhookConfig(cfg); err == nil {
+		t.Fatal("expected error for non-HTTPS webhook url")
+	}
+
+	cfg.PublicURL = "https://example.com/onemount/webhook"
+	if err := validateWebhookConfig(cfg); err != nil {
+		t.Fatalf("expected HTTPS webhook url to validate, got %v", err)
+	}
 }

@@ -1,9 +1,12 @@
 package common
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/imdario/mergo"
 	yaml "gopkg.in/yaml.v3"
@@ -20,16 +23,31 @@ const (
 )
 
 type Config struct {
-	CacheDir             string `yaml:"cacheDir"`
-	LogLevel             string `yaml:"log"`
-	LogOutput            string `yaml:"logOutput"`
-	SyncTree             bool   `yaml:"syncTree"`
-	DeltaInterval        int    `yaml:"deltaInterval"`
-	CacheExpiration      int    `yaml:"cacheExpiration"`
-	CacheCleanupInterval int    `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
-	MaxCacheSize         int64  `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
-	MountTimeout         int    `yaml:"mountTimeout"`
+	CacheDir             string        `yaml:"cacheDir"`
+	LogLevel             string        `yaml:"log"`
+	LogOutput            string        `yaml:"logOutput"`
+	SyncTree             bool          `yaml:"syncTree"`
+	DeltaInterval        int           `yaml:"deltaInterval"`
+	CacheExpiration      int           `yaml:"cacheExpiration"`
+	CacheCleanupInterval int           `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
+	MaxCacheSize         int64         `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
+	MountTimeout         int           `yaml:"mountTimeout"`
+	Webhook              WebhookConfig `yaml:"webhook"`
 	graph.AuthConfig     `yaml:"auth"`
+}
+
+// WebhookConfig controls Microsoft Graph webhook subscriptions.
+type WebhookConfig struct {
+	Enabled          bool   `yaml:"enabled"`
+	PublicURL        string `yaml:"publicUrl"`
+	ListenAddress    string `yaml:"listenAddress"`
+	Path             string `yaml:"path"`
+	ClientState      string `yaml:"clientState"`
+	TLSCertFile      string `yaml:"tlsCertFile"`
+	TLSKeyFile       string `yaml:"tlsKeyFile"`
+	Resource         string `yaml:"resource"`
+	ChangeType       string `yaml:"changeType"`
+	FallbackInterval int    `yaml:"fallbackIntervalSeconds"`
 }
 
 // DefaultConfigPath returns the default config location for onemount
@@ -47,13 +65,25 @@ func createDefaultConfig() Config {
 	return Config{
 		CacheDir:             filepath.Join(xdgCacheDir, "onemount"),
 		LogLevel:             "debug",
-		LogOutput:            DefaultLogOutput, // Default to standard output
-		SyncTree:             true,             // Enable tree sync by default for better performance
-		DeltaInterval:        1,                // Default to 1 second
-		CacheExpiration:      30,               // Default to 30 days
-		CacheCleanupInterval: 24,               // Default to 24 hours
-		MaxCacheSize:         0,                // Default to unlimited (0 = no limit)
-		MountTimeout:         60,               // Default to 60 seconds
+		LogOutput:            DefaultLogOutput,                 // Default to standard output
+		SyncTree:             true,                             // Enable tree sync by default for better performance
+		DeltaInterval:        int((5 * time.Minute).Seconds()), // Default to 5 minutes per requirements
+		CacheExpiration:      30,                               // Default to 30 days
+		CacheCleanupInterval: 24,                               // Default to 24 hours
+		MaxCacheSize:         0,                                // Default to unlimited (0 = no limit)
+		MountTimeout:         60,                               // Default to 60 seconds
+		Webhook: WebhookConfig{
+			Enabled:          false,
+			PublicURL:        "",
+			ListenAddress:    "127.0.0.1:8787",
+			Path:             "/onemount/webhook",
+			ClientState:      "",
+			TLSCertFile:      "",
+			TLSKeyFile:       "",
+			Resource:         "/me/drive/root",
+			ChangeType:       "updated",
+			FallbackInterval: int((30 * time.Minute).Seconds()),
+		},
 	}
 }
 
@@ -123,7 +153,7 @@ func validateConfig(config *Config) error {
 		logging.Warn().
 			Int("deltaInterval", config.DeltaInterval).
 			Msg("Delta interval must be positive, using default.")
-		config.DeltaInterval = 1
+		config.DeltaInterval = int((5 * time.Minute).Seconds())
 	}
 
 	// Validate CacheExpiration
@@ -165,7 +195,57 @@ func validateConfig(config *Config) error {
 		}
 	}
 
+	if err := validateWebhookConfig(&config.Webhook); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func validateWebhookConfig(cfg *WebhookConfig) error {
+	if cfg == nil {
+		return nil
+	}
+
+	if cfg.Path == "" {
+		cfg.Path = "/onemount/webhook"
+	}
+	if !strings.HasPrefix(cfg.Path, "/") {
+		cfg.Path = "/" + cfg.Path
+	}
+	if cfg.ListenAddress == "" {
+		cfg.ListenAddress = "127.0.0.1:8787"
+	}
+	if cfg.Resource == "" {
+		cfg.Resource = "/me/drive/root"
+	}
+	if cfg.ChangeType == "" {
+		cfg.ChangeType = "updated"
+	}
+	if cfg.FallbackInterval <= 0 {
+		cfg.FallbackInterval = int((30 * time.Minute).Seconds())
+	}
+	if cfg.Enabled {
+		if cfg.PublicURL == "" {
+			return errors.New("webhook configuration requires publicUrl when enabled")
+		}
+		if !strings.HasPrefix(strings.ToLower(cfg.PublicURL), "https://") {
+			return errors.New("webhook publicUrl must be HTTPS")
+		}
+		if cfg.ClientState == "" {
+			cfg.ClientState = generateClientState()
+		}
+	}
+	return nil
+}
+
+func generateClientState() string {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		logging.Warn().Err(err).Msg("Failed to generate random clientState for webhook; using fallback")
+		return "onemount-client-state"
+	}
+	return hex.EncodeToString(buf)
 }
 
 // LoadConfig is the primary way of loading onemount's config

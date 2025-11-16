@@ -3,296 +3,380 @@ package fs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"net/url"
+	"net"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
-	"github.com/yousong/socketio-go/engineio"
-	"github.com/yousong/socketio-go/socketio"
 )
 
-type subscriptionResponse struct {
-	Context            string    `json:"@odata.context"`
-	ClientState        string    `json:"clientState"`
-	ExpirationDateTime time.Time `json:"expirationDateTime"`
-	Id                 string    `json:"id"`
-	NotificationUrl    string    `json:"notificationUrl"`
-	Resource           string    `json:"resource"`
+// SubscriptionManager handles Microsoft Graph webhook subscriptions and notification delivery.
+type SubscriptionManager struct {
+	opts WebhookOptions
+	auth *graph.Auth
+
+	notifications chan struct{}
+	stopCh        chan struct{}
+	server        *http.Server
+	wg            sync.WaitGroup
+
+	mu             sync.RWMutex
+	subscriptionID string
+	expiration     time.Time
+	listenAddr     string
+
+	ctx context.Context
 }
 
-func (f *Filesystem) subscribeChanges() (subscriptionResponse, error) {
-	subscResp := subscriptionResponse{}
+var subscriptionRenewalCheckInterval = time.Hour
 
-	resp, err := graph.Get(f.subscribeChangesLink, f.auth)
+// NewSubscriptionManager creates a manager for the provided options.
+func NewSubscriptionManager(opts WebhookOptions, auth *graph.Auth) *SubscriptionManager {
+	return &SubscriptionManager{
+		opts:          opts,
+		auth:          auth,
+		notifications: make(chan struct{}, 1),
+		stopCh:        make(chan struct{}),
+	}
+}
+
+// Start launches the HTTP server (if required) and creates the webhook subscription.
+func (m *SubscriptionManager) Start(ctx context.Context) error {
+	if !m.opts.Enabled {
+		return errors.New("webhook manager started while disabled")
+	}
+	if ctx == nil {
+		return errors.New("context cannot be nil")
+	}
+	if m.auth == nil {
+		return errors.New("auth cannot be nil for webhook subscriptions")
+	}
+	if err := m.startServer(); err != nil {
+		return err
+	}
+
+	m.ctx = ctx
+
+	if err := m.createSubscription(ctx); err != nil {
+		m.shutdownServer()
+		return err
+	}
+
+	m.wg.Add(1)
+	go m.renewalLoop()
+	return nil
+}
+
+// Notifications returns the channel that fires when a webhook notification arrives.
+func (m *SubscriptionManager) Notifications() <-chan struct{} {
+	return m.notifications
+}
+
+// Stop shuts down the HTTP server and deletes the subscription.
+func (m *SubscriptionManager) Stop(ctx context.Context) error {
+	close(m.stopCh)
+	m.shutdownServer()
+
+	m.deleteSubscription(ctx)
+
+	m.wg.Wait()
+	close(m.notifications)
+	return nil
+}
+
+func (m *SubscriptionManager) startServer() error {
+	path := m.opts.Path
+	if path == "" {
+		path = "/onemount/webhook"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(path, m.handleWebhook)
+
+	addr := m.opts.ListenAddress
+	if addr == "" {
+		addr = "127.0.0.1:8787"
+	}
+
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return subscResp, err
+		return fmt.Errorf("listen webhook addr: %w", err)
 	}
-	if err := json.Unmarshal(resp, &subscResp); err != nil {
-		return subscResp, err
+	m.mu.Lock()
+	m.listenAddr = listener.Addr().String()
+	m.mu.Unlock()
+
+	m.server = &http.Server{
+		Handler: mux,
 	}
-	return subscResp, nil
-}
 
-type subscribeFunc func() (subscriptionResponse, error)
-type subscription struct {
-	C <-chan struct{}
-
-	subscribe subscribeFunc
-	c         chan struct{}
-	closeCh   chan struct{}
-	sioErrCh  chan error
-}
-
-func newSubscription(subscribe subscribeFunc) *subscription {
-	s := &subscription{
-		subscribe: subscribe,
-		c:         make(chan struct{}),
-		closeCh:   make(chan struct{}),
-		sioErrCh:  make(chan error),
-	}
-	s.C = s.c
-	return s
-}
-
-func (s *subscription) Start() {
-	const (
-		errRetryInterval      = 10 * time.Second
-		setupEventChanTimeout = 10 * time.Second
-	)
-	triggerOnErrCh := make(chan struct{}, 1)
-	triggerOnErr := func() {
-		select {
-		case triggerOnErrCh <- struct{}{}:
-		default:
-		}
-	}
+	m.wg.Add(1)
 	go func() {
-		tick := time.NewTicker(30 * time.Second)
-		defer tick.Stop()
-
-		for {
-			select {
-			case <-tick.C:
-			case <-s.closeCh:
-				return
-			}
-			select {
-			case <-triggerOnErrCh:
-				s.trigger()
-			default:
-			}
+		defer m.wg.Done()
+		var serveErr error
+		if m.opts.TLSCertFile != "" && m.opts.TLSKeyFile != "" {
+			serveErr = m.server.ServeTLS(listener, m.opts.TLSCertFile, m.opts.TLSKeyFile)
+		} else {
+			serveErr = m.server.Serve(listener)
+		}
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			logging.Error().Err(serveErr).Msg("Webhook server terminated unexpectedly")
 		}
 	}()
+
+	logging.Info().
+		Str("listenAddr", m.listenAddr).
+		Str("path", path).
+		Msg("Webhook server started")
+	return nil
+}
+
+func (m *SubscriptionManager) shutdownServer() {
+	if m.server == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := m.server.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logging.Warn().Err(err).Msg("Failed to shut down webhook server gracefully")
+	}
+}
+
+func (m *SubscriptionManager) handleWebhook(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		m.handleValidation(w, r)
+	case http.MethodPost:
+		m.handleNotification(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (m *SubscriptionManager) handleValidation(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("validationToken")
+	if token == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	if _, err := w.Write([]byte(token)); err != nil {
+		logging.Warn().Err(err).Msg("Failed to write validation token response")
+	}
+}
+
+type webhookNotificationPayload struct {
+	Value []struct {
+		SubscriptionID string `json:"subscriptionId"`
+		ClientState    string `json:"clientState"`
+		ChangeType     string `json:"changeType"`
+		Resource       string `json:"resource"`
+		Expiration     string `json:"subscriptionExpirationDateTime"`
+	} `json:"value"`
+}
+
+func (m *SubscriptionManager) handleNotification(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var payload webhookNotificationPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		logging.Warn().Err(err).Msg("Failed to decode webhook notification payload")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	valid := false
+	for _, entry := range payload.Value {
+		if m.opts.ClientState != "" && entry.ClientState != "" && entry.ClientState != m.opts.ClientState {
+			logging.Warn().
+				Str("subscriptionID", entry.SubscriptionID).
+				Msg("Webhook notification rejected due to clientState mismatch")
+			continue
+		}
+		if entry.Expiration != "" {
+			if exp, err := time.Parse(time.RFC3339, entry.Expiration); err == nil {
+				m.mu.Lock()
+				m.expiration = exp
+				m.mu.Unlock()
+			}
+		}
+		valid = true
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	if valid {
+		m.trigger()
+	}
+}
+
+func (m *SubscriptionManager) trigger() {
+	select {
+	case m.notifications <- struct{}{}:
+	default:
+	}
+}
+
+func (m *SubscriptionManager) createSubscription(ctx context.Context) error {
+	publicURL := strings.TrimSuffix(m.opts.PublicURL, "/")
+	if publicURL == "" {
+		return errors.New("webhook public URL must be set")
+	}
+	path := m.opts.Path
+	if path == "" {
+		path = "/onemount/webhook"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	expiration := graph.BuildExpiration(48 * time.Hour)
+
+	req := graph.SubscriptionRequest{
+		ChangeType:         m.opts.ChangeType,
+		NotificationURL:    publicURL + path,
+		Resource:           m.opts.Resource,
+		ExpirationDateTime: expiration,
+		ClientState:        m.opts.ClientState,
+	}
+
+	logging.Info().
+		Str("resource", req.Resource).
+		Str("notificationUrl", req.NotificationURL).
+		Msg("Creating webhook subscription")
+
+	sub, err := graph.CreateSubscription(ctx, m.auth, req)
+	if err != nil {
+		return fmt.Errorf("create subscription: %w", err)
+	}
+
+	m.mu.Lock()
+	m.subscriptionID = sub.ID
+	m.expiration = sub.ExpirationDateTime
+	m.mu.Unlock()
+
+	graph.LogSubscription("Webhook subscription established", sub)
+	return nil
+}
+
+func (m *SubscriptionManager) attemptRecreation(reason string) {
+	ctx := m.ctx
+	if ctx == nil {
+		logging.Debug().
+			Str("reason", reason).
+			Msg("Skipping webhook subscription recreation; context is nil")
+		return
+	}
+	if err := ctx.Err(); err != nil {
+		logging.Debug().
+			Str("reason", reason).
+			Err(err).
+			Msg("Skipping webhook subscription recreation; context cancelled")
+		return
+	}
+	if err := m.createSubscription(ctx); err != nil {
+		logging.Error().
+			Str("reason", reason).
+			Err(err).
+			Msg("Failed to recreate webhook subscription; continuing with polling only")
+		return
+	}
+	m.mu.RLock()
+	id := m.subscriptionID
+	m.mu.RUnlock()
+	logging.Info().
+		Str("reason", reason).
+		Str("subscriptionID", id).
+		Msg("Webhook subscription recreated")
+}
+
+func (m *SubscriptionManager) deleteSubscription(ctx context.Context) {
+	m.mu.Lock()
+	id := m.subscriptionID
+	m.subscriptionID = ""
+	m.mu.Unlock()
+	if id == "" {
+		return
+	}
+	if err := graph.DeleteSubscription(ctx, m.auth, id); err != nil {
+		logging.Warn().Err(err).Str("subscriptionID", id).Msg("Failed to delete webhook subscription")
+	} else {
+		logging.Info().Str("subscriptionID", id).Msg("Webhook subscription deleted")
+	}
+}
+
+func (m *SubscriptionManager) renewalLoop() {
+	defer m.wg.Done()
+	ticker := time.NewTicker(subscriptionRenewalCheckInterval)
+	defer ticker.Stop()
 
 	for {
-		resp, err := s.subscribe()
-		if err != nil {
-			logging.Error().Err(err).Msg("make subscription")
-			triggerOnErr()
-			time.Sleep(errRetryInterval)
-			continue
-		}
-		nextDur := resp.ExpirationDateTime.Sub(time.Now())
-		ctx := context.Background()
-		ctx, cancel := context.WithTimeout(ctx, setupEventChanTimeout)
-		cleanup, err := s.setupEventChan(ctx, resp.NotificationUrl)
-		if err != nil {
-			cancel() // Cancel the context to prevent leaks
-			logging.Error().Err(err).Msg("subscription chan setup")
-			triggerOnErr()
-			time.Sleep(errRetryInterval)
-			continue
-		}
-		cancel() // Context no longer needed after setupEventChan completes
-		// Trigger once so subscribers can pick up deltas ocurred
-		// between expiration of last subscription and start of this
-		// subscription
-		s.trigger()
-		if bye := func() bool {
-			defer cleanup()
-			select {
-			case <-time.After(nextDur):
-			case err := <-s.sioErrCh:
-				logging.Warn().Err(err).Msg("socketio session error")
-			case <-s.closeCh:
-				return true
-			}
-			return false
-		}(); bye {
-			return
-		}
-	}
-}
-
-func (s *subscription) setupEventChan(ctx context.Context, urlstr string) (func(), error) {
-	u, err := url.Parse(urlstr)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a ready channel to synchronize connection establishment
-	readyCh := make(chan struct{})
-	errCh := make(chan error, 1)
-
-	// Create a mutex to protect access to the socketio connection
-	// This helps prevent race conditions when multiple goroutines access the connection
-	var siocMutex sync.Mutex
-	var sioc *socketio.Conn
-
-	// Create a connection ready handler that's thread-safe
-	connectionReady := func() {
-		// Only close the channel once
 		select {
-		case <-readyCh:
-			// Already closed
-		default:
-			close(readyCh)
+		case <-ticker.C:
+			if !m.IsActive() {
+				m.attemptRecreation("inactive")
+				continue
+			}
+			m.mu.RLock()
+			expiration := m.expiration
+			m.mu.RUnlock()
+			if time.Until(expiration) <= 24*time.Hour {
+				if err := m.renewSubscription(); err != nil {
+					logging.Error().Err(err).Msg("Webhook subscription renewal failed; falling back to polling")
+					m.mu.Lock()
+					m.subscriptionID = ""
+					m.mu.Unlock()
+					m.attemptRecreation("renewal-failed")
+				}
+			}
+		case <-m.stopCh:
+			return
 		}
 	}
+}
 
-	// Create a thread-safe wrapper for the socketio connection
-	// This ensures all access to the connection is properly synchronized
-	// and prevents race conditions in the socketio-go library
-	type threadSafeSocketIO struct {
-		mu   sync.Mutex
-		conn *socketio.Conn
+func (m *SubscriptionManager) renewSubscription() error {
+	m.mu.RLock()
+	id := m.subscriptionID
+	m.mu.RUnlock()
+	if id == "" {
+		return errors.New("no active subscription to renew")
 	}
 
-	safeConn := &threadSafeSocketIO{}
-
-	// Create the socketio connection with the ready handler in a thread-safe manner
-	siocMutex.Lock()
-	sioc, err = socketio.DialContext(ctx, socketio.Config{
-		URL:        urlstr,
-		EIOVersion: engineio.EIO3,
-		OnError: func(err error) {
-			// Thread-safe error handling
-			safeConn.mu.Lock()
-			defer safeConn.mu.Unlock()
-			s.socketioOnError(err)
-		},
-	})
-	if err == nil {
-		safeConn.conn = sioc
-	}
-	siocMutex.Unlock()
-
+	expiration := graph.BuildExpiration(48 * time.Hour)
+	sub, err := graph.RenewSubscription(m.ctx, m.auth, id, expiration)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("renew subscription: %w", err)
 	}
 
-	// Create a namespace with the notification handler
-	ns := &socketio.Namespace{
-		Name: u.RequestURI(),
-		PacketHandlers: map[byte]socketio.Handler{
-			socketio.PacketTypeEVENT: func(msg socketio.Message) {
-				// Thread-safe notification handling
-				safeConn.mu.Lock()
-				defer safeConn.mu.Unlock()
-				s.notificationHandler(msg)
-			},
-		},
-	}
+	m.mu.Lock()
+	m.expiration = sub.ExpirationDateTime
+	m.mu.Unlock()
 
-	// Connect to the namespace in a separate goroutine to avoid blocking
-	go func() {
-		safeConn.mu.Lock()
-		localConn := safeConn.conn // Create a local reference to avoid race conditions
-		safeConn.mu.Unlock()
-
-		if localConn == nil {
-			errCh <- fmt.Errorf("socketio connection is nil")
-			return
-		}
-
-		if err := localConn.Connect(ctx, ns); err != nil {
-			errCh <- err
-			return
-		}
-
-		// Signal that the connection is ready
-		connectionReady()
-	}()
-
-	// Wait for the connection to be ready or for an error
-	select {
-	case <-readyCh:
-		// Connection is ready
-		logging.Debug().Msg("socketio connection established successfully")
-	case err := <-errCh:
-		// Connection failed
-		safeConn.mu.Lock()
-		if safeConn.conn != nil {
-			safeConn.conn.Close()
-			safeConn.conn = nil
-		}
-		safeConn.mu.Unlock()
-		return nil, err
-	case <-ctx.Done():
-		// Context timeout or cancellation
-		safeConn.mu.Lock()
-		if safeConn.conn != nil {
-			safeConn.conn.Close()
-			safeConn.conn = nil
-		}
-		safeConn.mu.Unlock()
-		return nil, ctx.Err()
-	}
-
-	// Return a thread-safe cleanup function
-	return func() {
-		safeConn.mu.Lock()
-		defer safeConn.mu.Unlock()
-		if safeConn.conn != nil {
-			safeConn.conn.Close()
-			safeConn.conn = nil
-		}
-	}, nil
+	logging.Info().
+		Str("subscriptionID", sub.ID).
+		Time("expiration", sub.ExpirationDateTime).
+		Msg("Webhook subscription renewed")
+	return nil
 }
 
-func (s *subscription) notificationHandler(msg socketio.Message) {
-	var evt []string
-	if err := json.Unmarshal(msg.DataRaw, &evt); err != nil {
-		logging.Warn().Err(err).Msg("unmarshal socketio event")
-		return
-	}
-	if len(evt) < 2 || evt[0] != "notification" {
-		logging.Warn().Int("len", len(evt)).Str("type", evt[0]).Msg("check event type")
-		return
-	}
-	var n struct {
-		ClientState                    string `json:"clientState"`
-		SubscriptionId                 string `json:"subscriptionId"`
-		SubscriptionExpirationDateTime string `json:"subscriptionExpirationDateTime"`
-		UserId                         string `json:"userId"`
-		Resource                       string `json:"resource"`
-	}
-	if err := json.Unmarshal([]byte(evt[1]), &n); err != nil {
-		logging.Warn().Err(err).Msg("unmarshal notification content")
-		return
-	}
-	logging.Debug().Str("notification", evt[1]).Msg("notification content")
-	s.trigger()
+// IsActive returns true when a subscription is currently active.
+func (m *SubscriptionManager) IsActive() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.subscriptionID != ""
 }
 
-func (s *subscription) trigger() {
-	select {
-	case s.c <- struct{}{}:
-	default:
-	}
-}
-
-func (s *subscription) socketioOnError(err error) {
-	select {
-	case s.sioErrCh <- err:
-	default:
-	}
-}
-
-func (s *subscription) Stop() {
-	close(s.closeCh)
-	close(s.c)
+// ListenAddress returns the address the webhook server is bound to. Primarily used for tests.
+func (m *SubscriptionManager) ListenAddress() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.listenAddr
 }

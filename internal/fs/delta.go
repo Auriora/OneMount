@@ -12,6 +12,82 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+const (
+	defaultPollingInterval         = 5 * time.Minute
+	defaultWebhookFallbackInterval = 30 * time.Minute
+
+	deltaIntervalDeviationSuffix = "-deviation"
+)
+
+func (f *Filesystem) startWebhookManager() (<-chan struct{}, error) {
+	if f.webhookOptions == nil || !f.webhookOptions.Enabled {
+		return nil, nil
+	}
+	manager := NewSubscriptionManager(*f.webhookOptions, f.auth)
+	if err := manager.Start(f.deltaLoopCtx); err != nil {
+		return nil, err
+	}
+	f.subscriptionManager = manager
+	return manager.Notifications(), nil
+}
+
+func (f *Filesystem) stopWebhookManager() {
+	if f.subscriptionManager == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := f.subscriptionManager.Stop(ctx); err != nil {
+		logging.Warn().Err(err).Msg("Failed to stop webhook subscription manager")
+	}
+	f.subscriptionManager = nil
+}
+
+func (f *Filesystem) logDeltaInterval(interval time.Duration, mode string, expected time.Duration) {
+	reason := mode
+	if interval != expected {
+		reason += deltaIntervalDeviationSuffix
+	}
+	if f.lastDeltaInterval == interval && f.lastDeltaReason == reason {
+		return
+	}
+
+	f.lastDeltaInterval = interval
+	f.lastDeltaReason = reason
+
+	if interval == expected {
+		logging.Info().
+			Str("mode", mode).
+			Dur("interval", interval).
+			Msg("Delta polling interval set to default")
+		return
+	}
+
+	logging.Warn().
+		Str("mode", mode).
+		Dur("interval", interval).
+		Dur("expected", expected).
+		Msg("Delta polling interval deviates from requirement; continuing with configured value")
+}
+
+func (f *Filesystem) desiredDeltaInterval() time.Duration {
+	if f.subscriptionManager != nil && f.subscriptionManager.IsActive() {
+		expected := defaultWebhookFallbackInterval
+		interval := expected
+		if f.webhookOptions != nil && f.webhookOptions.FallbackInterval > 0 {
+			interval = f.webhookOptions.FallbackInterval
+		}
+		f.logDeltaInterval(interval, "webhook", expected)
+		return interval
+	}
+	interval := f.deltaInterval
+	if interval <= 0 {
+		interval = defaultPollingInterval
+	}
+	f.logDeltaInterval(interval, "polling", defaultPollingInterval)
+	return interval
+}
+
 // DeltaLoop creates a new thread to poll the server for changes and should be
 // called as a goroutine.
 //
@@ -34,9 +110,7 @@ import (
 func (f *Filesystem) DeltaLoop(interval time.Duration) {
 	logging.Info().Msg("Starting delta goroutine.")
 
-	subsc := newSubscription(f.subscribeChanges)
-	go subsc.Start()
-	defer subsc.Stop()
+	f.deltaInterval = interval
 
 	// Add to wait groups to track this goroutine
 	f.deltaLoopWg.Add(1)
@@ -48,8 +122,19 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		logging.Debug().Msg("Delta goroutine completed")
 	}()
 
+	notificationCh, err := f.startWebhookManager()
+	if err != nil {
+		logging.Error().Err(err).Msg("Failed to start webhook subscription manager; continuing with polling only")
+	} else if notificationCh != nil {
+		logging.Info().Msg("Webhook subscription manager started; using extended delta interval when active")
+		defer f.stopWebhookManager()
+	}
+
+	currentInterval := f.desiredDeltaInterval()
+	waitDur := currentInterval
+
 	// Create a ticker for the interval
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(currentInterval)
 	defer ticker.Stop()
 
 	// Create a shorter ticker for offline mode
@@ -194,7 +279,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			}
 		}
 
-		waitDur := interval
+		waitDur = currentInterval
 
 		// Check if we should stop before second pass
 		select {
@@ -325,11 +410,28 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 			waitDur = 2 * time.Second
 		}
 
+		if currentTicker != offlineTicker {
+			desired := f.desiredDeltaInterval()
+			if desired != currentInterval {
+				ticker.Stop()
+				ticker = time.NewTicker(desired)
+				currentInterval = desired
+				currentTicker = ticker
+				waitDur = desired
+				logging.Info().
+					Dur("interval", desired).
+					Msg("Adjusted delta polling interval based on webhook state")
+			}
+		}
+
 	nextCycle:
 		// Wait for next interval or stop signal
 		select {
 		case <-time.After(waitDur):
-		case <-subsc.C:
+		case <-notificationCh:
+			if notificationCh != nil {
+				logging.Info().Msg("Webhook notification received; triggering immediate delta sync")
+			}
 		case <-currentTicker.C:
 			// Time to run the next cycle
 			logging.Debug().Msg("Ticker triggered, starting next delta cycle")

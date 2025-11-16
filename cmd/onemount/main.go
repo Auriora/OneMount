@@ -96,7 +96,8 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 			"This reduces startup performance but uses less bandwidth and memory.")
 	deltaInterval := flag.IntP("delta-interval", "i", 0,
 		"Set the interval in seconds between delta query checks. "+
-			"Default is 1 seconds. Set to 0 to use the default.")
+			"Default is 300 seconds (5 minutes) when no webhook subscription is active. "+
+			"Set to 0 to use the default.")
 	cacheExpiration := flag.IntP("cache-expiration", "e", 0,
 		"Set the number of days after which files will be removed from the content cache. "+
 			"Default is 30 days. Set to 0 to use the default.")
@@ -279,7 +280,12 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to initialize filesystem")
 	}
 
-	logging.Info().Msgf("Setting delta query interval to %d second(s)", config.DeltaInterval)
+	webhookOpts := toWebhookOptions(config.Webhook)
+	if webhookOpts.Enabled {
+		filesystem.ConfigureWebhooks(webhookOpts)
+	}
+
+	logging.Info().Msgf("Setting base delta query interval to %d second(s)", config.DeltaInterval)
 	go filesystem.DeltaLoop(time.Duration(config.DeltaInterval) * time.Second)
 
 	// Start the content cache cleanup routine
@@ -350,6 +356,21 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	}
 
 	return filesystem, auth, server, cachePath, absMountPath, nil
+}
+
+func toWebhookOptions(cfg common.WebhookConfig) fs.WebhookOptions {
+	return fs.WebhookOptions{
+		Enabled:          cfg.Enabled,
+		PublicURL:        cfg.PublicURL,
+		ListenAddress:    cfg.ListenAddress,
+		Path:             cfg.Path,
+		ClientState:      cfg.ClientState,
+		TLSCertFile:      cfg.TLSCertFile,
+		TLSKeyFile:       cfg.TLSKeyFile,
+		Resource:         cfg.Resource,
+		ChangeType:       cfg.ChangeType,
+		FallbackInterval: time.Duration(cfg.FallbackInterval) * time.Second,
+	}
 }
 
 // displayStats gathers and displays statistics about the filesystem

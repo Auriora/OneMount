@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-16** – [Webhook & Delta Loop Stabilization](./2025-11-16-webhook-delta-loop.md)
 - **2025-11-16** – [Metadata Request Prioritization Plan](./2025-11-16-metadata-priority-plan.md)
 - **2025-11-16** – [Launcher Icon SVG Fallback](./2025-11-16-launcher-icon-svg-fallback.md)
 - **2025-11-16** – [GLib Build Tag Auto-Detection](./2025-11-16-gotk3-glib-tag-detection.md)

@@ -56,16 +56,15 @@ type FileStatusDBusServerInterface interface {
 type Filesystem struct {
 	fuse.RawFileSystem // Implements the base FUSE filesystem interface
 
-	metadata             sync.Map        // In-memory cache of filesystem metadata
-	db                   *bolt.DB        // Persistent database for filesystem state
-	content              *LoopbackCache  // Cache for file contents
-	thumbnails           *ThumbnailCache // Cache for file thumbnails
-	auth                 *graph.Auth     // Authentication for Microsoft Graph API
-	root                 string          // The ID of the filesystem's root item
-	deltaLink            string          // Link for incremental synchronization with OneDrive
-	subscribeChangesLink string
-	uploads              *UploadManager   // Manages file uploads to OneDrive
-	downloads            *DownloadManager // Manages file downloads from OneDrive
+	metadata   sync.Map         // In-memory cache of filesystem metadata
+	db         *bolt.DB         // Persistent database for filesystem state
+	content    *LoopbackCache   // Cache for file contents
+	thumbnails *ThumbnailCache  // Cache for file thumbnails
+	auth       *graph.Auth      // Authentication for Microsoft Graph API
+	root       string           // The ID of the filesystem's root item
+	deltaLink  string           // Link for incremental synchronization with OneDrive
+	uploads    *UploadManager   // Manages file uploads to OneDrive
+	downloads  *DownloadManager // Manages file downloads from OneDrive
 
 	// Root context for all operations
 	ctx    context.Context    // Root context for all operations
@@ -111,6 +110,13 @@ type Filesystem struct {
 	// Metadata request prioritization
 	metadataRequestManager *MetadataRequestManager // Manager for prioritized metadata requests
 	metadataRefresh        sync.Map                // Tracks in-flight metadata refreshes by directory ID
+
+	// Webhook / subscription management
+	webhookOptions      *WebhookOptions
+	subscriptionManager *SubscriptionManager
+	deltaInterval       time.Duration
+	lastDeltaInterval   time.Duration
+	lastDeltaReason     string
 
 	// Sync progress tracking
 	syncProgress *SyncProgress // Progress tracking for directory tree sync
