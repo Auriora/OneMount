@@ -173,6 +173,9 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 			var dirCount, fileCount int64
 
 			for _, item := range items {
+				if strings.EqualFold(item.Name, xdgVolumeInfoName) {
+					continue
+				}
 				child := NewInodeDriveItem(item)
 				f.InsertNodeID(child)
 				f.metadata.Store(child.DriveItem.ID, child)
@@ -187,6 +190,8 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 
 			// Update progress counters
 			progress.AddDiscovered(dirCount, fileCount)
+
+			f.cacheChildrenFromMap(dirID, childrenMap)
 
 			resultChan <- struct {
 				children map[string]*Inode

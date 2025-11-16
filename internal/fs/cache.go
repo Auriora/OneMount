@@ -1029,45 +1029,22 @@ func (f *Filesystem) GetChild(id string, name string, auth *graph.Auth) (*Inode,
 		return child, nil
 	}
 
-	parent := f.GetID(id)
-	if parent == nil {
-		return nil, errors.New("child does not exist")
+	if parent := f.GetID(id); parent != nil && parent.HasChildren() {
+		// Directory was cached but did not contain the requested entry. Return the cache
+		// result immediately and trigger a background refresh so newly created items
+		// are discovered without blocking the caller.
+		f.refreshChildrenAsync(id, auth)
 	}
-
-	parent.mu.RLock()
-	hasCachedChildren := parent.children != nil
-	var cachedChildren []string
-	var cachedSubdir uint32
-	if hasCachedChildren {
-		cachedChildren = append([]string(nil), parent.children...)
-		cachedSubdir = parent.subdir
-	}
-	parent.mu.RUnlock()
-
-	if !hasCachedChildren {
-		return nil, errors.New("child does not exist")
-	}
-
-	parent.ClearChildren()
-	children, err = f.GetChildrenID(id, auth)
-	if err != nil {
-		parent.mu.Lock()
-		parent.children = cachedChildren
-		parent.subdir = cachedSubdir
-		parent.mu.Unlock()
-		return nil, err
-	}
-
-	if child := findChild(children); child != nil {
-		return child, nil
-	}
-
 	return nil, errors.New("child does not exist")
 }
 
 // GetChildrenID grabs all DriveItems that are the children of the given ID. If
 // items are not found, they are fetched.
 func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Inode, error) {
+	return f.getChildrenID(id, auth, false)
+}
+
+func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh bool) (map[string]*Inode, error) {
 	methodName, startTime := logging.LogMethodEntry("GetChildrenID", id)
 
 	// Create a context for this operation with request ID and user ID
@@ -1109,45 +1086,47 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 
 	// If item.children is not nil, it means we have the item's children
 	// already and can fetch them directly from the cache
-	inode.mu.RLock()
-	if inode.children != nil {
-		if logging.IsDebugEnabled() {
-			logger.Debug().
-				Str(logging.FieldID, id).
-				Str(logging.FieldPath, pathForLogs).
-				Int("childCount", len(inode.children)).
-				Msg("Children found in cache, retrieving them")
-		}
-
-		// can potentially have out-of-date child metadata if started offline, but since
-		// changes are disallowed while offline, the children will be back in sync after
-		// the first successful delta fetch (which also brings the fs back online)
-		for _, childID := range inode.children {
-			child := f.GetID(childID)
-			if child == nil {
-				// will be nil if deleted or never existed
-				continue
+	if !forceRefresh {
+		inode.mu.RLock()
+		if inode.children != nil {
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, id).
+					Str(logging.FieldPath, pathForLogs).
+					Int("childCount", len(inode.children)).
+					Msg("Children found in cache, retrieving them")
 			}
-			children[strings.ToLower(child.Name())] = child
+
+			// can potentially have out-of-date child metadata if started offline, but since
+			// changes are disallowed while offline, the children will be back in sync after
+			// the first successful delta fetch (which also brings the fs back online)
+			for _, childID := range inode.children {
+				child := f.GetID(childID)
+				if child == nil {
+					// will be nil if deleted or never existed
+					continue
+				}
+				children[strings.ToLower(child.Name())] = child
+			}
+			inode.mu.RUnlock()
+
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, id).
+					Str(logging.FieldPath, pathForLogs).
+					Int("childCount", len(children)).
+					Msg("Successfully retrieved children from cache")
+			}
+
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+			}()
+			return children, nil
 		}
+		// Update path before unlocking to avoid potential deadlocks
+		pathForLogs = inode.Path()
 		inode.mu.RUnlock()
-
-		if logging.IsDebugEnabled() {
-			logger.Debug().
-				Str(logging.FieldID, id).
-				Str(logging.FieldPath, pathForLogs).
-				Int("childCount", len(children)).
-				Msg("Successfully retrieved children from cache")
-		}
-
-		defer func() {
-			logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
-		}()
-		return children, nil
 	}
-	// Update path before unlocking to avoid potential deadlocks
-	pathForLogs = inode.Path()
-	inode.mu.RUnlock()
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
@@ -1313,6 +1292,55 @@ func (f *Filesystem) GetChildrenID(id string, auth *graph.Auth) (map[string]*Ino
 		logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
 	}()
 	return children, nil
+}
+
+// refreshChildrenAsync kicks off a background metadata refresh for the given directory.
+func (f *Filesystem) refreshChildrenAsync(id string, auth *graph.Auth) {
+	if id == "" {
+		return
+	}
+	if auth == nil {
+		auth = f.auth
+	}
+	if auth == nil {
+		return
+	}
+	if _, loaded := f.metadataRefresh.LoadOrStore(id, struct{}{}); loaded {
+		return
+	}
+
+	go func() {
+		defer f.metadataRefresh.Delete(id)
+		if _, err := f.getChildrenID(id, auth, true); err != nil {
+			logging.Debug().
+				Str(logging.FieldID, id).
+				Err(err).
+				Msg("Background metadata refresh failed")
+		}
+	}()
+}
+
+// cacheChildrenFromMap updates the parent inode's cached child list using the provided map.
+func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*Inode) {
+	if parentID == "" {
+		return
+	}
+	parent := f.GetID(parentID)
+	if parent == nil {
+		return
+	}
+
+	parent.mu.Lock()
+	parent.children = make([]string, 0, len(children))
+	parent.subdir = 0
+	for _, child := range children {
+		parent.children = append(parent.children, child.ID())
+		if child.IsDir() {
+			parent.subdir++
+		}
+	}
+	f.appendVirtualChildrenLocked(parent, children)
+	parent.mu.Unlock()
 }
 
 // GetChildrenPath grabs all DriveItems that are the children of the resource at

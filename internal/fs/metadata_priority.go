@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,19 +44,34 @@ type MetadataRequestManager struct {
 	highPriorityQueue chan *MetadataRequest
 	lowPriorityQueue  chan *MetadataRequest
 	workers           int
+	foregroundWorkers int
 	stopChan          chan struct{}
 	wg                sync.WaitGroup
 	fs                *Filesystem
+
+	inFlightMu sync.Mutex
+	inFlight   map[string]*inFlightEntry
+}
+
+type inFlightEntry struct {
+	callbacks []func([]*graph.DriveItem, error)
+	priority  MetadataPriority
 }
 
 // NewMetadataRequestManager creates a new metadata request manager
 func NewMetadataRequestManager(fs *Filesystem, workers int) *MetadataRequestManager {
+	foregroundWorkers := 0
+	if workers >= 2 {
+		foregroundWorkers = 1
+	}
 	return &MetadataRequestManager{
 		highPriorityQueue: make(chan *MetadataRequest, 100),  // Buffer for foreground requests
 		lowPriorityQueue:  make(chan *MetadataRequest, 1000), // Larger buffer for background requests
 		workers:           workers,
+		foregroundWorkers: foregroundWorkers,
 		stopChan:          make(chan struct{}),
 		fs:                fs,
+		inFlight:          make(map[string]*inFlightEntry),
 	}
 }
 
@@ -63,7 +79,12 @@ func NewMetadataRequestManager(fs *Filesystem, workers int) *MetadataRequestMana
 func (m *MetadataRequestManager) Start() {
 	logging.Info().Int("workers", m.workers).Msg("Starting metadata request manager")
 
-	for i := 0; i < m.workers; i++ {
+	for i := 0; i < m.foregroundWorkers; i++ {
+		m.wg.Add(1)
+		go m.foregroundWorker(i)
+	}
+
+	for i := m.foregroundWorkers; i < m.workers; i++ {
 		m.wg.Add(1)
 		go m.worker(i)
 	}
@@ -74,6 +95,7 @@ func (m *MetadataRequestManager) Stop() {
 	logging.Info().Msg("Stopping metadata request manager")
 	close(m.stopChan)
 	m.wg.Wait()
+	m.failAllInFlight(ErrManagerNotStarted)
 	logging.Info().Msg("Metadata request manager stopped")
 }
 
@@ -143,6 +165,19 @@ func (m *MetadataRequestManager) QueuePathRequest(path string, auth *graph.Auth,
 
 // queueRequest adds a request to the appropriate priority queue
 func (m *MetadataRequestManager) queueRequest(request *MetadataRequest) error {
+	key := request.cacheKey()
+	if key != "" {
+		if m.joinInFlight(key, request.Callback, request.Priority) {
+			logging.Debug().
+				Str("type", request.Type).
+				Str("id", request.ID).
+				Str("path", request.Path).
+				Msg("Joined in-flight metadata request")
+			return nil
+		}
+		request.Callback = m.dispatchInFlightCallback(key)
+	}
+
 	var targetQueue chan *MetadataRequest
 	var queueName string
 
@@ -164,6 +199,9 @@ func (m *MetadataRequestManager) queueRequest(request *MetadataRequest) error {
 			Msg("Metadata request queued")
 		return nil
 	default:
+		if key != "" {
+			m.dispatchInFlight(key, nil, ErrQueueFull)
+		}
 		logging.Warn().
 			Str("type", request.Type).
 			Str("id", request.ID).
@@ -212,6 +250,25 @@ func (m *MetadataRequestManager) worker(workerID int) {
 		default:
 			// No requests available, wait a bit to avoid busy waiting
 			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
+func (m *MetadataRequestManager) foregroundWorker(workerID int) {
+	defer m.wg.Done()
+	logging.Debug().Int("workerID", workerID).Msg("Foreground metadata request worker started")
+	for {
+		select {
+		case <-m.stopChan:
+			logging.Debug().Int("workerID", workerID).Msg("Foreground metadata request worker stopping")
+			return
+		case request := <-m.highPriorityQueue:
+			m.processRequest(workerID, request, "high")
+		case request := <-m.lowPriorityQueue:
+			// Only help with low-priority work when high queue is empty.
+			m.processRequest(workerID, request, "low-steal")
+		default:
+			time.Sleep(5 * time.Millisecond)
 		}
 	}
 }
@@ -278,4 +335,82 @@ func (m *MetadataRequestManager) processRequest(workerID int, request *MetadataR
 // GetQueueStats returns statistics about the request queues
 func (m *MetadataRequestManager) GetQueueStats() (highPriorityCount, lowPriorityCount int) {
 	return len(m.highPriorityQueue), len(m.lowPriorityQueue)
+}
+
+func (r *MetadataRequest) cacheKey() string {
+	switch r.Type {
+	case "children":
+		if r.ID == "" {
+			return ""
+		}
+		return "children:" + r.ID
+	case "item":
+		if r.ID == "" {
+			return ""
+		}
+		return "item:" + r.ID
+	case "path":
+		if r.Path == "" {
+			return ""
+		}
+		return "path:" + strings.ToLower(r.Path)
+	default:
+		return ""
+	}
+}
+
+func (m *MetadataRequestManager) joinInFlight(key string, cb func([]*graph.DriveItem, error), priority MetadataPriority) bool {
+	if key == "" {
+		return false
+	}
+	m.inFlightMu.Lock()
+	defer m.inFlightMu.Unlock()
+	if entry, ok := m.inFlight[key]; ok {
+		entry.callbacks = append(entry.callbacks, cb)
+		if priority == PriorityForeground && entry.priority == PriorityBackground {
+			entry.priority = PriorityForeground
+		}
+		return true
+	}
+	m.inFlight[key] = &inFlightEntry{
+		callbacks: []func([]*graph.DriveItem, error){cb},
+		priority:  priority,
+	}
+	return false
+}
+
+func (m *MetadataRequestManager) dispatchInFlightCallback(key string) func([]*graph.DriveItem, error) {
+	return func(items []*graph.DriveItem, err error) {
+		m.dispatchInFlight(key, items, err)
+	}
+}
+
+func (m *MetadataRequestManager) dispatchInFlight(key string, items []*graph.DriveItem, err error) {
+	if key == "" {
+		return
+	}
+	m.inFlightMu.Lock()
+	entry, ok := m.inFlight[key]
+	if ok {
+		delete(m.inFlight, key)
+	}
+	m.inFlightMu.Unlock()
+	if !ok || entry == nil {
+		return
+	}
+	for _, cb := range entry.callbacks {
+		cb(items, err)
+	}
+}
+
+func (m *MetadataRequestManager) failAllInFlight(err error) {
+	m.inFlightMu.Lock()
+	entries := m.inFlight
+	m.inFlight = make(map[string]*inFlightEntry)
+	m.inFlightMu.Unlock()
+	for _, entry := range entries {
+		for _, cb := range entry.callbacks {
+			cb(nil, err)
+		}
+	}
 }

@@ -110,6 +110,7 @@ type Filesystem struct {
 
 	// Metadata request prioritization
 	metadataRequestManager *MetadataRequestManager // Manager for prioritized metadata requests
+	metadataRefresh        sync.Map                // Tracks in-flight metadata refreshes by directory ID
 
 	// Sync progress tracking
 	syncProgress *SyncProgress // Progress tracking for directory tree sync

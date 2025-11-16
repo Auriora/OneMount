@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-16** – [Metadata Request Prioritization Plan](./2025-11-16-metadata-priority-plan.md)
 - **2025-11-16** – [Launcher Icon SVG Fallback](./2025-11-16-launcher-icon-svg-fallback.md)
 - **2025-11-16** – [GLib Build Tag Auto-Detection](./2025-11-16-gotk3-glib-tag-detection.md)
 - **2025-11-16** – [Devcontainer Codex Config Snapshot](./2025-11-16-devcontainer-codex-config-sync.md)

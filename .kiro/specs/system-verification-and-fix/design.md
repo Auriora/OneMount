@@ -95,6 +95,23 @@ Each mount is completely isolated with:
 - Dedicated delta sync goroutine
 - Individual webhook subscription
 
+### Tree Synchronization Behavior
+
+The initial tree walk (and any subsequent full resync) runs entirely in the background. While the walk is running:
+
+- Every directory fetched is immediately marked “warm” by populating the parent inode’s `children` slice so later interactive commands do not re-fetch it.
+- Progress counters are exposed so the UI can show status without blocking commands.
+- User-facing commands operate on whatever portion of the cache is already populated; only directories that have never been fetched block while their metadata is retrieved.
+- When the refresh interval elapses, the walker revalidates directories asynchronously while continuing to serve cached data.
+
+### `.xdg-volume-info` Handling
+
+`.xdg-volume-info` is a local-only virtual file. Creating or refreshing it:
+
+- Assigns a `local-` ID and registers it in the metadata cache.
+- Updates only that entry when the account name changes; the root’s other children remain untouched.
+- Never clears the entire root cache, preventing unnecessary re-fetches after maintenance.
+
 ### Webhook Subscription Architecture
 
 ```
@@ -135,15 +152,32 @@ Each mount is completely isolated with:
 │  ┌──────────────┐                                          │
 │  │  Metadata    │                                          │
 │  │   Cache      │                                          │
-│  └──────────────┘                                          │
-│                                                              │
-│  Background: Subscription Renewal Loop                      │
-│  ┌──────────────┐                                          │
-│  │   Monitor    │──► Check expiration every hour           │
-│  │  Expiration  │──► Renew if < 24h remaining             │
-│  └──────────────┘                                          │
+ │  └──────────────┘                                          │
+ │                                                              │
+ │  Background: Subscription Renewal Loop                      │
+ │  ┌──────────────┐                                          │
+ │  │   Monitor    │──► Check expiration every hour           │
+ │  │  Expiration  │──► Renew if < 24h remaining             │
+ │  └──────────────┘                                          │
 └─────────────────────────────────────────────────────────────┘
+
+Webhook behavior:
+
+- On mount, attempt to create a subscription for each drive; store the subscription ID and expiration time.
+- With an active subscription, set the delta polling interval to a long fallback (30 minutes) and log any deviation.
+- If subscription creation or renewal fails, immediately fall back to the short interval (default 5 minutes) and continue logging until the subscription is restored.
+- Incoming webhook notifications validate the token, then trigger an immediate delta query that preempts lower-priority metadata work so user-facing operations remain responsive.
 ```
+
+### Metadata Request Manager
+
+Interactive metadata operations (e.g., `ls`, `cd`, file open/close) must remain responsive even while the tree sync, delta loop, or webhook handler are active. To achieve this:
+
+- **Worker pools:** The metadata request manager runs a configurable set of workers. At least one worker is dedicated to foreground work so user-facing commands never wait behind background jobs.
+- **Priority handling:** Foreground requests preempt background work. When a worker is processing a background task and a foreground request arrives, the worker finishes the current Graph call but immediately switches to the high-priority queue; background jobs resume only when no foreground work is pending.
+- **In-flight deduplication:** Requests for the same directory share a single in-flight Graph call. Multiple callers attach callbacks to the same result rather than spawning duplicate requests.
+- **Stale-cache policy:** If a directory already has cached children (even if the cache is due for refresh), the manager returns the cached data immediately and triggers a refresh in the background. The caller never waits for a refresh unless the directory has never been fetched before.
+- **Scoped invalidation:** Failed lookups (typos, case mismatches) and virtual-file maintenance never clear entire parent caches. Only the specific entry is invalidated, ensuring other children remain available without refetching.
 
 ### ETag-Based Cache Validation
 

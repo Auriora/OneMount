@@ -109,9 +109,6 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 		logging.Debug().
 			Str("id", child.ID()).
 			Msg("Refreshed local .xdg-volume-info content")
-		if root, _ := filesystem.GetPath("/", auth); root != nil {
-			root.ClearChildren()
-		}
 		return
 	}
 
@@ -128,9 +125,6 @@ func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 		Str("name", inode.Name()).
 		Msg("Created local-only .xdg-volume-info file")
 
-	if root != nil {
-		root.ClearChildren()
-	}
 }
 
 // IsUserAllowOtherEnabled checks if the 'user_allow_other' option is enabled in /etc/fuse.conf
