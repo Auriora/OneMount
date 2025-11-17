@@ -1288,7 +1288,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze `internal/fs/subscription.go`
   - Review subscription API calls in `internal/graph/`
   - Check subscription manager implementation
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
 
 - [ ] 27.2 Test subscription creation on mount
@@ -1296,7 +1295,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify POST `/subscriptions` API call
   - Check subscription ID is stored
   - Verify expiration time is tracked
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.1, 14.5, 5.2_
 
 - [ ] 27.3 Test webhook notification reception
@@ -1305,7 +1303,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify notification is received
   - Check notification validation
   - Verify delta query is triggered
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.6, 14.7, 5.6_
 
 - [ ] 27.4 Test subscription renewal
@@ -1313,28 +1310,24 @@ This implementation plan breaks down the verification and fix process into discr
   - Wait until within 24h of expiration
   - Verify PATCH `/subscriptions/{id}` is called
   - Check new expiration time is stored
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.9, 5.13_
 
 - [ ] 27.5 Test subscription failure fallback
   - Simulate subscription creation failure
   - Verify system continues with polling
   - Check polling interval is shorter (5 min)
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.10, 5.7, 5.14_
 
 - [ ] 27.6 Test subscription deletion on unmount
   - Mount filesystem with subscription in Docker
   - Unmount filesystem
   - Verify DELETE `/subscriptions/{id}` is called
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 14.12_
 
 - [ ] 27.7 Test personal vs business subscription limits
   - Test subscription to subfolder on personal OneDrive
   - Test subscription to root only on business OneDrive
   - Verify appropriate restrictions
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
   - _Requirements: 5.3, 5.4_
 
 - [ ] 27.8 Create webhook subscription integration tests
@@ -1342,7 +1335,6 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for notification handling
   - Write test for renewal logic
   - Write test for fallback to polling
-  - Run in Docker: `docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests`
   - _Requirements: 14.1-14.12, 5.2-5.14_
 
 - [ ] 27.9 Document webhook subscription verification results

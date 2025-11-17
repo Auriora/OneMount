@@ -30,8 +30,7 @@ var (
 const fsVersion = "1"
 
 const (
-	defaultDeltaLink     = "/me/drive/root/delta?token=latest"
-	defaultSubscribeLink = "/me/drive/root/subscriptions/socketIo"
+	defaultDeltaLink = "/me/drive/root/delta?token=latest"
 )
 
 // OfflineChange represents a change made while offline
@@ -393,7 +392,6 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 			}
 		}
 		fs.deltaLink = storedLink
-		fs.subscribeChangesLink = defaultSubscribeLink
 	}
 
 	// deltaloop is started manually
@@ -1803,6 +1801,7 @@ func (f *Filesystem) Stop() {
 		// Stop all background processes in the correct order
 		f.StopCacheCleanup()
 		f.StopDeltaLoop()
+		f.stopWebhookManager()
 		f.StopDownloadManager()
 		f.StopUploadManager()
 		f.StopMetadataRequestManager()
