@@ -1303,13 +1303,36 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 
 	lockStart := time.Now()
 	inode.mu.Lock()
-	inode.children = make([]string, 0, len(materializedChildren)+len(virtualChildren))
+	existingLocal := make([]childSnapshot, 0)
+	for _, childID := range inode.children {
+		if !isLocalID(childID) {
+			continue
+		}
+		if child := f.GetID(childID); child != nil {
+			existingLocal = append(existingLocal, newChildSnapshot(child))
+		}
+	}
+	inode.children = make([]string, 0, len(materializedChildren)+len(existingLocal)+len(virtualChildren))
 	inode.subdir = 0
 	for _, entry := range materializedChildren {
 		inode.children = append(inode.children, entry.id)
 		if entry.isDir {
 			inode.subdir++
 		}
+		children[entry.lowerName] = entry.inode
+	}
+	for _, entry := range existingLocal {
+		if entry.inode == nil {
+			continue
+		}
+		if _, exists := children[entry.lowerName]; exists {
+			continue
+		}
+		inode.children = append(inode.children, entry.id)
+		if entry.isDir {
+			inode.subdir++
+		}
+		children[entry.lowerName] = entry.inode
 	}
 
 	f.appendVirtualChildrenLocked(inode, virtualChildren)
@@ -1387,9 +1410,27 @@ func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*
 
 	lockStart := time.Now()
 	parent.mu.Lock()
-	parent.children = make([]string, 0, len(childSnapshots)+len(virtualChildren))
+	existingLocal := make([]childSnapshot, 0)
+	for _, childID := range parent.children {
+		if !isLocalID(childID) {
+			continue
+		}
+		if child := f.GetID(childID); child != nil {
+			existingLocal = append(existingLocal, newChildSnapshot(child))
+		}
+	}
+	parent.children = make([]string, 0, len(childSnapshots)+len(existingLocal)+len(virtualChildren))
 	parent.subdir = 0
 	for _, snapshot := range childSnapshots {
+		parent.children = append(parent.children, snapshot.id)
+		if snapshot.isDir {
+			parent.subdir++
+		}
+	}
+	for _, snapshot := range existingLocal {
+		if snapshot.inode == nil {
+			continue
+		}
 		parent.children = append(parent.children, snapshot.id)
 		if snapshot.isDir {
 			parent.subdir++
