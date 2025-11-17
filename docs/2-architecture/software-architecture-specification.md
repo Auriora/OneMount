@@ -544,18 +544,15 @@ onemount scales to handle large OneDrive accounts through:
 
 #### 4.2.2.1 Subscription-based Change Notification
 
-The subscription-based change notification mechanism provides real-time updates about changes in the OneDrive account:
+The current realtime design replaces legacy “webhook” terminology with a Socket.IO subscription that is completely owned by the client:
 
-- Uses WebSockets to establish a persistent connection with Microsoft's notification service
-- Receives push notifications when files or folders are created, modified, or deleted in OneDrive
-- Reduces the need for frequent polling, improving performance and reducing API calls
-- Implemented in `fs/subscription.go` with the following components:
-  - `subscription` struct: Manages the WebSocket connection and notification handling
-  - `subscribeChanges` method: Establishes the subscription with Microsoft Graph API
-  - `notificationHandler`: Processes incoming notifications and triggers appropriate actions
-  - Integration with the delta synchronization system to update the local filesystem state
+- The filesystem requests a delegated Socket.IO endpoint for the mounted drive using Microsoft Graph’s `/subscriptions/socketIo` flow and never exposes an inbound webhook URL.
+- A dedicated `SocketSubscriptionManager` coordinates the lifecycle (startup, renewal, shutdown) and publishes notifications to the delta loop through a buffered channel.
+- The manager relies on the in-house `internal/socketio` module, which implements Engine.IO v4/WebSocket transport with deterministic heartbeats, reconnection backoff, and structured tracing.
+- Health signals from the transport determine the polling cadence: when the socket is healthy the delta loop polls no more than every 30 minutes; when unhealthy it falls back to 5 minutes (temporarily down to 10 seconds during prolonged failures).
+- Incoming `notification` events immediately trigger an on-demand delta query so user-visible state stays in sync without waiting for the next watchdog pass.
 
-This mechanism complements the delta synchronization by providing immediate notifications of changes, while delta sync ensures completeness and handles cases where notifications might be missed.
+This mechanism complements the delta synchronization by providing immediate notifications while allowing a graceful fallback to timed polling whenever the realtime channel is unavailable.
 
 #### 4.2.3 Caching Strategy
 

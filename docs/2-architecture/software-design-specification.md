@@ -486,11 +486,74 @@ onemount uses OAuth2 for authentication with Microsoft's Graph API. The authenti
 - Automatic token refresh when needed
 
 ### 4.4 Rate Limiting and Quotas
-Microsoft's Graph API has rate limits that onemount must respect. The API integration includes mechanisms to handle rate limiting:
+Microsoft’s Graph API has rate limits that onemount must respect. The API integration includes mechanisms to handle rate limiting:
 
 - Exponential backoff for retrying requests
 - Caching to reduce the number of API calls
 - Queuing of uploads and downloads to avoid overwhelming the API
+
+### 4.5 Realtime Notification Module
+
+The realtime notification pipeline is now defined by an explicit Engine.IO/Socket.IO transport interface instead of depending on a third-party client. This section captures the best-practice shape of the module so any future implementation can be validated against Requirement 20.
+
+#### 4.5.1 Layered Components
+
+1. **`SocketSubscriptionManager` (package `internal/fs`)**
+   - Owns the Graph subscription lifecycle (endpoint discovery, renewal, shutdown).
+   - Consumes the transport interface to receive notification events and translate them into filesystem wake-ups.
+   - Publishes health signals to the delta loop so polling cadence can adjust automatically.
+
+2. **`RealtimeTransport` interface (package `internal/socketio`)**
+   - Defines the contract between subscription management and the Engine.IO implementation.
+   - Facilitates dependency injection in tests; alternative transports must obey the same semantics.
+
+3. **`EngineTransport` implementation (package `internal/socketio`)**
+   - Concrete Engine.IO v4/WebSocket client that satisfies `RealtimeTransport`.
+   - Implements heartbeat, reconnection, logging, and packet parsing rules mandated by Requirement 20.
+
+#### 4.5.2 Interface Definition
+
+```go
+// RealtimeTransport exposes the minimum surface needed by the filesystem.
+type RealtimeTransport interface {
+    Connect(ctx context.Context, endpoint string, headers http.Header) error
+    Close(ctx context.Context) error
+    On(event EventType, handler Listener)
+    Health() HealthState
+}
+
+type EventType string
+
+type HealthState struct {
+    Status          StatusCode // Healthy, Degraded, Failed
+    LastError       error
+    MissedHeartbeats int
+    LastHeartbeat    time.Time
+}
+```
+
+- `Connect` negotiates the Engine.IO handshake (`EIO=4&transport=websocket`) and must be idempotent; repeated calls after a healthy connection return immediately.
+- `On` registers strongly typed listeners for events such as `EventConnected`, `EventNotification`, `EventError`, and `EventEngineMetrics`.
+- `Health` executes in O(1) time and is safe for concurrent calls from the delta loop watchdog.
+- `Close` stops heartbeats, drains goroutines, and ensures that the connection is torn down before unmounting.
+
+#### 4.5.3 EngineTransport Responsibilities
+
+- **Handshake & Auth**: Attach the current OAuth bearer token and preserve Graph query parameters (resource, delta tokens). Rotate the connection when tokens are refreshed.
+- **Heartbeat Management**: Parse the server-provided ping interval/timeout, schedule local timers, and declare the transport degraded after two consecutive missed pings.
+- **Reconnection Policy**: Apply exponential backoff (1 s → 2 s → 4 s … capped at 60 s with ±10 % jitter). Reset the backoff after a successful reconnect.
+- **Structured Diagnostics**: Emit trace-level logs for packet direction, handshake payloads, ping/pong timing, and close/error codes. Payloads must be truncated to a configurable limit to avoid log bloat.
+- **Testing Hooks**: Provide fake transports that implement `RealtimeTransport` so unit and integration tests can cover error paths without a live Graph endpoint.
+- **Standalone Operation**: The implementation MUST reside inside the OneMount repository; it may not delegate to Azure Web PubSub or other managed relays.
+
+#### 4.5.4 Interaction with Delta Loop
+
+1. Transport connects and reports `Healthy`.
+2. `SocketSubscriptionManager` marks realtime mode active and lengthens the delta polling interval (≥30 minutes by default).
+3. When a `notification` event arrives, the manager triggers `DeltaLoop.ScheduleImmediateSync()`.
+4. If the transport reports `Degraded` or `Failed`, the manager shortens polling to 5 minutes (or a temporarily aggressive 10 seconds) until health is restored.
+
+This design ensures the Engine.IO module can evolve independently while guaranteeing that every implementation conforms to the same observable behavior.
 
 ## 5. Data Model Definitions
 

@@ -117,19 +117,20 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 #### Acceptance Criteria
 
 1. WHEN the filesystem is first mounted, THE OneMount System SHALL fetch the complete directory structure from OneDrive using the delta API
-2. WHEN the filesystem is mounted, THE OneMount System SHALL create a webhook subscription using POST `/subscriptions` for the mounted drive
-3. WHEN creating a subscription for personal OneDrive, THE OneMount System SHALL subscribe to the root folder or any subfolder
-4. WHEN creating a subscription for OneDrive for Business, THE OneMount System SHALL subscribe only to the root folder
-5. WHEN a subscription is created successfully, THE OneMount System SHALL use a longer polling interval (e.g., 30 minutes) as a fallback and SHALL log any temporary deviation from that interval
-6. WHEN a webhook notification is received, THE OneMount System SHALL immediately trigger a delta query to fetch changes and preempt lower-priority metadata jobs so user-facing operations do not stall
-7. WHEN no subscription is active, THE OneMount System SHALL use a shorter polling interval (default 5 minutes) for delta queries; any temporary deviation SHALL be logged and surfaced for diagnostics
-8. WHEN remote changes are detected via delta query, THE OneMount System SHALL update the local metadata cache
-9. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
-10. WHEN a cached file has been modified remotely, THE OneMount System SHALL invalidate the local cache entry using ETag comparison
-11. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
-12. WHEN delta sync completes, THE OneMount System SHALL store the @odata.deltaLink token for the next sync cycle
-13. WHEN a subscription expires (maximum 3 days for personal OneDrive), THE OneMount System SHALL renew the subscription
-14. IF subscription renewal fails, THEN THE OneMount System SHALL fall back to shorter polling interval until subscription is re-established
+2. WHEN the filesystem is mounted, THE OneMount System SHALL attempt to establish a Microsoft Graph Socket.IO subscription for the mounted drive
+3. WHEN establishing a subscription for personal OneDrive, THE OneMount System SHALL target the root folder or selected subfolders, matching Graph's supported resources
+4. WHEN establishing a subscription for OneDrive for Business, THE OneMount System SHALL limit the subscription scope to the drive root as required by Graph
+5. WHEN a Socket.IO subscription is healthy, THE OneMount System SHALL run delta polling no more frequently than every 30 minutes (configurable but never lower than 5 minutes) and SHALL log any deviation from that cadence
+6. WHEN a Socket.IO notification is received, THE OneMount System SHALL immediately trigger a delta query to fetch changes and SHALL preempt lower-priority metadata work so user-facing operations do not stall
+7. WHEN the Socket.IO subscription is unavailable or unhealthy, THE OneMount System SHALL automatically fall back to delta polling every 5 minutes by default and SHALL log the degraded state
+8. IF the Socket.IO channel continues to fail or error, THEN THE OneMount System MAY temporarily shorten the polling interval down to 10 seconds to recover, but MUST return to the configured fallback cadence within one interval after the channel is restored and SHALL log the entire degraded period
+9. WHEN remote changes are detected via delta query, THE OneMount System SHALL update the local metadata cache
+10. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
+11. WHEN a cached file has been modified remotely, THE OneMount System SHALL invalidate the local cache entry using ETag comparison
+12. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
+13. WHEN delta sync completes, THE OneMount System SHALL store the @odata.deltaLink token for the next sync cycle
+14. WHEN a subscription approaches expiration (per Graph limits), THE OneMount System SHALL renew the Socket.IO subscription proactively
+15. IF subscription renewal or reconnection fails, THEN THE OneMount System SHALL continue using the shorter polling interval until the subscription is restored and SHALL raise diagnostics for the operator
 
 ### Requirement 6: Offline Mode Verification
 
@@ -338,24 +339,21 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 6. WHERE FUSE operations are required, THE OneMount System SHALL configure containers with appropriate capabilities and devices
 7. THE OneMount System SHALL provide a test runner container with all required dependencies pre-installed
 
-### Requirement 17: Webhook Subscription Management
+### Requirement 17: Socket.IO Subscription Management
 
-**User Story:** As a system, I want to use webhook subscriptions to receive real-time notifications of changes so that I can reduce polling frequency and improve responsiveness.
+**User Story:** As a system, I want to consume Microsoft Graph Socket.IO change notifications directly so that I can deliver real-time updates without relying on external services or webhooks.
 
 #### Acceptance Criteria
 
-1. WHEN mounting a drive, THE OneMount System SHALL attempt to create a webhook subscription using POST `/subscriptions`
-2. WHEN creating a subscription, THE OneMount System SHALL provide a publicly accessible notification URL
-3. WHEN creating a subscription, THE OneMount System SHALL specify the resource path (e.g., `/me/drive/root`)
-4. WHEN creating a subscription, THE OneMount System SHALL specify changeType as "updated"
-5. WHEN a subscription is created, THE OneMount System SHALL store the subscription ID and expiration time
-6. WHEN a webhook notification is received, THE OneMount System SHALL validate the notification using the validation token
-7. WHEN a valid notification is received, THE OneMount System SHALL trigger an immediate delta query
-8. WHILE a subscription is active, THE OneMount System SHALL monitor the expiration time
-9. WHEN a subscription is within 24 hours of expiration, THE OneMount System SHALL renew it using PATCH `/subscriptions/{id}`
-10. IF subscription creation fails, THEN THE OneMount System SHALL log the error and continue with polling-only mode
-11. IF subscription renewal fails, THEN THE OneMount System SHALL attempt to create a new subscription
-12. WHEN unmounting a drive, THE OneMount System SHALL delete the subscription using DELETE `/subscriptions/{id}`
+1. WHEN mounting a drive, THE OneMount System SHALL request a Socket.IO notification endpoint from Microsoft Graph for the selected resource (e.g., `/me/drive/root`).
+2. THE OneMount System SHALL establish and maintain the Engine.IO v4 WebSocket connection directly, without delegating to Azure Web PubSub or any other managed relay; the application SHALL remain fully standalone.
+3. WHEN establishing the Socket.IO connection, THE OneMount System SHALL persist the subscription ID, notification URL, and expiration so they can be renewed before expiry.
+4. WHILE the connection is active, THE OneMount System SHALL send and monitor ping/pong heartbeats according to Engine.IO timing and SHALL treat missed heartbeats as failures requiring reconnection.
+5. WHEN the Socket.IO connection drops, THE OneMount System SHALL attempt reconnection with exponential backoff (capped to 60 seconds), and SHALL log each failure with enough context to diagnose authentication or protocol issues.
+6. IF reconnection fails repeatedly, THEN THE OneMount System SHALL declare the subscription unhealthy, fall back to the delta polling behavior defined in Requirement 5, and continue retrying the Socket.IO channel in the background.
+7. WHEN the subscription approaches expiration (per Graph-imposed limits), THE OneMount System SHALL renew it proactively; renewal attempts SHALL be logged and retried on failure.
+8. WHEN unmounting a drive or shutting down, THE OneMount System SHALL gracefully close the Socket.IO connection and delete/cleanup the associated subscription metadata.
+9. THE OneMount System SHALL NOT expose or require inbound HTTP webhook endpoints; all real-time updates SHALL flow over the Socket.IO subscription to avoid terminology confusion with traditional webhooks.
 
 ### Requirement 18: Documentation Alignment
 
@@ -386,3 +384,19 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 9. WHEN a network error contains "temporary failure in name resolution", THE OneMount System SHALL classify it as an offline condition
 10. WHEN a network error contains "operation timed out", THE OneMount System SHALL classify it as an offline condition
 11. WHEN an offline condition is detected, THE OneMount System SHALL log the specific error pattern that triggered the detection
+
+### Requirement 20: Engine.IO / Socket.IO Transport Implementation
+
+**User Story:** As a OneMount developer, I want clear requirements for the built-in Engine.IO/Socket.IO transport so that the realtime channel can be implemented and tested without relying on unmaintained third-party libraries or external services.
+
+#### Acceptance Criteria
+
+1. THE OneMount System SHALL implement the Microsoft Graph notification channel using Engine.IO v4 over WebSocket only, setting `EIO=4` and `transport=websocket` query parameters and joining the default namespace (`/`).
+2. THE transport SHALL attach the current OAuth access token (Authorization bearer header) and any additional headers Graph requires, and SHALL refresh the connection whenever the token is rotated.
+3. WHEN an Engine.IO handshake frame is received, THE transport SHALL parse the ping interval/timeout values, log them at debug level, and configure its heartbeat timers accordingly.
+4. THE transport SHALL send ping/pong frames per the negotiated interval, detect two consecutive missed heartbeats as a failure, and immediately surface the unhealthy state to the delta loop for fallback polling.
+5. WHEN the connection closes or errors, THE transport SHALL attempt reconnection with exponential backoff (starting at 1 s, doubling each attempt, capped at 60 s, with ±10 % jitter) and SHALL reset the backoff after a successful reconnect.
+6. THE implementation SHALL stream decoded Socket.IO events (e.g., `notification`, `error`) through strongly typed callbacks, and SHALL expose a health indicator that the delta sync loop can query in constant time.
+7. THE transport SHALL emit structured trace logs for handshake data, ping/pong timing, packet read/write summaries (payload truncated to a configurable limit), and close/error codes sufficient for supportability.
+8. THE transport SHALL include automated tests covering packet encode/decode, heartbeat scheduling, reconnection backoff, and error propagation so regressions can be caught without live Graph access.
+9. THE transport SHALL remain self-contained within the OneMount codebase—no third-party Socket.IO client libraries, proxies, or managed relays (e.g., Azure Web PubSub) are permitted.
