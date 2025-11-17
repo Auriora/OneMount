@@ -129,6 +129,7 @@ type Inode struct {
 - NEVER acquire multiple inode locks simultaneously (see exception below)
 - Use RLock for read-only operations
 - Release before making network calls
+- Avoid calling child accessors while holding a parent lock—copy the parent’s `children` slice or precompute values, release the parent lock, and only then resolve child metadata to prevent lock inversion.
 
 **Exception for Multiple Inodes**:
 When you must lock multiple inodes (e.g., during move operations), use **ID-based ordering**:
@@ -148,6 +149,15 @@ if inode1ID < inode2ID {
 defer inode1.mu.Unlock()
 defer inode2.mu.Unlock()
 ```
+
+**Documented Exceptions**  
+Some helpers (for example `InsertNodeID` and `InsertID`) temporarily take an inode lock before acquiring the filesystem lock. These cases are only safe because:
+
+- The two locks are never held at the same time; the inode lock is released before the filesystem lock is acquired (and vice versa).
+- The filesystem critical section is extremely small (incrementing `lastNodeID`, mutating the `inodes` slice) and does not invoke any other locking helpers.
+- Callers obey the same ordering so no code ever holds the filesystem lock and then tries to grab the inode lock while those helpers are running.
+
+If changing those helpers would cause lock ranges to overlap—or if you add new exceptions—either restore the canonical hierarchy or document the exact invariants in this guide before merging.
 
 ### Level 4: Session Locks
 
@@ -595,6 +605,12 @@ func TestNoDeadlock(t *testing.T) {
     }
 }
 ```
+
+### Debugging & Instrumentation
+
+- **Deadlock monitor** – Reuse `internal/fs/concurrency_deadlock_monitor_test.go` (introduced in `docs/updates/2025-11-15-deadlock-harness.md`) to record worker heartbeats and automatically dump goroutines when a test stalls. Set `DEADLOCK_TRACE=1` locally to capture stacks when the monitor trips.
+- **Lock-hold timing** – When adding parent/child locking code, gate a short timing probe (e.g., via `logging.Debug()`) around each `Lock/RLock` so `LOG_LEVEL=debug` runs emit a warning if the hold exceeds ~2 ms. This instrumentation mirrors the tooling used in the `2025-11-17-cat-read-hang-repro.md` investigation and surfaces regressions quickly.
+- **Container repro** – For filesystem-facing fixes, rerun `build/onemount` inside the devcontainer and repeat the `cat`/`ls` hang scenario (`timeout 15s cat ~/OneMountTest/dbus-test-file.txt`) to ensure FUSE replies complete even while metadata refreshers mutate child lists.
 
 ## Common Pitfalls
 

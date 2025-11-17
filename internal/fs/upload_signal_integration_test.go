@@ -38,7 +38,7 @@ func TestUT_FS_Signal_Integration_01_SignalHandling(t *testing.T) {
 	}
 
 	// Verify initial state
-	if manager.isShuttingDown {
+	if manager.IsShuttingDown() {
 		t.Error("Upload manager should not be shutting down initially")
 	}
 
@@ -53,7 +53,7 @@ func TestUT_FS_Signal_Integration_01_SignalHandling(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Verify that the upload manager is shutting down
-	if !manager.isShuttingDown {
+	if !manager.IsShuttingDown() {
 		t.Error("Upload manager should be shutting down after SIGTERM")
 	}
 

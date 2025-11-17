@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -127,7 +128,25 @@ type UploadManager struct {
 	shutdownContext context.Context
 	shutdownCancel  context.CancelFunc
 	gracefulTimeout time.Duration
-	isShuttingDown  bool
+	shutdownFlag    atomic.Bool
+}
+
+func (u *UploadManager) tryIncrementInFlight() bool {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	if u.inFlight >= maxUploadsInFlight {
+		return false
+	}
+	u.inFlight++
+	return true
+}
+
+func (u *UploadManager) decrementInFlight() {
+	u.mutex.Lock()
+	if u.inFlight > 0 {
+		u.inFlight--
+	}
+	u.mutex.Unlock()
 }
 
 // NewUploadManager creates a new queue/thread for uploads
@@ -163,7 +182,6 @@ func NewUploadManager(duration time.Duration, db *bolt.DB, fs FilesystemInterfac
 		shutdownContext: ctx,
 		shutdownCancel:  cancel,
 		gracefulTimeout: gracefulTimeout, // Use configured timeout for large uploads to complete
-		isShuttingDown:  false,
 	}
 	db.View(func(tx *bolt.Tx) error {
 		// Add any incomplete sessions from disk - any sessions here were never
@@ -315,8 +333,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 					// max active upload sessions are capped at this limit for faster
 					// uploads of individual files and also to prevent possible server-
 					// side throttling that can cause errors.
-					if u.inFlight < maxUploadsInFlight {
-						u.inFlight++
+					if u.tryIncrementInFlight() {
 						// Update status to syncing
 						u.fs.SetFileStatus(id, FileStatusInfo{
 							Status:    StatusSyncing,
@@ -329,9 +346,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 
 				case uploadErrored:
 					// Decrement inFlight since the upload goroutine has completed
-					if u.inFlight > 0 {
-						u.inFlight--
-					}
+					u.decrementInFlight()
 
 					session.retries++
 					session.RecoveryAttempts++
@@ -405,9 +420,7 @@ func (u *UploadManager) uploadLoop(duration time.Duration) {
 
 				case uploadComplete:
 					// Decrement inFlight since the upload goroutine has completed
-					if u.inFlight > 0 {
-						u.inFlight--
-					}
+					u.decrementInFlight()
 
 					logging.Info().
 						Str("id", session.ID).
@@ -478,9 +491,7 @@ func (u *UploadManager) signalHandler() {
 				Str("signal", sig.String()).
 				Msg("Upload manager received signal, initiating graceful shutdown")
 
-			u.mutex.Lock()
-			u.isShuttingDown = true
-			u.mutex.Unlock()
+			u.shutdownFlag.Store(true)
 
 			// Persist all active upload sessions before shutdown
 			u.persistActiveUploads()
@@ -911,15 +922,11 @@ func (u *UploadManager) Stop() {
 	logging.Info().Msg("Stopping upload manager...")
 
 	// Check if we're already shutting down
-	u.mutex.RLock()
-	alreadyShuttingDown := u.isShuttingDown
-	u.mutex.RUnlock()
+	alreadyShuttingDown := u.shutdownFlag.Load()
 
 	if !alreadyShuttingDown {
 		// Trigger graceful shutdown through signal handler
-		u.mutex.Lock()
-		u.isShuttingDown = true
-		u.mutex.Unlock()
+		u.shutdownFlag.Store(true)
 
 		// Persist active uploads before stopping
 		u.persistActiveUploads()
@@ -957,4 +964,9 @@ func (u *UploadManager) Stop() {
 	case <-time.After(10 * time.Second):
 		logging.Warn().Msg("Timed out waiting for upload manager to stop")
 	}
+}
+
+// IsShuttingDown reports whether the manager has begun graceful shutdown.
+func (u *UploadManager) IsShuttingDown() bool {
+	return u.shutdownFlag.Load()
 }

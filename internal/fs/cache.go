@@ -33,6 +33,23 @@ const (
 	defaultDeltaLink = "/me/drive/root/delta?token=latest"
 )
 
+const inodeLockWarningThreshold = 2 * time.Millisecond
+
+func logLockHoldDuration(lockName, context string, start time.Time) {
+	if !logging.IsDebugEnabled() {
+		return
+	}
+	duration := time.Since(start)
+	if duration < inodeLockWarningThreshold {
+		return
+	}
+	logging.Debug().
+		Str("lock", lockName).
+		Str("context", context).
+		Dur("holdTime", duration).
+		Msg("Long lock hold detected")
+}
+
 // OfflineChange represents a change made while offline
 type OfflineChange struct {
 	ID        string    `json:"id"`
@@ -926,12 +943,18 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 		}
 	}
 
+	childIsDir := inode.IsDir()
+
 	// check if the item has already been added to the parent
 	// Lock ordering: parent inode before child inode (when both needed)
 	// For multiple inodes at same level, use ID-based ordering.
 	// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
+	lockStart := time.Now()
 	parent.mu.Lock()
-	defer parent.mu.Unlock()
+	defer func() {
+		parent.mu.Unlock()
+		logLockHoldDuration("inode-parent", "InsertID", lockStart)
+	}()
 	for _, child := range parent.children {
 		if child == id {
 			// exit early, child cannot be added twice
@@ -943,7 +966,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 
 	// add to parent
-	if inode.IsDir() {
+	if childIsDir {
 		parent.subdir++
 	}
 	parent.children = append(parent.children, id)
@@ -974,8 +997,9 @@ func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
 // be called before InsertID if being used to rename/move an item.
 func (f *Filesystem) DeleteID(id string) {
 	if inode := f.GetID(id); inode != nil {
+		isDir := inode.IsDir()
 		// If this is a directory, recursively delete all its children first
-		if inode.IsDir() && inode.HasChildren() {
+		if isDir && inode.HasChildren() {
 			// Make a copy of the children slice to avoid concurrent modification issues
 			inode.mu.RLock()
 			childrenCopy := make([]string, len(inode.children))
@@ -991,17 +1015,21 @@ func (f *Filesystem) DeleteID(id string) {
 		// Lock ordering: parent inode only (child already processed)
 		// See docs/guides/developer/concurrency-guidelines.md
 		parent := f.GetID(inode.ParentID())
-		parent.mu.Lock()
-		for i, childID := range parent.children {
-			if childID == id {
-				parent.children = append(parent.children[:i], parent.children[i+1:]...)
-				if inode.IsDir() {
-					parent.subdir--
+		if parent != nil {
+			lockStart := time.Now()
+			parent.mu.Lock()
+			for i, childID := range parent.children {
+				if childID == id {
+					parent.children = append(parent.children[:i], parent.children[i+1:]...)
+					if isDir {
+						parent.subdir--
+					}
+					break
 				}
-				break
 			}
+			parent.mu.Unlock()
+			logLockHoldDuration("inode-parent", "DeleteID", lockStart)
 		}
-		parent.mu.Unlock()
 	}
 	f.metadata.Delete(id)
 	f.uploads.CancelUpload(id)
@@ -1085,28 +1113,32 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	// If item.children is not nil, it means we have the item's children
 	// already and can fetch them directly from the cache
 	if !forceRefresh {
+		var cachedChildIDs []string
 		inode.mu.RLock()
 		if inode.children != nil {
+			cachedChildIDs = append(cachedChildIDs, inode.children...)
+		}
+		inode.mu.RUnlock()
+
+		if cachedChildIDs != nil {
 			if logging.IsDebugEnabled() {
 				logger.Debug().
 					Str(logging.FieldID, id).
 					Str(logging.FieldPath, pathForLogs).
-					Int("childCount", len(inode.children)).
+					Int("childCount", len(cachedChildIDs)).
 					Msg("Children found in cache, retrieving them")
 			}
 
 			// can potentially have out-of-date child metadata if started offline, but since
 			// changes are disallowed while offline, the children will be back in sync after
 			// the first successful delta fetch (which also brings the fs back online)
-			for _, childID := range inode.children {
+			for _, childID := range cachedChildIDs {
 				child := f.GetID(childID)
 				if child == nil {
-					// will be nil if deleted or never existed
 					continue
 				}
 				children[strings.ToLower(child.Name())] = child
 			}
-			inode.mu.RUnlock()
 
 			if logging.IsDebugEnabled() {
 				logger.Debug().
@@ -1121,9 +1153,9 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 			}()
 			return children, nil
 		}
-		// Update path before unlocking to avoid potential deadlocks
+
+		// refresh path after the read lock has been released
 		pathForLogs = inode.Path()
-		inode.mu.RUnlock()
 	}
 
 	if logging.IsDebugEnabled() {
@@ -1226,17 +1258,13 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 			Msg("Processing fetched children")
 	}
 
-	// Store the path before locking to avoid potential deadlocks
-	processingPath := pathForLogs
-
-	inode.mu.Lock()
-	inode.children = make([]string, 0)
+	materializedChildren := make([]childSnapshot, 0, len(fetched))
 	for i, item := range fetched {
 		if strings.EqualFold(item.Name, xdgVolumeInfoName) {
 			if logging.IsDebugEnabled() {
 				logger.Debug().
 					Str(logging.FieldID, item.ID).
-					Str(logging.FieldPath, processingPath).
+					Str(logging.FieldPath, pathForLogs).
 					Msg("Skipping remote .xdg-volume-info entry in favor of virtual file")
 			}
 			continue
@@ -1246,26 +1274,45 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		f.InsertNodeID(child)
 		f.metadata.Store(child.DriveItem.ID, child)
 
-		// store in result map
-		children[strings.ToLower(child.Name())] = child
+		entry := newChildSnapshot(child)
+		materializedChildren = append(materializedChildren, entry)
 
-		// store id in parent item and increment parents subdirectory count
-		inode.children = append(inode.children, child.DriveItem.ID)
-		if child.IsDir() {
-			inode.subdir++
-		}
+		// store in result map
+		children[entry.lowerName] = child
 
 		if logging.IsDebugEnabled() && i%50 == 0 && i > 0 {
 			logger.Debug().
 				Str(logging.FieldID, id).
-				Str(logging.FieldPath, processingPath).
+				Str(logging.FieldPath, pathForLogs).
 				Int("processedCount", i).
 				Int("totalCount", len(fetched)).
 				Msg("Processing children progress")
 		}
 	}
 
-	f.appendVirtualChildrenLocked(inode, children)
+	virtualChildren := f.collectVirtualChildSnapshots(id)
+	for _, snapshot := range virtualChildren {
+		if snapshot.inode == nil {
+			continue
+		}
+		children[snapshot.lowerName] = snapshot.inode
+	}
+
+	// Store the path before locking to avoid potential deadlocks
+	processingPath := pathForLogs
+
+	lockStart := time.Now()
+	inode.mu.Lock()
+	inode.children = make([]string, 0, len(materializedChildren)+len(virtualChildren))
+	inode.subdir = 0
+	for _, entry := range materializedChildren {
+		inode.children = append(inode.children, entry.id)
+		if entry.isDir {
+			inode.subdir++
+		}
+	}
+
+	f.appendVirtualChildrenLocked(inode, virtualChildren)
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
@@ -1277,6 +1324,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	}
 
 	inode.mu.Unlock()
+	logLockHoldDuration("inode", "getChildrenID-populate", lockStart)
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
@@ -1328,17 +1376,28 @@ func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*
 		return
 	}
 
+	childSnapshots := snapshotChildrenFromMap(children)
+	virtualChildren := f.collectVirtualChildSnapshots(parentID)
+	for _, snapshot := range virtualChildren {
+		if snapshot.inode == nil {
+			continue
+		}
+		children[snapshot.lowerName] = snapshot.inode
+	}
+
+	lockStart := time.Now()
 	parent.mu.Lock()
-	parent.children = make([]string, 0, len(children))
+	parent.children = make([]string, 0, len(childSnapshots)+len(virtualChildren))
 	parent.subdir = 0
-	for _, child := range children {
-		parent.children = append(parent.children, child.ID())
-		if child.IsDir() {
+	for _, snapshot := range childSnapshots {
+		parent.children = append(parent.children, snapshot.id)
+		if snapshot.isDir {
 			parent.subdir++
 		}
 	}
-	f.appendVirtualChildrenLocked(parent, children)
+	f.appendVirtualChildrenLocked(parent, virtualChildren)
 	parent.mu.Unlock()
+	logLockHoldDuration("inode-parent", "cacheChildrenFromMap", lockStart)
 }
 
 // GetChildrenPath grabs all DriveItems that are the children of the resource at

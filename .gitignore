@@ -76,7 +76,9 @@ onemount-fixed
 
 # Workflow performance reports
 workflow-performance-report.json
-/test-artifacts/
+test-artifacts/
+.test-logs/
+.sandbox/
 
 venv/
 .obsidian/app.json

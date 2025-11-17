@@ -127,6 +127,7 @@ type DownloadManager struct {
 	numWorkers int
 	stopChan   chan struct{}
 	db         *bolt.DB
+	completed  sync.Map // tracks IDs whose sessions finished and were cleaned up
 }
 
 // NewDownloadManager creates a new download manager
@@ -425,6 +426,8 @@ func (dm *DownloadManager) finishDownloadSession(id string) {
 
 	// Remove from memory
 	delete(dm.sessions, id)
+	// Mark as completed so late waiters can still observe success
+	dm.completed.Store(id, struct{}{})
 
 	// Remove from database
 	if dm.db != nil {
@@ -456,6 +459,8 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 	}
 
 	path := inode.Path()
+	// Clear any stale completion marker from prior downloads of the same item
+	dm.completed.Delete(id)
 
 	// Create a new session with recovery capabilities
 	session = &DownloadSession{
@@ -536,6 +541,10 @@ func (dm *DownloadManager) WaitForDownload(id string) error {
 		dm.mutex.RUnlock()
 
 		if !exists {
+			if _, completed := dm.completed.Load(id); completed {
+				dm.completed.Delete(id)
+				return nil
+			}
 			return errors.NewNotFoundError("download session not found", nil)
 		}
 

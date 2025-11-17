@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -392,7 +393,11 @@ func TestDeadlockPrevention(t *testing.T) {
 								case 2: // Mixed read/write operations
 									file := testFiles[rand.Intn(len(testFiles))]
 									file.mu.RLock()
-									_ = file.Name()
+									// Access fields directly while holding the lock to avoid nested
+									// Name()/NodeID() calls re-locking the same inode and triggering
+									// the writer-preference starvation we observed under the race build.
+									_ = file.DriveItem.Name
+									_ = file.DriveItem.Size
 									file.mu.RUnlock()
 
 									file.mu.Lock()
@@ -467,6 +472,138 @@ func TestDeadlockPrevention(t *testing.T) {
 	})
 }
 
+// TestDirectoryEnumerationWhileRefreshing exercises parent/child locking by
+// repeatedly enumerating a directory while concurrent goroutines rewrite the
+// cached child list using cacheChildrenFromMap. This mirrors the cat/ls hang
+// scenario and ensures the fix remains stable.
+func TestDirectoryEnumerationWhileRefreshing(t *testing.T) {
+	const (
+		numChildren    = 128
+		numEnumerators = 4
+		numMutators    = 2
+		testDuration   = 5 * time.Second
+	)
+
+	fixture := helpers.SetupFSTestFixture(t, "DirectoryEnumerationWhileRefreshing", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	fixture.Use(t, func(t *testing.T, data interface{}) {
+		unitTestFixture := data.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		requireAssert := require.New(t)
+
+		parentItem := &graph.DriveItem{
+			ID:     "dir_enumeration_parent",
+			Name:   "enumeration-root",
+			Folder: &graph.Folder{},
+		}
+		parent := NewInodeDriveItem(parentItem)
+		fs.InsertID(parentItem.ID, parent)
+
+		for i := 0; i < numChildren; i++ {
+			childItem := &graph.DriveItem{
+				ID:   fmt.Sprintf("dir_enum_child_%d", i),
+				Name: fmt.Sprintf("child_%03d.txt", i),
+				File: &graph.File{},
+				Size: 256,
+			}
+			if i%5 == 0 {
+				childItem.File = nil
+				childItem.Folder = &graph.Folder{}
+			}
+			child := NewInodeDriveItem(childItem)
+			fs.InsertChild(parentItem.ID, child)
+		}
+
+		totalWorkers := numEnumerators + numMutators
+		monitor := newDeadlockMonitor(t, "TestDirectoryEnumerationWhileRefreshing", totalWorkers)
+		defer monitor.Stop()
+
+		ctx, cancel := context.WithTimeout(context.Background(), testDuration)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		var enumSuccess int64
+		var mutatorSuccess int64
+
+		// Enumerators repeatedly call GetChildrenID to stress the read path.
+		for workerID := 0; workerID < numEnumerators; workerID++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				monitor.Record(id, "enumerator-start")
+				localRand := rand.New(rand.NewSource(time.Now().UnixNano() + int64(id)))
+				for {
+					select {
+					case <-ctx.Done():
+						monitor.Record(id, "enumerator-stop")
+						return
+					default:
+						children, err := fs.GetChildrenID(parentItem.ID, nil)
+						if err != nil {
+							monitor.Record(id, "enumerator-error", err.Error())
+							continue
+						}
+						atomic.AddInt64(&enumSuccess, int64(len(children)))
+						time.Sleep(time.Duration(localRand.Intn(3)+1) * time.Millisecond)
+					}
+				}
+			}(workerID)
+		}
+
+		// Mutators rebuild the parent's child map and push it through cacheChildrenFromMap.
+		for worker := 0; worker < numMutators; worker++ {
+			wg.Add(1)
+			go func(workerIndex int) {
+				id := numEnumerators + workerIndex
+				defer wg.Done()
+				monitor.Record(id, "mutator-start")
+				localRand := rand.New(rand.NewSource(time.Now().UnixNano() + int64(workerIndex+numEnumerators)))
+				for {
+					select {
+					case <-ctx.Done():
+						monitor.Record(id, "mutator-stop")
+						return
+					default:
+						currentChildren := parent.GetChildren()
+						if len(currentChildren) == 0 {
+							continue
+						}
+						childMap := make(map[string]*Inode, len(currentChildren))
+						for _, childID := range currentChildren {
+							if localRand.Intn(3) == 0 {
+								continue
+							}
+							if inode := fs.GetID(childID); inode != nil {
+								childMap[strings.ToLower(inode.Name())] = inode
+							}
+						}
+						// Ensure at least one child remains.
+						if len(childMap) == 0 {
+							if inode := fs.GetID(currentChildren[localRand.Intn(len(currentChildren))]); inode != nil {
+								childMap[strings.ToLower(inode.Name())] = inode
+							}
+						}
+						fs.cacheChildrenFromMap(parentItem.ID, childMap)
+						atomic.AddInt64(&mutatorSuccess, 1)
+						time.Sleep(time.Duration(localRand.Intn(4)+1) * time.Millisecond)
+					}
+				}
+			}(worker)
+		}
+
+		requireAssert.NoError(monitor.Wait(&wg, testDuration+2*time.Second))
+		requireAssert.True(atomic.LoadInt64(&enumSuccess) > 0, "enumerations should succeed")
+		requireAssert.True(atomic.LoadInt64(&mutatorSuccess) > 0, "mutators should run")
+	})
+}
+
 // TestHighConcurrencyStress tests system behavior under extreme concurrent load
 //
 //	Test Case ID    CT-FS-04-01
@@ -501,13 +638,18 @@ func TestHighConcurrencyStress(t *testing.T) {
 		fs := fsFixture.FS.(*Filesystem)
 
 		// Test parameters for stress testing
-		const (
-			numGoroutines       = 50
-			numFiles            = 512
-			testDuration        = 30 * time.Second
-			operationsPerSecond = 100
-			maxAvgLatency       = 25 * time.Millisecond
-		)
+		numGoroutines := 50
+		numFiles := 512
+		testDuration := 30 * time.Second
+		operationsPerSecond := 100
+		maxAvgLatency := 25 * time.Millisecond
+		if raceEnabled {
+			numGoroutines = 25
+			numFiles = 256
+			testDuration = 15 * time.Second
+			operationsPerSecond = 50
+			maxAvgLatency = 40 * time.Millisecond
+		}
 
 		monitor := newDeadlockMonitor(t, "TestHighConcurrencyStress", numGoroutines)
 		defer monitor.Stop()
@@ -550,6 +692,7 @@ func TestHighConcurrencyStress(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(numGoroutines)
 
+		opsInterval := time.Second / time.Duration(operationsPerSecond)
 		// Launch high-concurrency stress test goroutines
 		for i := 0; i < numGoroutines; i++ {
 			go func(goroutineID int) {
@@ -557,7 +700,7 @@ func TestHighConcurrencyStress(t *testing.T) {
 				monitor.Record(goroutineID, "worker-start")
 
 				// Rate limiting to control operations per second
-				ticker := time.NewTicker(time.Second / operationsPerSecond)
+				ticker := time.NewTicker(opsInterval)
 				defer ticker.Stop()
 
 				for {

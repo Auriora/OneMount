@@ -1,7 +1,5 @@
 package fs
 
-import "strings"
-
 // registerVirtualFileInternal stores a virtual inode and makes it visible to the filesystem.
 func (f *Filesystem) registerVirtualFileInternal(inode *Inode) {
 	if inode == nil {
@@ -48,35 +46,48 @@ func (f *Filesystem) getVirtualFile(id string) (*Inode, bool) {
 	return inode, ok
 }
 
-// appendVirtualChildrenLocked appends any virtual children for the given parent into the children map.
-// The caller must hold the parent's lock while calling this function.
-func (f *Filesystem) appendVirtualChildrenLocked(parent *Inode, children map[string]*Inode) {
-	if parent == nil {
-		return
+// collectVirtualChildSnapshots gathers metadata for all virtual children of the
+// specified parent. The caller must NOT hold the parent lock while calling this
+// helper because it takes per-child locks to snapshot their state.
+func (f *Filesystem) collectVirtualChildSnapshots(parentID string) []childSnapshot {
+	if parentID == "" {
+		return nil
 	}
-	// The caller must hold parent.mu before invoking this helper. Access the
-	// parent's ID directly instead of via parent.ID() to avoid deadlocking on
-	// the same mutex (parent.ID() takes an RLock).
-	parentID := parent.DriveItem.ID
 	f.virtualMu.RLock()
 	defer f.virtualMu.RUnlock()
+	var snapshots []childSnapshot
 	for _, inode := range f.virtualFiles {
 		if inode.ParentID() != parentID {
 			continue
 		}
-		key := strings.ToLower(inode.Name())
-		children[key] = inode
-		// Ensure the parent child list contains this inode ID
-		alreadyPresent := false
-		inodeID := inode.ID()
-		for _, childID := range parent.children {
-			if childID == inodeID {
-				alreadyPresent = true
-				break
-			}
+		if snapshots == nil {
+			snapshots = make([]childSnapshot, 0, 4)
 		}
-		if !alreadyPresent {
-			parent.children = append(parent.children, inodeID)
+		snapshots = append(snapshots, newChildSnapshot(inode))
+	}
+	return snapshots
+}
+
+// appendVirtualChildrenLocked appends precomputed virtual children snapshots to
+// the parent. The caller must hold the parent's lock.
+func (f *Filesystem) appendVirtualChildrenLocked(parent *Inode, virtualChildren []childSnapshot) {
+	if parent == nil || len(virtualChildren) == 0 {
+		return
+	}
+	existing := make(map[string]struct{}, len(parent.children))
+	for _, childID := range parent.children {
+		existing[childID] = struct{}{}
+	}
+	for _, snapshot := range virtualChildren {
+		if snapshot.inode == nil {
+			continue
+		}
+		if _, exists := existing[snapshot.id]; exists {
+			continue
+		}
+		parent.children = append(parent.children, snapshot.id)
+		if snapshot.isDir {
+			parent.subdir++
 		}
 	}
 }

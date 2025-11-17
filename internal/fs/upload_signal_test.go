@@ -100,7 +100,7 @@ func TestUT_FS_Signal_01_UploadManager_GracefulShutdown(t *testing.T) {
 		time.Sleep(2 * time.Second)
 
 		// Verify that the upload manager is shutting down
-		assert.True(fs.uploads.isShuttingDown, "Upload manager should be shutting down")
+		assert.True(fs.uploads.IsShuttingDown(), "Upload manager should be shutting down")
 
 		// Verify that upload progress was persisted
 		// Check if the session was saved to disk

@@ -185,7 +185,7 @@ func TestUT_FS_Metadata_08_SyncProgress(t *testing.T) {
 		}()
 
 		// Monitor progress
-		var lastProgress *SyncProgress
+		var lastProgress *SyncProgressSnapshot
 		progressChecks := 0
 		maxChecks := 10
 
@@ -193,7 +193,8 @@ func TestUT_FS_Metadata_08_SyncProgress(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 			progress := fs.GetSyncProgress()
 			if progress != nil {
-				lastProgress = progress
+				snapshot := progress.GetProgress()
+				lastProgress = &snapshot
 				progressChecks++
 
 				// Check if sync is complete

@@ -366,7 +366,12 @@ func (i *Inode) SetHasChanges(hasChanges bool) {
 func (i *Inode) GetChildren() []string {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
-	return i.children
+	if len(i.children) == 0 {
+		return nil
+	}
+	children := make([]string, len(i.children))
+	copy(children, i.children)
+	return children
 }
 
 // SetChildren sets the children of the Inode.

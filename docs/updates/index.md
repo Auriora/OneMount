@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-17** – [Cat Read Hang – Locking Fix & Stress Coverage](./2025-11-17-cat-read-locking-fix.md)
 - **2025-11-17** – [Socket.IO Delta Notifications](./2025-11-17-socketio-realtime.md)
 - **2025-11-17** – [Cat Read Hang – Container Reproduction](./2025-11-17-cat-read-hang-repro.md)
 - **2025-11-16** – [Adaptive Delta Interval For Foreground Activity](./2025-11-16-delta-active-intervals.md)

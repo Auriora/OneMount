@@ -1070,9 +1070,13 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 		assert.NoError(err, "Failed to queue upload")
 		assert.NotNil(uploadSession, "Upload session should not be nil")
 
-		// Verify initial progress state
-		assert.Equal(uint64(0), uploadSession.BytesUploaded, "Initial bytes uploaded should be 0")
-		assert.Equal(uint64(testFileSize), uploadSession.Size, "Upload session size should match file size")
+		// Verify initial progress state (guard session with lock to avoid races)
+		uploadSession.Lock()
+		initialBytes := uploadSession.BytesUploaded
+		initialSize := uploadSession.Size
+		uploadSession.Unlock()
+		assert.Equal(uint64(0), initialBytes, "Initial bytes uploaded should be 0")
+		assert.Equal(uint64(testFileSize), initialSize, "Upload session size should match file size")
 
 		// Wait for the upload to complete
 		err = fs.uploads.WaitForUpload(fileID)
@@ -1092,8 +1096,13 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 		}
 
 		// Verify final progress state
-		assert.Equal(uploadSession.Size, uploadSession.BytesUploaded, "All bytes should be uploaded")
-		assert.True(uploadSession.LastProgressTime.After(time.Time{}), "Last progress time should be set")
+		uploadSession.Lock()
+		finalBytes := uploadSession.BytesUploaded
+		finalSize := uploadSession.Size
+		lastProgress := uploadSession.LastProgressTime
+		uploadSession.Unlock()
+		assert.Equal(finalSize, finalBytes, "All bytes should be uploaded")
+		assert.True(lastProgress.After(time.Time{}), "Last progress time should be set")
 
 		// Note: We don't check GetUploadStatus here because successful uploads
 		// are cleaned up from the upload manager, so the session no longer exists.

@@ -3,6 +3,7 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -155,11 +156,11 @@ func TestIT_FS_09_05_UploadConflictDetection(t *testing.T) {
 		// Step 4: Configure upload to detect conflict
 		// When upload attempts to PUT the file, it should check the current ETag
 		// and detect that it has changed from the cached version
-		uploadAttempted := false
-		conflictDetected := false
+		var uploadAttempted atomic.Bool
+		var conflictDetected atomic.Bool
 
 		mockClient.SetResponseCallback("/me/drive/items/"+fileID+"/content", func() ([]byte, int, error) {
-			uploadAttempted = true
+			uploadAttempted.Store(true)
 
 			// In a real scenario, the server would return 412 Precondition Failed
 			// if the ETag doesn't match. For this test, we'll simulate conflict detection
@@ -169,7 +170,7 @@ func TestIT_FS_09_05_UploadConflictDetection(t *testing.T) {
 			currentRemoteItem, err := mockClient.GetItem(fileID)
 			if err == nil && currentRemoteItem.ETag != initialETag {
 				// ETag has changed - conflict detected!
-				conflictDetected = true
+				conflictDetected.Store(true)
 				t.Logf("Conflict detected: cached ETag=%s, remote ETag=%s", initialETag, currentRemoteItem.ETag)
 
 				// Return 412 Precondition Failed to indicate conflict
@@ -206,12 +207,12 @@ func TestIT_FS_09_05_UploadConflictDetection(t *testing.T) {
 		time.Sleep(2 * time.Second)
 
 		// Step 6: Verify conflict was detected
-		assert.True(uploadAttempted, "Upload should have been attempted")
-		assert.True(conflictDetected, "Conflict should have been detected via ETag mismatch")
+		assert.True(uploadAttempted.Load(), "Upload should have been attempted")
+		assert.True(conflictDetected.Load(), "Conflict should have been detected via ETag mismatch")
 
 		t.Logf("Conflict detection test completed successfully")
-		t.Logf("- Upload attempted: %v", uploadAttempted)
-		t.Logf("- Conflict detected: %v", conflictDetected)
+		t.Logf("- Upload attempted: %v", uploadAttempted.Load())
+		t.Logf("- Conflict detected: %v", conflictDetected.Load())
 
 		// Verify the local file still has its changes
 		localInode := fs.GetID(fileID)
