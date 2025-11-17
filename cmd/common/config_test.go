@@ -216,6 +216,16 @@ func TestValidateWebhookConfigRequiresHTTPS(t *testing.T) {
 	}
 }
 
+func TestValidateWebhookConfigAllowsSocketWithoutPublicURL(t *testing.T) {
+	cfg := &WebhookConfig{
+		Enabled:     true,
+		UseSocketIO: true,
+	}
+	if err := validateWebhookConfig(cfg); err != nil {
+		t.Fatalf("expected socket.io webhook to validate without public URL, got %v", err)
+	}
+}
+
 func TestDefaultActiveDeltaTuning(t *testing.T) {
 	cfg := createDefaultConfig()
 	if cfg.ActiveDeltaInterval != 60 {

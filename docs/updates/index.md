@@ -2,6 +2,8 @@
 
 Newest entries first.
 
+- **2025-11-17** – [Socket.IO Delta Notifications](./2025-11-17-socketio-realtime.md)
+- **2025-11-17** – [Cat Read Hang – Container Reproduction](./2025-11-17-cat-read-hang-repro.md)
 - **2025-11-16** – [Adaptive Delta Interval For Foreground Activity](./2025-11-16-delta-active-intervals.md)
 - **2025-11-16** – [Webhook & Delta Loop Stabilization](./2025-11-16-webhook-delta-loop.md)
 - **2025-11-16** – [Metadata Request Prioritization Plan](./2025-11-16-metadata-priority-plan.md)

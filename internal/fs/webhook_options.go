@@ -5,6 +5,7 @@ import "time"
 // WebhookOptions controls webhook subscription behaviour.
 type WebhookOptions struct {
 	Enabled          bool
+	UseSocketIO      bool
 	PublicURL        string
 	ListenAddress    string
 	Path             string

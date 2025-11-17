@@ -114,7 +114,7 @@ type Filesystem struct {
 
 	// Webhook / subscription management
 	webhookOptions         *WebhookOptions
-	subscriptionManager    *SubscriptionManager
+	subscriptionManager    subscriptionManager
 	deltaInterval          time.Duration
 	lastDeltaInterval      time.Duration
 	lastDeltaReason        string

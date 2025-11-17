@@ -366,6 +366,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 func toWebhookOptions(cfg common.WebhookConfig) fs.WebhookOptions {
 	return fs.WebhookOptions{
 		Enabled:          cfg.Enabled,
+		UseSocketIO:      cfg.UseSocketIO,
 		PublicURL:        cfg.PublicURL,
 		ListenAddress:    cfg.ListenAddress,
 		Path:             cfg.Path,

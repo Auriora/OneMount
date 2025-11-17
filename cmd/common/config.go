@@ -41,6 +41,7 @@ type Config struct {
 // WebhookConfig controls Microsoft Graph webhook subscriptions.
 type WebhookConfig struct {
 	Enabled          bool   `yaml:"enabled"`
+	UseSocketIO      bool   `yaml:"useSocketIo"`
 	PublicURL        string `yaml:"publicUrl"`
 	ListenAddress    string `yaml:"listenAddress"`
 	Path             string `yaml:"path"`
@@ -78,6 +79,7 @@ func createDefaultConfig() Config {
 		MountTimeout:         60,                               // Default to 60 seconds
 		Webhook: WebhookConfig{
 			Enabled:          false,
+			UseSocketIO:      false,
 			PublicURL:        "",
 			ListenAddress:    "127.0.0.1:8787",
 			Path:             "/onemount/webhook",
@@ -243,7 +245,7 @@ func validateWebhookConfig(cfg *WebhookConfig) error {
 	if cfg.FallbackInterval <= 0 {
 		cfg.FallbackInterval = int((30 * time.Minute).Seconds())
 	}
-	if cfg.Enabled {
+	if cfg.Enabled && !cfg.UseSocketIO {
 		if cfg.PublicURL == "" {
 			return errors.New("webhook configuration requires publicUrl when enabled")
 		}
@@ -253,6 +255,9 @@ func validateWebhookConfig(cfg *WebhookConfig) error {
 		if cfg.ClientState == "" {
 			cfg.ClientState = generateClientState()
 		}
+	}
+	if cfg.Enabled && cfg.UseSocketIO && cfg.ClientState == "" {
+		cfg.ClientState = generateClientState()
 	}
 	return nil
 }

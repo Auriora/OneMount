@@ -23,7 +23,12 @@ func (f *Filesystem) startWebhookManager() (<-chan struct{}, error) {
 	if f.webhookOptions == nil || !f.webhookOptions.Enabled {
 		return nil, nil
 	}
-	manager := NewSubscriptionManager(*f.webhookOptions, f.auth)
+	var manager subscriptionManager
+	if f.webhookOptions.UseSocketIO {
+		manager = NewSocketSubscriptionManager(*f.webhookOptions, f.auth)
+	} else {
+		manager = NewSubscriptionManager(*f.webhookOptions, f.auth)
+	}
 	if err := manager.Start(f.deltaLoopCtx); err != nil {
 		return nil, err
 	}
