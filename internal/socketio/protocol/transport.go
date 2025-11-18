@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -30,7 +31,7 @@ func (conn *webSocketConn) Close() error {
 func (conn *webSocketConn) Read() (*Packet, error) {
 	msgType, r, err := conn.conn.NextReader()
 	if err != nil {
-		return nil, err
+		return nil, wrapCloseError(err)
 	}
 	if msgType == websocket.BinaryMessage {
 		return nil, errors.New("binary messages are not supported")
@@ -46,14 +47,14 @@ func (conn *webSocketConn) Read() (*Packet, error) {
 func (conn *webSocketConn) Write(packet *Packet) error {
 	w, err := conn.conn.NextWriter(websocket.TextMessage)
 	if err != nil {
-		return err
+		return wrapCloseError(err)
 	}
 	if data, err := packet.Encode(); err != nil {
 		return err
 	} else if _, err = w.Write(data); err != nil {
 		return err
 	} else if err = w.Close(); err != nil {
-		return err
+		return wrapCloseError(err)
 	}
 	return nil
 }
@@ -69,7 +70,17 @@ func (t *webSocketTransport) Dial(url string, requestHeader http.Header) (Conn, 
 	dialer := &websocket.Dialer{}
 	conn, _, err := dialer.Dial(url, requestHeader)
 	if err != nil {
-		return nil, err
+		return nil, wrapCloseError(err)
 	}
 	return &webSocketConn{conn}, nil
+}
+
+func wrapCloseError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if closeErr, ok := err.(*websocket.CloseError); ok {
+		return fmt.Errorf("websocket close: code=%d text=%s", closeErr.Code, closeErr.Text)
+	}
+	return err
 }

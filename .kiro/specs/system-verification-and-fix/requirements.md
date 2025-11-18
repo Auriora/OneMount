@@ -45,13 +45,14 @@ This specification defines the requirements for systematically verifying and fix
 4. WHILE the filesystem is mounted, THE OneMount System SHALL respond to standard file operations (ls, cat, cp, etc.)
 5. WHEN the user navigates directories, THE OneMount System SHALL serve directory listings from the cached metadata without network requests; if cached metadata exists but is older than the refresh threshold, THE OneMount System SHALL return the cached data immediately and trigger a refresh asynchronously
 6. WHEN a directory lookup fails (including typos, case mismatches, or maintenance of virtual files such as `.xdg-volume-info`), THE OneMount System SHALL scope cache invalidation to the affected entry rather than clearing the entire parent directory cache
-7. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
-8. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
-9. WHERE the user specifies daemon mode, THE OneMount System SHALL fork the process and detach from the terminal for background operation
-10. WHEN the user specifies a mount timeout, THE OneMount System SHALL wait up to the specified duration for the mount operation to complete
-11. IF the mount timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 60 seconds
-12. WHEN opening the metadata database, THE OneMount System SHALL detect stale lock files older than 5 minutes and attempt to remove them
-13.IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
+7. WHEN the path `.xdg-volume-info` is requested, THE OneMount System SHALL bypass Graph and cached metadata lookups and serve the virtual file immediately so that it is always available, even on first mount
+8. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
+9. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
+10. WHERE the user specifies daemon mode, THE OneMount System SHALL fork the process and detach from the terminal for background operation
+11. WHEN the user specifies a mount timeout, THE OneMount System SHALL wait up to the specified duration for the mount operation to complete
+12. IF the mount timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 60 seconds
+13. WHEN opening the metadata database, THE OneMount System SHALL detect stale lock files older than 5 minutes and attempt to remove them
+14. IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
 
 ### Requirement 3: On-Demand File Download Verification
 

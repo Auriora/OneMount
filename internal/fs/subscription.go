@@ -13,6 +13,7 @@ import (
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/socketio"
 )
 
 // SubscriptionManager handles Microsoft Graph webhook subscriptions and notification delivery.
@@ -215,6 +216,16 @@ func (m *SubscriptionManager) handleNotification(w http.ResponseWriter, r *http.
 	if valid {
 		m.trigger()
 	}
+}
+
+// HealthSnapshot returns a default health state for webhook-mode subscriptions.
+func (m *SubscriptionManager) HealthSnapshot() socketio.HealthState {
+	return socketio.HealthState{Status: socketio.StatusUnknown}
+}
+
+// RealtimeMode identifies the notification transport.
+func (m *SubscriptionManager) RealtimeMode() string {
+	return "webhook"
 }
 
 func (m *SubscriptionManager) trigger() {

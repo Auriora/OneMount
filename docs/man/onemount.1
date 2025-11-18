@@ -160,6 +160,11 @@ Display statistics about the metadata, content caches, outstanding changes for u
 Does not start a mount point.
 
 .TP
+.BR " \-\-polling-only"
+Force delta polling even if webhook or Socket.IO transports are configured. This is useful when
+troubleshooting realtime channels or when network policy prevents outbound WebSocket traffic.
+
+.TP
 .BR " \-\-daemon"
 Run onemount in daemon mode (detached from terminal).
 
@@ -253,6 +258,7 @@ File status indicators may sometimes not update immediately. You can refresh the
 \fBonemount --stats $MOUNTPOINT\fR
 .br
 to check the current status of files.
+The statistics output also lists realtime transport mode, health, and heartbeat information so you can tell whether the Socket.IO channel is degraded; run \fBonemount --polling-only\fR if you need to disable realtime temporarily.
 
 .TP
 .B Offline mode issues

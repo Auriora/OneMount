@@ -155,6 +155,11 @@ func (p *Packet) Encode() ([]byte, error) {
 	return []byte(p.Type.String() + p.payload), nil
 }
 
+// Payload returns the raw packet payload string.
+func (p *Packet) Payload() string {
+	return p.payload
+}
+
 type MessageType int
 
 // https://github.com/socketio/socket.io-protocol#parsertypes

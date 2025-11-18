@@ -42,6 +42,7 @@ type Config struct {
 type WebhookConfig struct {
 	Enabled          bool   `yaml:"enabled"`
 	UseSocketIO      bool   `yaml:"useSocketIo"`
+	PollingOnly      bool   `yaml:"pollingOnly"`
 	PublicURL        string `yaml:"publicUrl"`
 	ListenAddress    string `yaml:"listenAddress"`
 	Path             string `yaml:"path"`
@@ -80,6 +81,7 @@ func createDefaultConfig() Config {
 		Webhook: WebhookConfig{
 			Enabled:          false,
 			UseSocketIO:      false,
+			PollingOnly:      false,
 			PublicURL:        "",
 			ListenAddress:    "127.0.0.1:8787",
 			Path:             "/onemount/webhook",

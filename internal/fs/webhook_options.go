@@ -6,6 +6,7 @@ import "time"
 type WebhookOptions struct {
 	Enabled          bool
 	UseSocketIO      bool
+	PollingOnly      bool
 	PublicURL        string
 	ListenAddress    string
 	Path             string

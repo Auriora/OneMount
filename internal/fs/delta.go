@@ -20,12 +20,12 @@ const (
 )
 
 func (f *Filesystem) startWebhookManager() (<-chan struct{}, error) {
-	if f.webhookOptions == nil || !f.webhookOptions.Enabled {
+	if f.webhookOptions == nil || !f.webhookOptions.Enabled || f.webhookOptions.PollingOnly {
 		return nil, nil
 	}
 	var manager subscriptionManager
 	if f.webhookOptions.UseSocketIO {
-		manager = NewSocketSubscriptionManager(*f.webhookOptions, f.auth)
+		manager = NewSocketSubscriptionManager(*f.webhookOptions, f.auth, nil)
 	} else {
 		manager = NewSubscriptionManager(*f.webhookOptions, f.auth)
 	}

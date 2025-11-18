@@ -109,6 +109,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 			"Default is 60 seconds. Increase this if mounting fails due to slow network.")
 	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
 		"outstanding changes for upload, etc. Does not start a mount point.")
+	pollingOnlyFlag := flag.Bool("polling-only", false, "Force delta polling even if webhook/socket subscriptions are configured (disables realtime transport).")
 	daemonFlag := flag.BoolP("daemon", "", false, "Run onemount in daemon mode (detached from terminal).")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
@@ -174,6 +175,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	}
 	if *mountTimeout > 0 {
 		config.MountTimeout = *mountTimeout
+	}
+	if *pollingOnlyFlag {
+		config.Webhook.PollingOnly = true
 	}
 
 	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
@@ -367,6 +371,7 @@ func toWebhookOptions(cfg common.WebhookConfig) fs.WebhookOptions {
 	return fs.WebhookOptions{
 		Enabled:          cfg.Enabled,
 		UseSocketIO:      cfg.UseSocketIO,
+		PollingOnly:      cfg.PollingOnly,
 		PublicURL:        cfg.PublicURL,
 		ListenAddress:    cfg.ListenAddress,
 		Path:             cfg.Path,
@@ -453,6 +458,20 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 
 	// Offline status
 	fmt.Printf("\nOffline Status: %v\n", stats.IsOffline)
+
+	// Realtime transport status
+	fmt.Printf("\nRealtime Notifications:\n")
+	fmt.Printf("  Mode: %s\n", stats.RealtimeMode)
+	fmt.Printf("  Status: %s\n", string(stats.RealtimeStatus))
+	fmt.Printf("  Missed heartbeats: %d\n", stats.RealtimeMissedHeartbeats)
+	fmt.Printf("  Consecutive failures: %d\n", stats.RealtimeConsecutiveFailures)
+	fmt.Printf("  Reconnect count: %d\n", stats.RealtimeReconnectCount)
+	if !stats.RealtimeLastHeartbeat.IsZero() {
+		fmt.Printf("  Last heartbeat: %s\n", stats.RealtimeLastHeartbeat.Format(time.RFC3339))
+	}
+	if stats.RealtimeLastError != "" {
+		fmt.Printf("  Last error: %s\n", stats.RealtimeLastError)
+	}
 
 	// BBolt database statistics
 	fmt.Printf("\nBBolt Database:\n")

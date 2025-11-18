@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/socketio"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -84,6 +85,15 @@ type Stats struct {
 
 	// Extended attributes support
 	XAttrSupported bool // Whether extended attributes are supported on this filesystem
+
+	// Realtime transport insights
+	RealtimeMode                string
+	RealtimeStatus              socketio.StatusCode
+	RealtimeLastHeartbeat       time.Time
+	RealtimeMissedHeartbeats    int
+	RealtimeConsecutiveFailures int
+	RealtimeReconnectCount      int
+	RealtimeLastError           string
 }
 
 // CachedStats holds cached statistics with TTL
@@ -135,6 +145,7 @@ func (f *Filesystem) GetStatsWithConfig(config *StatsConfig) (*Stats, error) {
 		f.cachedStats.mu.RLock()
 		if f.cachedStats.stats != nil && time.Now().Before(f.cachedStats.expiresAt) {
 			stats := f.cachedStats.stats
+			f.augmentRealtimeStats(stats)
 			f.cachedStats.mu.RUnlock()
 			logging.Debug().Msg("Returning cached statistics")
 			return stats, nil
@@ -157,6 +168,7 @@ func (f *Filesystem) GetStatsWithConfig(config *StatsConfig) (*Stats, error) {
 	f.cachedStats.stats = stats
 	f.cachedStats.expiresAt = time.Now().Add(config.CacheTTL)
 	f.cachedStats.mu.Unlock()
+	f.augmentRealtimeStats(stats)
 
 	// Trigger background update if enabled
 	if config.UseBackgroundCalculation && f.statsUpdateCh != nil {
@@ -811,5 +823,61 @@ func (f *Filesystem) GetQuickStats() (*Stats, error) {
 	}
 	f.statusM.RUnlock()
 
+	f.augmentRealtimeStats(stats)
 	return stats, nil
+}
+
+func (f *Filesystem) augmentRealtimeStats(stats *Stats) {
+	if stats == nil {
+		return
+	}
+	stats.RealtimeMode = "disabled"
+	stats.RealtimeStatus = socketio.StatusUnknown
+	stats.RealtimeLastError = ""
+	stats.RealtimeLastHeartbeat = time.Time{}
+	stats.RealtimeMissedHeartbeats = 0
+	stats.RealtimeConsecutiveFailures = 0
+	stats.RealtimeReconnectCount = 0
+
+	if f.webhookOptions != nil && f.webhookOptions.Enabled {
+		if f.webhookOptions.PollingOnly {
+			stats.RealtimeMode = "polling-only"
+		} else if f.webhookOptions.UseSocketIO {
+			stats.RealtimeMode = "socketio"
+		} else {
+			stats.RealtimeMode = "webhook"
+		}
+	}
+
+	if f.subscriptionManager == nil {
+		return
+	}
+
+	type realtimeModeProvider interface {
+		RealtimeMode() string
+	}
+
+	type realtimeHealthProvider interface {
+		HealthSnapshot() socketio.HealthState
+	}
+
+	if modeProvider, ok := f.subscriptionManager.(realtimeModeProvider); ok {
+		if mode := modeProvider.RealtimeMode(); mode != "" {
+			stats.RealtimeMode = mode
+		}
+	}
+
+	if healthProvider, ok := f.subscriptionManager.(realtimeHealthProvider); ok {
+		health := healthProvider.HealthSnapshot()
+		stats.RealtimeStatus = health.Status
+		stats.RealtimeMissedHeartbeats = health.MissedHeartbeats
+		stats.RealtimeConsecutiveFailures = health.ConsecutiveFailures
+		stats.RealtimeLastHeartbeat = health.LastHeartbeat
+		stats.RealtimeReconnectCount = health.ReconnectCount
+		if health.LastError != nil {
+			stats.RealtimeLastError = health.LastError.Error()
+		} else {
+			stats.RealtimeLastError = ""
+		}
+	}
 }

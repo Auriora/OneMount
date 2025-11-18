@@ -540,6 +540,7 @@ type HealthState struct {
 #### 4.5.3 EngineTransport Responsibilities
 
 - **Handshake & Auth**: Attach the current OAuth bearer token and preserve Graph query parameters (resource, delta tokens). Rotate the connection when tokens are refreshed.
+ - **Handshake & Auth**: Attach the current OAuth bearer token and preserve Graph query parameters (resource, delta tokens). Rotate the connection when tokens are refreshed. Use the host and query string from the `notificationUrl` Microsoft Graph returns, but always target the standard Socket.IO path (`/socket.io/`) and connect via WebSocket with `EIO=4&transport=websocket` so the push service treats the session the same way as the official client.
 - **Heartbeat Management**: Parse the server-provided ping interval/timeout, schedule local timers, and declare the transport degraded after two consecutive missed pings.
 - **Reconnection Policy**: Apply exponential backoff (1 s → 2 s → 4 s … capped at 60 s with ±10 % jitter). Reset the backoff after a successful reconnect.
 - **Structured Diagnostics**: Emit trace-level logs for packet direction, handshake payloads, ping/pong timing, and close/error codes. Payloads must be truncated to a configurable limit to avoid log bloat.
