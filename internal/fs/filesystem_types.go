@@ -141,6 +141,9 @@ type Filesystem struct {
 	// Timeout configuration
 	timeoutConfig *TimeoutConfig // Centralized timeout configuration for all components
 
+	// Pending remote visibility tracking for newly created directories
+	pendingRemoteChildren sync.Map
+
 	// Test hooks (only used in unit/integration tests)
 	testHooks *FilesystemTestHooks
 

@@ -70,6 +70,9 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 
 	newInode := NewInodeDriveItem(item)
 	newInode.mode = in.Mode | fuse.S_IFDIR
+	if !f.IsOffline() {
+		f.markChildPendingRemote(newInode.ID())
+	}
 
 	out.NodeId = f.InsertChild(id, newInode)
 	out.Attr = newInode.makeAttr()

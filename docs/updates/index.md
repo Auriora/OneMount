@@ -2,6 +2,8 @@
 
 Newest entries first.
 
+- **2025-11-18** – [`du` Zero Usage Investigation](./2025-11-18-du-block-accounting.md)
+- **2025-11-18** – [Directory Copy Consistency Fix](./2025-11-18-pending-remote-directories.md)
 - **2025-11-17** – [Engine.IO Transport Module](./2025-11-17-engine-io-transport-module.md)
 - **2025-11-17** – [Cat Read Hang – Locking Fix & Stress Coverage](./2025-11-17-cat-read-locking-fix.md)
 - **2025-11-17** – [Socket.IO Delta Notifications](./2025-11-17-socketio-realtime.md)

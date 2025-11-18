@@ -33,7 +33,10 @@ const (
 	defaultDeltaLink = "/me/drive/root/delta?token=latest"
 )
 
-const inodeLockWarningThreshold = 2 * time.Millisecond
+const (
+	inodeLockWarningThreshold  = 2 * time.Millisecond
+	pendingRemoteVisibilityTTL = 2 * time.Minute
+)
 
 func logLockHoldDuration(lockName, context string, start time.Time) {
 	if !logging.IsDebugEnabled() {
@@ -993,6 +996,40 @@ func (f *Filesystem) InsertChild(parentID string, child *Inode) uint64 {
 	return f.InsertID(id, child)
 }
 
+func (f *Filesystem) markChildPendingRemote(id string) {
+	if id == "" {
+		return
+	}
+	f.pendingRemoteChildren.Store(id, time.Now().Add(pendingRemoteVisibilityTTL))
+}
+
+func (f *Filesystem) clearChildPendingRemote(id string) {
+	if id == "" {
+		return
+	}
+	f.pendingRemoteChildren.Delete(id)
+}
+
+func (f *Filesystem) isChildPendingRemote(id string) bool {
+	if id == "" {
+		return false
+	}
+	value, ok := f.pendingRemoteChildren.Load(id)
+	if !ok {
+		return false
+	}
+	deadline, ok := value.(time.Time)
+	if !ok {
+		f.pendingRemoteChildren.Delete(id)
+		return false
+	}
+	if time.Now().After(deadline) {
+		f.pendingRemoteChildren.Delete(id)
+		return false
+	}
+	return true
+}
+
 // DeleteID deletes an item from the cache, and removes it from its parent. Must
 // be called before InsertID if being used to rename/move an item.
 func (f *Filesystem) DeleteID(id string) {
@@ -1305,7 +1342,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	inode.mu.Lock()
 	existingLocal := make([]childSnapshot, 0)
 	for _, childID := range inode.children {
-		if !isLocalID(childID) {
+		if !isLocalID(childID) && !f.isChildPendingRemote(childID) {
 			continue
 		}
 		if child := f.GetID(childID); child != nil {
@@ -1320,6 +1357,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 			inode.subdir++
 		}
 		children[entry.lowerName] = entry.inode
+		f.clearChildPendingRemote(entry.id)
 	}
 	for _, entry := range existingLocal {
 		if entry.inode == nil {

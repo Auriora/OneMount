@@ -13,6 +13,12 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
+const (
+	statBlockUnit        = 512
+	placeholderDirSize   = 4096
+	preferredIOBlockSize = placeholderDirSize
+)
+
 // NewInode creates a new Inode with the specified name, mode, and parent.
 // This constructor is typically used when creating new files or directories
 // that don't yet exist in OneDrive. It assigns a local ID to the new Inode,
@@ -229,15 +235,18 @@ func (i *Inode) HasChildren() bool {
 // makeattr is a convenience function to create a set of filesystem attrs for
 // use with syscalls that use or modify attrs.
 func (i *Inode) makeAttr() fuse.Attr {
+	size := i.Size()
 	mtime := i.ModTime()
 	return fuse.Attr{
-		Ino:   i.NodeID(),
-		Size:  i.Size(),
-		Nlink: i.NLink(),
-		Ctime: mtime,
-		Mtime: mtime,
-		Atime: mtime,
-		Mode:  i.Mode(),
+		Ino:     i.NodeID(),
+		Size:    size,
+		Blocks:  blocksForSize(size),
+		Nlink:   i.NLink(),
+		Ctime:   mtime,
+		Mtime:   mtime,
+		Atime:   mtime,
+		Mode:    i.Mode(),
+		Blksize: preferredIOBlockSize,
 		// whatever user is running the filesystem is the owner
 		Owner: fuse.Owner{
 			Uid: uint32(os.Getuid()),
@@ -299,11 +308,18 @@ func (i *Inode) Size() uint64 {
 		return 0
 	}
 	if i.IsDir() {
-		return 4096
+		return placeholderDirSize
 	}
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.DriveItem.Size
+}
+
+func blocksForSize(size uint64) uint64 {
+	if size == 0 {
+		return 0
+	}
+	return (size + statBlockUnit - 1) / statBlockUnit
 }
 
 // Octal converts a number to its octal representation in string form.
@@ -393,14 +409,20 @@ func (i *Inode) MakeAttr() fuse.Attr {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	attr := fuse.Attr{
-		Ino:  i.nodeID,
-		Mode: i.mode,
+		Ino:     i.nodeID,
+		Mode:    i.mode,
+		Size:    i.DriveItem.Size,
+		Blocks:  blocksForSize(i.DriveItem.Size),
+		Blksize: preferredIOBlockSize,
 	}
-	attr.Size = i.DriveItem.Size
 	if i.DriveItem.ModTime != nil {
 		attr.Mtime = uint64(i.DriveItem.ModTime.Unix())
 	}
-	attr.Nlink = i.GetNLink()
+	if i.mode&fuse.S_IFDIR > 0 {
+		attr.Nlink = 2 + i.subdir
+	} else {
+		attr.Nlink = 1
+	}
 	return attr
 }
 
