@@ -54,6 +54,28 @@ The verification process follows a layered approach:
 - Test edge cases and error scenarios
 - Document user-facing issues
 
+### Runtime Layering (Authoritative Data Flow)
+
+To keep latency predictable, every runtime component talks to a single upstream layer:
+
+```
+┌────────────┐    ┌────────────────────┐    ┌──────────────────────┐
+│   FUSE     │───►│  Metadata / Index  │───►│  Sync & Policy Engine │───► Microsoft Graph
+│ Callbacks  │    │   (BBolt + cache)  │    │  (delta + uploads)    │
+└────┬───────┘    └────────┬───────────┘    └──────────┬───────────┘
+     │                      │                            │
+     │                      ▼                            │
+     │             ┌────────────────┐                    │
+     └────────────►│ Content Cache  │◄───────────────────┘
+                   └────────────────┘
+```
+
+- FUSE callbacks (`readdir`, `stat`, `rename`, `create`, etc.) consult only the metadata/index layer and the local content cache; they never call Microsoft Graph directly.
+- The metadata/index layer is the single source of truth for real and virtual entries, item states, and overlay policies.
+- The sync & policy engine is the only component allowed to call Microsoft Graph (delta queries, uploads, downloads triggered by hydration, subscription management).
+- Content hydration workers operate as part of the sync engine: they stream data into the content cache and then update the metadata entry atomically.
+- Because all outward-facing operations speak to the same metadata view, user-facing latency stays bounded even while background sync or notification transports churn.
+
 ## Architecture Enhancements
 
 ### Multi-Account Architecture
@@ -104,6 +126,22 @@ The initial tree walk (and any subsequent full resync) runs entirely in the back
 - User-facing commands operate on whatever portion of the cache is already populated; only directories that have never been fetched block while their metadata is retrieved.
 - When the refresh interval elapses, the walker revalidates directories asynchronously while continuing to serve cached data.
 
+### Item State Model
+
+Every entry in the metadata database carries an explicit state that drives hydration, uploads, eviction, and conflict handling:
+
+| State         | Meaning                                                     | Typical Transitions |
+|---------------|-------------------------------------------------------------|---------------------|
+| `GHOST`       | Cloud metadata known, no local content                      | Created via delta → `HYDRATING` when opened or pinned |
+| `HYDRATING`   | Content download in progress                                | Success → `HYDRATED`; failure → `ERROR` |
+| `HYDRATED`    | Local content matches remote ETag                           | Local edit → `DIRTY_LOCAL`; eviction → `GHOST` |
+| `DIRTY_LOCAL` | Local changes pending upload                                | Upload success → `HYDRATED`; remote delta mismatch → `CONFLICT` |
+| `DELETED_LOCAL` | Local delete queued for upload                            | Delete success → tombstone removal |
+| `CONFLICT`    | Local + remote diverged                                     | User resolves → `HYDRATED` or duplicate keeps both |
+| `ERROR`       | Last hydration/upload failed                                | Manual retry → `HYDRATING`/`DIRTY_LOCAL` |
+
+Virtual entries (.xdg files, pinned/policy folders) store `remote_id=NULL`, `is_virtual=TRUE`, and stay in `HYDRATED` because their content is always served locally. Sync code skips uploads/deletes for entries marked virtual so FUSE never needs a special wrapper layer.
+
 ### `.xdg-volume-info` Handling
 
 `.xdg-volume-info` is a local-only virtual file. Creating or refreshing it:
@@ -112,62 +150,56 @@ The initial tree walk (and any subsequent full resync) runs entirely in the back
 - Updates only that entry when the account name changes; the root’s other children remain untouched.
 - Never clears the entire root cache, preventing unnecessary re-fetches after maintenance.
 
-### Webhook Subscription Architecture
+### Virtual Items and Overlay Policies
+
+- Virtual items live in the same BBolt buckets as remote-backed entries and are flagged with `virtual=true`, `remote_id=NULL`, and `overlay_policy` (`LOCAL_WINS`, `REMOTE_WINS`, or `MERGED`).
+- `LOCAL_WINS` (default for `.xdg-volume-info`, policy folders, or pinned views) hides any remote item that collides by name so FUSE can enumerate a single authoritative child list without merging logic.
+- `REMOTE_WINS` is useful for placeholder entries that should disappear when remote content exists (e.g., onboarding tips).
+- `MERGED` allows special folders to overlay remote children (e.g., “Pinned” folder containing aliases to real items). The metadata entry stores references to the underlying `item_id`s so state transitions continue to work.
+- Because these flags live inside the metadata DB, FUSE handles `readdir` with a single query. The sync engine simply ignores virtual entries when generating upload/delete workqueues.
+
+### Change Notifier Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  Webhook Notification Flow                   │
+│                Change Notifier (per mount)                  │
 ├─────────────────────────────────────────────────────────────┤
-│                                                              │
+│                                                             │
 │  OneDrive API                                               │
-│       │                                                      │
-│       │ 1. POST /subscriptions                             │
-│       │    (create subscription)                            │
-│       ▼                                                      │
-│  ┌──────────────┐                                          │
-│  │ Subscription │                                          │
-│  │   Manager    │                                          │
-│  └──────┬───────┘                                          │
-│         │                                                    │
-│         │ 2. Store subscription ID & expiration            │
-│         │                                                    │
-│         ▼                                                    │
-│  ┌──────────────┐         ┌──────────────┐               │
-│  │  Webhook     │◄────────│   OneDrive   │               │
-│  │  Listener    │ 3. POST │   Service    │               │
-│  │  (HTTP)      │ notification            │               │
-│  └──────┬───────┘         └──────────────┘               │
-│         │                                                    │
-│         │ 4. Validate notification                          │
-│         │                                                    │
-│         ▼                                                    │
-│  ┌──────────────┐                                          │
-│  │ Delta Sync   │                                          │
-│  │   Trigger    │                                          │
-│  └──────┬───────┘                                          │
-│         │                                                    │
-│         │ 5. Immediate delta query                          │
-│         │                                                    │
-│         ▼                                                    │
-│  ┌──────────────┐                                          │
-│  │  Metadata    │                                          │
-│  │   Cache      │                                          │
- │  └──────────────┘                                          │
- │                                                              │
- │  Background: Subscription Renewal Loop                      │
- │  ┌──────────────┐                                          │
- │  │   Monitor    │──► Check expiration every hour           │
- │  │  Expiration  │──► Renew if < 24h remaining             │
- │  └──────────────┘                                          │
+│       │                                                     │
+│       │ 1. POST /subscriptions                              │
+│       ▼                                                     │
+│  ┌──────────────┐                                           │
+│  │ Subscription │                                           │
+│  │   Manager    │                                           │
+│  └──────┬───────┘                                           │
+│         │  store subscription/expiration                    │
+│         ▼                                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                  ChangeNotifier                      │   │
+│  │ ┌────────────┐    ┌────────────┐     ┌────────────┐ │   │
+│  │ │ Socket     │    │ Webhook    │ ... │ Future     │ │   │
+│  │ │ Transport  │    │ Transport  │     │ Transport  │ │   │
+│  │ └────┬───────┘    └────┬───────┘     └────┬───────┘ │   │
+│  │      │ notifications       │ notifications │         │   │
+│  └──────┴──────────────┬─────┴───────────────┴─────────┘   │
+│                        ▼                                   │
+│                 Delta Sync Trigger                         │
+│                        │                                   │
+│                        ▼                                   │
+│                   Metadata Cache                           │
+│                                                             │
+│  Background: Transport health + renewal loop               │
+│  (per transport, reports health/expiry to ChangeNotifier)  │
 └─────────────────────────────────────────────────────────────┘
-
-Webhook behavior:
-
-- On mount, attempt to create a subscription for each drive; store the subscription ID and expiration time.
-- With an active subscription, set the delta polling interval to a long fallback (30 minutes) and log any deviation.
-- If subscription creation or renewal fails, immediately fall back to the short interval (default 5 minutes) and continue logging until the subscription is restored.
-- Incoming webhook notifications validate the token, then trigger an immediate delta query that preempts lower-priority metadata work so user-facing operations remain responsive.
 ```
+
+- Each mount instantiates a `ChangeNotifier` that owns zero or more transports. The default configuration attempts the socket transport first, then falls back to the webhook listener, and finally to pure polling if both fail.
+- Transports publish health, last-success timestamps, and expiration hints back to the notifier so the delta loop can lengthen/shorten its polling cadence per Requirement 5.
+- The webhook transport validates Graph’s subscription handshake tokens, renews subscriptions before the 24 h deadline, and exposes an HTTPS endpoint only when enabled.
+- The socket transport reuses the Engine.IO implementation described later in this document. Both transports share the same renewal bookkeeping tables in BBolt, so switching between them doesn’t require refetching state.
+- Whenever any transport reports a new event, the ChangeNotifier signals the delta loop to preempt low-priority metadata work and refresh the affected drive immediately.
+- When all transports are unhealthy, the ChangeNotifier emits diagnostics and instructs the delta loop to drop back to the 5-minute fallback interval while transports continue to retry in the background.
 
 ### Metadata Request Manager
 
@@ -807,37 +839,32 @@ Signals:
 - Error messages are user-friendly
 - All tests run in Docker containers
 
-### 13. Webhook Subscription Component
+### 13. Change Notifier Component
 
-**Location**: `internal/fs/subscription.go`, `internal/graph/` (subscription API calls)
+**Location**: `internal/fs/subscription.go`, `internal/graph/socketio/`, `internal/graph/webhook/`
 
 **Verification Steps**:
-1. Review subscription creation and management code
-2. Test subscription creation on mount
-3. Test webhook notification reception
-4. Test subscription renewal before expiration
-5. Test fallback to polling when subscriptions fail
-6. Test subscription deletion on unmount
+1. Review the `ChangeNotifier` orchestration code plus each transport implementation (socket, webhook).
+2. Test notifier initialization per mount, ensuring transport preference order is honored.
+3. Test event delivery through the socket transport (Engine.IO) and ensure heartbeat/health status propagates to the notifier.
+4. Test webhook subscription creation, validation, renewal, and HTTP listener behavior (including TLS and validation tokens).
+5. Force transport failures to verify automatic fallback to the next transport and degraded polling mode.
+6. Test notifier shutdown/unmount to ensure transports are disposed and subscriptions deleted.
 
 **Expected Interfaces**:
-- `SubscriptionManager` struct with subscription state
-- `CreateSubscription(resource, notificationUrl)` method
-- `RenewSubscription(subscriptionId)` method
-- `DeleteSubscription(subscriptionId)` method
-- `HandleWebhookNotification(notification)` method
-- HTTP server for receiving webhook notifications
-- Subscription expiration monitoring goroutine
+- `type ChangeNotifier interface { Start(ctx); Events() <-chan Notification; Health() NotifierHealth; Stop(ctx) }`
+- `type Transport interface { Start(ctx); Stop(ctx); Health() TransportHealth }` implemented by `SocketTransport` and `WebhookTransport`.
+- `SubscriptionManager` with `Create`, `Renew`, and `Delete` helpers shared by all transports.
+- Health/expiration metrics exposed via `internal/metrics` to drive Requirement 5 polling cadence decisions.
 
 **Verification Criteria**:
-- Subscriptions are created successfully on mount
-- Webhook notifications trigger immediate delta queries
-- Subscriptions are renewed before expiration (within 24h)
-- System falls back to polling if subscription fails
-- Subscriptions are deleted cleanly on unmount
-- Personal OneDrive: can subscribe to any folder
-- Business OneDrive: can only subscribe to root
-- Polling interval is longer (30min) when subscription active
-- Polling interval is shorter (5min) when no subscription
+- At least one transport starts successfully on mount; failures surface structured diagnostics.
+- Webhook notifications and socket events both trigger immediate delta queries through the unified notifier channel.
+- Subscription IDs and expirations persist in BBolt and are renewed before the 24 h Graph deadline.
+- When the preferred transport fails, the notifier automatically activates the next transport and shortens polling to 5 minutes until health recovers.
+- When all transports fail, the notifier marks itself unhealthy so the delta loop can remain in fallback mode while transports continue retrying.
+- Unmounting a drive cleanly tears down transports, closes sockets, and deletes Graph subscriptions.
+- Personal drives can scope subscriptions to root or subfolders; business drives restrict to the root per Graph limits.
 
 ### 14. Multi-Account Mount Manager Component
 

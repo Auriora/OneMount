@@ -53,6 +53,8 @@ This specification defines the requirements for systematically verifying and fix
 12. IF the mount timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 60 seconds
 13. WHEN opening the metadata database, THE OneMount System SHALL detect stale lock files older than 5 minutes and attempt to remove them
 14. IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
+15. WHEN fulfilling FUSE operations such as `readdir`, `getattr`, `rename`, `create`, `unlink`, `chmod`, or `chown`, THE OneMount System SHALL service the request exclusively from the local metadata database and content cache so that Graph API latency never blocks the FUSE thread; any Graph interaction SHALL be delegated to background sync or hydration workers
+16. WHEN representing filesystem entries that exist only locally (e.g., `.xdg-volume-info`, policy folders, or pinned views), THE OneMount System SHALL persist them as metadata records with `local-*` identifiers and overlay policies describing precedence so that the virtual view is resolved inside the metadata database without a separate wrapper layer
 
 ### Requirement 3: On-Demand File Download Verification
 
@@ -90,6 +92,8 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 19. IF the download chunk size is not specified, THEN THE OneMount System SHALL use a default chunk size of 10 MB
 20. WHEN configuring download chunk size, THE OneMount System SHALL validate the value is between 1 MB and 100 MB
 21. WHEN download manager configuration is invalid, THE OneMount System SHALL display a clear error message with valid ranges
+22. WHEN the metadata database reports an item in the `GHOST` state (cloud-only), THE OneMount System SHALL block file access until hydration either completes successfully or is cancelled, at which point the state SHALL transition to `HYDRATED` (success) or `ERROR` (failure) and the cache SHALL reflect the outcome
+23. WHEN a hydrated file is evicted to save space, THE OneMount System SHALL transition the item back to `GHOST` without removing its metadata so that future FUSE requests can immediately rehydrate it on demand
 
 ### Requirement 4: File Modification and Upload Verification
 
@@ -118,20 +122,19 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 #### Acceptance Criteria
 
 1. WHEN the filesystem is first mounted, THE OneMount System SHALL fetch the complete directory structure from OneDrive using the delta API
-2. WHEN the filesystem is mounted, THE OneMount System SHALL attempt to establish a Microsoft Graph Socket.IO subscription for the mounted drive
-3. WHEN establishing a subscription for personal OneDrive, THE OneMount System SHALL target the root folder or selected subfolders, matching Graph's supported resources
-4. WHEN establishing a subscription for OneDrive for Business, THE OneMount System SHALL limit the subscription scope to the drive root as required by Graph
-5. WHEN a Socket.IO subscription is healthy, THE OneMount System SHALL run delta polling no more frequently than every 30 minutes (configurable but never lower than 5 minutes) and SHALL log any deviation from that cadence
-6. WHEN a Socket.IO notification is received, THE OneMount System SHALL immediately trigger a delta query to fetch changes and SHALL preempt lower-priority metadata work so user-facing operations do not stall
-7. WHEN the Socket.IO subscription is unavailable or unhealthy, THE OneMount System SHALL automatically fall back to delta polling every 5 minutes by default and SHALL log the degraded state
-8. IF the Socket.IO channel continues to fail or error, THEN THE OneMount System MAY temporarily shorten the polling interval down to 10 seconds to recover, but MUST return to the configured fallback cadence within one interval after the channel is restored and SHALL log the entire degraded period
-9. WHEN remote changes are detected via delta query, THE OneMount System SHALL update the local metadata cache
-10. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
-11. WHEN a cached file has been modified remotely, THE OneMount System SHALL invalidate the local cache entry using ETag comparison
-12. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
-13. WHEN delta sync completes, THE OneMount System SHALL store the @odata.deltaLink token for the next sync cycle
-14. WHEN a subscription approaches expiration (per Graph limits), THE OneMount System SHALL renew the Socket.IO subscription proactively
-15. IF subscription renewal or reconnection fails, THEN THE OneMount System SHALL continue using the shorter polling interval until the subscription is restored and SHALL raise diagnostics for the operator
+2. WHEN the filesystem is mounted, THE OneMount System SHALL attempt to register at least one Microsoft Graph change-notification transport (webhook endpoint or direct Socket.IO connection) via the ChangeNotifier interface so that real-time events can wake the delta loop
+3. WHEN creating a change-notification transport for personal OneDrive, THE OneMount System SHALL target the root folder or selected subfolders consistent with Microsoft Graph’s supported resources; WHEN targeting OneDrive for Business, THE OneMount System SHALL limit the scope to the drive root as required by Graph
+4. WHEN a change-notification transport is healthy, THE OneMount System SHALL run delta polling no more frequently than every 30 minutes (configurable but never lower than 5 minutes) and SHALL log any deviation from that cadence
+5. WHEN a notification payload is received from any transport, THE OneMount System SHALL immediately trigger a delta query to fetch changes and SHALL preempt lower-priority metadata work so user-facing operations do not stall
+6. WHEN all change-notification transports are unavailable or unhealthy, THE OneMount System SHALL automatically fall back to delta polling every 5 minutes by default and SHALL log the degraded state
+7. IF all transports continue to fail or error, THEN THE OneMount System MAY temporarily shorten the polling interval down to 10 seconds to recover, but MUST return to the configured fallback cadence within one interval after the transport is restored and SHALL log the entire degraded period
+8. WHEN remote changes are detected via delta query, THE OneMount System SHALL update the local metadata cache
+9. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
+10. WHEN a cached file has been modified remotely, THE OneMount System SHALL invalidate the local cache entry using ETag comparison
+11. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
+12. WHEN delta sync completes, THE OneMount System SHALL store the @odata.deltaLink token for the next sync cycle
+13. WHEN a change-notification transport approaches expiration (per Graph limits), THE OneMount System SHALL renew it proactively and log the attempt
+14. IF transport renewal or reconnection fails, THEN THE OneMount System SHALL continue using the shorter polling interval until a transport is restored and SHALL raise diagnostics for the operator
 
 ### Requirement 6: Offline Mode Verification
 
@@ -340,21 +343,21 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 6. WHERE FUSE operations are required, THE OneMount System SHALL configure containers with appropriate capabilities and devices
 7. THE OneMount System SHALL provide a test runner container with all required dependencies pre-installed
 
-### Requirement 17: Socket.IO Subscription Management
+### Requirement 17: Change Notification Transport Management
 
-**User Story:** As a system, I want to consume Microsoft Graph Socket.IO change notifications directly so that I can deliver real-time updates without relying on external services or webhooks.
+**User Story:** As a system, I want a pluggable Microsoft Graph change-notification layer so that I can choose between direct Socket.IO connections and inbound webhooks without rewriting delta sync logic.
 
 #### Acceptance Criteria
 
-1. WHEN mounting a drive, THE OneMount System SHALL request a Socket.IO notification endpoint from Microsoft Graph for the selected resource (e.g., `/me/drive/root`).
-2. THE OneMount System SHALL establish and maintain the Engine.IO v4 WebSocket connection directly, without delegating to Azure Web PubSub or any other managed relay; the application SHALL remain fully standalone.
-3. WHEN establishing the Socket.IO connection, THE OneMount System SHALL persist the subscription ID, notification URL, and expiration so they can be renewed before expiry.
-4. WHILE the connection is active, THE OneMount System SHALL send and monitor ping/pong heartbeats according to Engine.IO timing and SHALL treat missed heartbeats as failures requiring reconnection.
-5. WHEN the Socket.IO connection drops, THE OneMount System SHALL attempt reconnection with exponential backoff (capped to 60 seconds), and SHALL log each failure with enough context to diagnose authentication or protocol issues.
-6. IF reconnection fails repeatedly, THEN THE OneMount System SHALL declare the subscription unhealthy, fall back to the delta polling behavior defined in Requirement 5, and continue retrying the Socket.IO channel in the background.
-7. WHEN the subscription approaches expiration (per Graph-imposed limits), THE OneMount System SHALL renew it proactively; renewal attempts SHALL be logged and retried on failure.
-8. WHEN unmounting a drive or shutting down, THE OneMount System SHALL gracefully close the Socket.IO connection and delete/cleanup the associated subscription metadata.
-9. THE OneMount System SHALL NOT expose or require inbound HTTP webhook endpoints; all real-time updates SHALL flow over the Socket.IO subscription to avoid terminology confusion with traditional webhooks.
+1. WHEN mounting a drive, THE OneMount System SHALL instantiate a `ChangeNotifier` per mount that multiplexes one or more transports (e.g., direct Socket.IO, HTTPS webhook listener) and exposes a unified stream of events to the delta loop.
+2. THE ChangeNotifier SHALL accept configuration for preferred transports (socket-first, webhook-only, etc.) and SHALL automatically fall back to the next transport when the preferred one is unavailable.
+3. EACH transport managed by the ChangeNotifier SHALL expose health, expiration, and last-success timestamps so that Requirement 5 can adjust polling cadences deterministically.
+4. WHEN the webhook transport is enabled, THE OneMount System SHALL host an HTTPS listener (supporting Graph validation tokens) and SHALL persist subscription IDs/expirations so they can be renewed before expiry.
+5. WHEN the direct Socket.IO transport is enabled, THE ChangeNotifier SHALL use the built-in Engine.IO v4 client described in Requirement 20 and SHALL persist the same subscription metadata for renewal.
+6. IF all configured transports fail, THEN THE ChangeNotifier SHALL mark the notifier unhealthy, emit diagnostics, and signal Requirement 5 to run in degraded polling mode while transports continue reconnect attempts in the background.
+7. WHEN a transport recovers, THE ChangeNotifier SHALL surface the state transition immediately so Requirement 5 can return to normal polling cadence and resume push-triggered sync.
+8. WHEN unmounting a drive or shutting down, THE ChangeNotifier SHALL gracefully dispose of all transports (closing sockets, deregistering webhooks) and delete any temporary subscription metadata.
+9. NO transport implementation SHALL rely on third-party relay services (e.g., Azure Web PubSub) unless explicitly enabled via configuration; the default deployment SHALL remain fully standalone.
 
 ### Requirement 18: Documentation Alignment
 
@@ -388,16 +391,33 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 
 ### Requirement 20: Engine.IO / Socket.IO Transport Implementation
 
-**User Story:** As a OneMount developer, I want clear requirements for the built-in Engine.IO/Socket.IO transport so that the realtime channel can be implemented and tested without relying on unmaintained third-party libraries or external services.
+**User Story:** As a OneMount developer, I want clear requirements for the optional Engine.IO/Socket.IO transport so that, when this transport is selected, it behaves predictably without relying on unmaintained third-party libraries or external services.
 
 #### Acceptance Criteria
 
-1. THE OneMount System SHALL implement the Microsoft Graph notification channel using Engine.IO v4 over WebSocket only, setting `EIO=4` and `transport=websocket` query parameters and joining the default namespace (`/`).
-2. THE transport SHALL attach the current OAuth access token (Authorization bearer header) and any additional headers Graph requires, and SHALL refresh the connection whenever the token is rotated.
+1. WHEN the Socket.IO transport is enabled, THE OneMount System SHALL implement the Microsoft Graph notification channel using Engine.IO v4 over WebSocket only, setting `EIO=4` and `transport=websocket` query parameters and joining the default namespace (`/`).
+2. WHEN establishing or refreshing the connection, THE transport SHALL attach the current OAuth access token (Authorization bearer header) and any additional headers Graph requires, and SHALL refresh the connection whenever the token is rotated.
 3. WHEN an Engine.IO handshake frame is received, THE transport SHALL parse the ping interval/timeout values, log them at debug level, and configure its heartbeat timers accordingly.
-4. THE transport SHALL send ping/pong frames per the negotiated interval, detect two consecutive missed heartbeats as a failure, and immediately surface the unhealthy state to the delta loop for fallback polling.
+4. WHILE the connection is active, THE transport SHALL send ping/pong frames per the negotiated interval, detect two consecutive missed heartbeats as a failure, and immediately surface the unhealthy state to the ChangeNotifier so Requirement 5 can fall back to polling.
 5. WHEN the connection closes or errors, THE transport SHALL attempt reconnection with exponential backoff (starting at 1 s, doubling each attempt, capped at 60 s, with ±10 % jitter) and SHALL reset the backoff after a successful reconnect.
-6. THE implementation SHALL stream decoded Socket.IO events (e.g., `notification`, `error`) through strongly typed callbacks, and SHALL expose a health indicator that the delta sync loop can query in constant time.
-7. THE transport SHALL emit structured trace logs for handshake data, ping/pong timing, packet read/write summaries (payload truncated to a configurable limit), and close/error codes sufficient for supportability.
+6. THE implementation SHALL stream decoded Socket.IO events (e.g., `notification`, `error`) through strongly typed callbacks, and SHALL expose a health indicator that the ChangeNotifier and delta sync loop can query in constant time.
+7. WHEN running with verbose logging enabled, THE transport SHALL emit structured trace logs for handshake data, ping/pong timing, packet read/write summaries (payload truncated to a configurable limit), and close/error codes sufficient for supportability.
 8. THE transport SHALL include automated tests covering packet encode/decode, heartbeat scheduling, reconnection backoff, and error propagation so regressions can be caught without live Graph access.
-9. THE transport SHALL remain self-contained within the OneMount codebase—no third-party Socket.IO client libraries, proxies, or managed relays (e.g., Azure Web PubSub) are permitted.
+9. THE transport SHALL remain self-contained within the OneMount codebase—no third-party Socket.IO client libraries, proxies, or managed relays (e.g., Azure Web PubSub) are permitted unless explicitly whitelisted via configuration for troubleshooting.
+
+### Requirement 21: Metadata State Model Verification
+
+**User Story:** As a developer, I want a clearly defined metadata state machine so that every file or folder transitions predictably between cloud-only, hydrated, dirty, or deleted states.
+
+#### Acceptance Criteria
+
+1. THE metadata database SHALL persist an `item_state` field whose value is one of: `GHOST`, `HYDRATING`, `HYDRATED`, `DIRTY_LOCAL`, `DELETED_LOCAL`, `CONFLICT`, or `ERROR`.
+2. WHEN a drive item is discovered via delta for the first time, THE OneMount System SHALL insert it with state `GHOST` and SHALL not download content until a user action requires it or a pinning policy hydrates it.
+3. WHEN a user or policy triggers hydration, THE OneMount System SHALL transition the item to `HYDRATING` while the download is in flight and SHALL record the worker responsible so duplicate hydrations can be deduplicated.
+4. WHEN hydration completes successfully, THE OneMount System SHALL transition the item to `HYDRATED`, record the content path, update size/mtime metadata, and clear any hydration error fields.
+5. WHEN hydration fails, THE OneMount System SHALL transition the item to `ERROR`, capture the failure reason, and keep the previous state metadata so that the user can retry.
+6. WHEN a hydrated file is modified locally, THE OneMount System SHALL transition it to `DIRTY_LOCAL` until the upload succeeds, at which point it SHALL return to `HYDRATED` with the new remote ETag.
+7. WHEN a local delete occurs, THE OneMount System SHALL transition the item to `DELETED_LOCAL` and queue the delete operation; after Graph confirms the delete, the item SHALL be removed (or left as a tombstone if required for conflict resolution).
+8. WHEN delta detects conflicting remote changes for an item that is `DIRTY_LOCAL`, THE OneMount System SHALL transition it to `CONFLICT`, persist both versions’ metadata, and emit the conflict notification defined in Requirement 8.
+9. WHEN pinning or eviction policies remove local content for disk-space reasons, THE OneMount System SHALL transition the item back to `GHOST` (or `HYDRATED` if immediately rehydrated) without deleting its metadata entry.
+10. ALL virtual-only entries (Requirement 2.16) SHALL set `item_state=HYDRATED`, `remote_id=NULL`, and `is_virtual=TRUE`, ensuring they bypass sync/upload logic while still participating in directory listings.
