@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/go:1-1.23-bullseye
+ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/go:1-1.23-bookworm
 FROM ${BASE_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -68,6 +68,11 @@ RUN apt-get update \
         locales \
         openssh-server \
         pkg-config \
+        python-is-python3 \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-venv \
         procps \
         software-properties-common \
         sudo \

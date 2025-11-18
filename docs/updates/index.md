@@ -2,6 +2,8 @@
 
 Newest entries first.
 
+- **2025-11-18** – [Devcontainer Python Toolchain](./2025-11-18-devcontainer-python-toolchain.md)
+- **2025-11-18** – [Devcontainer Bookworm Upgrade](./2025-11-18-devcontainer-bookworm-upgrade.md)
 - **2025-11-18** – [`du` Zero Usage Investigation](./2025-11-18-du-block-accounting.md)
 - **2025-11-18** – [Directory Copy Consistency Fix](./2025-11-18-pending-remote-directories.md)
 - **2025-11-17** – [Engine.IO Transport Module](./2025-11-17-engine-io-transport-module.md)
