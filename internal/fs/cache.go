@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -21,6 +22,7 @@ import (
 var (
 	bucketContent        = []byte("content")
 	bucketMetadata       = []byte("metadata")
+	bucketMetadataV2     = []byte("metadata_v2")
 	bucketDelta          = []byte("delta")
 	bucketVersion        = []byte("version")
 	bucketOfflineChanges = []byte("offline_changes") // New bucket for offline changes
@@ -204,6 +206,10 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 			logging.Error().Err(err).Msg("Failed to create metadata bucket")
 			return err
 		}
+		if _, err := tx.CreateBucketIfNotExists(bucketMetadataV2); err != nil {
+			logging.Error().Err(err).Msg("Failed to create metadata_v2 bucket")
+			return err
+		}
 		if _, err := tx.CreateBucketIfNotExists(bucketDelta); err != nil {
 			logging.Error().Err(err).Msg("Failed to create delta bucket")
 			return err
@@ -286,6 +292,23 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	fs.metadataRequestManager = NewMetadataRequestManager(fs, 3)
 	fs.metadataRequestManager.Start()
 
+	if err := fs.bootstrapMetadataStore(); err != nil {
+		logging.LogError(err, "Failed to initialize metadata store",
+			logging.FieldOperation, "NewFilesystem")
+		return nil, errors.Wrap(err, "failed to initialize metadata store")
+	}
+
+	metadataStore, err := metadata.NewBoltStore(db, bucketMetadataV2)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create metadata store")
+	}
+	stateManager, err := metadata.NewStateManager(metadataStore)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to initialize metadata state manager")
+	}
+	fs.metadataStore = metadataStore
+	fs.stateManager = stateManager
+
 	rootItem, err := graph.GetItem("root", auth)
 	root := NewInodeDriveItem(rootItem)
 	if err != nil {
@@ -297,6 +320,13 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 			// Try to get the root item from the database using the special ID "root"
 			root = fs.GetID("root")
+			if root == nil {
+				if entry, entryErr := fs.GetMetadataEntry("root"); entryErr == nil && entry != nil {
+					if inode := fs.inodeFromMetadataEntry(entry); inode != nil {
+						root = inode
+					}
+				}
+			}
 
 			// If that fails, try to find any item in the database that looks like a root folder
 			if root == nil {
@@ -1001,6 +1031,17 @@ func (f *Filesystem) markChildPendingRemote(id string) {
 		return
 	}
 	f.pendingRemoteChildren.Store(id, time.Now().Add(pendingRemoteVisibilityTTL))
+	if f.metadataStore != nil {
+		if _, err := f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
+			entry.PendingRemote = true
+			return nil
+		}); err != nil && err != metadata.ErrNotFound {
+			logging.Debug().
+				Err(err).
+				Str("id", id).
+				Msg("Failed to mark metadata entry pending-remote")
+		}
+	}
 }
 
 func (f *Filesystem) clearChildPendingRemote(id string) {
@@ -1008,6 +1049,17 @@ func (f *Filesystem) clearChildPendingRemote(id string) {
 		return
 	}
 	f.pendingRemoteChildren.Delete(id)
+	if f.metadataStore != nil {
+		if _, err := f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
+			entry.PendingRemote = false
+			return nil
+		}); err != nil && err != metadata.ErrNotFound {
+			logging.Debug().
+				Err(err).
+				Str("id", id).
+				Msg("Failed to clear pending-remote flag in metadata entry")
+		}
+	}
 }
 
 func (f *Filesystem) isChildPendingRemote(id string) bool {
@@ -1997,12 +2049,33 @@ func (f *Filesystem) GetSyncProgress() *SyncProgress {
 func (f *Filesystem) SerializeAll() {
 	logging.Debug().Msg("Serializing cache metadata to disk.")
 
+	snapshotTime := time.Now().UTC()
 	allItems := make(map[string][]byte)
+	entriesV2 := make(map[string][]byte)
+
 	f.metadata.Range(func(k interface{}, v interface{}) bool {
 		// cannot occur within bolt transaction because acquiring the inode lock
 		// with AsJSON locks out other boltdb transactions
 		id := fmt.Sprint(k)
-		allItems[id] = v.(*Inode).AsJSON()
+		inode := v.(*Inode)
+		allItems[id] = inode.AsJSON()
+
+		entry := f.metadataEntryFromInode(id, inode, snapshotTime)
+		if entry != nil {
+			if err := entry.Validate(); err != nil {
+				logging.Warn().
+					Err(err).
+					Str("id", id).
+					Msg("Skipping metadata_v2 snapshot due to validation error")
+			} else if blob, err := json.Marshal(entry); err == nil {
+				entriesV2[id] = blob
+			} else {
+				logging.Warn().
+					Err(err).
+					Str("id", id).
+					Msg("Failed to marshal metadata entry for metadata_v2 snapshot")
+			}
+		}
 		return true
 	})
 
@@ -2013,16 +2086,28 @@ func (f *Filesystem) SerializeAll() {
 		and in the darkness write them.
 	*/
 	if err := f.db.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucketMetadata)
+		legacy := tx.Bucket(bucketMetadata)
+		v2 := tx.Bucket(bucketMetadataV2)
+		if legacy == nil || v2 == nil {
+			return errors.New("metadata buckets not initialized")
+		}
 		for k, v := range allItems {
-			if err := b.Put([]byte(k), v); err != nil {
+			if err := legacy.Put([]byte(k), v); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("failed to put item %s", k))
 			}
 			if k == f.root {
-				// root item must be updated manually (since there's actually
-				// two copies)
-				if err := b.Put([]byte("root"), v); err != nil {
+				if err := legacy.Put([]byte("root"), v); err != nil {
 					return errors.Wrap(err, "failed to put root item")
+				}
+			}
+			if blob, ok := entriesV2[k]; ok {
+				if err := v2.Put([]byte(k), blob); err != nil {
+					return errors.Wrap(err, fmt.Sprintf("failed to persist metadata_v2 entry %s", k))
+				}
+				if k == f.root {
+					if err := v2.Put([]byte("root"), blob); err != nil {
+						return errors.Wrap(err, "failed to persist metadata_v2 root entry")
+					}
 				}
 			}
 		}

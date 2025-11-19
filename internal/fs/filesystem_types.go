@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	bolt "go.etcd.io/bbolt"
 )
@@ -57,15 +58,17 @@ type FileStatusDBusServerInterface interface {
 type Filesystem struct {
 	fuse.RawFileSystem // Implements the base FUSE filesystem interface
 
-	metadata   sync.Map         // In-memory cache of filesystem metadata
-	db         *bolt.DB         // Persistent database for filesystem state
-	content    *LoopbackCache   // Cache for file contents
-	thumbnails *ThumbnailCache  // Cache for file thumbnails
-	auth       *graph.Auth      // Authentication for Microsoft Graph API
-	root       string           // The ID of the filesystem's root item
-	deltaLink  string           // Link for incremental synchronization with OneDrive
-	uploads    *UploadManager   // Manages file uploads to OneDrive
-	downloads  *DownloadManager // Manages file downloads from OneDrive
+	metadata      sync.Map               // In-memory cache of filesystem metadata
+	db            *bolt.DB               // Persistent database for filesystem state
+	content       *LoopbackCache         // Cache for file contents
+	thumbnails    *ThumbnailCache        // Cache for file thumbnails
+	metadataStore metadata.Store         // Structured metadata persistence
+	stateManager  *metadata.StateManager // Validated item-state transitions
+	auth          *graph.Auth            // Authentication for Microsoft Graph API
+	root          string                 // The ID of the filesystem's root item
+	deltaLink     string                 // Link for incremental synchronization with OneDrive
+	uploads       *UploadManager         // Manages file uploads to OneDrive
+	downloads     *DownloadManager       // Manages file downloads from OneDrive
 
 	// Root context for all operations
 	ctx    context.Context    // Root context for all operations
