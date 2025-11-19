@@ -122,19 +122,19 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 #### Acceptance Criteria
 
 1. WHEN the filesystem is first mounted, THE OneMount System SHALL fetch the complete directory structure from OneDrive using the delta API
-2. WHEN the filesystem is mounted, THE OneMount System SHALL attempt to register at least one Microsoft Graph change-notification transport (webhook endpoint or direct Socket.IO connection) via the ChangeNotifier interface so that real-time events can wake the delta loop
-3. WHEN creating a change-notification transport for personal OneDrive, THE OneMount System SHALL target the root folder or selected subfolders consistent with Microsoft Graph’s supported resources; WHEN targeting OneDrive for Business, THE OneMount System SHALL limit the scope to the drive root as required by Graph
-4. WHEN a change-notification transport is healthy, THE OneMount System SHALL run delta polling no more frequently than every 30 minutes (configurable but never lower than 5 minutes) and SHALL log any deviation from that cadence
-5. WHEN a notification payload is received from any transport, THE OneMount System SHALL immediately trigger a delta query to fetch changes and SHALL preempt lower-priority metadata work so user-facing operations do not stall
-6. WHEN all change-notification transports are unavailable or unhealthy, THE OneMount System SHALL automatically fall back to delta polling every 5 minutes by default and SHALL log the degraded state
-7. IF all transports continue to fail or error, THEN THE OneMount System MAY temporarily shorten the polling interval down to 10 seconds to recover, but MUST return to the configured fallback cadence within one interval after the transport is restored and SHALL log the entire degraded period
+2. WHEN the filesystem is mounted and realtime sync is enabled, THE OneMount System SHALL attempt to establish a Microsoft Graph Socket.IO change-notification subscription for the mounted drive so that real-time events can wake the delta loop
+3. WHEN creating the Socket.IO subscription for personal OneDrive, THE OneMount System SHALL target the root folder or selected subfolders consistent with Microsoft Graph’s supported resources; WHEN targeting OneDrive for Business, THE OneMount System SHALL limit the scope to the drive root as required by Graph
+4. WHEN the Socket.IO subscription is healthy, THE OneMount System SHALL run delta polling no more frequently than every 30 minutes (configurable but never lower than 5 minutes) and SHALL log any deviation from that cadence
+5. WHEN a Socket.IO notification payload is received, THE OneMount System SHALL immediately trigger a delta query to fetch changes and SHALL preempt lower-priority metadata work so user-facing operations do not stall
+6. WHEN the Socket.IO subscription is unavailable or unhealthy, THE OneMount System SHALL automatically fall back to delta polling every 5 minutes by default and SHALL log the degraded state
+7. IF the subscription continues to fail or error, THEN THE OneMount System MAY temporarily shorten the polling interval down to 10 seconds to recover, but MUST return to the configured fallback cadence within one interval after the subscription is restored and SHALL log the entire degraded period
 8. WHEN remote changes are detected via delta query, THE OneMount System SHALL update the local metadata cache
 9. WHEN a remotely modified file is accessed, THE OneMount System SHALL download the new version
 10. WHEN a cached file has been modified remotely, THE OneMount System SHALL invalidate the local cache entry using ETag comparison
 11. IF a file has both local and remote changes, THEN THE OneMount System SHALL create a conflict copy
 12. WHEN delta sync completes, THE OneMount System SHALL store the @odata.deltaLink token for the next sync cycle
-13. WHEN a change-notification transport approaches expiration (per Graph limits), THE OneMount System SHALL renew it proactively and log the attempt
-14. IF transport renewal or reconnection fails, THEN THE OneMount System SHALL continue using the shorter polling interval until a transport is restored and SHALL raise diagnostics for the operator
+13. WHEN the Socket.IO subscription approaches expiration (per Graph limits), THE OneMount System SHALL renew it proactively and log the attempt
+14. IF subscription renewal or reconnection fails, THEN THE OneMount System SHALL continue using the shorter polling interval until the subscription is restored and SHALL raise diagnostics for the operator
 
 ### Requirement 6: Offline Mode Verification
 
@@ -343,21 +343,17 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 6. WHERE FUSE operations are required, THE OneMount System SHALL configure containers with appropriate capabilities and devices
 7. THE OneMount System SHALL provide a test runner container with all required dependencies pre-installed
 
-### Requirement 17: Change Notification Transport Management
+### Requirement 17: Realtime Subscription Management
 
-**User Story:** As a system, I want a pluggable Microsoft Graph change-notification layer so that I can choose between direct Socket.IO connections and inbound webhooks without rewriting delta sync logic.
+**User Story:** As a system, I want a resilient Microsoft Graph Socket.IO subscription layer so that realtime notifications stay healthy without requiring inbound webhooks.
 
 #### Acceptance Criteria
 
-1. WHEN mounting a drive, THE OneMount System SHALL instantiate a `ChangeNotifier` per mount that multiplexes one or more transports (e.g., direct Socket.IO, HTTPS webhook listener) and exposes a unified stream of events to the delta loop.
-2. THE ChangeNotifier SHALL accept configuration for preferred transports (socket-first, webhook-only, etc.) and SHALL automatically fall back to the next transport when the preferred one is unavailable.
-3. EACH transport managed by the ChangeNotifier SHALL expose health, expiration, and last-success timestamps so that Requirement 5 can adjust polling cadences deterministically.
-4. WHEN the webhook transport is enabled, THE OneMount System SHALL host an HTTPS listener (supporting Graph validation tokens) and SHALL persist subscription IDs/expirations so they can be renewed before expiry.
-5. WHEN the direct Socket.IO transport is enabled, THE ChangeNotifier SHALL use the built-in Engine.IO v4 client described in Requirement 20 and SHALL persist the same subscription metadata for renewal.
-6. IF all configured transports fail, THEN THE ChangeNotifier SHALL mark the notifier unhealthy, emit diagnostics, and signal Requirement 5 to run in degraded polling mode while transports continue reconnect attempts in the background.
-7. WHEN a transport recovers, THE ChangeNotifier SHALL surface the state transition immediately so Requirement 5 can return to normal polling cadence and resume push-triggered sync.
-8. WHEN unmounting a drive or shutting down, THE ChangeNotifier SHALL gracefully dispose of all transports (closing sockets, deregistering webhooks) and delete any temporary subscription metadata.
-9. NO transport implementation SHALL rely on third-party relay services (e.g., Azure Web PubSub) unless explicitly enabled via configuration; the default deployment SHALL remain fully standalone.
+1. WHEN mounting a drive and realtime sync is enabled, THE OneMount System SHALL instantiate a single Socket.IO subscription manager that exposes a unified stream of events to the delta loop.
+2. THE subscription manager SHALL surface health, expiration, and last-success timestamps so that Requirement 5 can adjust polling cadences deterministically and display status via `onemount --stats`.
+3. WHERE the user enables polling-only mode, THE OneMount System SHALL skip establishing the Socket.IO connection but SHALL continue to report that realtime mode is disabled.
+4. WHEN shutting down or unmounting, THE subscription manager SHALL gracefully disconnect from the Socket.IO endpoint and release all resources.
+5. THE realtime implementation SHALL remain fully standalone (no webhooks, proxies, or managed relays such as Azure Web PubSub) unless explicitly approved in configuration.
 
 ### Requirement 18: Documentation Alignment
 

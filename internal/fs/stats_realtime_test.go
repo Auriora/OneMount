@@ -28,7 +28,7 @@ func (s *stubRealtimeManager) IsActive() bool { return true }
 
 func TestFilesystemAugmentRealtimeStatsFromManager(t *testing.T) {
 	f := &Filesystem{
-		webhookOptions: &WebhookOptions{Enabled: true, UseSocketIO: true},
+		realtimeOptions: &RealtimeOptions{Enabled: true},
 	}
 	state := socketio.HealthState{
 		Status:              socketio.StatusHealthy,
@@ -61,7 +61,7 @@ func TestFilesystemAugmentRealtimeStatsFromManager(t *testing.T) {
 
 func TestFilesystemAugmentRealtimeStatsPollingOnly(t *testing.T) {
 	f := &Filesystem{
-		webhookOptions: &WebhookOptions{Enabled: true, PollingOnly: true},
+		realtimeOptions: &RealtimeOptions{Enabled: true, PollingOnly: true},
 	}
 	stats := &Stats{}
 	f.augmentRealtimeStats(stats)

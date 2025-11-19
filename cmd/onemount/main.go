@@ -96,7 +96,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 			"This reduces startup performance but uses less bandwidth and memory.")
 	deltaInterval := flag.IntP("delta-interval", "i", 0,
 		"Set the interval in seconds between delta query checks. "+
-			"Default is 300 seconds (5 minutes) when no webhook subscription is active. "+
+			"Default is 300 seconds (5 minutes) when no realtime subscription is active. "+
 			"Set to 0 to use the default.")
 	cacheExpiration := flag.IntP("cache-expiration", "e", 0,
 		"Set the number of days after which files will be removed from the content cache. "+
@@ -109,7 +109,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 			"Default is 60 seconds. Increase this if mounting fails due to slow network.")
 	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
 		"outstanding changes for upload, etc. Does not start a mount point.")
-	pollingOnlyFlag := flag.Bool("polling-only", false, "Force delta polling even if webhook/socket subscriptions are configured (disables realtime transport).")
+	pollingOnlyFlag := flag.Bool("polling-only", false, "Force delta polling even if realtime subscriptions are configured (disables the Socket.IO transport).")
 	daemonFlag := flag.BoolP("daemon", "", false, "Run onemount in daemon mode (detached from terminal).")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
 	flag.Usage = usage
@@ -177,7 +177,7 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		config.MountTimeout = *mountTimeout
 	}
 	if *pollingOnlyFlag {
-		config.Webhook.PollingOnly = true
+		config.Realtime.PollingOnly = true
 	}
 
 	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))
@@ -284,9 +284,9 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to initialize filesystem")
 	}
 
-	webhookOpts := toWebhookOptions(config.Webhook)
-	if webhookOpts.Enabled {
-		filesystem.ConfigureWebhooks(webhookOpts)
+	realtimeOpts := toRealtimeOptions(config.Realtime)
+	if realtimeOpts.Enabled {
+		filesystem.ConfigureRealtime(realtimeOpts)
 	}
 
 	filesystem.ConfigureDeltaTuning(fs.DeltaTuning{
@@ -367,19 +367,12 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	return filesystem, auth, server, cachePath, absMountPath, nil
 }
 
-func toWebhookOptions(cfg common.WebhookConfig) fs.WebhookOptions {
-	return fs.WebhookOptions{
+func toRealtimeOptions(cfg common.RealtimeConfig) fs.RealtimeOptions {
+	return fs.RealtimeOptions{
 		Enabled:          cfg.Enabled,
-		UseSocketIO:      cfg.UseSocketIO,
 		PollingOnly:      cfg.PollingOnly,
-		PublicURL:        cfg.PublicURL,
-		ListenAddress:    cfg.ListenAddress,
-		Path:             cfg.Path,
 		ClientState:      cfg.ClientState,
-		TLSCertFile:      cfg.TLSCertFile,
-		TLSKeyFile:       cfg.TLSKeyFile,
 		Resource:         cfg.Resource,
-		ChangeType:       cfg.ChangeType,
 		FallbackInterval: time.Duration(cfg.FallbackInterval) * time.Second,
 	}
 }

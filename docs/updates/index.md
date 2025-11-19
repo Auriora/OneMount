@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-18** – [Realtime-Only Change Notification](./2025-11-18-realtime-only.md)
 - **2025-11-18** – [Devcontainer Python Toolchain](./2025-11-18-devcontainer-python-toolchain.md)
 - **2025-11-18** – [Devcontainer Bookworm Upgrade](./2025-11-18-devcontainer-bookworm-upgrade.md)
 - **2025-11-18** – [`du` Zero Usage Investigation](./2025-11-18-du-block-accounting.md)

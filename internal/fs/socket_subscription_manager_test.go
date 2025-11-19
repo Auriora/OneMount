@@ -13,7 +13,7 @@ func TestSocketSubscriptionManagerTriggersNotifications(t *testing.T) {
 	t.Parallel()
 
 	fake := socketio.NewFakeTransport()
-	mgr := NewSocketSubscriptionManager(WebhookOptions{Enabled: true, UseSocketIO: true, Resource: "/me/drive/root"}, &graph.Auth{AccessToken: "test-token"}, fake)
+	mgr := NewSocketSubscriptionManager(RealtimeOptions{Enabled: true, Resource: "/me/drive/root"}, &graph.Auth{AccessToken: "test-token"}, fake)
 	mgr.lookup = func(context.Context, *graph.Auth, string) (*graph.SocketSubscription, error) {
 		return &graph.SocketSubscription{ID: "sub-123", NotificationURL: "https://graph.test/notifications"}, nil
 	}

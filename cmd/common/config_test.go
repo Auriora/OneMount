@@ -201,28 +201,23 @@ func TestDefaultDeltaIntervalIsFiveMinutes(t *testing.T) {
 	}
 }
 
-func TestValidateWebhookConfigRequiresHTTPS(t *testing.T) {
-	cfg := &WebhookConfig{
-		Enabled:   true,
-		PublicURL: "http://example.com/onemount/webhook",
+func TestValidateRealtimeConfigDefaults(t *testing.T) {
+	cfg := &RealtimeConfig{
+		Enabled:          true,
+		Resource:         "",
+		FallbackInterval: 0,
 	}
-	if err := validateWebhookConfig(cfg); err == nil {
-		t.Fatal("expected error for non-HTTPS webhook url")
+	if err := validateRealtimeConfig(cfg); err != nil {
+		t.Fatalf("unexpected error validating realtime config: %v", err)
 	}
-
-	cfg.PublicURL = "https://example.com/onemount/webhook"
-	if err := validateWebhookConfig(cfg); err != nil {
-		t.Fatalf("expected HTTPS webhook url to validate, got %v", err)
+	if cfg.Resource == "" {
+		t.Fatalf("expected resource default to be set")
 	}
-}
-
-func TestValidateWebhookConfigAllowsSocketWithoutPublicURL(t *testing.T) {
-	cfg := &WebhookConfig{
-		Enabled:     true,
-		UseSocketIO: true,
+	if cfg.FallbackInterval <= 0 {
+		t.Fatalf("expected fallback interval default to be set")
 	}
-	if err := validateWebhookConfig(cfg); err != nil {
-		t.Fatalf("expected socket.io webhook to validate without public URL, got %v", err)
+	if cfg.ClientState == "" {
+		t.Fatalf("expected client state to be generated when enabled")
 	}
 }
 

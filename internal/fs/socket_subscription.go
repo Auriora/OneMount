@@ -19,7 +19,7 @@ type subscriptionLookup func(context.Context, *graph.Auth, string) (*graph.Socke
 
 // SocketSubscriptionManager streams change notifications via Microsoft Graph's Socket.IO endpoint.
 type SocketSubscriptionManager struct {
-	opts WebhookOptions
+	opts RealtimeOptions
 	auth *graph.Auth
 
 	transport socketio.RealtimeTransport
@@ -35,7 +35,7 @@ type SocketSubscriptionManager struct {
 }
 
 // NewSocketSubscriptionManager creates a Socket.IO-based notification manager.
-func NewSocketSubscriptionManager(opts WebhookOptions, auth *graph.Auth, transport socketio.RealtimeTransport) *SocketSubscriptionManager {
+func NewSocketSubscriptionManager(opts RealtimeOptions, auth *graph.Auth, transport socketio.RealtimeTransport) *SocketSubscriptionManager {
 	if transport == nil {
 		transport = socketio.NewEngineTransport(socketio.EngineTransportOptions{})
 	}

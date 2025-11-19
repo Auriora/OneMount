@@ -99,14 +99,14 @@ The system supports multiple simultaneous OneDrive mounts through isolated files
 │  │  ├─ Auth (work account)                                 │
 │  │  ├─ Cache (work)                                        │
 │  │  ├─ Delta Sync Loop #2                                  │
-│  │  └─ Webhook Subscription #2                             │
+│  │  └─ Realtime Subscription #2                            │
 │  │                                                          │
 │  └─ Shared Drive Mount (/mnt/onedrive-shared)             │
 │     ├─ Filesystem Instance #3                              │
 │     ├─ Auth (work account, shared drive access)            │
 │     ├─ Cache (shared)                                       │
 │     ├─ Delta Sync Loop #3                                  │
-│     └─ Webhook Subscription #3                             │
+│     └─ Realtime Subscription #3                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -115,7 +115,7 @@ Each mount is completely isolated with:
 - Independent authentication tokens
 - Isolated metadata and content caches
 - Dedicated delta sync goroutine
-- Individual webhook subscription
+- Individual realtime (Socket.IO) subscription
 
 ### Tree Synchronization Behavior
 
@@ -158,52 +158,45 @@ Virtual entries (.xdg files, pinned/policy folders) store `remote_id=NULL`, `is_
 - `MERGED` allows special folders to overlay remote children (e.g., “Pinned” folder containing aliases to real items). The metadata entry stores references to the underlying `item_id`s so state transitions continue to work.
 - Because these flags live inside the metadata DB, FUSE handles `readdir` with a single query. The sync engine simply ignores virtual entries when generating upload/delete workqueues.
 
-### Change Notifier Architecture
+### Realtime Socket Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                Change Notifier (per mount)                  │
+│               Socket.IO Realtime Flow (per mount)           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  OneDrive API                                               │
 │       │                                                     │
-│       │ 1. POST /subscriptions                              │
+│       │ 1. POST /subscriptions/socketIo                     │
 │       ▼                                                     │
 │  ┌──────────────┐                                           │
-│  │ Subscription │                                           │
+│  │ Socket Sub   │                                           │
 │  │   Manager    │                                           │
 │  └──────┬───────┘                                           │
-│         │  store subscription/expiration                    │
+│         │ health + expiry                                   │
 │         ▼                                                   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │                  ChangeNotifier                      │   │
-│  │ ┌────────────┐    ┌────────────┐     ┌────────────┐ │   │
-│  │ │ Socket     │    │ Webhook    │ ... │ Future     │ │   │
-│  │ │ Transport  │    │ Transport  │     │ Transport  │ │   │
-│  │ └────┬───────┘    └────┬───────┘     └────┬───────┘ │   │
-│  │      │ notifications       │ notifications │         │   │
-│  └──────┴──────────────┬─────┴───────────────┴─────────┘   │
-│                        ▼                                   │
-│                 Delta Sync Trigger                         │
-│                        │                                   │
-│                        ▼                                   │
-│                   Metadata Cache                           │
+│  ┌──────────────────────────────────────────────────┐       │
+│  │    RealtimeNotifier (events + health)            │       │
+│  └──────┬──────────────────────┬────────────────────┘       │
+│         │ notifications        │ health snapshot            │
+│         ▼                      ▼                            │
+│   Delta Sync Trigger    Interval Controller                 │
+│         │                      │                            │
+│         ▼                      ▼                            │
+│     Metadata DB        Polling Interval Logic               │
 │                                                             │
-│  Background: Transport health + renewal loop               │
-│  (per transport, reports health/expiry to ChangeNotifier)  │
+│  Background: renewal loop + reconnect/backoff               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- Each mount instantiates a `ChangeNotifier` that owns zero or more transports. The default configuration attempts the socket transport first, then falls back to the webhook listener, and finally to pure polling if both fail.
-- Transports publish health, last-success timestamps, and expiration hints back to the notifier so the delta loop can lengthen/shorten its polling cadence per Requirement 5.
-- The webhook transport validates Graph’s subscription handshake tokens, renews subscriptions before the 24 h deadline, and exposes an HTTPS endpoint only when enabled.
-- The socket transport reuses the Engine.IO implementation described later in this document. Both transports share the same renewal bookkeeping tables in BBolt, so switching between them doesn’t require refetching state.
-- Whenever any transport reports a new event, the ChangeNotifier signals the delta loop to preempt low-priority metadata work and refresh the affected drive immediately.
-- When all transports are unhealthy, the ChangeNotifier emits diagnostics and instructs the delta loop to drop back to the 5-minute fallback interval while transports continue to retry in the background.
+- Each mount instantiates a Socket.IO subscription manager that owns the Engine.IO transport, renewal tokens, and reconnection/backoff logic.
+- The manager publishes notifications to the delta loop and a health snapshot (status, last heartbeat, retry counts) so Requirement 5 can lengthen/shorten polling cadences deterministically.
+- Polling-only mode skips the connection but still exposes “disabled” mode through the same interface so diagnostics stay consistent.
+- When the transport degrades, the manager marks itself unhealthy, emits diagnostics, and leaves the delta loop in 5-minute polling mode until the Socket.IO channel recovers.
 
 ### Metadata Request Manager
 
-Interactive metadata operations (e.g., `ls`, `cd`, file open/close) must remain responsive even while the tree sync, delta loop, or webhook handler are active. To achieve this:
+Interactive metadata operations (e.g., `ls`, `cd`, file open/close) must remain responsive even while the tree sync, delta loop, or realtime handler are active. To achieve this:
 
 - **Worker pools:** The metadata request manager runs a configurable set of workers. At least one worker is dedicated to foreground work so user-facing commands never wait behind background jobs.
 - **Priority handling:** Foreground requests preempt background work. When a worker is processing a background task and a foreground request arrives, the worker finishes the current Graph call but immediately switches to the high-priority queue; background jobs resume only when no foreground work is pending.
@@ -839,31 +832,28 @@ Signals:
 - Error messages are user-friendly
 - All tests run in Docker containers
 
-### 13. Change Notifier Component
+### 13. Realtime Subscription Component
 
-**Location**: `internal/fs/subscription.go`, `internal/graph/socketio/`, `internal/graph/webhook/`
+**Location**: `internal/fs/socket_subscription.go`, `internal/graph/socketio/`
 
 **Verification Steps**:
-1. Review the `ChangeNotifier` orchestration code plus each transport implementation (socket, webhook).
-2. Test notifier initialization per mount, ensuring transport preference order is honored.
-3. Test event delivery through the socket transport (Engine.IO) and ensure heartbeat/health status propagates to the notifier.
-4. Test webhook subscription creation, validation, renewal, and HTTP listener behavior (including TLS and validation tokens).
-5. Force transport failures to verify automatic fallback to the next transport and degraded polling mode.
-6. Test notifier shutdown/unmount to ensure transports are disposed and subscriptions deleted.
+1. Review the Socket.IO subscription manager to ensure it requests delegated endpoints, maintains health snapshots, and surfaces events to the delta loop.
+2. Test initialization per mount (including polling-only mode) to confirm configuration is honored.
+3. Simulate notifications to ensure they immediately trigger delta queries and preempt lower-priority metadata work.
+4. Inject transport failures to verify degraded health is reported and polling cadence falls back to the Requirement 5 baseline.
+5. Test renewal before expiration and reconnection logic, ensuring tokens persist in BBolt.
+6. Test shutdown/unmount flows to confirm the transport disconnects cleanly within the timeout.
 
 **Expected Interfaces**:
-- `type ChangeNotifier interface { Start(ctx); Events() <-chan Notification; Health() NotifierHealth; Stop(ctx) }`
-- `type Transport interface { Start(ctx); Stop(ctx); Health() TransportHealth }` implemented by `SocketTransport` and `WebhookTransport`.
-- `SubscriptionManager` with `Create`, `Renew`, and `Delete` helpers shared by all transports.
-- Health/expiration metrics exposed via `internal/metrics` to drive Requirement 5 polling cadence decisions.
+- `type ChangeNotifier interface { Start(ctx); Notifications() <-chan struct{}; Health() socketio.HealthState; Stop(ctx); IsActive() bool }` implemented by `SocketSubscriptionManager`.
+- Health/expiration metrics exposed via `internal/metrics`/stats so polling cadence decisions remain deterministic.
 
 **Verification Criteria**:
-- At least one transport starts successfully on mount; failures surface structured diagnostics.
-- Webhook notifications and socket events both trigger immediate delta queries through the unified notifier channel.
-- Subscription IDs and expirations persist in BBolt and are renewed before the 24 h Graph deadline.
-- When the preferred transport fails, the notifier automatically activates the next transport and shortens polling to 5 minutes until health recovers.
-- When all transports fail, the notifier marks itself unhealthy so the delta loop can remain in fallback mode while transports continue retrying.
-- Unmounting a drive cleanly tears down transports, closes sockets, and deletes Graph subscriptions.
+- Socket.IO subscriptions start successfully on mount (or skip when polling-only) and surface diagnostics on failure.
+- Notifications trigger immediate delta queries; health snapshots reflect heartbeat timings and failures.
+- Subscription IDs and expirations persist and renew before the 24 h Graph deadline.
+- When the transport degrades, the notifier marks itself unhealthy so the delta loop remains in fallback mode until the channel recovers.
+- Unmounting a drive cleanly tears down the socket connection and deletes stored subscription metadata.
 - Personal drives can scope subscriptions to root or subfolders; business drives restrict to the root per Graph limits.
 
 ### 14. Multi-Account Mount Manager Component
@@ -1039,36 +1029,25 @@ type CachedFileInfo struct {
 }
 ```
 
-### Webhook Subscription Data Model
+### Realtime Subscription Data Model
 
 ```go
-type Subscription struct {
-    ID                 string    // Subscription ID from OneDrive API
-    Resource           string    // Resource path (e.g., "/me/drive/root")
-    ChangeType         string    // "updated"
-    NotificationURL    string    // Public URL for webhook notifications
-    ExpirationDateTime time.Time // When subscription expires (max 3 days)
-    ClientState        string    // Optional validation token
-    CreatedAt          time.Time // When subscription was created
-    LastRenewed        time.Time // Last renewal timestamp
+type SocketSubscription struct {
+	ID              string    // Delegated subscription ID
+	Resource        string    // Resource path (e.g., "/me/drive/root")
+	NotificationURL string    // WSS endpoint for Socket.IO
+	Expiration      time.Time // Graph-imposed lease
+	ClientState     string    // Validation token echoed in events
 }
 
-type WebhookNotification struct {
-    SubscriptionID          string    // ID of the subscription
-    SubscriptionExpiration  time.Time // Expiration time
-    ChangeType              string    // Type of change
-    Resource                string    // Resource that changed
-    ClientState             string    // Validation token
-    ResourceData            map[string]interface{} // Additional data
-}
-
-type SubscriptionManager struct {
-    subscriptions      map[string]*Subscription // subscriptionID -> Subscription
-    filesystem         *Filesystem              // Associated filesystem
-    auth               *graph.Auth              // Authentication
-    notificationServer *http.Server             // HTTP server for webhooks
-    renewalTicker      *time.Ticker             // Periodic renewal check
-    mutex              sync.RWMutex             // Thread safety
+type SocketSubscriptionManager struct {
+	current       *SocketSubscription
+	filesystem    *Filesystem
+	auth          *graph.Auth
+	transport     socketio.RealtimeTransport
+	renewalTicker *time.Ticker
+	health        socketio.HealthState
+	mutex         sync.RWMutex
 }
 ```
 
@@ -1384,30 +1363,15 @@ This section maps design components to specific OneDrive API endpoints based on 
   - Header: `Prefer: deltashowsharingchanges`
   - Response includes: `@microsoft.graph.sharedChanged: "True"` annotation
 
-### Webhook Subscription Endpoints
-- **Create Subscription**: `POST /subscriptions`
-  ```json
-  {
-    "changeType": "updated",
-    "notificationUrl": "https://your-server.com/webhook",
-    "resource": "/me/drive/root",
-    "expirationDateTime": "2024-12-31T10:00:00Z"
-  }
-  ```
-  - Personal OneDrive: Can subscribe to any folder
-  - Business OneDrive: Can only subscribe to root folder
-  - Max expiration: 3 days (4230 minutes)
-  
-- **Renew Subscription**: `PATCH /subscriptions/{subscription-id}`
-  ```json
-  {
-    "expirationDateTime": "2024-12-31T10:00:00Z"
-  }
-  ```
-  
-- **Delete Subscription**: `DELETE /subscriptions/{subscription-id}`
-
-- **Webhook Notification Format**:
+### Socket.IO Subscription Endpoints
+- **Fetch Subscription Endpoint**: `GET {resource}/subscriptions/socketIo`
+  - Example: `GET /me/drive/root/subscriptions/socketIo`
+  - Response: `{ "id": "{guid}", "notificationUrl": "wss://*.graph.microsoft.com/notifications/socketIo?..." }`
+  - The client connects directly to `notificationUrl` via Engine.IO v4 (`EIO=4&transport=websocket`).
+- **Renew Subscription**: `POST {resource}/subscriptions/socketIo/renew`
+  - Payload: `{ "id": "{subscriptionId}" }`
+  - Response: updated expiration metadata used to refresh local timers.
+- **Disconnect**: closing the WebSocket automatically releases the subscription lease; no additional HTTP DELETE call is necessary.
   ```json
   {
     "value": [{

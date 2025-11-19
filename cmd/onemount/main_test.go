@@ -6,13 +6,13 @@ import (
 	"github.com/auriora/onemount/cmd/common"
 )
 
-func TestToWebhookOptionsCopiesPollingOnly(t *testing.T) {
-	cfg := common.WebhookConfig{
+func TestToRealtimeOptionsCopiesPollingOnly(t *testing.T) {
+	cfg := common.RealtimeConfig{
 		Enabled:     true,
-		UseSocketIO: true,
 		PollingOnly: true,
+		Resource:    "/me/drive/root",
 	}
-	opts := toWebhookOptions(cfg)
+	opts := toRealtimeOptions(cfg)
 	if !opts.PollingOnly {
 		t.Fatalf("expected pollingOnly to propagate to fs options")
 	}

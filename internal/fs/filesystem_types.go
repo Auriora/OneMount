@@ -112,8 +112,8 @@ type Filesystem struct {
 	metadataRequestManager *MetadataRequestManager // Manager for prioritized metadata requests
 	metadataRefresh        sync.Map                // Tracks in-flight metadata refreshes by directory ID
 
-	// Webhook / subscription management
-	webhookOptions         *WebhookOptions
+	// Realtime subscription management
+	realtimeOptions        *RealtimeOptions
 	subscriptionManager    subscriptionManager
 	deltaInterval          time.Duration
 	lastDeltaInterval      time.Duration

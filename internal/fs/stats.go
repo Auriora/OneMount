@@ -839,13 +839,11 @@ func (f *Filesystem) augmentRealtimeStats(stats *Stats) {
 	stats.RealtimeConsecutiveFailures = 0
 	stats.RealtimeReconnectCount = 0
 
-	if f.webhookOptions != nil && f.webhookOptions.Enabled {
-		if f.webhookOptions.PollingOnly {
+	if f.realtimeOptions != nil && f.realtimeOptions.Enabled {
+		if f.realtimeOptions.PollingOnly {
 			stats.RealtimeMode = "polling-only"
-		} else if f.webhookOptions.UseSocketIO {
-			stats.RealtimeMode = "socketio"
 		} else {
-			stats.RealtimeMode = "webhook"
+			stats.RealtimeMode = "socketio"
 		}
 	}
 

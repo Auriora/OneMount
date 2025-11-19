@@ -13,22 +13,17 @@ import (
 )
 
 const (
-	defaultPollingInterval         = 5 * time.Minute
-	defaultWebhookFallbackInterval = 30 * time.Minute
+	defaultPollingInterval          = 5 * time.Minute
+	defaultRealtimeFallbackInterval = 30 * time.Minute
 
 	deltaIntervalDeviationSuffix = "-deviation"
 )
 
-func (f *Filesystem) startWebhookManager() (<-chan struct{}, error) {
-	if f.webhookOptions == nil || !f.webhookOptions.Enabled || f.webhookOptions.PollingOnly {
+func (f *Filesystem) startRealtimeManager() (<-chan struct{}, error) {
+	if f.realtimeOptions == nil || !f.realtimeOptions.Enabled || f.realtimeOptions.PollingOnly {
 		return nil, nil
 	}
-	var manager subscriptionManager
-	if f.webhookOptions.UseSocketIO {
-		manager = NewSocketSubscriptionManager(*f.webhookOptions, f.auth, nil)
-	} else {
-		manager = NewSubscriptionManager(*f.webhookOptions, f.auth)
-	}
+	manager := NewSocketSubscriptionManager(*f.realtimeOptions, f.auth, nil)
 	if err := manager.Start(f.deltaLoopCtx); err != nil {
 		return nil, err
 	}
@@ -36,14 +31,14 @@ func (f *Filesystem) startWebhookManager() (<-chan struct{}, error) {
 	return manager.Notifications(), nil
 }
 
-func (f *Filesystem) stopWebhookManager() {
+func (f *Filesystem) stopRealtimeManager() {
 	if f.subscriptionManager == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := f.subscriptionManager.Stop(ctx); err != nil {
-		logging.Warn().Err(err).Msg("Failed to stop webhook subscription manager")
+		logging.Warn().Err(err).Msg("Failed to stop realtime subscription manager")
 	}
 	f.subscriptionManager = nil
 }
@@ -92,12 +87,12 @@ func (f *Filesystem) shouldUseActiveInterval(baseInterval time.Duration) bool {
 
 func (f *Filesystem) desiredDeltaInterval() time.Duration {
 	if f.subscriptionManager != nil && f.subscriptionManager.IsActive() {
-		expected := defaultWebhookFallbackInterval
+		expected := defaultRealtimeFallbackInterval
 		interval := expected
-		if f.webhookOptions != nil && f.webhookOptions.FallbackInterval > 0 {
-			interval = f.webhookOptions.FallbackInterval
+		if f.realtimeOptions != nil && f.realtimeOptions.FallbackInterval > 0 {
+			interval = f.realtimeOptions.FallbackInterval
 		}
-		f.logDeltaInterval(interval, "webhook", expected)
+		f.logDeltaInterval(interval, "realtime", expected)
 		return interval
 	}
 	baseInterval := f.deltaInterval
@@ -146,12 +141,12 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		logging.Debug().Msg("Delta goroutine completed")
 	}()
 
-	notificationCh, err := f.startWebhookManager()
+	notificationCh, err := f.startRealtimeManager()
 	if err != nil {
-		logging.Error().Err(err).Msg("Failed to start webhook subscription manager; continuing with polling only")
+		logging.Error().Err(err).Msg("Failed to start realtime subscription; continuing with polling only")
 	} else if notificationCh != nil {
-		logging.Info().Msg("Webhook subscription manager started; using extended delta interval when active")
-		defer f.stopWebhookManager()
+		logging.Info().Msg("Realtime subscription started; using extended delta interval when active")
+		defer f.stopRealtimeManager()
 	}
 
 	currentInterval := f.desiredDeltaInterval()
@@ -444,7 +439,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 				waitDur = desired
 				logging.Info().
 					Dur("interval", desired).
-					Msg("Adjusted delta polling interval based on webhook state")
+					Msg("Adjusted delta polling interval based on realtime state")
 			}
 		}
 
@@ -454,7 +449,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 		case <-time.After(waitDur):
 		case <-notificationCh:
 			if notificationCh != nil {
-				logging.Info().Msg("Webhook notification received; triggering immediate delta sync")
+				logging.Info().Msg("Realtime notification received; triggering immediate delta sync")
 			}
 		case <-currentTicker.C:
 			// Time to run the next cycle

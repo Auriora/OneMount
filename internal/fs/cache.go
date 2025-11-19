@@ -1939,7 +1939,7 @@ func (f *Filesystem) Stop() {
 		// Stop all background processes in the correct order
 		f.StopCacheCleanup()
 		f.StopDeltaLoop()
-		f.stopWebhookManager()
+		f.stopRealtimeManager()
 		f.StopDownloadManager()
 		f.StopUploadManager()
 		f.StopMetadataRequestManager()
