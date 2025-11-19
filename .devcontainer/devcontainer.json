@@ -45,6 +45,13 @@
   },
   "customizations": {
     "jetbrains": {
+      "settings": {
+        "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
+        "com.intellij:app:Vcs-Log-App-Settings.show_changes_from_parents": true,
+        "com.intellij:app:Vcs-Log-App-Settings.show_tag_names": true,
+        "com.intellij:app:VcsApplicationSettings.manage_ignore_files": true,
+        "com.intellij:app:HttpConfigurable.use_proxy_pac": true
+      },
       "backend": "GoLand",
       "plugins": [
         "org.jetbrains.plugins.go-template"
@@ -69,7 +76,7 @@
       ]
     }
   },
-  "postCreateCommand": "go version && go mod download",
+  "postCreateCommand": "bash -lc '.devcontainer/bin/ensure-python-toolchain && go version && go mod download && python3 -m pip --version && pip --version'",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "username": "vscode",

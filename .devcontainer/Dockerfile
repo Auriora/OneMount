@@ -7,8 +7,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
+# Bump PYTHON_TOOLCHAIN_VERSION whenever Python dependencies change to force a rebuild.
+ARG PYTHON_TOOLCHAIN_VERSION="2025-11-19"
 
 # Install system packages required for JetBrains Remote Development support
+# Includes a fully-tested Python toolchain so pip failures are caught during image build.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -81,7 +84,19 @@ RUN apt-get update \
         x11-apps \
         xdg-utils \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "python-toolchain-version=${PYTHON_TOOLCHAIN_VERSION}" > /etc/python-toolchain-version
+
+# Provide a stable `pip` entrypoint and smoke-test the Python toolchain so regressions fail fast.
+RUN ln -sf /usr/bin/pip3 /usr/local/bin/pip \
+    && python3 --version \
+    && python3 -m pip --version \
+    && pip3 --version \
+    && python --version \
+    && pip --version \
+    && python3 -m venv /tmp/python-probe \
+    && /tmp/python-probe/bin/python -m pip --version \
+    && rm -rf /tmp/python-probe
 
 COPY --chmod=0755 .devcontainer/bin/host-open /usr/local/bin/host-open
 
