@@ -12,9 +12,9 @@ var ErrInvalidTransition = errors.New("metadata: invalid state transition")
 
 // StateManager coordinates validated metadata state transitions.
 type StateManager struct {
-	store           Store
-	clock           Clock
-	allowed         map[ItemState]map[ItemState]struct{}
+	store   Store
+	clock   Clock
+	allowed map[ItemState]map[ItemState]struct{}
 }
 
 // StateManagerOption customizes manager construction.
@@ -38,7 +38,12 @@ func NewStateManager(store Store, opts ...StateManagerOption) (*StateManager, er
 		store: store,
 		clock: systemClock{},
 		allowed: map[ItemState]map[ItemState]struct{}{
-			ItemStateGhost: stateSet(ItemStateHydrating, ItemStateHydrated, ItemStateDeleted),
+			ItemStateGhost: stateSet(
+				ItemStateHydrating,
+				ItemStateHydrated,
+				ItemStateDeleted,
+				ItemStateDirtyLocal,
+			),
 			ItemStateHydrating: stateSet(
 				ItemStateHydrated,
 				ItemStateError,

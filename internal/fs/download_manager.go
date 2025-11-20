@@ -33,6 +33,7 @@ import (
 
 	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/retry"
 	bolt "go.etcd.io/bbolt"
 )
@@ -362,6 +363,12 @@ func (dm *DownloadManager) processDownload(id string) {
 	inode.DriveItem.Size = size
 	inode.mu.Unlock()
 
+	dm.fs.transitionItemState(id, metadata.ItemStateHydrated,
+		metadata.WithHydrationEvent(),
+		metadata.WithWorker("download:"+id),
+		metadata.WithSize(size),
+		metadata.ClearPendingRemote())
+
 	// Update file status
 	dm.fs.SetFileStatus(id, FileStatusInfo{
 		Status:    StatusLocal,
@@ -402,6 +409,11 @@ func (dm *DownloadManager) setSessionError(session *DownloadSession, err error) 
 
 	// Update file status
 	dm.fs.MarkFileError(session.ID, err)
+
+	dm.fs.transitionItemState(session.ID, metadata.ItemStateError,
+		metadata.WithHydrationEvent(),
+		metadata.WithWorker("download:"+session.ID),
+		metadata.WithTransitionError(err, false))
 
 	// Persist updated session state for potential recovery
 	if dm.db != nil && session.RecoveryAttempts <= 3 {
@@ -458,6 +470,11 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 		return nil, errors.NewNotFoundError("inode not found", nil)
 	}
 
+	dm.fs.persistMetadataEntry(id, inode)
+	dm.fs.transitionItemState(id, metadata.ItemStateHydrating,
+		metadata.WithHydrationEvent(),
+		metadata.WithWorker("download-queue:"+id))
+
 	path := inode.Path()
 	// Clear any stale completion marker from prior downloads of the same item
 	dm.completed.Delete(id)
@@ -504,7 +521,9 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 		dm.mutex.Lock()
 		delete(dm.sessions, id)
 		dm.mutex.Unlock()
-		return nil, errors.NewResourceBusyError("download queue is full", nil)
+		queueErr := errors.NewResourceBusyError("download queue is full", nil)
+		dm.fs.transitionItemState(id, metadata.ItemStateGhost)
+		return nil, queueErr
 	}
 
 	return session, nil

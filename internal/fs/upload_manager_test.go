@@ -2,14 +2,19 @@ package fs
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/auriora/onemount/internal/logging"
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"github.com/auriora/onemount/internal/testutil/helpers"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/hanwen/go-fuse/v2/fuse"
+	bolt "go.etcd.io/bbolt"
 )
 
 // TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
@@ -309,6 +314,156 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 		status := fs.GetFileStatus(fileID)
 		assert.Equal(StatusLocal, status.Status, "File status should be Local after successful upload")
 	})
+}
+
+func TestUploadManagerQueuesDirtyStateInMetadata(t *testing.T) {
+	fs, um, db := newUploadManagerTestEnv(t)
+	defer db.Close()
+
+	inode := NewInode("queued-file.txt", fuse.S_IFREG|0644, nil)
+	data := []byte("queued-content")
+	inode.DriveItem.Size = uint64(len(data))
+	fs.metadata.Store(inode.ID(), inode)
+	if err := fs.StoreContent(inode.ID(), data); err != nil {
+		t.Fatalf("store content: %v", err)
+	}
+
+	session, err := um.QueueUploadWithPriority(inode, PriorityLow)
+	if err != nil {
+		t.Fatalf("QueueUploadWithPriority returned error: %v", err)
+	}
+	// Drain queue to avoid blocking
+	select {
+	case <-um.lowPriorityQueue:
+	default:
+	}
+
+	entry, err := fs.GetMetadataEntry(session.ID)
+	if err != nil {
+		t.Fatalf("GetMetadataEntry: %v", err)
+	}
+	if entry.State != metadata.ItemStateDirtyLocal {
+		t.Fatalf("expected DIRTY_LOCAL state, got %s", entry.State)
+	}
+}
+
+func TestUploadManagerHydratesMetadataOnCompletion(t *testing.T) {
+	fs, um, db := newUploadManagerTestEnv(t)
+	defer db.Close()
+
+	inode := NewInode("completed-file.txt", fuse.S_IFREG|0644, nil)
+	inode.DriveItem.Size = 8
+	fs.metadata.Store(inode.ID(), inode)
+	fs.persistMetadataEntry(inode.ID(), inode)
+	fs.transitionItemState(inode.ID(), metadata.ItemStateDirtyLocal)
+
+	session := &UploadSession{
+		ID:    inode.ID(),
+		OldID: inode.ID(),
+		ETag:  "etag-new",
+		Size:  8,
+		state: uploadComplete,
+	}
+	um.sessions[session.ID] = session
+
+	if err := um.WaitForUpload(session.ID); err != nil {
+		t.Fatalf("WaitForUpload returned error: %v", err)
+	}
+
+	entry, err := fs.GetMetadataEntry(session.ID)
+	if err != nil {
+		t.Fatalf("GetMetadataEntry: %v", err)
+	}
+	if entry.State != metadata.ItemStateHydrated {
+		t.Fatalf("expected HYDRATED state, got %s", entry.State)
+	}
+	if entry.ETag != "etag-new" {
+		t.Fatalf("expected ETag 'etag-new', got %s", entry.ETag)
+	}
+	if entry.Size != 8 {
+		t.Fatalf("expected size 8, got %d", entry.Size)
+	}
+}
+
+func TestUploadManagerSetsErrorStateOnFailure(t *testing.T) {
+	fs, um, db := newUploadManagerTestEnv(t)
+	defer db.Close()
+
+	inode := NewInode("errored-file.txt", fuse.S_IFREG|0644, nil)
+	fs.metadata.Store(inode.ID(), inode)
+	fs.persistMetadataEntry(inode.ID(), inode)
+	fs.transitionItemState(inode.ID(), metadata.ItemStateDirtyLocal)
+
+	session := &UploadSession{
+		ID:    inode.ID(),
+		OldID: inode.ID(),
+		state: uploadErrored,
+		error: errors.New("upload failed"),
+	}
+	um.sessions[session.ID] = session
+
+	err := um.WaitForUpload(session.ID)
+	if err == nil {
+		t.Fatalf("expected WaitForUpload to return error")
+	}
+
+	entry, err := fs.GetMetadataEntry(session.ID)
+	if err != nil {
+		t.Fatalf("GetMetadataEntry: %v", err)
+	}
+	if entry.State != metadata.ItemStateError {
+		t.Fatalf("expected ERROR state, got %s", entry.State)
+	}
+}
+
+func newUploadManagerTestEnv(t *testing.T) (*Filesystem, *UploadManager, *bolt.DB) {
+	t.Helper()
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "metadata.db")
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
+	if err != nil {
+		t.Fatalf("open bolt: %v", err)
+	}
+	if err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(bucketMetadataV2)
+		return err
+	}); err != nil {
+		t.Fatalf("create metadata bucket: %v", err)
+	}
+	store, err := metadata.NewBoltStore(db, bucketMetadataV2)
+	if err != nil {
+		t.Fatalf("new bolt store: %v", err)
+	}
+	stateMgr, err := metadata.NewStateManager(store)
+	if err != nil {
+		t.Fatalf("new state manager: %v", err)
+	}
+
+	fs := &Filesystem{
+		content:       NewLoopbackCacheWithSize(filepath.Join(dir, "content"), 0),
+		metadataStore: store,
+		stateManager:  stateMgr,
+		statuses:      make(map[string]FileStatusInfo),
+		db:            db,
+	}
+
+	um := &UploadManager{
+		highPriorityQueue:          make(chan *UploadSession, 1),
+		lowPriorityQueue:           make(chan *UploadSession, 1),
+		queue:                      make(chan *UploadSession, 1),
+		deletionQueue:              make(chan string, 1),
+		sessions:                   make(map[string]*UploadSession),
+		sessionPriorities:          make(map[string]UploadPriority),
+		pendingHighPriorityUploads: make(map[string]bool),
+		pendingLowPriorityUploads:  make(map[string]bool),
+		auth:                       &graph.Auth{},
+		fs:                         fs,
+		db:                         db,
+		stopChan:                   make(chan struct{}),
+		uploadCounter:              make(map[string]int),
+	}
+
+	return fs, um, db
 }
 
 // TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times

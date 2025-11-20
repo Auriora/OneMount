@@ -241,6 +241,14 @@ func (f *Filesystem) loadMetadataEntry(id string) (*metadata.Entry, error) {
 		return nil, goerrors.New("metadata id is required")
 	}
 
+	if f.metadataStore == nil {
+		if val, ok := f.metadata.Load(id); ok {
+			if inode, ok := val.(*Inode); ok {
+				return f.metadataEntryFromInode(id, inode, time.Now().UTC()), nil
+			}
+		}
+	}
+
 	ctx := context.Background()
 	if f.metadataStore != nil {
 		entry, err := f.metadataStore.Get(ctx, id)
@@ -252,12 +260,79 @@ func (f *Filesystem) loadMetadataEntry(id string) (*metadata.Entry, error) {
 		}
 	}
 
-	if inode := f.GetID(id); inode != nil {
-		if entry := f.metadataEntryFromInode(id, inode, time.Now().UTC()); entry != nil {
-			return entry, nil
-		}
-	}
+	return f.loadLegacyMetadataEntry(id)
+}
 
+// GetMetadataEntry returns the structured metadata entry for the provided ID.
+func (f *Filesystem) GetMetadataEntry(id string) (*metadata.Entry, error) {
+	return f.loadMetadataEntry(id)
+}
+
+// SaveMetadataEntry validates and persists the provided entry.
+func (f *Filesystem) SaveMetadataEntry(entry *metadata.Entry) error {
+	if entry == nil {
+		return goerrors.New("metadata entry is nil")
+	}
+	if f.metadataStore == nil {
+		return goerrors.New("metadata store not initialized")
+	}
+	return f.metadataStore.Save(context.Background(), entry)
+}
+
+// UpdateMetadataEntry applies the provided mutation function atomically.
+func (f *Filesystem) UpdateMetadataEntry(id string, fn func(*metadata.Entry) error) (*metadata.Entry, error) {
+	if f.metadataStore == nil {
+		return nil, goerrors.New("metadata store not initialized")
+	}
+	return f.metadataStore.Update(context.Background(), id, fn)
+}
+
+func (f *Filesystem) persistMetadataEntry(id string, inode *Inode) {
+	if f.metadataStore == nil || inode == nil {
+		return
+	}
+	entry := f.metadataEntryFromInode(id, inode, time.Now().UTC())
+	if entry == nil {
+		return
+	}
+	if err := f.metadataStore.Save(context.Background(), entry); err != nil {
+		logging.Debug().
+			Err(err).
+			Str("id", id).
+			Msg("Failed to persist metadata entry")
+	}
+}
+
+func (f *Filesystem) transitionItemState(id string, target metadata.ItemState, opts ...metadata.TransitionOption) {
+	if f.stateManager == nil || id == "" {
+		return
+	}
+	if _, err := f.stateManager.Transition(context.Background(), id, target, opts...); err != nil && !goerrors.Is(err, metadata.ErrNotFound) {
+		logging.Debug().
+			Err(err).
+			Str("id", id).
+			Str("state", string(target)).
+			Msg("Metadata state transition failed")
+	}
+}
+
+func (f *Filesystem) ensureInodeFromMetadataStore(id string) *Inode {
+	if f.metadataStore == nil || id == "" {
+		return nil
+	}
+	entry, err := f.metadataStore.Get(context.Background(), id)
+	if err != nil {
+		return nil
+	}
+	inode := f.inodeFromMetadataEntry(entry)
+	if inode == nil {
+		return nil
+	}
+	f.InsertID(id, inode)
+	return inode
+}
+
+func (f *Filesystem) loadLegacyMetadataEntry(id string) (*metadata.Entry, error) {
 	if f.db == nil {
 		return nil, metadata.ErrNotFound
 	}
@@ -287,33 +362,9 @@ func (f *Filesystem) loadMetadataEntry(id string) (*metadata.Entry, error) {
 	}
 
 	if entry != nil && f.metadataStore != nil {
-		if err := f.metadataStore.Save(ctx, entry); err != nil {
+		if err := f.metadataStore.Save(context.Background(), entry); err != nil {
 			logging.Warn().Err(err).Str("id", entry.ID).Msg("Failed to persist legacy metadata into metadata_v2")
 		}
 	}
 	return entry, nil
-}
-
-// GetMetadataEntry returns the structured metadata entry for the provided ID.
-func (f *Filesystem) GetMetadataEntry(id string) (*metadata.Entry, error) {
-	return f.loadMetadataEntry(id)
-}
-
-// SaveMetadataEntry validates and persists the provided entry.
-func (f *Filesystem) SaveMetadataEntry(entry *metadata.Entry) error {
-	if entry == nil {
-		return goerrors.New("metadata entry is nil")
-	}
-	if f.metadataStore == nil {
-		return goerrors.New("metadata store not initialized")
-	}
-	return f.metadataStore.Save(context.Background(), entry)
-}
-
-// UpdateMetadataEntry applies the provided mutation function atomically.
-func (f *Filesystem) UpdateMetadataEntry(id string, fn func(*metadata.Entry) error) (*metadata.Entry, error) {
-	if f.metadataStore == nil {
-		return nil, goerrors.New("metadata store not initialized")
-	}
-	return f.metadataStore.Update(context.Background(), id, fn)
 }

@@ -117,3 +117,104 @@ func TestInodeFromMetadataEntry(t *testing.T) {
 		t.Fatalf("expected etag propagation")
 	}
 }
+
+func TestPendingRemoteMetadataUpdates(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "meta.db")
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
+	if err != nil {
+		t.Fatalf("open bolt: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(bucketMetadataV2)
+		return err
+	}); err != nil {
+		t.Fatalf("create bucket: %v", err)
+	}
+
+	store, err := metadata.NewBoltStore(db, bucketMetadataV2)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	fs := &Filesystem{
+		content:       NewLoopbackCacheWithSize(filepath.Join(dir, "content"), 0),
+		metadataStore: store,
+	}
+
+	entry := &metadata.Entry{
+		ID:    "file-42",
+		Name:  "pending.txt",
+		State: metadata.ItemStateGhost,
+	}
+	if err := fs.SaveMetadataEntry(entry); err != nil {
+		t.Fatalf("save entry: %v", err)
+	}
+
+	fs.markChildPendingRemote("file-42")
+	stored, err := fs.GetMetadataEntry("file-42")
+	if err != nil {
+		t.Fatalf("get entry: %v", err)
+	}
+	if !stored.PendingRemote {
+		t.Fatalf("expected pending remote flag to be set")
+	}
+
+	fs.clearChildPendingRemote("file-42")
+	stored, err = fs.GetMetadataEntry("file-42")
+	if err != nil {
+		t.Fatalf("get entry second time: %v", err)
+	}
+	if stored.PendingRemote {
+		t.Fatalf("expected pending remote flag cleared")
+	}
+}
+
+func TestGetIDLoadsFromMetadataStore(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "meta.db")
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
+	if err != nil {
+		t.Fatalf("open bolt: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(bucketMetadataV2)
+		return err
+	}); err != nil {
+		t.Fatalf("create bucket: %v", err)
+	}
+
+	store, err := metadata.NewBoltStore(db, bucketMetadataV2)
+	if err != nil {
+		t.Fatalf("new bolt store: %v", err)
+	}
+
+	fs := &Filesystem{
+		content:       NewLoopbackCacheWithSize(filepath.Join(dir, "content"), 0),
+		metadataStore: store,
+		db:            db,
+	}
+
+	entry := &metadata.Entry{
+		ID:       "cached-item",
+		Name:     "cached.txt",
+		ItemType: metadata.ItemKindFile,
+		State:    metadata.ItemStateHydrated,
+		Mode:     fuse.S_IFREG | 0644,
+	}
+	if err := fs.SaveMetadataEntry(entry); err != nil {
+		t.Fatalf("save metadata entry: %v", err)
+	}
+
+	inode := fs.GetID(entry.ID)
+	if inode == nil {
+		t.Fatalf("expected inode retrieved from metadata store")
+	}
+	if inode.Name() != entry.Name {
+		t.Fatalf("expected inode name %s, got %s", entry.Name, inode.Name())
+	}
+}

@@ -836,6 +836,13 @@ func (f *Filesystem) GetID(id string) *Inode {
 
 	entry, exists := f.metadata.Load(id)
 	if !exists {
+		if inode := f.ensureInodeFromMetadataStore(id); inode != nil {
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), inode)
+			}()
+			return inode
+		}
+
 		// we allow fetching from disk as a fallback while offline (and it's also
 		// necessary while transitioning from offline->online)
 		var found *Inode
@@ -1004,6 +1011,10 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 	parent.children = append(parent.children, id)
 
+	if inode != nil {
+		f.persistMetadataEntry(id, inode)
+	}
+
 	defer func() {
 		logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
 	}()
@@ -1031,16 +1042,14 @@ func (f *Filesystem) markChildPendingRemote(id string) {
 		return
 	}
 	f.pendingRemoteChildren.Store(id, time.Now().Add(pendingRemoteVisibilityTTL))
-	if f.metadataStore != nil {
-		if _, err := f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
-			entry.PendingRemote = true
-			return nil
-		}); err != nil && err != metadata.ErrNotFound {
-			logging.Debug().
-				Err(err).
-				Str("id", id).
-				Msg("Failed to mark metadata entry pending-remote")
-		}
+	if _, err := f.UpdateMetadataEntry(id, func(entry *metadata.Entry) error {
+		entry.PendingRemote = true
+		return nil
+	}); err != nil && !errors.Is(err, metadata.ErrNotFound) {
+		logging.Debug().
+			Err(err).
+			Str("id", id).
+			Msg("Failed to mark metadata entry pending-remote")
 	}
 }
 
@@ -1049,16 +1058,14 @@ func (f *Filesystem) clearChildPendingRemote(id string) {
 		return
 	}
 	f.pendingRemoteChildren.Delete(id)
-	if f.metadataStore != nil {
-		if _, err := f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
-			entry.PendingRemote = false
-			return nil
-		}); err != nil && err != metadata.ErrNotFound {
-			logging.Debug().
-				Err(err).
-				Str("id", id).
-				Msg("Failed to clear pending-remote flag in metadata entry")
-		}
+	if _, err := f.UpdateMetadataEntry(id, func(entry *metadata.Entry) error {
+		entry.PendingRemote = false
+		return nil
+	}); err != nil && !errors.Is(err, metadata.ErrNotFound) {
+		logging.Debug().
+			Err(err).
+			Str("id", id).
+			Msg("Failed to clear pending-remote flag in metadata entry")
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -129,6 +130,13 @@ type UploadManager struct {
 	shutdownCancel  context.CancelFunc
 	gracefulTimeout time.Duration
 	shutdownFlag    atomic.Bool
+}
+
+func (u *UploadManager) filesystem() (*Filesystem, bool) {
+	if fsImpl, ok := u.fs.(*Filesystem); ok {
+		return fsImpl, true
+	}
+	return nil, false
 }
 
 func (u *UploadManager) tryIncrementInFlight() bool {
@@ -654,6 +662,17 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 		}
 	}
 
+	inode.mu.Lock()
+	inode.hasChanges = true
+	inode.mu.Unlock()
+
+	if fsImpl, ok := u.filesystem(); ok {
+		fsImpl.persistMetadataEntry(session.ID, inode)
+		fsImpl.transitionItemState(session.ID, metadata.ItemStateDirtyLocal,
+			metadata.WithUploadEvent(),
+			metadata.WithWorker("upload-queue:"+session.ID))
+	}
+
 	// Check if there's already an upload session for this ID
 	u.mutex.RLock()
 	existingSession, exists := u.sessions[session.ID]
@@ -728,7 +747,13 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 		u.mutex.Lock()
 		delete(pendingMap, session.ID)
 		u.mutex.Unlock()
-		return nil, errors.New("upload queue is full")
+		inode.mu.Lock()
+		inode.hasChanges = false
+		inode.mu.Unlock()
+		if fsImpl, ok := u.filesystem(); ok {
+			fsImpl.transitionItemState(session.ID, metadata.ItemStateGhost)
+		}
+		return nil, fmt.Errorf("upload queue is full")
 	}
 }
 
@@ -901,14 +926,46 @@ func (u *UploadManager) WaitForUpload(id string) error {
 
 				// Use the size from the remote DriveItem
 				inode.DriveItem.Size = session.Size
+				inode.hasChanges = false
 				inode.mu.Unlock()
 
 				// Update file status attributes
 				u.fs.UpdateFileStatus(inode)
+
+				if fsImpl, ok := u.filesystem(); ok {
+					fsImpl.persistMetadataEntry(session.ID, inode)
+				}
+			}
+
+			if fsImpl, ok := u.filesystem(); ok {
+				opts := []metadata.TransitionOption{
+					metadata.WithUploadEvent(),
+					metadata.WithWorker("upload:" + session.ID),
+					metadata.ClearPendingRemote(),
+				}
+				if session.ETag != "" {
+					opts = append(opts, metadata.WithETag(session.ETag))
+				}
+				if session.Size > 0 {
+					opts = append(opts, metadata.WithSize(session.Size))
+				}
+				fsImpl.transitionItemState(session.ID, metadata.ItemStateHydrated, opts...)
 			}
 
 			return nil
 		case uploadErrored:
+			if fsImpl, ok := u.filesystem(); ok {
+				if session.error != nil {
+					fsImpl.transitionItemState(session.ID, metadata.ItemStateError,
+						metadata.WithUploadEvent(),
+						metadata.WithWorker("upload:"+session.ID),
+						metadata.WithTransitionError(session.error, false))
+				} else {
+					fsImpl.transitionItemState(session.ID, metadata.ItemStateError,
+						metadata.WithUploadEvent(),
+						metadata.WithWorker("upload:"+session.ID))
+				}
+			}
 			return session.error
 		default:
 			// Still in progress, wait a bit
