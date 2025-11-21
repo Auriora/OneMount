@@ -30,6 +30,7 @@ RUN apt-get update \
         libgdk-pixbuf2.0-0 \
         libglib2.0-0 \
         libglib2.0-bin \
+        libglib2.0-dev \
         libgl1 \
         libglu1-mesa \
         libgtk-3-0 \
