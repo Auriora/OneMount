@@ -11,8 +11,23 @@ import (
 	"github.com/auriora/onemount/internal/logging"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
+
+func (f *Filesystem) markDirtyLocalState(id string) {
+	if id == "" {
+		return
+	}
+	f.transitionItemState(id, metadata.ItemStateDirtyLocal)
+}
+
+func (f *Filesystem) markHydratedState(id string) {
+	if id == "" {
+		return
+	}
+	f.transitionItemState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
+}
 
 // Mknod creates a regular file. The server doesn't have this yet.
 func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out *fuse.EntryOut) fuse.Status {
@@ -59,6 +74,11 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 	out.Attr = inode.makeAttr()
 	out.SetAttrTimeout(timeout)
 	out.SetEntryTimeout(timeout)
+	if f.IsOffline() || isLocalID(inode.ID()) {
+		f.markDirtyLocalState(inode.ID())
+	} else {
+		f.markHydratedState(inode.ID())
+	}
 	return fuse.OK
 }
 
@@ -113,6 +133,7 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 		}
 		child.DriveItem.Size = 0
 		child.hasChanges = true
+		f.markDirtyLocalState(child.ID())
 		return fuse.OK
 	}
 	// no further initialized required to open the file, it's empty
@@ -660,6 +681,7 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	st, _ := fd.Stat()
 	inode.DriveItem.Size = uint64(st.Size())
 	inode.hasChanges = true
+	f.markDirtyLocalState(id)
 	inode.mu.Unlock()
 
 	// Mark file as locally modified

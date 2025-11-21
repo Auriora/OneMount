@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -199,6 +200,99 @@ func TestUT_FS_FileOps_02_FileReadWrite_BasicOperations(t *testing.T) {
 		fileInode := fs.GetNodeID(nodeID)
 		assert.NotNil(fileInode, "File inode should exist")
 		assert.Equal(uint64(len(testData)), fileInode.DriveItem.Size, "File size should match written data")
+	})
+}
+
+func TestFileCreationMarksMetadataDirty(t *testing.T) {
+	if err := helpers.EnsureTestDirectories(); err != nil {
+		t.Fatalf("EnsureTestDirectories: %v", err)
+	}
+	fixture := helpers.SetupFSTestFixture(t, "FileCreationMetadataFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, data interface{}) {
+		unit, ok := data.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("expected unit test fixture")
+		}
+		fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+
+		mknodIn := &fuse.MknodIn{InHeader: fuse.InHeader{NodeId: 1}, Mode: 0644}
+		entryOut := &fuse.EntryOut{}
+		status := fs.Mknod(nil, mknodIn, "dirty.txt", entryOut)
+		if status != fuse.OK {
+			t.Fatalf("mknod failed: %v", status)
+		}
+
+		inode := fs.GetNodeID(entryOut.NodeId)
+		if inode == nil {
+			t.Fatalf("expected inode")
+		}
+		entry, err := fs.GetMetadataEntry(inode.ID())
+		if err != nil {
+			t.Fatalf("GetMetadataEntry: %v", err)
+		}
+		if entry.State != metadata.ItemStateDirtyLocal {
+			t.Fatalf("expected DIRTY_LOCAL state, got %s", entry.State)
+		}
+	})
+}
+
+func TestMkdirStateReflectsConnectivity(t *testing.T) {
+	if err := helpers.EnsureTestDirectories(); err != nil {
+		t.Fatalf("EnsureTestDirectories: %v", err)
+	}
+	fixture := helpers.SetupFSTestFixture(t, "MkdirStateFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, data interface{}) {
+		unit := data.(*framework.UnitTestFixture)
+		fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+
+		subtests := []struct {
+			name    string
+			offline bool
+			expect  metadata.ItemState
+		}{
+			{"online", false, metadata.ItemStateHydrated},
+			{"offline", true, metadata.ItemStateDirtyLocal},
+		}
+
+		for _, tc := range subtests {
+			t.Run(tc.name, func(t *testing.T) {
+				if tc.offline {
+					graph.SetOperationalOffline(true)
+					fs.SetOfflineMode(OfflineModeReadWrite)
+					defer func() {
+						graph.SetOperationalOffline(false)
+						fs.SetOfflineMode(OfflineModeDisabled)
+					}()
+				} else {
+					fs.SetOfflineMode(OfflineModeDisabled)
+				}
+				mkdirIn := &fuse.MkdirIn{InHeader: fuse.InHeader{NodeId: 1}, Mode: 0755}
+				entryOut := &fuse.EntryOut{}
+				status := fs.Mkdir(nil, mkdirIn, "dir-"+tc.name, entryOut)
+				if status != fuse.OK {
+					t.Fatalf("mkdir failed: %v", status)
+				}
+				inode := fs.GetNodeID(entryOut.NodeId)
+				if inode == nil {
+					t.Fatalf("expected inode")
+				}
+				entry, err := fs.GetMetadataEntry(inode.ID())
+				if err != nil {
+					t.Fatalf("GetMetadataEntry: %v", err)
+				}
+				if entry.State != tc.expect {
+					t.Fatalf("expected %s, got %s", tc.expect, entry.State)
+				}
+			})
+		}
 	})
 }
 

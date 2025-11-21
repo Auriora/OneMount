@@ -28,6 +28,8 @@ var (
 	bucketOfflineChanges = []byte("offline_changes") // New bucket for offline changes
 )
 
+var errFoundRootInMetadata = errors.New("found root metadata entry")
+
 // so we can tell what format the db has
 const fsVersion = "1"
 
@@ -332,25 +334,10 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 				}
 			}
 
-			// If that fails, try to find any item in the database that looks like a root folder
+			// If that fails, try to find any item in the metadata store that looks like a root folder
 			if root == nil {
-				// Look for items in the database that have folder properties and no parent
-				if err := fs.db.View(func(tx *bolt.Tx) error {
-					b := tx.Bucket(bucketMetadata)
-					return b.ForEach(func(k, v []byte) error {
-						if v != nil {
-							inode, err := NewInodeJSON(v)
-							if err == nil && inode.IsDir() && inode.ParentID() == "" {
-								root = inode
-								// Store this item with the special ID "root" for future lookups
-								fs.metadata.Store("root", inode)
-								return errors.New("found root item, stopping iteration")
-							}
-						}
-						return nil
-					})
-				}); err != nil && err.Error() != "found root item, stopping iteration" {
-					logging.Error().Err(err).Msg("Error searching for root item in database")
+				if fallback := fs.fallbackRootFromMetadata(); fallback != nil {
+					root = fallback
 				}
 			}
 
@@ -857,32 +844,10 @@ func (f *Filesystem) GetID(id string) *Inode {
 			}()
 			return inode
 		}
-
-		// we allow fetching from disk as a fallback while offline (and it's also
-		// necessary while transitioning from offline->online)
-		var found *Inode
-		if err := f.db.View(func(tx *bolt.Tx) error {
-			data := tx.Bucket(bucketMetadata).Get([]byte(id))
-			var err error
-			if data != nil {
-				found, err = NewInodeJSON(data)
-			}
-			return err
-		}); err != nil {
-			logging.Error().Err(err).Str("id", id).Msg("Failed to read inode from database")
-			defer func() {
-				logging.LogMethodExit(methodName, time.Since(startTime), nil)
-			}()
-			return nil
-		}
-		if found != nil {
-			f.InsertNodeID(found)
-			f.metadata.Store(id, found) // move to memory for next time
-		}
 		defer func() {
-			logging.LogMethodExit(methodName, time.Since(startTime), found)
+			logging.LogMethodExit(methodName, time.Since(startTime), nil)
 		}()
-		return found
+		return nil
 	}
 
 	result := entry.(*Inode)
@@ -890,6 +855,51 @@ func (f *Filesystem) GetID(id string) *Inode {
 		logging.LogMethodExit(methodName, time.Since(startTime), result)
 	}()
 	return result
+}
+
+// fallbackRootFromMetadata traverses the structured metadata store to locate
+// a directory entry without a parent, which we treat as a candidate root when
+// starting offline.
+
+func (f *Filesystem) fallbackRootFromMetadata() *Inode {
+	if f.db == nil {
+		return nil
+	}
+	var candidate *Inode
+	err := f.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketMetadataV2)
+		if bucket == nil {
+			return nil
+		}
+		return bucket.ForEach(func(_, v []byte) error {
+			if len(v) == 0 {
+				return nil
+			}
+			var entry metadata.Entry
+			if err := json.Unmarshal(v, &entry); err != nil {
+				return nil
+			}
+			if entry.ItemType != metadata.ItemKindDirectory {
+				return nil
+			}
+			if entry.ParentID != "" {
+				return nil
+			}
+			inode := f.inodeFromMetadataEntry(&entry)
+			if inode == nil {
+				return nil
+			}
+			candidate = inode
+			return errFoundRootInMetadata
+		})
+	})
+	if err != nil && err != errFoundRootInMetadata {
+		logging.Error().Err(err).Msg("Error searching for root item in metadata store")
+	}
+	if candidate != nil {
+		f.metadata.Store("root", candidate)
+	}
+	return candidate
 }
 
 // GetIDWithContext retrieves an inode from the cache by its OneDrive ID with context propagation.
@@ -2271,16 +2281,11 @@ func (f *Filesystem) SerializeAll() {
 	logging.Debug().Msg("Serializing cache metadata to disk.")
 
 	snapshotTime := time.Now().UTC()
-	allItems := make(map[string][]byte)
-	entriesV2 := make(map[string][]byte)
+	entries := make(map[string][]byte)
 
 	f.metadata.Range(func(k interface{}, v interface{}) bool {
-		// cannot occur within bolt transaction because acquiring the inode lock
-		// with AsJSON locks out other boltdb transactions
 		id := fmt.Sprint(k)
 		inode := v.(*Inode)
-		allItems[id] = inode.AsJSON()
-
 		entry := f.metadataEntryFromInode(id, inode, snapshotTime)
 		if entry != nil {
 			if err := entry.Validate(); err != nil {
@@ -2289,7 +2294,7 @@ func (f *Filesystem) SerializeAll() {
 					Str("id", id).
 					Msg("Skipping metadata_v2 snapshot due to validation error")
 			} else if blob, err := json.Marshal(entry); err == nil {
-				entriesV2[id] = blob
+				entries[id] = blob
 			} else {
 				logging.Warn().
 					Err(err).
@@ -2307,28 +2312,17 @@ func (f *Filesystem) SerializeAll() {
 		and in the darkness write them.
 	*/
 	if err := f.db.Batch(func(tx *bolt.Tx) error {
-		legacy := tx.Bucket(bucketMetadata)
 		v2 := tx.Bucket(bucketMetadataV2)
-		if legacy == nil || v2 == nil {
-			return errors.New("metadata buckets not initialized")
+		if v2 == nil {
+			return errors.New("metadata_v2 bucket not initialized")
 		}
-		for k, v := range allItems {
-			if err := legacy.Put([]byte(k), v); err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to put item %s", k))
+		for k, blob := range entries {
+			if err := v2.Put([]byte(k), blob); err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to persist metadata_v2 entry %s", k))
 			}
 			if k == f.root {
-				if err := legacy.Put([]byte("root"), v); err != nil {
-					return errors.Wrap(err, "failed to put root item")
-				}
-			}
-			if blob, ok := entriesV2[k]; ok {
-				if err := v2.Put([]byte(k), blob); err != nil {
-					return errors.Wrap(err, fmt.Sprintf("failed to persist metadata_v2 entry %s", k))
-				}
-				if k == f.root {
-					if err := v2.Put([]byte("root"), blob); err != nil {
-						return errors.Wrap(err, "failed to persist metadata_v2 root entry")
-					}
+				if err := v2.Put([]byte("root"), blob); err != nil {
+					return errors.Wrap(err, "failed to persist metadata_v2 root entry")
 				}
 			}
 		}

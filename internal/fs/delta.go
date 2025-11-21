@@ -9,6 +9,7 @@ import (
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -688,6 +689,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			logger.Debug().Msg("Updated metadata")
 			f.persistMetadataEntry(id, local)
 			f.updateMetadataFromDelta(id, delta)
+			f.transitionItemState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
 		} else {
 			logger.Info().Str("delta", "invalidate").
 				Msg("Content has changed, invalidating cache and marking file as out of sync")

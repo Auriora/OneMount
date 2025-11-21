@@ -334,8 +334,7 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 
 	// Count items in each bucket and analyze metadata
 	err = f.db.View(func(tx *bolt.Tx) error {
-		// Count metadata items
-		metadataBucket := tx.Bucket(bucketMetadata)
+		metadataBucket := tx.Bucket(bucketMetadataV2)
 		if metadataBucket != nil {
 			stats.DBMetadataCount = metadataBucket.Stats().KeyN
 
@@ -345,8 +344,7 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 			fileCount := 0                           // Total number of files
 			now := time.Now()
 
-			// Determine sampling parameters
-			var sampleEveryN int = 1
+			var sampleEveryN = 1
 			if useSampling {
 				sampleEveryN = int(1.0 / config.SamplingRate)
 				if sampleEveryN < 1 {
@@ -354,18 +352,19 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 				}
 			}
 
-			// First pass: collect basic information about each item (with sampling if enabled)
 			itemIndex := 0
 			err := metadataBucket.ForEach(func(k, v []byte) error {
 				itemIndex++
-
-				// Skip items if sampling is enabled
 				if useSampling && itemIndex%sampleEveryN != 0 {
 					return nil
 				}
-				inode, err := NewInodeJSON(v)
-				if err != nil {
-					return nil // Skip items that can't be parsed
+				var entry metadata.Entry
+				if err := json.Unmarshal(v, &entry); err != nil {
+					return nil
+				}
+				inode := f.inodeFromMetadataEntry(&entry)
+				if inode == nil {
+					return nil
 				}
 
 				id := string(k)
@@ -807,7 +806,7 @@ func (f *Filesystem) GetQuickStats() (*Stats, error) {
 
 		// Count items in each bucket (fast)
 		if err := f.db.View(func(tx *bolt.Tx) error {
-			if b := tx.Bucket(bucketMetadata); b != nil {
+			if b := tx.Bucket(bucketMetadataV2); b != nil {
 				stats.DBMetadataCount = b.Stats().KeyN
 			}
 			if b := tx.Bucket(bucketDelta); b != nil {

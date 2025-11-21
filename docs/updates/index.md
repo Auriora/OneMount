@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-21** – [Runtime Layering – Metadata Hardening](./2025-11-21-runtime-layering-metadata-hardening.md)
 - **2025-11-21** – [Runtime Layering – Config & Telemetry](./2025-11-21-runtime-layering-config-and-telemetry.md)
 - **2025-11-21** – [Runtime Layering – ChangeNotifier Facade](./2025-11-21-runtime-layering-change-notifier.md)
 - **2025-11-21** – [Runtime Layering – Hydration Pipeline & Pinning](./2025-11-21-runtime-layering-hydration.md)

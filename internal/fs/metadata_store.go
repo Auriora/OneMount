@@ -261,9 +261,10 @@ func (f *Filesystem) loadMetadataEntry(id string) (*metadata.Entry, error) {
 		if !goerrors.Is(err, metadata.ErrNotFound) {
 			return nil, err
 		}
+		return nil, err
 	}
 
-	return f.loadLegacyMetadataEntry(id)
+	return nil, metadata.ErrNotFound
 }
 
 // GetMetadataEntry returns the structured metadata entry for the provided ID.

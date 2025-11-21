@@ -1,16 +1,21 @@
 package fs
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/stretchr/testify/require"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly tests various cache operations.
@@ -313,4 +318,49 @@ func TestGetPathUsesMetadataStoreWhenOffline(t *testing.T) {
 			require.Equal(t, fileItem.ID, inode.ID(), "Offline GetPath should return the same inode")
 		})
 	})
+}
+
+func TestFallbackRootFromMetadata(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "meta.db")
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
+	if err != nil {
+		t.Fatalf("failed to open bolt db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	if err := db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(bucketMetadataV2)
+		if err != nil {
+			return err
+		}
+		entry := &metadata.Entry{
+			ID:        "root-entry",
+			Name:      "Root",
+			ItemType:  metadata.ItemKindDirectory,
+			State:     metadata.ItemStateHydrated,
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		}
+		blob, marshalErr := json.Marshal(entry)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		return bucket.Put([]byte(entry.ID), blob)
+	}); err != nil {
+		t.Fatalf("failed to seed metadata_v2 bucket: %v", err)
+	}
+
+	fs := &Filesystem{db: db}
+	root := fs.fallbackRootFromMetadata()
+	if root == nil {
+		t.Fatalf("expected fallback root inode")
+	}
+	if root.ID() != "root-entry" {
+		t.Fatalf("expected root-entry got %s", root.ID())
+	}
+	if val, ok := fs.metadata.Load("root"); !ok || val == nil {
+		t.Fatalf("expected synthetic root cached in metadata map")
+	}
 }

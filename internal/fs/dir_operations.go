@@ -78,6 +78,11 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 	out.Attr = newInode.makeAttr()
 	out.SetAttrTimeout(timeout)
 	out.SetEntryTimeout(timeout)
+	if f.IsOffline() || isLocalID(newInode.ID()) {
+		f.markDirtyLocalState(newInode.ID())
+	} else {
+		f.markHydratedState(newInode.ID())
+	}
 	return fuse.OK
 }
 
