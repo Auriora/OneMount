@@ -179,6 +179,7 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 				child := NewInodeDriveItem(item)
 				f.InsertNodeID(child)
 				f.metadata.Store(child.DriveItem.ID, child)
+				f.persistMetadataEntry(child.DriveItem.ID, child)
 				childrenMap[strings.ToLower(child.Name())] = child
 
 				if child.IsDir() {

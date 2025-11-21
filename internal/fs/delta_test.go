@@ -5,9 +5,105 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/stretchr/testify/require"
 )
+
+func seedDeltaTestFile(t *testing.T, filesystem *Filesystem, rootID, fileID, name, quickHash string, content []byte) *graph.DriveItem {
+	t.Helper()
+	modTime := time.Now().Add(-2 * time.Hour)
+	item := &graph.DriveItem{
+		ID:   fileID,
+		Name: name,
+		Size: uint64(len(content)),
+		File: &graph.File{
+			Hashes: graph.Hashes{
+				QuickXorHash: quickHash,
+			},
+		},
+		Parent: &graph.DriveItemParent{
+			ID: rootID,
+		},
+		ETag:    "etag-local-" + fileID,
+		ModTime: &modTime,
+	}
+
+	inode := NewInodeDriveItem(item)
+	filesystem.InsertChild(rootID, inode)
+
+	require.NoError(t, filesystem.content.Insert(fileID, content))
+	filesystem.persistMetadataEntry(fileID, inode)
+	filesystem.transitionItemState(fileID, metadata.ItemStateHydrated)
+	return item
+}
+
+func TestApplyDeltaPersistsMetadataOnMetadataOnlyChange(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "DeltaMetadataPersistenceFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, fx interface{}) {
+			unit := fx.(*framework.UnitTestFixture)
+			fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+			filesystem := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			localItem := seedDeltaTestFile(t, filesystem, rootID, "delta-meta-file", "delta-meta.txt", "hash-meta", []byte("local-content"))
+
+			remoteMod := time.Now()
+			delta := *localItem
+			delta.ModTime = &remoteMod
+			delta.ETag = "etag-remote-1"
+			delta.Parent = &graph.DriveItemParent{ID: rootID}
+
+			require.NoError(t, filesystem.applyDelta(&delta))
+
+			entry, err := filesystem.GetMetadataEntry(localItem.ID)
+			require.NoError(t, err)
+			require.Equal(t, "etag-remote-1", entry.ETag)
+			require.Equal(t, metadata.ItemStateHydrated, entry.State)
+		})
+	})
+}
+
+func TestApplyDeltaRemoteInvalidationTransitionsMetadata(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "DeltaInvalidationPersistenceFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, fx interface{}) {
+			unit := fx.(*framework.UnitTestFixture)
+			fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+			filesystem := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			localItem := seedDeltaTestFile(t, filesystem, rootID, "delta-change-file", "delta-change.txt", "hash-initial", []byte("initial-content"))
+
+			remoteMod := time.Now()
+			delta := *localItem
+			delta.ModTime = &remoteMod
+			delta.ETag = "etag-remote-2"
+			delta.Parent = &graph.DriveItemParent{ID: rootID}
+			delta.File = &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: "hash-remote-new",
+				},
+			}
+			delta.Size = uint64(len("remote-new-content"))
+
+			require.NoError(t, filesystem.applyDelta(&delta))
+
+			entry, err := filesystem.GetMetadataEntry(localItem.ID)
+			require.NoError(t, err)
+			require.Equal(t, metadata.ItemStateGhost, entry.State)
+			require.False(t, filesystem.content.HasContent(localItem.ID))
+		})
+	})
+}
 
 // TestIT_FS_03_01_Delta_SyncOperations_ChangesAreSynced tests delta operations for syncing changes.
 //

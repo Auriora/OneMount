@@ -684,6 +684,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			local.hasChanges = false
 			local.mu.Unlock()
 			logger.Debug().Msg("Updated metadata")
+			f.persistMetadataEntry(id, local)
 		} else {
 			logger.Info().Str("delta", "invalidate").
 				Msg("Content has changed, invalidating cache and marking file as out of sync")
@@ -692,6 +693,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			if err := f.content.Delete(id); err != nil {
 				logger.Warn().Err(err).Msg("Failed to delete cached content during invalidation")
 			}
+			f.handleContentEvicted(id)
 			// Mark file status as OutofSync to indicate it needs to be re-downloaded
 			f.MarkFileOutofSync(id)
 			// update the metadata with new ETag and size
@@ -705,6 +707,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// Update file status extended attributes for UI integration
 			f.updateFileStatus(local)
 			logger.Debug().Msg("Updated metadata, invalidated content cache, and marked file as OutofSync")
+			f.persistMetadataEntry(id, local)
 		}
 	} else {
 		logger.Debug().Msg("Local item is up to date")

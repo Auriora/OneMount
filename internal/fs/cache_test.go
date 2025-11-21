@@ -1,12 +1,16 @@
 package fs
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly tests various cache operations.
@@ -184,5 +188,129 @@ func TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
 			t.Fatalf("Remote .xdg-volume-info should be ignored but was present in children map")
 		}
 		assert.Nil(fs.GetID(xdgItem.ID), "Remote .xdg-volume-info should not be cached")
+	})
+}
+
+// TestGetChildrenIDUsesMetadataStoreWhenOffline ensures cached metadata can satisfy directory listings without Graph access.
+func TestGetChildrenIDUsesMetadataStoreWhenOffline(t *testing.T) {
+	tempSandbox := filepath.Join(os.TempDir(), "onemount-tests")
+	originalSandbox := testutil.TestSandboxDir
+	originalTmp := testutil.TestSandboxTmpDir
+	originalAuth := testutil.AuthTokensPath
+	originalLog := testutil.TestLogPath
+	originalGraph := testutil.GraphTestDir
+	originalMount := testutil.TestMountPoint
+	originalDir := testutil.TestDir
+	originalSystemMount := testutil.SystemTestMountPoint
+	originalSystemData := testutil.SystemTestDataDir
+	originalSystemLog := testutil.SystemTestLogPath
+
+	testutil.TestSandboxDir = tempSandbox
+	testutil.TestSandboxTmpDir = filepath.Join(tempSandbox, "tmp")
+	testutil.AuthTokensPath = filepath.Join(tempSandbox, ".auth_tokens.json")
+	testutil.TestLogPath = filepath.Join(tempSandbox, "logs", "fusefs_tests.log")
+	testutil.GraphTestDir = filepath.Join(tempSandbox, "graph_test_dir")
+	testutil.TestMountPoint = filepath.Join(testutil.TestSandboxTmpDir, "mount")
+	testutil.TestDir = filepath.Join(testutil.TestMountPoint, "onemount_tests")
+	testutil.SystemTestMountPoint = filepath.Join(testutil.TestSandboxTmpDir, "system-test-mount")
+	testutil.SystemTestDataDir = filepath.Join(tempSandbox, "system-test-data")
+	testutil.SystemTestLogPath = filepath.Join(tempSandbox, "logs", "system_tests.log")
+
+	t.Cleanup(func() {
+		testutil.TestSandboxDir = originalSandbox
+		testutil.TestSandboxTmpDir = originalTmp
+		testutil.AuthTokensPath = originalAuth
+		testutil.TestLogPath = originalLog
+		testutil.GraphTestDir = originalGraph
+		testutil.TestMountPoint = originalMount
+		testutil.TestDir = originalDir
+		testutil.SystemTestMountPoint = originalSystemMount
+		testutil.SystemTestDataDir = originalSystemData
+		testutil.SystemTestLogPath = originalSystemLog
+	})
+
+	if err := helpers.EnsureTestDirectories(); err != nil {
+		t.Fatalf("Failed to prepare test directories: %v", err)
+	}
+	fixture := helpers.SetupFSTestFixture(t, "MetadataChildrenRecoveryFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, f interface{}) {
+		assert := framework.NewAssert(t)
+
+		unitTestFixture, ok := f.(*framework.UnitTestFixture)
+		if !ok {
+			t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", f)
+		}
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		rootID := fsFixture.RootID
+
+		file := helpers.CreateMockFile(fsFixture.MockClient, rootID, "metadata-recovery.txt", "metadata-recovery-id", "hello metadata")
+		children, err := fs.GetChildrenID(rootID, fs.auth)
+		assert.NoError(err, "Initial metadata fetch should succeed")
+		childInode, exists := children[strings.ToLower(file.Name)]
+		if !assert.True(exists, "Fetched children should include the mock file") {
+			return
+		}
+
+		fs.metadata.Delete(childInode.ID())
+		parent := fs.GetID(rootID)
+		assert.NotNil(parent, "Root inode should still exist")
+		parent.mu.Lock()
+		parent.children = nil
+		parent.subdir = 0
+		parent.mu.Unlock()
+
+		graph.SetOperationalOffline(true)
+		defer graph.SetOperationalOffline(false)
+
+		restoredChildren, err := fs.GetChildrenID(rootID, fs.auth)
+		assert.NoError(err, "GetChildrenID should read from structured metadata while offline")
+		restored, ok := restoredChildren[strings.ToLower(file.Name)]
+		if !assert.True(ok, "Children map should include entry restored from metadata") {
+			return
+		}
+		assert.Equal(childInode.ID(), restored.ID(), "Restored inode should match original child ID")
+	})
+}
+
+func TestGetPathUsesMetadataStoreWhenOffline(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "MetadataPathRecoveryFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, data interface{}) {
+			unitTestFixture, ok := data.(*framework.UnitTestFixture)
+			if !ok {
+				t.Fatalf("Expected fixture to be of type *framework.UnitTestFixture, but got %T", data)
+			}
+			fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+			fs := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			fileItem := helpers.CreateMockFile(fsFixture.MockClient, rootID, "metadata-path.txt", "metadata-path-id", "path-metadata-content")
+
+			_, err := fs.GetPath("/"+fileItem.Name, fs.auth)
+			require.NoError(t, err, "Initial GetPath should succeed online")
+
+			fs.metadata.Delete(fileItem.ID)
+			parent := fs.GetID(rootID)
+			require.NotNil(t, parent, "Root inode should exist in memory")
+			parent.mu.Lock()
+			parent.children = nil
+			parent.subdir = 0
+			parent.mu.Unlock()
+
+			graph.SetOperationalOffline(true)
+			defer graph.SetOperationalOffline(false)
+
+			inode, err := fs.GetPath("/"+fileItem.Name, fs.auth)
+			require.NoError(t, err, "GetPath should resolve from metadata store while offline")
+			require.NotNil(t, inode)
+			require.Equal(t, fileItem.ID, inode.ID(), "Offline GetPath should return the same inode")
+		})
 	})
 }

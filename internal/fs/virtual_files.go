@@ -11,12 +11,18 @@ func (f *Filesystem) registerVirtualFileInternal(inode *Inode) {
 	}
 	f.virtualFiles[inode.ID()] = inode
 	f.virtualMu.Unlock()
+	f.metadata.Store(inode.ID(), inode)
 
 	// Ensure the inode has a node ID so FUSE can reference it
 	f.InsertNodeID(inode)
+	f.persistMetadataEntry(inode.ID(), inode)
 
 	if parentID := inode.ParentID(); parentID != "" {
-		if parent := f.GetID(parentID); parent != nil {
+		parent := f.GetID(parentID)
+		if parent == nil {
+			parent = f.ensureInodeFromMetadataStore(parentID)
+		}
+		if parent != nil {
 			parent.mu.Lock()
 			alreadyPresent := false
 			for _, childID := range parent.children {
@@ -29,6 +35,7 @@ func (f *Filesystem) registerVirtualFileInternal(inode *Inode) {
 				parent.children = append(parent.children, inode.ID())
 			}
 			parent.mu.Unlock()
+			f.persistMetadataEntry(parentID, parent)
 		}
 	}
 }

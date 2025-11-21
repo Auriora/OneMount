@@ -308,6 +308,8 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	}
 	fs.metadataStore = metadataStore
 	fs.stateManager = stateManager
+	fs.content.SetEvictionGuard(fs.shouldEvictContent)
+	fs.content.SetEvictionHandler(fs.handleContentEvicted)
 
 	rootItem, err := graph.GetItem("root", auth)
 	root := NewInodeDriveItem(rootItem)
@@ -916,6 +918,9 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 
 	f.metadata.Store(id, inode)
 	nodeID := f.InsertNodeID(inode)
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
+	}()
 
 	if id != inode.ID() {
 		// Lock ordering: inode.mu first, then filesystem.RWMutex
@@ -941,13 +946,11 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	parentID := inode.ParentID()
 	if parentID == "" {
 		// root item, or parent not set
-		defer func() {
-			logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
-		}()
 		return nodeID
 	}
 	parent := f.GetID(parentID)
 	if parent == nil {
+		parent = f.ensureInodeFromMetadataStore(parentID)
 		// Check if the parent ID is the root ID
 		if parentID == f.root {
 			// Create a dummy root item if it doesn't exist
@@ -976,14 +979,12 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 				Str("childID", id).
 				Str("childName", inode.Name()).
 				Msg("Parent item could not be found when setting parent.")
-			defer func() {
-				logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
-			}()
 			return nodeID
 		}
 	}
 
 	childIsDir := inode.IsDir()
+	updatedParent := false
 
 	// check if the item has already been added to the parent
 	// Lock ordering: parent inode before child inode (when both needed)
@@ -991,16 +992,13 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	// See docs/guides/developer/concurrency-guidelines.md for lock ordering policy.
 	lockStart := time.Now()
 	parent.mu.Lock()
-	defer func() {
-		parent.mu.Unlock()
-		logLockHoldDuration("inode-parent", "InsertID", lockStart)
-	}()
 	for _, child := range parent.children {
 		if child == id {
-			// exit early, child cannot be added twice
-			defer func() {
-				logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
-			}()
+			parent.mu.Unlock()
+			logLockHoldDuration("inode-parent", "InsertID", lockStart)
+			if inode != nil {
+				f.persistMetadataEntry(id, inode)
+			}
 			return nodeID
 		}
 	}
@@ -1010,14 +1008,16 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 		parent.subdir++
 	}
 	parent.children = append(parent.children, id)
+	updatedParent = true
+	parent.mu.Unlock()
+	logLockHoldDuration("inode-parent", "InsertID", lockStart)
 
 	if inode != nil {
 		f.persistMetadataEntry(id, inode)
 	}
-
-	defer func() {
-		logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
-	}()
+	if updatedParent {
+		f.persistMetadataEntry(parentID, parent)
+	}
 	return nodeID
 }
 
@@ -1089,6 +1089,44 @@ func (f *Filesystem) isChildPendingRemote(id string) bool {
 	return true
 }
 
+func (f *Filesystem) shouldEvictContent(id string) bool {
+	if id == "" {
+		return true
+	}
+	entry, err := f.GetMetadataEntry(id)
+	if err != nil || entry == nil {
+		return true
+	}
+	if entry.Pin.Mode == metadata.PinModeAlways {
+		logging.Debug().Str("id", id).Msg("Skipping eviction for pinned item")
+		return false
+	}
+	if entry.State == metadata.ItemStateDirtyLocal {
+		logging.Debug().Str("id", id).Msg("Skipping eviction for dirty-local item")
+		return false
+	}
+	return true
+}
+
+func (f *Filesystem) handleContentEvicted(id string) {
+	if id == "" {
+		return
+	}
+	entry, err := f.GetMetadataEntry(id)
+	if err != nil || entry == nil {
+		return
+	}
+	if entry.State != metadata.ItemStateHydrated {
+		return
+	}
+	logging.Debug().Str("id", id).Msg("Content evicted; transitioning to GHOST")
+	f.transitionItemState(id, metadata.ItemStateGhost)
+	_, _ = f.UpdateMetadataEntry(id, func(e *metadata.Entry) error {
+		e.LastHydrated = nil
+		return nil
+	})
+}
+
 // DeleteID deletes an item from the cache, and removes it from its parent. Must
 // be called before InsertID if being used to rename/move an item.
 func (f *Filesystem) DeleteID(id string) {
@@ -1111,20 +1149,28 @@ func (f *Filesystem) DeleteID(id string) {
 		// Lock ordering: parent inode only (child already processed)
 		// See docs/guides/developer/concurrency-guidelines.md
 		parent := f.GetID(inode.ParentID())
+		if parent == nil {
+			parent = f.ensureInodeFromMetadataStore(inode.ParentID())
+		}
 		if parent != nil {
 			lockStart := time.Now()
 			parent.mu.Lock()
+			removed := false
 			for i, childID := range parent.children {
 				if childID == id {
 					parent.children = append(parent.children[:i], parent.children[i+1:]...)
 					if isDir {
 						parent.subdir--
 					}
+					removed = true
 					break
 				}
 			}
 			parent.mu.Unlock()
 			logLockHoldDuration("inode-parent", "DeleteID", lockStart)
+			if removed {
+				f.persistMetadataEntry(parent.ID(), parent)
+			}
 		}
 	}
 	f.metadata.Delete(id)
@@ -1176,6 +1222,9 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 
 	// fetch item and catch common errors
 	inode := f.GetID(id)
+	if inode == nil {
+		inode = f.ensureInodeFromMetadataStore(id)
+	}
 	children := make(map[string]*Inode)
 	if inode == nil {
 		logger.Error().Str(logging.FieldID, id).Msg("Inode not found in cache")
@@ -1252,6 +1301,20 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 
 		// refresh path after the read lock has been released
 		pathForLogs = inode.Path()
+
+		if restored, ok := f.tryPopulateChildrenFromMetadata(id, inode); ok {
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, id).
+					Str(logging.FieldPath, pathForLogs).
+					Int("childCount", len(restored)).
+					Msg("Repopulated children from structured metadata store")
+			}
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), restored, nil)
+			}()
+			return restored, nil
+		}
 	}
 
 	if logging.IsDebugEnabled() {
@@ -1369,6 +1432,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		child := NewInodeDriveItem(item)
 		f.InsertNodeID(child)
 		f.metadata.Store(child.DriveItem.ID, child)
+		f.persistMetadataEntry(child.DriveItem.ID, child)
 
 		entry := newChildSnapshot(child)
 		materializedChildren = append(materializedChildren, entry)
@@ -1445,6 +1509,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 
 	inode.mu.Unlock()
 	logLockHoldDuration("inode", "getChildrenID-populate", lockStart)
+	f.persistMetadataEntry(id, inode)
 
 	if logging.IsDebugEnabled() {
 		logger.Debug().
@@ -1493,6 +1558,9 @@ func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*
 	}
 	parent := f.GetID(parentID)
 	if parent == nil {
+		parent = f.ensureInodeFromMetadataStore(parentID)
+	}
+	if parent == nil {
 		return
 	}
 
@@ -1509,7 +1577,7 @@ func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*
 	parent.mu.Lock()
 	existingLocal := make([]childSnapshot, 0)
 	for _, childID := range parent.children {
-		if !isLocalID(childID) {
+		if !isLocalID(childID) && !f.isChildPendingRemote(childID) {
 			continue
 		}
 		if child := f.GetID(childID); child != nil {
@@ -1536,6 +1604,50 @@ func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*
 	f.appendVirtualChildrenLocked(parent, virtualChildren)
 	parent.mu.Unlock()
 	logLockHoldDuration("inode-parent", "cacheChildrenFromMap", lockStart)
+	f.persistMetadataEntry(parentID, parent)
+}
+
+// tryPopulateChildrenFromMetadata rebuilds a directory's child list from the structured metadata store.
+func (f *Filesystem) tryPopulateChildrenFromMetadata(id string, inode *Inode) (map[string]*Inode, bool) {
+	if f.metadataStore == nil || id == "" {
+		return nil, false
+	}
+	entry, err := f.GetMetadataEntry(id)
+	if err != nil || entry == nil || len(entry.Children) == 0 {
+		return nil, false
+	}
+	children := make(map[string]*Inode, len(entry.Children))
+	for _, childID := range entry.Children {
+		child := f.GetID(childID)
+		if child == nil {
+			continue
+		}
+		children[strings.ToLower(child.Name())] = child
+	}
+	if len(children) == 0 {
+		return nil, false
+	}
+	f.cacheChildrenFromMap(id, children)
+	return children, true
+}
+
+func (f *Filesystem) getChildFromMetadataCache(parentID string, lowerName string) *Inode {
+	if parentID == "" || lowerName == "" {
+		return nil
+	}
+	parent := f.GetID(parentID)
+	if parent == nil {
+		parent = f.ensureInodeFromMetadataStore(parentID)
+	}
+	if parent == nil {
+		return nil
+	}
+	if children, ok := f.tryPopulateChildrenFromMetadata(parentID, parent); ok {
+		if child, exists := children[lowerName]; exists {
+			return child
+		}
+	}
+	return nil
 }
 
 // GetChildrenPath grabs all DriveItems that are the children of the resource at
@@ -1650,6 +1762,19 @@ func (f *Filesystem) GetPath(path string, auth *graph.Auth) (*Inode, error) {
 				Str("component", split[i]).
 				Int("componentIndex", i).
 				Msg("Fetching children for path component")
+		}
+
+		if child := f.getChildFromMetadataCache(lastID, split[i]); child != nil {
+			inode = child
+			lastID = inode.ID()
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, lastID).
+					Str("component", split[i]).
+					Int("componentIndex", i).
+					Msg("Resolved component via structured metadata cache")
+			}
+			continue
 		}
 
 		children, err := f.GetChildrenID(lastID, auth)

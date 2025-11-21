@@ -31,6 +31,9 @@ type LoopbackCache struct {
 	entries      map[string]*CacheEntry // Map of file ID to cache entry
 	totalSize    int64                  // Total size of all cached files
 	maxCacheSize int64                  // Maximum cache size in bytes (0 = unlimited)
+
+	evictionHandler func(string)
+	evictionGuard   func(string) bool
 }
 
 // NewLoopbackCache creates a new LoopbackCache with optional size limit
@@ -69,6 +72,17 @@ func NewLoopbackCacheWithSize(directory string, maxCacheSize int64) *LoopbackCac
 	cache.initializeCacheTracking()
 
 	return cache
+}
+
+// SetEvictionHandler registers a callback invoked after a cache entry is evicted.
+func (l *LoopbackCache) SetEvictionHandler(fn func(string)) {
+	l.evictionHandler = fn
+}
+
+// SetEvictionGuard registers a guard invoked before evicting an entry.
+// Returning false skips the eviction attempt for that entry.
+func (l *LoopbackCache) SetEvictionGuard(fn func(string) bool) {
+	l.evictionGuard = fn
 }
 
 // initializeCacheTracking scans the cache directory and builds the LRU tracking data
@@ -491,10 +505,16 @@ func (l *LoopbackCache) evictIfNeeded(newSize int64) error {
 	// Evict entries until we have enough space
 	var evictedSize int64
 	var evictedCount int
+	var skipped int
 
 	for _, entry := range entries {
 		if evictedSize >= spaceNeeded {
 			break
+		}
+
+		if l.evictionGuard != nil && !l.evictionGuard(entry.id) {
+			skipped++
+			continue
 		}
 
 		// Remove the file
@@ -508,6 +528,10 @@ func (l *LoopbackCache) evictIfNeeded(newSize int64) error {
 		l.totalSize -= entry.size
 		evictedSize += entry.size
 		evictedCount++
+
+		if l.evictionHandler != nil {
+			l.evictionHandler(entry.id)
+		}
 
 		logging.Debug().
 			Str("id", entry.id).
@@ -524,6 +548,9 @@ func (l *LoopbackCache) evictIfNeeded(newSize int64) error {
 
 	// Check if we freed enough space
 	if l.totalSize+newSize > l.maxCacheSize {
+		if skipped > 0 {
+			return fmt.Errorf("unable to free cache space: %d entries skipped by guard, need %d bytes, freed %d bytes", skipped, spaceNeeded, evictedSize)
+		}
 		return fmt.Errorf("unable to free enough cache space: need %d bytes, freed %d bytes", spaceNeeded, evictedSize)
 	}
 
