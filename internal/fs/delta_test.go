@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -65,6 +66,8 @@ func TestApplyDeltaPersistsMetadataOnMetadataOnlyChange(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "etag-remote-1", entry.ETag)
 			require.Equal(t, metadata.ItemStateHydrated, entry.State)
+			require.NotNil(t, entry.LastModified)
+			require.WithinDuration(t, remoteMod.UTC(), *entry.LastModified, time.Second)
 		})
 	})
 }
@@ -101,8 +104,104 @@ func TestApplyDeltaRemoteInvalidationTransitionsMetadata(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, metadata.ItemStateGhost, entry.State)
 			require.False(t, filesystem.content.HasContent(localItem.ID))
+			require.Equal(t, uint64(len("remote-new-content")), entry.Size)
+			require.Equal(t, "etag-remote-2", entry.ETag)
 		})
 	})
+}
+
+func TestApplyDeltaMoveUpdatesMetadataEntry(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "DeltaMoveMetadataFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, fx interface{}) {
+			unit := fx.(*framework.UnitTestFixture)
+			fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+			filesystem := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			root := filesystem.GetID(rootID)
+			require.NotNil(t, root)
+
+			newParent := &graph.DriveItem{
+				ID:   "subdir-id",
+				Name: "subdir",
+				Folder: &graph.Folder{
+					ChildCount: 0,
+				},
+				Parent: &graph.DriveItemParent{ID: rootID},
+			}
+			filesystem.InsertChild(rootID, NewInodeDriveItem(newParent))
+
+			file := seedDeltaTestFile(t, filesystem, rootID, "delta-move-file", "delta-move.txt", "hash-move", []byte("move"))
+
+			moveDelta := *file
+			moveDelta.Parent = &graph.DriveItemParent{ID: newParent.ID}
+			moveDelta.ModTime = timePtr(time.Now())
+
+			require.NoError(t, filesystem.applyDelta(&moveDelta))
+
+			entry, err := filesystem.GetMetadataEntry(file.ID)
+			require.NoError(t, err)
+			require.Equal(t, newParent.ID, entry.ParentID)
+			require.Equal(t, moveDelta.Name, entry.Name)
+		})
+	})
+}
+
+func TestApplyDeltaPinnedFileQueuesHydration(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "DeltaPinnedAutoHydrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, fx interface{}) {
+			unit := fx.(*framework.UnitTestFixture)
+			fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+			filesystem := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			localItem := seedDeltaTestFile(t, filesystem, rootID, "delta-pin-file", "delta-pin.txt", "hash-pin", []byte("pin-content"))
+			_, err := filesystem.UpdateMetadataEntry(localItem.ID, func(entry *metadata.Entry) error {
+				entry.Pin.Mode = metadata.PinModeAlways
+				entry.ItemType = metadata.ItemKindFile
+				return nil
+			})
+			require.NoError(t, err)
+
+			var autoHydrateCount int32
+			filesystem.SetTestHooks(&FilesystemTestHooks{
+				AutoHydrateHook: func(_ *Filesystem, id string) bool {
+					if id == localItem.ID {
+						atomic.AddInt32(&autoHydrateCount, 1)
+					}
+					return true
+				},
+			})
+			defer filesystem.ClearTestHooks()
+
+			remoteMod := time.Now()
+			delta := *localItem
+			delta.ModTime = &remoteMod
+			delta.ETag = "etag-remote-pin"
+			delta.Parent = &graph.DriveItemParent{ID: rootID}
+			delta.File = &graph.File{
+				Hashes: graph.Hashes{
+					QuickXorHash: "hash-pin-remote",
+				},
+			}
+			delta.Size = uint64(len("pin-remote-content"))
+
+			require.NoError(t, filesystem.applyDelta(&delta))
+			require.Equal(t, int32(1), atomic.LoadInt32(&autoHydrateCount), "delta invalidation should auto hydrate pinned items")
+		})
+	})
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }
 
 // TestIT_FS_03_01_Delta_SyncOperations_ChangesAreSynced tests delta operations for syncing changes.

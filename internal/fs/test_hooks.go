@@ -18,6 +18,12 @@ type FilesystemTestHooks struct {
 	// CreateHook can intercept Filesystem.Create. Returning handled=false lets the
 	// default behavior proceed.
 	CreateHook func(fs *Filesystem, in *fuse.CreateIn, name string, out *fuse.CreateOut) (status fuse.Status, handled bool)
+
+	// AutoHydrateHook, when set, is invoked before automatically queueing a download
+	// for pinned content (PinModeAlways) after eviction or remote invalidation. If it
+	// returns handled=true, the real download queueing is skipped, allowing tests to
+	// observe the intent without requiring the full download pipeline.
+	AutoHydrateHook func(fs *Filesystem, id string) (handled bool)
 }
 
 // SetTestHooks installs the provided hooks for the filesystem instance.

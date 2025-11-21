@@ -1138,6 +1138,38 @@ func (f *Filesystem) handleContentEvicted(id string) {
 		e.LastHydrated = nil
 		return nil
 	})
+	f.autoHydratePinned(id)
+}
+
+func (f *Filesystem) autoHydratePinned(id string) {
+	if id == "" {
+		return
+	}
+	entry, err := f.GetMetadataEntry(id)
+	if err != nil || entry == nil {
+		return
+	}
+	if entry.ItemType != metadata.ItemKindFile {
+		return
+	}
+	if entry.Pin.Mode != metadata.PinModeAlways {
+		return
+	}
+	if entry.State == metadata.ItemStateHydrated || entry.State == metadata.ItemStateHydrating {
+		return
+	}
+	if hooks := f.testHooks; hooks != nil && hooks.AutoHydrateHook != nil {
+		if handled := hooks.AutoHydrateHook(f, id); handled {
+			return
+		}
+	}
+	if f.downloads == nil {
+		logging.Debug().Str("id", id).Msg("Auto hydration skipped; download manager unavailable")
+		return
+	}
+	if _, err := f.downloads.QueueDownload(id); err != nil {
+		logging.Debug().Err(err).Str("id", id).Msg("Auto hydration queue failed")
+	}
 }
 
 // DeleteID deletes an item from the cache, and removes it from its parent. Must

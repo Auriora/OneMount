@@ -352,6 +352,38 @@ func (f *Filesystem) markEntryDeleted(id string) {
 	}
 }
 
+func (f *Filesystem) updateMetadataFromDelta(id string, delta *graph.DriveItem) {
+	if id == "" || delta == nil || f.metadataStore == nil {
+		return
+	}
+	_, err := f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
+		if entry == nil {
+			return metadata.ErrNotFound
+		}
+		if delta.Name != "" {
+			entry.Name = delta.Name
+		}
+		if delta.Parent != nil && delta.Parent.ID != "" {
+			entry.ParentID = delta.Parent.ID
+		}
+		if delta.ETag != "" {
+			entry.ETag = delta.ETag
+		}
+		if !delta.IsDir() && delta.Size != 0 {
+			entry.Size = delta.Size
+		}
+		if delta.ModTime != nil {
+			ts := delta.ModTime.UTC()
+			entry.LastModified = &ts
+		}
+		entry.PendingRemote = false
+		return nil
+	})
+	if err != nil && err != metadata.ErrNotFound {
+		logging.Debug().Err(err).Str("id", id).Msg("Failed to update metadata from delta")
+	}
+}
+
 func (f *Filesystem) ensureInodeFromMetadataStore(id string) *Inode {
 	if f.metadataStore == nil || id == "" {
 		return nil

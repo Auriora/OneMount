@@ -617,6 +617,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			logger.Info().Str("delta", "create").
 				Msg("Creating inode from delta.")
 			f.InsertChild(parentID, NewInodeDriveItem(delta))
+			f.updateMetadataFromDelta(id, delta)
 			logger.Debug().Msg("Successfully created inode from delta")
 			return nil
 		}
@@ -642,6 +643,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			// Continue processing as there may be additional changes
 		} else {
 			logger.Debug().Msg("Successfully renamed/moved item")
+			f.updateMetadataFromDelta(id, delta)
 		}
 		// do not return, there may be additional changes
 	}
@@ -685,6 +687,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			local.mu.Unlock()
 			logger.Debug().Msg("Updated metadata")
 			f.persistMetadataEntry(id, local)
+			f.updateMetadataFromDelta(id, delta)
 		} else {
 			logger.Info().Str("delta", "invalidate").
 				Msg("Content has changed, invalidating cache and marking file as out of sync")
@@ -708,6 +711,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			f.updateFileStatus(local)
 			logger.Debug().Msg("Updated metadata, invalidated content cache, and marked file as OutofSync")
 			f.persistMetadataEntry(id, local)
+			f.updateMetadataFromDelta(id, delta)
 		}
 	} else {
 		logger.Debug().Msg("Local item is up to date")

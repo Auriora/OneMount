@@ -3,6 +3,7 @@ package fs
 import (
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -111,4 +112,36 @@ func TestPinnedContentNotEvicted(t *testing.T) {
 	entry, err := fs.GetMetadataEntry(pinned.ID())
 	require.NoError(t, err)
 	require.Equal(t, metadata.ItemStateHydrated, entry.State, "pinned file should remain hydrated")
+}
+
+func TestPinnedContentAutoHydratesAfterEviction(t *testing.T) {
+	fs := setupEvictionTestFS(t, 10)
+
+	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)
+	parent.DriveItem.ID = "parent"
+	registerHydratedEntry(t, fs, parent)
+
+	pinned := NewInode("pinned.txt", fuse.S_IFREG|0644, parent)
+	pinned.DriveItem.ID = "file-pinned-auto"
+	registerHydratedEntry(t, fs, pinned)
+	_, err := fs.UpdateMetadataEntry(pinned.ID(), func(entry *metadata.Entry) error {
+		entry.Pin.Mode = metadata.PinModeAlways
+		entry.ItemType = metadata.ItemKindFile
+		return nil
+	})
+	require.NoError(t, err)
+
+	var autoHydrateCount int32
+	fs.SetTestHooks(&FilesystemTestHooks{
+		AutoHydrateHook: func(_ *Filesystem, id string) bool {
+			if id == pinned.ID() {
+				atomic.AddInt32(&autoHydrateCount, 1)
+			}
+			return true
+		},
+	})
+	defer fs.ClearTestHooks()
+
+	fs.handleContentEvicted(pinned.ID())
+	require.Equal(t, int32(1), atomic.LoadInt32(&autoHydrateCount), "pinned item should trigger auto hydration")
 }
