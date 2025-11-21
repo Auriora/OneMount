@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -316,6 +317,47 @@ func TestGetPathUsesMetadataStoreWhenOffline(t *testing.T) {
 			require.NoError(t, err, "GetPath should resolve from metadata store while offline")
 			require.NotNil(t, inode)
 			require.Equal(t, fileItem.ID, inode.ID(), "Offline GetPath should return the same inode")
+		})
+	})
+}
+
+func TestGetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "MetadataAsyncRefreshFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, data interface{}) {
+			unitTestFixture := data.(*framework.UnitTestFixture)
+			fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+			fs := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			root := fs.GetID(rootID)
+			require.NotNil(t, root)
+			root.mu.Lock()
+			root.children = nil
+			root.subdir = 0
+			root.mu.Unlock()
+
+			if fs.metadataStore != nil {
+				_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+					if entry == nil {
+						return metadata.ErrNotFound
+					}
+					entry.Children = nil
+					entry.SubdirCount = 0
+					return nil
+				})
+			}
+
+			start := time.Now()
+			children, err := fs.GetChildrenID(rootID, fs.auth)
+			require.NoError(t, err)
+			require.Len(t, children, 0)
+			if time.Since(start) > 50*time.Millisecond {
+				t.Fatalf("GetChildrenID blocked waiting for metadata refresh")
+			}
 		})
 	})
 }

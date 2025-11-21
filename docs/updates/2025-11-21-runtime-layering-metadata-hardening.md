@@ -11,6 +11,7 @@
 - Reworked stats/telemetry to analyze `metadata_v2` entries (state counts, directory depth, file histograms) so operators see the same view the metadata state machine enforces, aligning with Work Breakdown items 1 & 6 of the runtime-layering plan.
 - Hooked file creation/write paths and metadata-only delta reconciliation into the `metadata.StateManager`, so new local work immediately transitions to `DIRTY_LOCAL` and stable remote updates push entries back to `HYDRATED`, advancing Work Breakdown item 2.
 - Applied the same state-machine wiring to directory creation (online vs offline) and added regression tests to lock the expected `HYDRATED`/`DIRTY_LOCAL` transitions in place.
+- Taught `GetChildrenID` to return immediately with whatever metadata is cached while queuing an async refresh through the request manager, so FUSE never blocks on Graph; added coverage that the call no longer stalls when a directory has never been enumerated.
 
 ## Testing
 
@@ -19,6 +20,7 @@
 - `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestFallbackRootFromMetadata -count=1`
 - `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestFileCreationMarksMetadataDirty -count=1`
 - `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestMkdirStateReflectsConnectivity -count=1`
+- `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestGetChildrenIDReturnsQuicklyWhenUncached -count=1`
 
 ## Rules Consulted
 

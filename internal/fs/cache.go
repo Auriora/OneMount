@@ -1416,6 +1416,20 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		}
 	}
 
+	if !forceRefresh {
+		if logging.IsDebugEnabled() {
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Msg("Children not in cache; scheduling background refresh")
+		}
+		f.refreshChildrenAsync(id, auth)
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+		}()
+		return children, nil
+	}
+
 	if logging.IsDebugEnabled() {
 		logger.Debug().
 			Str(logging.FieldID, id).
@@ -1428,6 +1442,11 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	var fetched []*graph.DriveItem
 	var err error
 
+	priority := PriorityForeground
+	if forceRefresh {
+		priority = PriorityBackground
+	}
+
 	if f.metadataRequestManager != nil {
 		// Create a channel to receive the result
 		resultChan := make(chan struct {
@@ -1435,8 +1454,8 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 			err   error
 		}, 1)
 
-		// Queue the metadata request with foreground priority
-		reqErr := f.metadataRequestManager.QueueChildrenRequest(id, auth, PriorityForeground, func(items []*graph.DriveItem, reqErr error) {
+		// Queue the metadata request with configurable priority
+		reqErr := f.metadataRequestManager.QueueChildrenRequest(id, auth, priority, func(items []*graph.DriveItem, reqErr error) {
 			resultChan <- struct {
 				items []*graph.DriveItem
 				err   error
