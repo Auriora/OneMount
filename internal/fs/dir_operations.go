@@ -6,9 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/auriora/onemount/internal/graph"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -27,7 +25,6 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 	if existing, _ := f.GetChild(id, name, f.auth); existing != nil {
 		return fuse.Status(syscall.EEXIST)
 	}
-	currentTime := time.Now()
 	ctx := logging.DefaultLogger.With().
 		Str("op", "Mkdir").
 		Uint64("nodeID", in.NodeId).
@@ -37,52 +34,21 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 		Logger()
 	ctx.Debug().Msg("")
 
-	var item *graph.DriveItem
-	var err error
-
-	if f.IsOffline() {
-		// In offline mode, create a local directory that will be synced when online
-		ctx.Info().Msg("Directory creation in offline mode will be cached locally")
-		item = &graph.DriveItem{
-			ID:     localID(),
-			Name:   name,
-			Folder: &graph.Folder{},
-			Parent: &graph.DriveItemParent{
-				ID: id,
-			},
-			ModTime: &currentTime,
-		}
-	} else {
-		// create the new directory on the server
-		item, err = graph.Mkdir(name, id, f.auth)
-		if err != nil {
-			logging.LogError(err, "Could not create remote directory",
-				logging.FieldOperation, "Mkdir",
-				logging.FieldID, id,
-				logging.FieldPath, path,
-				"name", name)
-			return fuse.EREMOTEIO
-		}
-		if item.ModTime == nil {
-			item.ModTime = &currentTime
-		}
-	}
-
-	newInode := NewInodeDriveItem(item)
-	newInode.mode = in.Mode | fuse.S_IFDIR
-	if !f.IsOffline() {
-		f.markChildPendingRemote(newInode.ID())
-	}
+	newInode := NewInode(name, in.Mode|fuse.S_IFDIR, inode)
 
 	out.NodeId = f.InsertChild(id, newInode)
 	out.Attr = newInode.makeAttr()
 	out.SetAttrTimeout(timeout)
 	out.SetEntryTimeout(timeout)
-	if f.IsOffline() || isLocalID(newInode.ID()) {
-		f.markDirtyLocalState(newInode.ID())
-	} else {
-		f.markHydratedState(newInode.ID())
+	f.markDirtyLocalState(newInode.ID())
+
+	if f.IsOffline() {
+		ctx.Info().Msg("Directory creation recorded locally; will sync when online")
+		return fuse.OK
 	}
+
+	f.markChildPendingRemote(newInode.ID())
+	f.queueRemoteDirCreate(id, newInode.ID(), name, in.Mode|fuse.S_IFDIR)
 	return fuse.OK
 }
 

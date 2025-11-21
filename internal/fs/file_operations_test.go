@@ -258,7 +258,7 @@ func TestMkdirStateReflectsConnectivity(t *testing.T) {
 			offline bool
 			expect  metadata.ItemState
 		}{
-			{"online", false, metadata.ItemStateHydrated},
+			{"online", false, metadata.ItemStateDirtyLocal},
 			{"offline", true, metadata.ItemStateDirtyLocal},
 		}
 

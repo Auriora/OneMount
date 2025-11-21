@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -9,6 +10,8 @@ import (
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 )
 
 // TestUT_FS_Metadata_01_Getattr_FileAttributes tests file attribute retrieval.
@@ -219,6 +222,77 @@ func TestUT_FS_Metadata_02_Setattr_FileAttributes(t *testing.T) {
 		// Verify size consistency
 		assert.Equal(expectedSize, actualSize, "Inode size should match GetAttr result")
 	})
+}
+
+func TestRenameRecordsOfflineChange(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "RenameOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, data interface{}) {
+		fsFixture := data.(*framework.UnitTestFixture).SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*Filesystem)
+		rootID := fsFixture.RootID
+
+		fileItem := helpers.CreateMockFile(fsFixture.MockClient, rootID, "rename-offline.txt", "rename-offline-id", "offline-rename")
+		inode := NewInodeDriveItem(fileItem)
+		filesystem.InsertNodeID(inode)
+		filesystem.InsertChild(rootID, inode)
+
+		rootInode := filesystem.GetID(rootID)
+		require.NotNil(t, rootInode)
+
+		systemRename := &fuse.RenameIn{
+			InHeader: fuse.InHeader{NodeId: rootInode.NodeID()},
+			Newdir:   rootInode.NodeID(),
+		}
+
+		filesystem.SetOfflineMode(OfflineModeReadWrite)
+		defer filesystem.SetOfflineMode(OfflineModeDisabled)
+		graph.SetOperationalOffline(true)
+		defer graph.SetOperationalOffline(false)
+
+		status := filesystem.Rename(nil, systemRename, fileItem.Name, "renamed-offline.txt")
+		require.Equal(t, fuse.OK, status)
+
+		renamed, err := filesystem.GetChild(rootID, "renamed-offline.txt", filesystem.auth)
+		require.NoError(t, err)
+		require.NotNil(t, renamed)
+
+		changes := readOfflineChanges(t, filesystem)
+		require.NotEmpty(t, changes)
+		found := false
+		for _, change := range changes {
+			if change.ID == fileItem.ID {
+				found = true
+				require.Equal(t, "rename", change.Type)
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected offline rename change for %s", fileItem.ID)
+		}
+	})
+}
+
+func readOfflineChanges(t *testing.T, fs *Filesystem) []*OfflineChange {
+	changes := make([]*OfflineChange, 0)
+	err := fs.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketOfflineChanges)
+		if bucket == nil {
+			return nil
+		}
+		return bucket.ForEach(func(_, v []byte) error {
+			var change OfflineChange
+			if err := json.Unmarshal(v, &change); err != nil {
+				return err
+			}
+			changes = append(changes, &change)
+			return nil
+		})
+	})
+	require.NoError(t, err)
+	return changes
 }
 
 // TestUT_FS_Metadata_03_DirectoryAttributes tests directory attribute operations.

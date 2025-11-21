@@ -253,74 +253,35 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 		Uint64("dstNodeID", in.Newdir).
 		Msg("")
 
-	// Handle local-only files (like temporary trash files) differently
-	if isLocalID(id) {
-		ctx.Debug().Msg("Renaming local-only file, skipping remote operations")
-
-		// For local-only files, just perform the local rename
-		if err := f.MovePath(oldParentID, newParentID, name, newName, f.auth); err != nil {
-			logging.LogError(err, "Failed to rename local-only item",
-				logging.FieldOperation, "Rename.localOnly",
-				logging.FieldID, id,
+	remoteID := ""
+	if !isLocalID(id) {
+		var err error
+		remoteID, err = f.remoteID(inode)
+		if err != nil {
+			logging.LogError(err, "Failed to obtain remote ID for rename operation",
+				logging.FieldOperation, "Rename",
 				logging.FieldPath, path,
 				"dest", dest,
-				"oldParentID", oldParentID,
-				"newParentID", newParentID,
-				"name", name,
-				"newName", newName)
-			return fuse.EIO
+				logging.FieldID, id)
+			return fuse.EREMOTEIO
 		}
-		return fuse.OK
-	}
-
-	// For remote files, get the remote ID
-	remoteID, err := f.remoteID(inode)
-	if err != nil {
-		logging.LogError(err, "Failed to obtain remote ID for rename operation",
-			logging.FieldOperation, "Rename",
-			logging.FieldPath, path,
-			"dest", dest,
-			logging.FieldID, id)
-		return fuse.EREMOTEIO
 	}
 
 	// Check if there's already a file with the same name (case-insensitive) at the destination
 	existingChild, _ := f.GetChild(newParentID, newName, f.auth)
 	if existingChild != nil && existingChild.ID() != id {
-		// There's already a different file with the same name (case-insensitive)
-		// We need to remove it before we can rename our file to this name
 		ctx.Info().
 			Str("existingID", existingChild.ID()).
 			Str("newName", newName).
-			Msg("Found existing file with same name (case-insensitive) at destination, removing it first")
-
-		// Remove the existing file
-		if err = graph.Remove(existingChild.ID(), f.auth); err != nil {
-			logging.LogError(err, "Failed to remove existing file at destination",
-				logging.FieldOperation, "Rename.removeExisting",
-				logging.FieldID, existingChild.ID(),
-				logging.FieldPath, dest)
-			return fuse.EREMOTEIO
+			Msg("Found existing file with same name at destination, removing local entry")
+		conflictID := existingChild.ID()
+		f.DeleteID(conflictID)
+		if !isLocalID(conflictID) && !f.IsOffline() {
+			f.queueRemoteDelete(conflictID)
 		}
-
-		// Also remove it from the local cache
-		f.DeleteID(existingChild.ID())
 	}
 
-	// perform remote rename
-	if err = graph.Rename(remoteID, newName, newParentID, f.auth); err != nil {
-		logging.LogError(err, "Failed to rename remote item",
-			logging.FieldOperation, "Rename.remoteRename",
-			logging.FieldID, remoteID,
-			logging.FieldPath, path,
-			"dest", dest,
-			"newName", newName,
-			"newParentID", newParentID)
-		return fuse.EREMOTEIO
-	}
-
-	// now rename local copy
-	if err = f.MovePath(oldParentID, newParentID, name, newName, f.auth); err != nil {
+	if err := f.MovePath(oldParentID, newParentID, name, newName, f.auth); err != nil {
 		logging.LogError(err, "Failed to rename local item",
 			logging.FieldOperation, "Rename.localRename",
 			logging.FieldID, id,
@@ -332,7 +293,25 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 			"newName", newName)
 		return fuse.EIO
 	}
+	f.markDirtyLocalState(id)
 
-	// whew! item renamed
+	if f.IsOffline() || isLocalID(id) || isLocalID(newParentID) {
+		change := &OfflineChange{
+			ID:        id,
+			Type:      "rename",
+			Timestamp: time.Now(),
+			OldPath:   path,
+			NewPath:   dest,
+		}
+		if err := f.TrackOfflineChange(change); err != nil {
+			logging.Warn().Err(err).Msg("Failed to record offline rename change")
+		}
+		return fuse.OK
+	}
+
+	if remoteID != "" {
+		f.queueRemoteRename(remoteID, newParentID, newName)
+	}
+
 	return fuse.OK
 }

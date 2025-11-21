@@ -414,11 +414,8 @@ func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) f
 
 	// if no ID, the item is local-only, and does not need to be deleted on the
 	// server
-	if !isLocalID(id) {
-		if err := graph.Remove(id, f.auth); err != nil {
-			ctx.Error().Err(err).Msg("Failed to delete item on server. Aborting op.")
-			return fuse.EREMOTEIO
-		}
+	if !isLocalID(id) && !f.IsOffline() {
+		f.queueRemoteDelete(id)
 	}
 
 	f.DeleteID(id)
