@@ -309,6 +309,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	}
 	fs.metadataStore = metadataStore
 	fs.stateManager = stateManager
+	fs.defaultOverlayPolicy = metadata.OverlayPolicyRemoteWins
 	fs.content.SetEvictionGuard(fs.shouldEvictContent)
 	fs.content.SetEvictionHandler(fs.handleContentEvicted)
 
@@ -1119,6 +1120,15 @@ func (f *Filesystem) shouldEvictContent(id string) bool {
 		return false
 	}
 	return true
+}
+
+// SetDefaultOverlayPolicy configures the overlay precedence used for new metadata entries.
+func (f *Filesystem) SetDefaultOverlayPolicy(policy metadata.OverlayPolicy) {
+	if err := policy.Validate(); err != nil {
+		logging.Warn().Err(err).Msg("Ignoring invalid overlay policy; keeping previous default")
+		return
+	}
+	f.defaultOverlayPolicy = policy
 }
 
 func (f *Filesystem) handleContentEvicted(id string) {

@@ -20,15 +20,15 @@ const (
 )
 
 func (f *Filesystem) startRealtimeManager() (<-chan struct{}, error) {
-	if f.realtimeOptions == nil || !f.realtimeOptions.Enabled || f.realtimeOptions.PollingOnly {
+	if f.realtimeOptions == nil {
 		return nil, nil
 	}
-	manager := NewSocketSubscriptionManager(*f.realtimeOptions, f.auth, nil)
-	if err := manager.Start(f.deltaLoopCtx); err != nil {
+	notifier := NewChangeNotifier(*f.realtimeOptions, f.auth)
+	if err := notifier.Start(f.deltaLoopCtx); err != nil {
 		return nil, err
 	}
-	f.subscriptionManager = manager
-	return manager.Notifications(), nil
+	f.subscriptionManager = notifier
+	return notifier.Notifications(), nil
 }
 
 func (f *Filesystem) stopRealtimeManager() {

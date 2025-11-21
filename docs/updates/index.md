@@ -2,6 +2,9 @@
 
 Newest entries first.
 
+- **2025-11-21** – [Runtime Layering – Config & Telemetry](./2025-11-21-runtime-layering-config-and-telemetry.md)
+- **2025-11-21** – [Runtime Layering – ChangeNotifier Facade](./2025-11-21-runtime-layering-change-notifier.md)
+- **2025-11-21** – [Runtime Layering – Hydration Pipeline & Pinning](./2025-11-21-runtime-layering-hydration.md)
 - **2025-11-20** – [Runtime Layering – FUSE Metadata Persistence](./2025-11-20-runtime-layering-fuse-metadata.md)
 - **2025-11-19** – [Runtime Layering Metadata Bootstrap](./2025-11-19-runtime-layering-metadata-bootstrap.md)
 - **2025-11-18** – [Realtime-Only Change Notification](./2025-11-18-realtime-only.md)

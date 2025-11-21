@@ -9,7 +9,7 @@
 - Added delegated Socket.IO change-notification support so foreground mounts no longer need an externally reachable HTTPS webhook.
 - Introduced a shared subscription-manager interface that now supports either webhook + HTTP server or Socket.IO streaming.
 - Copied the permissively licensed `Ali IoT socket.io client` into `internal/socketio/` and tweaked it for arbitrary Graph endpoints (path preservation, TLS/wss forcing, Engine.IO v4 parameters).
-- Extended the user config (`webhook.useSocketIo`) and default YAML to enable the new transport without breaking existing webhook deployments.
+- Extended the user config (now surfaced as the top-level `realtime.*` block in `config.yml`) so operators can toggle Socket.IO enablement or force polling-only mode without any legacy `webhook.*` flags.
 
 ## Testing
 1. `LOG_LEVEL=debug go test ./cmd/common -run WebhookConfig -count=1`

@@ -62,19 +62,20 @@ type FileStatusDBusServerInterface interface {
 type Filesystem struct {
 	fuse.RawFileSystem // Implements the base FUSE filesystem interface
 
-	metadata      sync.Map        // In-memory cache of filesystem metadata
-	db            *bolt.DB        // Persistent database for filesystem state
-	content       *LoopbackCache  // Cache for file contents
-	thumbnails    *ThumbnailCache // Cache for file thumbnails
-	nodeIndexMu   sync.RWMutex
-	nodeIndex     map[uint64]*Inode
-	metadataStore metadata.Store          // Structured metadata persistence
-	stateManager  metadataStateController // Validated item-state transitions
-	auth          *graph.Auth             // Authentication for Microsoft Graph API
-	root          string                  // The ID of the filesystem's root item
-	deltaLink     string                  // Link for incremental synchronization with OneDrive
-	uploads       *UploadManager          // Manages file uploads to OneDrive
-	downloads     *DownloadManager        // Manages file downloads from OneDrive
+	metadata             sync.Map        // In-memory cache of filesystem metadata
+	db                   *bolt.DB        // Persistent database for filesystem state
+	content              *LoopbackCache  // Cache for file contents
+	thumbnails           *ThumbnailCache // Cache for file thumbnails
+	nodeIndexMu          sync.RWMutex
+	nodeIndex            map[uint64]*Inode
+	metadataStore        metadata.Store          // Structured metadata persistence
+	stateManager         metadataStateController // Validated item-state transitions
+	defaultOverlayPolicy metadata.OverlayPolicy
+	auth                 *graph.Auth      // Authentication for Microsoft Graph API
+	root                 string           // The ID of the filesystem's root item
+	deltaLink            string           // Link for incremental synchronization with OneDrive
+	uploads              *UploadManager   // Manages file uploads to OneDrive
+	downloads            *DownloadManager // Manages file downloads from OneDrive
 
 	// Root context for all operations
 	ctx    context.Context    // Root context for all operations

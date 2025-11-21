@@ -83,6 +83,9 @@ func (f *Filesystem) metadataEntryFromInode(id string, inode *Inode, snapshot ti
 	if f != nil && f.isChildPendingRemote(id) {
 		entry.PendingRemote = true
 	}
+	if f != nil && f.defaultOverlayPolicy != "" {
+		entry.OverlayPolicy = f.defaultOverlayPolicy
+	}
 
 	return entry
 }

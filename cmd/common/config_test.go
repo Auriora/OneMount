@@ -201,6 +201,25 @@ func TestDefaultDeltaIntervalIsFiveMinutes(t *testing.T) {
 	}
 }
 
+func TestValidateConfigOverlayPolicy(t *testing.T) {
+	cfg := createDefaultConfig()
+	cfg.Overlay.DefaultPolicy = "local_wins"
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error: %v", err)
+	}
+	if cfg.Overlay.DefaultPolicy != "LOCAL_WINS" {
+		t.Fatalf("expected overlay policy normalized to LOCAL_WINS, got %s", cfg.Overlay.DefaultPolicy)
+	}
+
+	cfg.Overlay.DefaultPolicy = "invalid"
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error for fallback scenario: %v", err)
+	}
+	if cfg.Overlay.DefaultPolicy != "REMOTE_WINS" {
+		t.Fatalf("expected overlay policy fallback to REMOTE_WINS, got %s", cfg.Overlay.DefaultPolicy)
+	}
+}
+
 func TestValidateRealtimeConfigDefaults(t *testing.T) {
 	cfg := &RealtimeConfig{
 		Enabled:          true,

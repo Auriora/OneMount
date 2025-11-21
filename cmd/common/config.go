@@ -14,6 +14,7 @@ import (
 	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/ui"
 )
 
@@ -35,6 +36,7 @@ type Config struct {
 	MaxCacheSize         int64          `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
 	MountTimeout         int            `yaml:"mountTimeout"`
 	Realtime             RealtimeConfig `yaml:"realtime"`
+	Overlay              OverlayConfig  `yaml:"overlay"`
 	graph.AuthConfig     `yaml:"auth"`
 }
 
@@ -45,6 +47,11 @@ type RealtimeConfig struct {
 	ClientState      string `yaml:"clientState"`
 	Resource         string `yaml:"resource"`
 	FallbackInterval int    `yaml:"fallbackIntervalSeconds"`
+}
+
+// OverlayConfig controls default overlay policies for new metadata entries.
+type OverlayConfig struct {
+	DefaultPolicy string `yaml:"defaultPolicy"`
 }
 
 // DefaultConfigPath returns the default config location for onemount
@@ -77,6 +84,9 @@ func createDefaultConfig() Config {
 			ClientState:      "",
 			Resource:         "/me/drive/root",
 			FallbackInterval: int((30 * time.Minute).Seconds()),
+		},
+		Overlay: OverlayConfig{
+			DefaultPolicy: string(metadata.OverlayPolicyRemoteWins),
 		},
 	}
 }
@@ -195,6 +205,16 @@ func validateConfig(config *Config) error {
 		config.CacheDir = filepath.Join(xdgCacheDir, "onemount")
 	}
 	config.CacheDir = expandUserPath(config.CacheDir)
+
+	switch strings.ToUpper(config.Overlay.DefaultPolicy) {
+	case string(metadata.OverlayPolicyRemoteWins), string(metadata.OverlayPolicyLocalWins), string(metadata.OverlayPolicyMerged):
+		config.Overlay.DefaultPolicy = strings.ToUpper(config.Overlay.DefaultPolicy)
+	default:
+		logging.Warn().
+			Str("overlayPolicy", config.Overlay.DefaultPolicy).
+			Msg("Overlay default must be one of REMOTE_WINS, LOCAL_WINS, or MERGED; using REMOTE_WINS")
+		config.Overlay.DefaultPolicy = string(metadata.OverlayPolicyRemoteWins)
+	}
 
 	// Validate AuthConfig if provided
 	if config.AuthConfig.ClientID != "" {

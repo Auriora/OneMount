@@ -41,6 +41,7 @@ import (
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	flag "github.com/spf13/pflag"
@@ -288,6 +289,7 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	if realtimeOpts.Enabled {
 		filesystem.ConfigureRealtime(realtimeOpts)
 	}
+	filesystem.SetDefaultOverlayPolicy(metadata.OverlayPolicy(strings.ToUpper(config.Overlay.DefaultPolicy)))
 
 	filesystem.ConfigureDeltaTuning(fs.DeltaTuning{
 		ActiveInterval: time.Duration(config.ActiveDeltaInterval) * time.Second,

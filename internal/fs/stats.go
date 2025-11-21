@@ -2,6 +2,7 @@ package fs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/socketio"
 
 	bolt "go.etcd.io/bbolt"
@@ -94,6 +96,16 @@ type Stats struct {
 	RealtimeConsecutiveFailures int
 	RealtimeReconnectCount      int
 	RealtimeLastError           string
+
+	// Metadata/hydration telemetry
+	MetadataStateCounts      map[string]int
+	HydrationHydrating       int
+	HydrationHydrated        int
+	HydrationGhost           int
+	HydrationDirtyLocal      int
+	HydrationErrored         int
+	HydrationQueueDepth      int
+	HydrationActiveDownloads int
 }
 
 // CachedStats holds cached statistics with TTL
@@ -158,6 +170,18 @@ func (f *Filesystem) GetStatsWithConfig(config *StatsConfig) (*Stats, error) {
 	stats, err := f.calculateStats(config)
 	if err != nil {
 		return nil, err
+	}
+
+	stats.HydrationHydrating = stats.MetadataStateCounts[string(metadata.ItemStateHydrating)]
+	stats.HydrationHydrated = stats.MetadataStateCounts[string(metadata.ItemStateHydrated)]
+	stats.HydrationGhost = stats.MetadataStateCounts[string(metadata.ItemStateGhost)]
+	stats.HydrationDirtyLocal = stats.MetadataStateCounts[string(metadata.ItemStateDirtyLocal)]
+	stats.HydrationErrored = stats.MetadataStateCounts[string(metadata.ItemStateError)]
+
+	if f.downloads != nil {
+		snap := f.downloads.Snapshot()
+		stats.HydrationQueueDepth = snap.QueueDepth
+		stats.HydrationActiveDownloads = snap.Active
 	}
 
 	// Cache the statistics
@@ -503,6 +527,26 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 			}
 		}
 
+		if metadataV2 := tx.Bucket(bucketMetadataV2); metadataV2 != nil {
+			if stats.MetadataStateCounts == nil {
+				stats.MetadataStateCounts = make(map[string]int)
+			}
+			if err := metadataV2.ForEach(func(k, v []byte) error {
+				var entry metadata.Entry
+				if err := json.Unmarshal(v, &entry); err != nil {
+					return nil
+				}
+				state := string(entry.State)
+				if state == "" {
+					state = "UNKNOWN"
+				}
+				stats.MetadataStateCounts[state]++
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
 		// Count delta items
 		if b := tx.Bucket(bucketDelta); b != nil {
 			stats.DBDeltaCount = b.Stats().KeyN
@@ -530,22 +574,24 @@ func (f *Filesystem) calculateStats(config *StatsConfig) (*Stats, error) {
 	stats.DBPageSize = os.Getpagesize() // Use system page size as bbolt doesn't expose page size directly
 
 	// Upload queue statistics
-	f.uploads.mutex.RLock()
-	stats.UploadCount = len(f.uploads.sessions)
-	for _, session := range f.uploads.sessions {
-		state := session.getState()
-		switch state {
-		case uploadNotStarted:
-			stats.UploadsNotStarted++
-		case uploadStarted:
-			stats.UploadsInProgress++
-		case uploadComplete:
-			stats.UploadsCompleted++
-		case uploadErrored:
-			stats.UploadsErrored++
+	if f.uploads != nil {
+		f.uploads.mutex.RLock()
+		stats.UploadCount = len(f.uploads.sessions)
+		for _, session := range f.uploads.sessions {
+			state := session.getState()
+			switch state {
+			case uploadNotStarted:
+				stats.UploadsNotStarted++
+			case uploadStarted:
+				stats.UploadsInProgress++
+			case uploadComplete:
+				stats.UploadsCompleted++
+			case uploadErrored:
+				stats.UploadsErrored++
+			}
 		}
+		f.uploads.mutex.RUnlock()
 	}
-	f.uploads.mutex.RUnlock()
 
 	// File status statistics
 	f.statusM.RLock()

@@ -121,8 +121,8 @@ DL -> FS: Schedule next delta sync
 == Subscription-based Change Notification ==
 
 [-> API: Change occurs on server
-API -> FS: Send notification to webhook
-FS -> DL: Trigger delta sync
+API -> FS: Emit Socket.IO notification
+FS -> DL: Trigger delta sync immediately
 DL -> Auth: Refresh() if needed
 Auth -> DL: Return refreshed auth
 DL -> API: Request delta with stored deltaLink

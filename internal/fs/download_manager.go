@@ -131,6 +131,12 @@ type DownloadManager struct {
 	completed  sync.Map // tracks IDs whose sessions finished and were cleaned up
 }
 
+// DownloadStats provides a snapshot of hydration/downloading activity for telemetry.
+type DownloadStats struct {
+	QueueDepth int
+	Active     int
+}
+
 // NewDownloadManager creates a new download manager
 func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, db *bolt.DB) *DownloadManager {
 	dm := &DownloadManager{
@@ -150,6 +156,28 @@ func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, db *bo
 	dm.startWorkers()
 
 	return dm
+}
+
+// Snapshot returns a lightweight view of the download manager's workload.
+func (dm *DownloadManager) Snapshot() DownloadStats {
+	stats := DownloadStats{}
+	if dm == nil {
+		return stats
+	}
+	dm.mutex.RLock()
+	defer dm.mutex.RUnlock()
+	if dm.queue != nil {
+		stats.QueueDepth = len(dm.queue)
+	}
+	for _, session := range dm.sessions {
+		session.mutex.RLock()
+		state := session.State
+		session.mutex.RUnlock()
+		if state == downloadStarted {
+			stats.Active++
+		}
+	}
+	return stats
 }
 
 // restoreDownloadSessions restores incomplete download sessions from the database
