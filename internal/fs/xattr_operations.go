@@ -12,12 +12,12 @@ import (
 func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name string, buf []byte) (uint32, fuse.Status) {
 	methodName, startTime := logging.LogMethodEntry("GetXAttr", header.NodeId, name, len(buf))
 
-	id := f.TranslateID(header.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(header.NodeId)
 	if inode == nil {
 		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.ENOENT)
 		return 0, fuse.ENOENT
 	}
+	id := inode.ID()
 
 	// Create a context for this operation with request ID and user ID
 	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
@@ -66,12 +66,12 @@ func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name str
 func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name string, value []byte) fuse.Status {
 	methodName, startTime := logging.LogMethodEntry("SetXAttr", in.NodeId, name, len(value))
 
-	id := f.TranslateID(in.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
 		return fuse.ENOENT
 	}
+	id := inode.ID()
 
 	// Create a context for this operation with request ID and user ID
 	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
@@ -106,12 +106,12 @@ func (f *Filesystem) SetXAttr(_ <-chan struct{}, in *fuse.SetXAttrIn, name strin
 func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []byte) (uint32, fuse.Status) {
 	methodName, startTime := logging.LogMethodEntry("ListXAttr", header.NodeId, len(buf))
 
-	id := f.TranslateID(header.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(header.NodeId)
 	if inode == nil {
 		logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), fuse.ENOENT)
 		return 0, fuse.ENOENT
 	}
+	id := inode.ID()
 
 	// Create a context for this operation with request ID and user ID
 	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").
@@ -176,12 +176,12 @@ func (f *Filesystem) ListXAttr(_ <-chan struct{}, header *fuse.InHeader, buf []b
 func (f *Filesystem) RemoveXAttr(_ <-chan struct{}, header *fuse.InHeader, name string) fuse.Status {
 	methodName, startTime := logging.LogMethodEntry("RemoveXAttr", header.NodeId, name)
 
-	id := f.TranslateID(header.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(header.NodeId)
 	if inode == nil {
 		logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
 		return fuse.ENOENT
 	}
+	id := inode.ID()
 
 	// Create a context for this operation with request ID and user ID
 	ctx := logging.NewLogContextWithRequestAndUserID("xattr_operations").

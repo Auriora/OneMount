@@ -83,10 +83,11 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 
 // Rmdir removes a directory if it's empty.
 func (f *Filesystem) Rmdir(cancel <-chan struct{}, in *fuse.InHeader, name string) fuse.Status {
-	parentID := f.TranslateID(in.NodeId)
-	if parentID == "" {
+	parent := f.GetNodeID(in.NodeId)
+	if parent == nil {
 		return fuse.ENOENT
 	}
+	parentID := parent.ID()
 	child, _ := f.GetChild(parentID, name, f.auth)
 	if child == nil {
 		return fuse.ENOENT
@@ -99,12 +100,12 @@ func (f *Filesystem) Rmdir(cancel <-chan struct{}, in *fuse.InHeader, name strin
 
 // OpenDir provides a list of all the entries in the directory
 func (f *Filesystem) OpenDir(_ <-chan struct{}, in *fuse.OpenIn, _ *fuse.OpenOut) fuse.Status {
-	id := f.TranslateID(in.NodeId)
-	dir := f.GetID(id)
+	dir := f.GetNodeID(in.NodeId)
 	if dir == nil {
-		logging.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Directory not found")
+		logging.Debug().Uint64("nodeID", in.NodeId).Msg("OpenDir: Directory not found")
 		return fuse.ENOENT
 	}
+	id := dir.ID()
 	if !dir.IsDir() {
 		logging.Debug().Uint64("nodeID", in.NodeId).Str("id", id).Msg("OpenDir: Not a directory")
 		return fuse.ENOTDIR
@@ -273,7 +274,11 @@ func (f *Filesystem) ReadDir(cancel <-chan struct{}, in *fuse.ReadIn, out *fuse.
 // Lookup is called by the kernel when the VFS wants to know about a file inside
 // a directory.
 func (f *Filesystem) Lookup(_ <-chan struct{}, in *fuse.InHeader, name string, out *fuse.EntryOut) fuse.Status {
-	id := f.TranslateID(in.NodeId)
+	parent := f.GetNodeID(in.NodeId)
+	if parent == nil {
+		return fuse.ENOENT
+	}
+	id := parent.ID()
 	logging.Trace().
 		Str("op", "Lookup").
 		Uint64("nodeID", in.NodeId).

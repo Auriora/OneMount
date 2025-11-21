@@ -62,10 +62,12 @@ type FileStatusDBusServerInterface interface {
 type Filesystem struct {
 	fuse.RawFileSystem // Implements the base FUSE filesystem interface
 
-	metadata      sync.Map                // In-memory cache of filesystem metadata
-	db            *bolt.DB                // Persistent database for filesystem state
-	content       *LoopbackCache          // Cache for file contents
-	thumbnails    *ThumbnailCache         // Cache for file thumbnails
+	metadata      sync.Map        // In-memory cache of filesystem metadata
+	db            *bolt.DB        // Persistent database for filesystem state
+	content       *LoopbackCache  // Cache for file contents
+	thumbnails    *ThumbnailCache // Cache for file thumbnails
+	nodeIndexMu   sync.RWMutex
+	nodeIndex     map[uint64]*Inode
 	metadataStore metadata.Store          // Structured metadata persistence
 	stateManager  metadataStateController // Validated item-state transitions
 	auth          *graph.Auth             // Authentication for Microsoft Graph API

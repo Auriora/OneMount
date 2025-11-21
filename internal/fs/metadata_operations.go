@@ -99,12 +99,13 @@ func (f *Filesystem) getEstimatedFileCount() uint64 {
 
 // GetAttr Getattr returns a the Inode as a UNIX stat. Holds the read mutex for all of
 // the "metadata fetch" operations.
+
 func (f *Filesystem) GetAttr(_ <-chan struct{}, in *fuse.GetAttrIn, out *fuse.AttrOut) fuse.Status {
-	id := f.TranslateID(in.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		return fuse.ENOENT
 	}
+	id := inode.ID()
 	logging.Trace().
 		Str("op", "GetAttr").
 		Uint64("nodeID", in.NodeId).
@@ -216,11 +217,11 @@ func (f *Filesystem) Rename(_ <-chan struct{}, in *fuse.RenameIn, name string, n
 		return fuse.EINVAL
 	}
 
-	oldParentID := f.TranslateID(in.NodeId)
 	oldParentItem := f.GetNodeID(in.NodeId)
-	if oldParentID == "" || oldParentItem == nil {
+	if oldParentItem == nil {
 		return fuse.EBADF
 	}
+	oldParentID := oldParentItem.ID()
 	path := filepath.Join(oldParentItem.Path(), name)
 
 	// we'll have the metadata for the dest inode already so it is not necessary

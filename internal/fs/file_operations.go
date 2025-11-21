@@ -20,15 +20,14 @@ func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out
 		return fuse.EINVAL
 	}
 
-	parentID := f.TranslateID(in.NodeId)
-	if parentID == "" {
-		return fuse.EBADF
-	}
-
-	parent := f.GetID(parentID)
+	parent := f.GetNodeID(in.NodeId)
 	if parent == nil {
+		if f.TranslateID(in.NodeId) == "" {
+			return fuse.EBADF
+		}
 		return fuse.ENOENT
 	}
+	parentID := parent.ID()
 
 	path := filepath.Join(parent.Path(), name)
 	ctx := logging.DefaultLogger.With().
@@ -85,8 +84,18 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 	if result == fuse.Status(syscall.EEXIST) {
 		// if the inode already exists, we should truncate the existing file and
 		// return the existing file inode as per "man creat"
-		parentID := f.TranslateID(in.NodeId)
+		parent := f.GetNodeID(in.NodeId)
+		if parent == nil {
+			if f.TranslateID(in.NodeId) == "" {
+				return fuse.EBADF
+			}
+			return fuse.ENOENT
+		}
+		parentID := parent.ID()
 		child, _ := f.GetChild(parentID, name, f.auth)
+		if child == nil {
+			return fuse.ENOENT
+		}
 		logger := logging.Debug().
 			Str("op", "Create").
 			Uint64("nodeID", in.NodeId).
@@ -132,14 +141,14 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
 	methodName, startTime := logging.LogMethodEntry("Open", in.NodeId)
 
-	id := f.TranslateID(in.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), fuse.ENOENT)
 		}()
 		return fuse.ENOENT
 	}
+	id := inode.ID()
 
 	path := inode.Path()
 	if logging.IsDebugEnabled() {
@@ -355,7 +364,11 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 // Unlink deletes a child file.
 func (f *Filesystem) Unlink(_ <-chan struct{}, in *fuse.InHeader, name string) fuse.Status {
-	parentID := f.TranslateID(in.NodeId)
+	parent := f.GetNodeID(in.NodeId)
+	if parent == nil {
+		return fuse.ENOENT
+	}
+	parentID := parent.ID()
 	child, _ := f.GetChild(parentID, name, f.auth)
 	if child == nil {
 		// the file we are unlinking never existed
@@ -533,14 +546,14 @@ func (f *Filesystem) Read(cancel <-chan struct{}, in *fuse.ReadIn, buf []byte) (
 func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
 	methodName, startTime := logging.LogMethodEntry("Write", in.NodeId, len(data), in.Offset)
 
-	id := f.TranslateID(in.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), uint32(0), int32(fuse.EBADF))
 		}()
 		return 0, fuse.EBADF
 	}
+	id := inode.ID()
 
 	nWrite := len(data)
 	offset := int(in.Offset)
@@ -671,11 +684,11 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 // Fsync is a signal to ensure writes to the Inode are flushed to stable
 // storage. This method is used to trigger uploads of file content.
 func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
-	id := f.TranslateID(in.NodeId)
-	inode := f.GetID(id)
+	inode := f.GetNodeID(in.NodeId)
 	if inode == nil {
 		return fuse.EBADF
 	}
+	id := inode.ID()
 	if inode.IsVirtual() {
 		return fuse.OK
 	}

@@ -28,13 +28,11 @@ func (f *Filesystem) HandleThumbnailRequest(_ <-chan struct{}, in *fuse.OpenIn, 
 	}
 
 	// Get the parent directory
-	parentID := f.TranslateID(in.NodeId)
-	if parentID == "" {
-		return fuse.EBADF, 0
-	}
-
-	parent := f.GetID(parentID)
+	parent := f.GetNodeID(in.NodeId)
 	if parent == nil {
+		if f.TranslateID(in.NodeId) == "" {
+			return fuse.EBADF, 0
+		}
 		return fuse.ENOENT, 0
 	}
 

@@ -316,12 +316,51 @@ func (f *Filesystem) transitionItemState(id string, target metadata.ItemState, o
 	}
 }
 
+func (f *Filesystem) markEntryDeleted(id string) {
+	if id == "" {
+		return
+	}
+	if f.metadataStore != nil {
+		entry, err := f.metadataStore.Get(context.Background(), id)
+		if err == nil && entry.Virtual {
+			return
+		}
+	}
+	f.transitionItemState(id, metadata.ItemStateDeleted)
+	if f.metadataStore == nil {
+		return
+	}
+	_, err := f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
+		if entry == nil {
+			return metadata.ErrNotFound
+		}
+		entry.Children = nil
+		entry.SubdirCount = 0
+		entry.PendingRemote = false
+		entry.LastHydrated = nil
+		entry.LastUploaded = nil
+		entry.Hydration = metadata.HydrationState{}
+		entry.Upload = metadata.UploadState{}
+		entry.LastError = nil
+		return nil
+	})
+	if err != nil && err != metadata.ErrNotFound {
+		logging.Debug().
+			Err(err).
+			Str("id", id).
+			Msg("Failed to scrub metadata entry after delete")
+	}
+}
+
 func (f *Filesystem) ensureInodeFromMetadataStore(id string) *Inode {
 	if f.metadataStore == nil || id == "" {
 		return nil
 	}
 	entry, err := f.metadataStore.Get(context.Background(), id)
 	if err != nil {
+		return nil
+	}
+	if entry.State == metadata.ItemStateDeleted {
 		return nil
 	}
 	inode := f.inodeFromMetadataEntry(entry)

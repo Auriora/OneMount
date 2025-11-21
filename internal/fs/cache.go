@@ -270,6 +270,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		db:                   db,
 		auth:                 auth,
 		opendirs:             make(map[uint64][]*Inode),
+		nodeIndex:            make(map[uint64]*Inode),
 		statuses:             make(map[string]FileStatusInfo),
 		statusCache:          newStatusCache(5 * time.Second), // 5 second TTL for status determination cache
 		statusCacheTTL:       5 * time.Second,
@@ -750,14 +751,23 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 // TranslateID returns the DriveItemID for a given NodeID
 func (f *Filesystem) TranslateID(nodeID uint64) string {
 	methodName, startTime := logging.LogMethodEntry("TranslateID", nodeID)
-	f.RLock()
-	defer f.RUnlock()
+	inode := f.loadNodeIndex(nodeID)
+	if inode == nil {
+		var id string
+		f.RLock()
+		if nodeID <= f.lastNodeID && nodeID != 0 {
+			id = f.inodes[nodeID-1]
+		}
+		f.RUnlock()
+		if id != "" {
+			inode = f.GetID(id)
+			f.storeNodeIndex(nodeID, inode)
+		}
+	}
 
 	var result string
-	if nodeID > f.lastNodeID || nodeID == 0 {
-		result = ""
-	} else {
-		result = f.inodes[nodeID-1]
+	if inode != nil {
+		result = inode.ID()
 	}
 
 	defer func() {
@@ -770,17 +780,18 @@ func (f *Filesystem) TranslateID(nodeID uint64) string {
 func (f *Filesystem) GetNodeID(nodeID uint64) *Inode {
 	methodName, startTime := logging.LogMethodEntry("GetNodeID", nodeID)
 
-	id := f.TranslateID(nodeID)
-	if id == "" {
-		// Log the return value (nil) and return
+	if inode := f.loadNodeIndex(nodeID); inode != nil {
 		defer func() {
-			logging.LogMethodExit(methodName, time.Since(startTime), nil)
+			logging.LogMethodExit(methodName, time.Since(startTime), inode)
 		}()
-		return nil
+		return inode
 	}
-
-	result := f.GetID(id)
-	// Log the return value (could be nil or a pointer)
+	id := f.TranslateID(nodeID)
+	var result *Inode
+	if id != "" {
+		result = f.GetID(id)
+		f.storeNodeIndex(nodeID, result)
+	}
 	defer func() {
 		logging.LogMethodExit(methodName, time.Since(startTime), result)
 	}()
@@ -810,6 +821,7 @@ func (f *Filesystem) InsertNodeID(inode *Inode) uint64 {
 		f.Unlock()
 		inode.mu.Unlock()
 	}
+	f.storeNodeIndex(nodeID, inode)
 
 	defer func() {
 		logging.LogMethodExit(methodName, time.Since(startTime), nodeID)
@@ -941,6 +953,7 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 				Msg("NodeID exceeded maximum node ID! Ignoring ID change.")
 		}
 		f.Unlock()
+		f.storeNodeIndex(nodeID, inode)
 	}
 
 	parentID := inode.ParentID()
@@ -1131,6 +1144,7 @@ func (f *Filesystem) handleContentEvicted(id string) {
 // be called before InsertID if being used to rename/move an item.
 func (f *Filesystem) DeleteID(id string) {
 	if inode := f.GetID(id); inode != nil {
+		nodeID := inode.NodeID()
 		isDir := inode.IsDir()
 		// If this is a directory, recursively delete all its children first
 		if isDir && inode.HasChildren() {
@@ -1172,9 +1186,42 @@ func (f *Filesystem) DeleteID(id string) {
 				f.persistMetadataEntry(parent.ID(), parent)
 			}
 		}
+		f.deleteNodeIndex(nodeID)
 	}
 	f.metadata.Delete(id)
+	f.markEntryDeleted(id)
 	f.uploads.CancelUpload(id)
+}
+
+func (f *Filesystem) storeNodeIndex(nodeID uint64, inode *Inode) {
+	if nodeID == 0 || inode == nil {
+		return
+	}
+	f.nodeIndexMu.Lock()
+	if f.nodeIndex == nil {
+		f.nodeIndex = make(map[uint64]*Inode)
+	}
+	f.nodeIndex[nodeID] = inode
+	f.nodeIndexMu.Unlock()
+}
+
+func (f *Filesystem) deleteNodeIndex(nodeID uint64) {
+	if nodeID == 0 {
+		return
+	}
+	f.nodeIndexMu.Lock()
+	delete(f.nodeIndex, nodeID)
+	f.nodeIndexMu.Unlock()
+}
+
+func (f *Filesystem) loadNodeIndex(nodeID uint64) *Inode {
+	if nodeID == 0 {
+		return nil
+	}
+	f.nodeIndexMu.RLock()
+	inode := f.nodeIndex[nodeID]
+	f.nodeIndexMu.RUnlock()
+	return inode
 }
 
 // GetChild fetches a named child of an item. Wraps GetChildrenID and refreshes stale caches on demand.
