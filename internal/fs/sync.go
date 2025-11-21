@@ -9,6 +9,7 @@ import (
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/metadata"
 )
 
 // SyncProgress tracks the progress of directory tree synchronization
@@ -148,62 +149,75 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 	visited[dirID] = true
 
 	// Use prioritized metadata request for background sync
-	var children map[string]*Inode
+	var children []*metadata.Entry
 	var err error
 
 	// Create a channel to receive the result
 	resultChan := make(chan struct {
-		children map[string]*Inode
+		children []*metadata.Entry
 		err      error
 	}, 1)
+
+	processItems := func(items []*graph.DriveItem) []*metadata.Entry {
+		var childEntries []*metadata.Entry
+		var dirCount, fileCount int64
+		now := time.Now().UTC()
+
+		for _, item := range items {
+			if strings.EqualFold(item.Name, xdgVolumeInfoName) {
+				continue
+			}
+			entry, prev, upsertErr := f.upsertDriveItemEntry(context.Background(), item, now)
+			if upsertErr != nil {
+				logging.Debug().Err(upsertErr).Str("id", item.ID).Msg("Failed to persist metadata entry during sync")
+				continue
+			}
+			childEntries = append(childEntries, entry)
+
+			if entry.ItemType == metadata.ItemKindDirectory {
+				dirCount++
+			} else {
+				fileCount++
+			}
+
+			f.ensureInodeFromMetadataStore(entry.ID)
+			if prev != nil && prev.ParentID != entry.ParentID {
+				f.moveChildBetweenParents(context.Background(), prev.ParentID, entry.ParentID, entry)
+			}
+		}
+
+		progress.AddDiscovered(dirCount, fileCount)
+
+		if parentErr := f.replaceParentChildren(context.Background(), dirID, childEntries); parentErr != nil {
+			logging.Warn().Err(parentErr).Str("dirID", dirID).Msg("Failed to update parent metadata children during sync")
+		}
+		return childEntries
+	}
 
 	// Queue the metadata request with background priority
 	if f.metadataRequestManager != nil {
 		err = f.metadataRequestManager.QueueChildrenRequest(dirID, auth, PriorityBackground, func(items []*graph.DriveItem, reqErr error) {
 			if reqErr != nil {
 				resultChan <- struct {
-					children map[string]*Inode
+					children []*metadata.Entry
 					err      error
 				}{nil, reqErr}
 				return
 			}
-
-			// Convert DriveItems to Inodes and cache them
-			childrenMap := make(map[string]*Inode)
-			var dirCount, fileCount int64
-
-			for _, item := range items {
-				if strings.EqualFold(item.Name, xdgVolumeInfoName) {
-					continue
-				}
-				child := NewInodeDriveItem(item)
-				f.InsertNodeID(child)
-				f.metadata.Store(child.DriveItem.ID, child)
-				f.persistMetadataEntry(child.DriveItem.ID, child)
-				childrenMap[strings.ToLower(child.Name())] = child
-
-				if child.IsDir() {
-					dirCount++
-				} else {
-					fileCount++
-				}
-			}
-
-			// Update progress counters
-			progress.AddDiscovered(dirCount, fileCount)
-
-			f.cacheChildrenFromMap(dirID, childrenMap)
-
 			resultChan <- struct {
-				children map[string]*Inode
+				children []*metadata.Entry
 				err      error
-			}{childrenMap, nil}
+			}{processItems(items), nil}
 		})
 
 		if err != nil {
 			// Fallback to direct call if queue is full
 			logging.Debug().Str("dirID", dirID).Msg("Metadata queue full, falling back to direct call")
-			children, err = f.GetChildrenID(dirID, auth)
+			var fetched []*graph.DriveItem
+			fetched, err = graph.GetItemChildren(dirID, auth)
+			if err == nil {
+				children = processItems(fetched)
+			}
 		} else {
 			// Wait for the result with timeout
 			select {
@@ -222,7 +236,11 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 		}
 	} else {
 		// Fallback if metadata request manager is not available
-		children, err = f.GetChildrenID(dirID, auth)
+		var fetched []*graph.DriveItem
+		fetched, err = graph.GetItemChildren(dirID, auth)
+		if err == nil {
+			children = processItems(fetched)
+		}
 	}
 
 	if err != nil {
@@ -248,14 +266,14 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 
 	// Recursively process all subdirectories
 	for _, child := range children {
-		if child.IsDir() {
-			if err := f.syncDirectoryTreeRecursiveWithContext(ctx, child.ID(), auth, visited, depth+1, maxDepth, progress); err != nil {
+		if child.ItemType == metadata.ItemKindDirectory {
+			if err := f.syncDirectoryTreeRecursiveWithContext(ctx, child.ID, auth, visited, depth+1, maxDepth, progress); err != nil {
 				// Check if it's a cancellation error
 				if err == context.Canceled || err == context.DeadlineExceeded {
 					return err
 				}
 				// Log the error but continue with other directories
-				logging.Warn().Err(err).Str("dirID", child.ID()).Msg("Error syncing directory")
+				logging.Warn().Err(err).Str("dirID", child.ID).Msg("Error syncing directory")
 			}
 		}
 	}

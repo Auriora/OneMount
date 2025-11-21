@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
+	"sort"
 	"sync"
 	"time"
 
@@ -267,6 +268,294 @@ func (f *Filesystem) loadMetadataEntry(id string) (*metadata.Entry, error) {
 	return nil, metadata.ErrNotFound
 }
 
+// entryFromDriveItem builds a structured metadata entry from a DriveItem snapshot.
+func (f *Filesystem) entryFromDriveItem(item *graph.DriveItem, snapshot time.Time) *metadata.Entry {
+	if item == nil {
+		return nil
+	}
+	if snapshot.IsZero() {
+		snapshot = time.Now().UTC()
+	}
+
+	entry := &metadata.Entry{
+		ID:            item.ID,
+		Name:          item.Name,
+		ItemType:      metadata.ItemKindFile,
+		State:         metadata.ItemStateGhost,
+		OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+		CreatedAt:     snapshot,
+		UpdatedAt:     snapshot,
+		Pin: metadata.PinState{
+			Mode: metadata.PinModeUnset,
+		},
+	}
+
+	if item.Parent != nil {
+		entry.ParentID = item.Parent.ID
+	}
+	if !isLocalID(item.ID) {
+		entry.RemoteID = item.ID
+	}
+	if item.ETag != "" {
+		entry.ETag = item.ETag
+	}
+	if item.ModTime != nil {
+		ts := item.ModTime.UTC()
+		entry.LastModified = &ts
+	}
+	if item.IsDir() {
+		entry.ItemType = metadata.ItemKindDirectory
+		entry.State = metadata.ItemStateHydrated
+		entry.SubdirCount = uint32(item.Folder.ChildCount)
+		if entry.Mode == 0 {
+			entry.Mode = fuse.S_IFDIR | 0755
+		}
+	} else {
+		entry.Size = item.Size
+		if entry.Mode == 0 {
+			entry.Mode = fuse.S_IFREG | 0644
+		}
+	}
+
+	if f != nil && f.defaultOverlayPolicy != "" {
+		entry.OverlayPolicy = f.defaultOverlayPolicy
+	}
+
+	return entry
+}
+
+// applyDriveItemToEntry mutates an existing metadata entry with fields from a DriveItem.
+func (f *Filesystem) applyDriveItemToEntry(entry *metadata.Entry, item *graph.DriveItem, snapshot time.Time) {
+	if entry == nil || item == nil {
+		return
+	}
+	if snapshot.IsZero() {
+		snapshot = time.Now().UTC()
+	}
+
+	entry.ID = item.ID
+	entry.Name = item.Name
+	if item.Parent != nil {
+		entry.ParentID = item.Parent.ID
+	}
+	if !isLocalID(item.ID) {
+		entry.RemoteID = item.ID
+	}
+	if item.ETag != "" {
+		entry.ETag = item.ETag
+	}
+	if item.ModTime != nil {
+		ts := item.ModTime.UTC()
+		entry.LastModified = &ts
+	}
+
+	if item.IsDir() {
+		entry.ItemType = metadata.ItemKindDirectory
+		entry.SubdirCount = uint32(item.Folder.ChildCount)
+		if entry.Mode == 0 {
+			entry.Mode = fuse.S_IFDIR | 0755
+		}
+		if entry.State == "" {
+			entry.State = metadata.ItemStateHydrated
+		}
+	} else {
+		entry.ItemType = metadata.ItemKindFile
+		entry.Size = item.Size
+		if entry.Mode == 0 {
+			entry.Mode = fuse.S_IFREG | 0644
+		}
+		if entry.State == "" {
+			entry.State = metadata.ItemStateGhost
+		}
+	}
+
+	if entry.OverlayPolicy == "" {
+		entry.OverlayPolicy = metadata.OverlayPolicyRemoteWins
+		if f != nil && f.defaultOverlayPolicy != "" {
+			entry.OverlayPolicy = f.defaultOverlayPolicy
+		}
+	}
+
+	if entry.Pin.Mode == "" {
+		entry.Pin.Mode = metadata.PinModeUnset
+	}
+
+	entry.UpdatedAt = snapshot
+}
+
+// cloneMetadataEntry creates a shallow copy with cloned slices and maps for safe comparison.
+func cloneMetadataEntry(entry *metadata.Entry) *metadata.Entry {
+	if entry == nil {
+		return nil
+	}
+	copied := *entry
+	if entry.Children != nil {
+		copied.Children = cloneStringSlice(entry.Children)
+	}
+	if entry.Xattrs != nil {
+		copied.Xattrs = cloneXattrs(entry.Xattrs)
+	}
+	if entry.Pin.Since != nil {
+		ts := *entry.Pin.Since
+		copied.Pin.Since = &ts
+	}
+	if entry.LastModified != nil {
+		ts := entry.LastModified.UTC()
+		copied.LastModified = &ts
+	}
+	if entry.LastHydrated != nil {
+		ts := entry.LastHydrated.UTC()
+		copied.LastHydrated = &ts
+	}
+	if entry.LastUploaded != nil {
+		ts := entry.LastUploaded.UTC()
+		copied.LastUploaded = &ts
+	}
+	return &copied
+}
+
+// upsertDriveItemEntry writes a DriveItem snapshot into metadata_v2 and returns the updated entry with its prior value.
+func (f *Filesystem) upsertDriveItemEntry(ctx context.Context, item *graph.DriveItem, snapshot time.Time) (*metadata.Entry, *metadata.Entry, error) {
+	if f.metadataStore == nil {
+		return nil, nil, goerrors.New("metadata store not initialized")
+	}
+	if item == nil {
+		return nil, nil, goerrors.New("drive item is nil")
+	}
+
+	var previous *metadata.Entry
+	updated, err := f.metadataStore.Update(ctx, item.ID, func(entry *metadata.Entry) error {
+		if entry == nil {
+			return metadata.ErrNotFound
+		}
+		previous = cloneMetadataEntry(entry)
+		f.applyDriveItemToEntry(entry, item, snapshot)
+		entry.PendingRemote = false
+		return nil
+	})
+	if err == metadata.ErrNotFound {
+		entry := f.entryFromDriveItem(item, snapshot)
+		if entry == nil {
+			return nil, nil, metadata.ErrNotFound
+		}
+		entry.PendingRemote = false
+		if saveErr := f.metadataStore.Save(ctx, entry); saveErr != nil {
+			return nil, nil, saveErr
+		}
+		return entry, nil, nil
+	}
+	return updated, previous, err
+}
+
+// replaceParentChildren overwrites the parent's child list based on the provided entries.
+func (f *Filesystem) replaceParentChildren(ctx context.Context, parentID string, children []*metadata.Entry) error {
+	if f.metadataStore == nil || parentID == "" {
+		return nil
+	}
+	childIDs := make([]string, 0, len(children))
+	var dirCount uint32
+	for _, child := range children {
+		if child == nil {
+			continue
+		}
+		childIDs = append(childIDs, child.ID)
+		if child.ItemType == metadata.ItemKindDirectory {
+			dirCount++
+		}
+	}
+	sort.Strings(childIDs)
+
+	_, err := f.metadataStore.Update(ctx, parentID, func(entry *metadata.Entry) error {
+		if entry == nil {
+			return metadata.ErrNotFound
+		}
+		entry.Children = childIDs
+		entry.SubdirCount = dirCount
+		entry.PendingRemote = false
+		return nil
+	})
+	if err != nil && err != metadata.ErrNotFound {
+		return err
+	}
+	return nil
+}
+
+// moveChildBetweenParents updates parent child lists when an item moves.
+func (f *Filesystem) moveChildBetweenParents(ctx context.Context, oldParentID, newParentID string, child *metadata.Entry) {
+	if child == nil || f.metadataStore == nil {
+		return
+	}
+	if oldParentID != "" && oldParentID != newParentID {
+		_ = f.removeChildFromParent(ctx, oldParentID, child.ID, child.ItemType == metadata.ItemKindDirectory)
+	}
+	if newParentID != "" {
+		_ = f.addChildToParent(ctx, newParentID, child)
+	}
+}
+
+// addChildToParent appends a child ID to the parent's metadata, updating subdir counts.
+func (f *Filesystem) addChildToParent(ctx context.Context, parentID string, child *metadata.Entry) error {
+	if f.metadataStore == nil || parentID == "" || child == nil {
+		return nil
+	}
+	_, err := f.metadataStore.Update(ctx, parentID, func(entry *metadata.Entry) error {
+		if entry == nil {
+			return metadata.ErrNotFound
+		}
+		present := false
+		for _, existing := range entry.Children {
+			if existing == child.ID {
+				present = true
+				break
+			}
+		}
+		if !present {
+			entry.Children = append(entry.Children, child.ID)
+			if child.ItemType == metadata.ItemKindDirectory {
+				entry.SubdirCount++
+			}
+			sort.Strings(entry.Children)
+		}
+		entry.PendingRemote = false
+		return nil
+	})
+	if err != nil && err != metadata.ErrNotFound {
+		return err
+	}
+	return nil
+}
+
+// removeChildFromParent removes a child ID from the parent's metadata.
+func (f *Filesystem) removeChildFromParent(ctx context.Context, parentID, childID string, childWasDir bool) error {
+	if f.metadataStore == nil || parentID == "" || childID == "" {
+		return nil
+	}
+	_, err := f.metadataStore.Update(ctx, parentID, func(entry *metadata.Entry) error {
+		if entry == nil {
+			return metadata.ErrNotFound
+		}
+		out := entry.Children[:0]
+		removed := false
+		for _, existing := range entry.Children {
+			if existing == childID {
+				removed = true
+				continue
+			}
+			out = append(out, existing)
+		}
+		entry.Children = out
+		if removed && childWasDir && entry.SubdirCount > 0 {
+			entry.SubdirCount--
+		}
+		entry.PendingRemote = false
+		return nil
+	})
+	if err != nil && err != metadata.ErrNotFound {
+		return err
+	}
+	return nil
+}
+
 // GetMetadataEntry returns the structured metadata entry for the provided ID.
 func (f *Filesystem) GetMetadataEntry(id string) (*metadata.Entry, error) {
 	return f.loadMetadataEntry(id)
@@ -318,6 +607,19 @@ func (f *Filesystem) transitionItemState(id string, target metadata.ItemState, o
 			Str("state", string(target)).
 			Msg("Metadata state transition failed")
 	}
+}
+
+// transitionToState transitions via the state manager, forcing the transition when the current state matches.
+func (f *Filesystem) transitionToState(id string, target metadata.ItemState, opts ...metadata.TransitionOption) {
+	if id == "" {
+		return
+	}
+	if f.metadataStore != nil {
+		if entry, err := f.metadataStore.Get(context.Background(), id); err == nil && entry.State == target {
+			opts = append(opts, metadata.ForceTransition())
+		}
+	}
+	f.transitionItemState(id, target, opts...)
 }
 
 func (f *Filesystem) markEntryDeleted(id string) {

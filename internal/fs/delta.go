@@ -550,173 +550,96 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 	logger := logging.WithLogContext(logCtx)
 	logger.Debug().Msg("Applying delta")
 
-	// diagnose and act on what type of delta we're dealing with
+	ctx := context.Background()
 
-	// do we have it at all?
-	parent := f.GetID(parentID)
-	if parent == nil {
-		// Nothing needs to be applied, item not in cache, so latest copy will
-		// be pulled down next time it's accessed.
-		logger.Debug().
-			Str("delta", "skip").
-			Msg("Skipping delta, item's parent not in cache.")
-		return nil
-	}
-
-	logger.Debug().
-		Str("parentPath", parent.Path()).
-		Msg("Found parent in cache")
-
-	local := f.GetID(id)
-	if local != nil {
-		logger.Debug().
-			Str("localPath", local.Path()).
-			Msg("Found item in cache")
-	} else {
-		logger.Debug().Msg("Item not found in cache")
+	// Ensure the parent exists in the structured metadata store. If not, skip quietly.
+	if f.metadataStore != nil {
+		if _, err := f.metadataStore.Get(ctx, parentID); err != nil {
+			if !errors.Is(err, metadata.ErrNotFound) {
+				logger.Debug().Err(err).Str("parentID", parentID).Msg("Failed to read parent metadata")
+			} else {
+				logger.Debug().Str("parentID", parentID).Msg("Skipping delta; parent metadata not present yet")
+			}
+			return nil
+		}
 	}
 
 	// was it deleted?
 	if delta.Deleted != nil {
 		logger.Debug().Msg("Processing deletion delta")
-		if delta.IsDir() && local != nil && local.HasChildren() {
-			// from docs: you should only delete a folder locally if it is empty
-			// after syncing all the changes.
-			logger.Warn().Str("delta", "delete").
-				Msg("Refusing delta deletion of non-empty folder as per API docs.")
-			return errors.New("directory is non-empty")
-		}
 		logger.Info().Str("delta", "delete").
 			Msg("Applying server-side deletion of item.")
+		_ = f.removeChildFromParent(ctx, parentID, id, delta.IsDir())
+		f.markEntryDeleted(id)
 		f.DeleteID(id)
 		return nil
 	}
 
-	// does the item exist locally? if not, add the delta to the cache under the
-	// appropriate parent
-	if local == nil {
-		logger.Debug().Msg("Item not in cache by ID, checking by name")
-		// check if we don't have it here first
-		local, _ = f.GetChild(parentID, name, nil)
-		if local != nil {
-			localID := local.ID()
-			logger.Debug().
-				Str("localID", localID).
-				Msg("Local item already exists under different ID.")
-			if isLocalID(localID) {
-				logger.Debug().Msg("Local ID is a temporary ID, moving to permanent ID")
-				if err := f.MoveID(localID, id); err != nil {
-					logger.Debug().
-						Str("localID", localID).
-						Err(err).
-						Msg("Could not move item to new, nonlocal ID!")
-				} else {
-					logger.Debug().Msg("Successfully moved item to new ID")
-				}
-			}
-		} else {
-			logger.Info().Str("delta", "create").
-				Msg("Creating inode from delta.")
-			f.InsertChild(parentID, NewInodeDriveItem(delta))
-			f.updateMetadataFromDelta(id, delta)
-			logger.Debug().Msg("Successfully created inode from delta")
-			return nil
+	// Pull prior metadata if present to evaluate transitions.
+	var prior *metadata.Entry
+	if f.metadataStore != nil {
+		if entry, err := f.metadataStore.Get(ctx, id); err == nil {
+			prior = entry
 		}
 	}
 
+	updated, previous, err := f.upsertDriveItemEntry(ctx, delta, time.Now().UTC())
+	if err != nil {
+		logger.Debug().Err(err).Str("id", id).Msg("Failed to upsert metadata entry for delta")
+		return err
+	}
+	if previous == nil {
+		previous = prior
+	}
+
+	// Honor parent/child relationships in metadata.
+	if previous != nil && previous.ParentID != updated.ParentID {
+		f.moveChildBetweenParents(ctx, previous.ParentID, updated.ParentID, updated)
+	} else {
+		_ = f.addChildToParent(ctx, updated.ParentID, updated)
+	}
+
+	// Hydrate inode cache for downstream consumers (metadata remains source of truth).
+	f.ensureInodeFromMetadataStore(updated.ID)
+
 	// was the item moved?
-	localName := local.Name()
-	if local.ParentID() != parentID || local.Name() != name {
+	if previous != nil && (previous.ParentID != parentID || previous.Name != name) {
 		logger.Debug().Msg("Processing move/rename delta")
 		logging.Info().
-			Str("parent", local.ParentID()).
-			Str("name", localName).
+			Str("parent", previous.ParentID).
+			Str("name", previous.Name).
 			Str("newParent", parentID).
 			Str("newName", name).
 			Str("id", id).
 			Str("delta", "rename").
 			Msg("Applying server-side rename")
-		oldParentID := local.ParentID()
-		// local rename only
-		logger.Debug().Msg("Calling MovePath to rename/move item")
-		if err := f.MovePath(oldParentID, parentID, localName, name, f.auth); err != nil {
-			logger.Debug().Err(err).Msg("Failed to rename/move item")
-			// Continue processing as there may be additional changes
-		} else {
-			logger.Debug().Msg("Successfully renamed/moved item")
-			f.updateMetadataFromDelta(id, delta)
-		}
-		// do not return, there may be additional changes
 	}
 
-	// Finally, check if the content/metadata of the remote has changed.
-	// "Interesting" changes must be synced back to our local state without
-	// data loss or corruption. Currently the only thing the local filesystem
-	// actually modifies remotely is the actual file data, so we simply accept
-	// the remote metadata changes that do not deal with the file's content
-	// changing.
-	logger.Debug().
-		Time("localModTime", *local.DriveItem.ModTime).
-		Time("remoteModTime", *delta.ModTime).
-		Str("localETag", local.DriveItem.ETag).
-		Str("remoteETag", delta.ETag).
-		Msg("Checking for content changes")
+	etagChanged := previous != nil && previous.ETag != "" && delta.ETag != "" && previous.ETag != delta.ETag
 
-	if delta.ModTimeUnix() > local.ModTime() && !delta.ETagIsMatch(local.DriveItem.ETag) {
-		logger.Debug().Msg("Remote item is newer than local item")
-		sameContent := false
-		if !delta.IsDir() && delta.File != nil {
-			logger.Debug().Msg("Checking file hashes")
-			// check if the content is the same
-			if delta.File.Hashes.QuickXorHash != "" && local.DriveItem.File != nil &&
-				local.DriveItem.File.Hashes.QuickXorHash != "" {
-				sameContent = delta.File.Hashes.QuickXorHash == local.DriveItem.File.Hashes.QuickXorHash
-				logger.Debug().Bool("sameContent", sameContent).Msg("Compared QuickXorHash values")
-			}
-		}
-
-		if sameContent {
-			logger.Info().Str("delta", "update").
-				Msg("Updating metadata only, content is the same")
-			// update the metadata only
-			local.mu.Lock()
-			local.DriveItem.ModTime = delta.ModTime
-			local.DriveItem.Size = delta.Size
-			local.DriveItem.ETag = delta.ETag
-			local.DriveItem.File = delta.File
-			local.hasChanges = false
-			local.mu.Unlock()
-			logger.Debug().Msg("Updated metadata")
-			f.persistMetadataEntry(id, local)
-			f.updateMetadataFromDelta(id, delta)
-			f.transitionItemState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
-		} else {
+	switch {
+	case delta.IsDir():
+		f.transitionToState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
+	default:
+		if etagChanged {
 			logger.Info().Str("delta", "invalidate").
 				Msg("Content has changed, invalidating cache and marking file as out of sync")
-			// Explicitly invalidate the cache by deleting cached content
-			// This ensures stale content is not served to users
-			if err := f.content.Delete(id); err != nil {
-				logger.Warn().Err(err).Msg("Failed to delete cached content during invalidation")
+			if f.content != nil {
+				if err := f.content.Delete(id); err != nil {
+					logger.Warn().Err(err).Msg("Failed to delete cached content during invalidation")
+				}
 			}
 			f.handleContentEvicted(id)
-			// Mark file status as OutofSync to indicate it needs to be re-downloaded
 			f.MarkFileOutofSync(id)
-			// update the metadata with new ETag and size
-			local.mu.Lock()
-			local.DriveItem.ModTime = delta.ModTime
-			local.DriveItem.Size = delta.Size
-			local.DriveItem.ETag = delta.ETag
-			local.DriveItem.File = delta.File
-			local.hasChanges = false
-			local.mu.Unlock()
-			// Update file status extended attributes for UI integration
-			f.updateFileStatus(local)
-			logger.Debug().Msg("Updated metadata, invalidated content cache, and marked file as OutofSync")
-			f.persistMetadataEntry(id, local)
-			f.updateMetadataFromDelta(id, delta)
+
+			if previous != nil && previous.State == metadata.ItemStateDirtyLocal {
+				f.transitionToState(id, metadata.ItemStateConflict, metadata.ClearPendingRemote())
+			} else {
+				f.transitionToState(id, metadata.ItemStateGhost, metadata.ClearPendingRemote())
+			}
+		} else {
+			f.transitionToState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
 		}
-	} else {
-		logger.Debug().Msg("Local item is up to date")
 	}
 
 	return nil
