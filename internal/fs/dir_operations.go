@@ -48,7 +48,7 @@ func (f *Filesystem) Mkdir(_ <-chan struct{}, in *fuse.MkdirIn, name string, out
 	}
 
 	f.markChildPendingRemote(newInode.ID())
-	f.queueRemoteDirCreate(id, newInode.ID(), name, in.Mode|fuse.S_IFDIR)
+	f.queueRemoteDirCreate(id, newInode.ID(), name)
 	return fuse.OK
 }
 

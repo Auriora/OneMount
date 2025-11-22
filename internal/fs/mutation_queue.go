@@ -10,7 +10,7 @@ import (
 	"github.com/auriora/onemount/internal/metadata"
 )
 
-func (f *Filesystem) queueRemoteDirCreate(parentID, tempID, name string, mode uint32) {
+func (f *Filesystem) queueRemoteDirCreate(parentID, tempID, name string) {
 	if parentID == "" || tempID == "" || name == "" {
 		return
 	}

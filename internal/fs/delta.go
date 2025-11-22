@@ -730,7 +730,7 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			f.handleContentEvicted(id)
 			f.MarkFileOutofSync(id)
 
-			if previous != nil && previous.State == metadata.ItemStateDirtyLocal {
+			if previous.State == metadata.ItemStateDirtyLocal {
 				f.transitionToState(id, metadata.ItemStateConflict, metadata.ClearPendingRemote())
 			} else {
 				f.transitionToState(id, metadata.ItemStateGhost, metadata.ClearPendingRemote())
