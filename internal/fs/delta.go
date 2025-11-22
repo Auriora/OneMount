@@ -10,12 +10,14 @@ import (
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
 	"github.com/auriora/onemount/internal/metadata"
+	"github.com/auriora/onemount/internal/socketio"
 	bolt "go.etcd.io/bbolt"
 )
 
 const (
 	defaultPollingInterval          = 5 * time.Minute
 	defaultRealtimeFallbackInterval = 30 * time.Minute
+	defaultRecoveryInterval         = 10 * time.Second
 
 	deltaIntervalDeviationSuffix = "-deviation"
 )
@@ -87,15 +89,10 @@ func (f *Filesystem) shouldUseActiveInterval(baseInterval time.Duration) bool {
 }
 
 func (f *Filesystem) desiredDeltaInterval() time.Duration {
-	if f.subscriptionManager != nil && f.subscriptionManager.IsActive() {
-		expected := defaultRealtimeFallbackInterval
-		interval := expected
-		if f.realtimeOptions != nil && f.realtimeOptions.FallbackInterval > 0 {
-			interval = f.realtimeOptions.FallbackInterval
-		}
-		f.logDeltaInterval(interval, "realtime", expected)
+	if interval, ok := f.deltaIntervalFromNotifier(); ok {
 		return interval
 	}
+
 	baseInterval := f.deltaInterval
 	if baseInterval <= 0 {
 		baseInterval = defaultPollingInterval
@@ -106,6 +103,107 @@ func (f *Filesystem) desiredDeltaInterval() time.Duration {
 	}
 	f.logDeltaInterval(interval, "polling", baseInterval)
 	return interval
+}
+
+func (f *Filesystem) deltaIntervalFromNotifier() (time.Duration, bool) {
+	if f.subscriptionManager == nil || f.realtimeOptions == nil || !f.realtimeOptions.Enabled {
+		return 0, false
+	}
+
+	health, hasHealth := f.notifierHealthSnapshot()
+
+	if hasHealth && isNotifierFailed(health.Status) {
+		f.logDeltaInterval(defaultRecoveryInterval, "realtime-recovery", defaultRecoveryInterval)
+		return defaultRecoveryInterval, true
+	}
+
+	if hasHealth && isNotifierDegraded(health.Status) {
+		f.logDeltaInterval(defaultPollingInterval, "realtime-degraded", defaultPollingInterval)
+		return defaultPollingInterval, true
+	}
+
+	if f.subscriptionManager.IsActive() {
+		expected := defaultRealtimeFallbackInterval
+		interval := expected
+		if f.realtimeOptions.FallbackInterval > 0 {
+			interval = f.realtimeOptions.FallbackInterval
+		}
+		// Requirement 5.4: no more frequent than defaultRealtimeFallbackInterval
+		if interval < defaultRealtimeFallbackInterval {
+			interval = defaultRealtimeFallbackInterval
+		}
+		f.logDeltaInterval(interval, "realtime", expected)
+		return interval, true
+	}
+
+	return 0, false
+}
+
+func (f *Filesystem) notifierHealthSnapshot() (socketio.HealthState, bool) {
+	provider, ok := f.subscriptionManager.(interface {
+		HealthSnapshot() socketio.HealthState
+	})
+	if !ok {
+		return socketio.HealthState{}, false
+	}
+	state := provider.HealthSnapshot()
+	f.noteNotifierHealth(state)
+	return state, true
+}
+
+func isNotifierDegraded(status socketio.StatusCode) bool {
+	return status == socketio.StatusDegraded
+}
+
+func isNotifierFailed(status socketio.StatusCode) bool {
+	return status == socketio.StatusFailed
+}
+
+func (f *Filesystem) noteNotifierHealth(state socketio.HealthState) {
+	now := time.Now()
+	prev := socketio.StatusUnknown
+	if v := f.notifierLastStatus.Load(); v != nil {
+		if s, ok := v.(socketio.StatusCode); ok {
+			prev = s
+		}
+	}
+
+	enteredDegraded := !isNotifierDegraded(prev) && !isNotifierFailed(prev) && (isNotifierDegraded(state.Status) || isNotifierFailed(state.Status))
+	leftDegraded := (isNotifierDegraded(prev) || isNotifierFailed(prev)) && !(isNotifierDegraded(state.Status) || isNotifierFailed(state.Status))
+
+	if enteredDegraded {
+		f.notifierDegradedSince.Store(now.UnixNano())
+		logging.Warn().
+			Str("status", string(state.Status)).
+			Int("consecutiveFailures", state.ConsecutiveFailures).
+			Int("missedHeartbeats", state.MissedHeartbeats).
+			Err(state.LastError).
+			Msg("Realtime notifier degraded; switching to fallback polling cadence")
+	}
+
+	if leftDegraded {
+		start := f.notifierDegradedSince.Swap(0)
+		if start != 0 {
+			duration := time.Since(time.Unix(0, start))
+			logging.Info().
+				Dur("duration", duration).
+				Msg("Realtime notifier recovered; restoring realtime cadence")
+		}
+	}
+
+	if isNotifierFailed(state.Status) {
+		if f.notifierRecoverySince.Load() == 0 {
+			f.notifierRecoverySince.Store(now.UnixNano())
+			logging.Warn().
+				Err(state.LastError).
+				Int("consecutiveFailures", state.ConsecutiveFailures).
+				Msg("Realtime notifier failed; entering 10-second recovery polling window")
+		}
+	} else {
+		f.notifierRecoverySince.Store(0)
+	}
+
+	f.notifierLastStatus.Store(state.Status)
 }
 
 // DeltaLoop creates a new thread to poll the server for changes and should be

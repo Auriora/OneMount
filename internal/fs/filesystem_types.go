@@ -131,6 +131,9 @@ type Filesystem struct {
 	activeDeltaInterval    time.Duration
 	activeDeltaWindow      time.Duration
 	lastForegroundActivity atomic.Int64
+	notifierLastStatus     atomic.Value
+	notifierDegradedSince  atomic.Int64
+	notifierRecoverySince  atomic.Int64
 
 	// Sync progress tracking
 	syncProgress *SyncProgress // Progress tracking for directory tree sync

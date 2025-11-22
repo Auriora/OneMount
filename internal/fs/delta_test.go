@@ -1,12 +1,14 @@
 package fs
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/metadata"
+	"github.com/auriora/onemount/internal/socketio"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/stretchr/testify/require"
@@ -575,5 +577,56 @@ func TestDesiredDeltaIntervalFallsBackAfterWindow(t *testing.T) {
 
 	if interval := fs.desiredDeltaInterval(); interval != 2*time.Minute {
 		t.Fatalf("expected base interval 2m, got %s", interval)
+	}
+}
+
+type fakeNotifier struct {
+	active bool
+	health socketio.HealthState
+}
+
+func (f *fakeNotifier) Start(context.Context) error          { return nil }
+func (f *fakeNotifier) Stop(context.Context) error           { return nil }
+func (f *fakeNotifier) Notifications() <-chan struct{}       { return nil }
+func (f *fakeNotifier) IsActive() bool                       { return f.active }
+func (f *fakeNotifier) HealthSnapshot() socketio.HealthState { return f.health }
+
+func TestDesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
+	fs := &Filesystem{}
+	fs.ConfigureRealtime(RealtimeOptions{Enabled: true, FallbackInterval: 45 * time.Minute})
+	fs.subscriptionManager = &fakeNotifier{
+		active: true,
+		health: socketio.HealthState{Status: socketio.StatusHealthy},
+	}
+
+	expected := 45 * time.Minute
+	if interval := fs.desiredDeltaInterval(); interval != expected {
+		t.Fatalf("expected realtime healthy interval %s, got %s", expected, interval)
+	}
+}
+
+func TestDesiredDeltaIntervalUsesNotifierHealthDegraded(t *testing.T) {
+	fs := &Filesystem{}
+	fs.ConfigureRealtime(RealtimeOptions{Enabled: true})
+	fs.subscriptionManager = &fakeNotifier{
+		active: true,
+		health: socketio.HealthState{Status: socketio.StatusDegraded, ConsecutiveFailures: 3},
+	}
+
+	if interval := fs.desiredDeltaInterval(); interval != defaultPollingInterval {
+		t.Fatalf("expected degraded interval %s, got %s", defaultPollingInterval, interval)
+	}
+}
+
+func TestDesiredDeltaIntervalUsesNotifierHealthFailedRecovery(t *testing.T) {
+	fs := &Filesystem{}
+	fs.ConfigureRealtime(RealtimeOptions{Enabled: true})
+	fs.subscriptionManager = &fakeNotifier{
+		active: true,
+		health: socketio.HealthState{Status: socketio.StatusFailed, ConsecutiveFailures: 5},
+	}
+
+	if interval := fs.desiredDeltaInterval(); interval != defaultRecoveryInterval {
+		t.Fatalf("expected recovery interval %s, got %s", defaultRecoveryInterval, interval)
 	}
 }
