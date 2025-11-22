@@ -1041,7 +1041,6 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 	}
 
 	childIsDir := inode.IsDir()
-	updatedParent := false
 
 	// check if the item has already been added to the parent
 	// Lock ordering: parent inode before child inode (when both needed)
@@ -1065,16 +1064,13 @@ func (f *Filesystem) InsertID(id string, inode *Inode) uint64 {
 		parent.subdir++
 	}
 	parent.children = append(parent.children, id)
-	updatedParent = true
 	parent.mu.Unlock()
 	logLockHoldDuration("inode-parent", "InsertID", lockStart)
 
 	if inode != nil {
 		f.persistMetadataEntry(id, inode)
 	}
-	if updatedParent {
-		f.persistMetadataEntry(parentID, parent)
-	}
+	f.persistMetadataEntry(parentID, parent)
 	return nodeID
 }
 
@@ -1449,7 +1445,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		// refresh path after the read lock has been released
 		pathForLogs = inode.Path()
 
-		if restored, ok := f.tryPopulateChildrenFromMetadata(id, inode); ok {
+		if restored, ok := f.tryPopulateChildrenFromMetadata(id); ok {
 			if logging.IsDebugEnabled() {
 				logger.Debug().
 					Str(logging.FieldID, id).
@@ -1774,7 +1770,7 @@ func (f *Filesystem) cacheChildrenFromMap(parentID string, children map[string]*
 }
 
 // tryPopulateChildrenFromMetadata rebuilds a directory's child list from the structured metadata store.
-func (f *Filesystem) tryPopulateChildrenFromMetadata(id string, inode *Inode) (map[string]*Inode, bool) {
+func (f *Filesystem) tryPopulateChildrenFromMetadata(id string) (map[string]*Inode, bool) {
 	if f.metadataStore == nil || id == "" {
 		return nil, false
 	}
@@ -1808,7 +1804,7 @@ func (f *Filesystem) getChildFromMetadataCache(parentID string, lowerName string
 	if parent == nil {
 		return nil
 	}
-	if children, ok := f.tryPopulateChildrenFromMetadata(parentID, parent); ok {
+	if children, ok := f.tryPopulateChildrenFromMetadata(parentID); ok {
 		if child, exists := children[lowerName]; exists {
 			return child
 		}
@@ -2117,6 +2113,12 @@ func (f *Filesystem) MovePath(oldParent, newParent, oldName, newName string, aut
 	// this is the actual move op
 	inode.SetName(newName)
 	parent := f.GetID(newParent)
+	if parent == nil {
+		parent = f.ensureInodeFromMetadataStore(newParent)
+	}
+	if parent == nil {
+		return errors.New("new parent not found in cache or metadata store")
+	}
 	inode.DriveItem.Parent.ID = parent.DriveItem.ID
 	f.InsertID(id, inode)
 	return nil
