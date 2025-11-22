@@ -212,11 +212,8 @@ func TestValidateConfigOverlayPolicy(t *testing.T) {
 	}
 
 	cfg.Overlay.DefaultPolicy = "invalid"
-	if err := validateConfig(&cfg); err != nil {
-		t.Fatalf("validateConfig returned error for fallback scenario: %v", err)
-	}
-	if cfg.Overlay.DefaultPolicy != "REMOTE_WINS" {
-		t.Fatalf("expected overlay policy fallback to REMOTE_WINS, got %s", cfg.Overlay.DefaultPolicy)
+	if err := validateConfig(&cfg); err == nil {
+		t.Fatalf("expected error for invalid overlay policy")
 	}
 }
 
@@ -276,11 +273,8 @@ func TestHydrationConfigDefaultsAndValidation(t *testing.T) {
 
 	cfg.Hydration.Workers = -1
 	cfg.Hydration.QueueSize = 0
-	if err := validateConfig(&cfg); err != nil {
-		t.Fatalf("validateConfig returned error after invalid hydration settings: %v", err)
-	}
-	if cfg.Hydration.Workers != 4 || cfg.Hydration.QueueSize != 500 {
-		t.Fatalf("hydration config not reset to defaults after validation: %+v", cfg.Hydration)
+	if err := validateConfig(&cfg); err == nil {
+		t.Fatalf("expected error after invalid hydration settings")
 	}
 }
 
@@ -289,10 +283,27 @@ func TestMetadataQueueDefaultsAndValidation(t *testing.T) {
 	cfg.MetadataQueue.Workers = -1
 	cfg.MetadataQueue.HighPrioritySize = 0
 	cfg.MetadataQueue.LowPrioritySize = -10
-	if err := validateConfig(&cfg); err != nil {
-		t.Fatalf("validateConfig returned error: %v", err)
+	if err := validateConfig(&cfg); err == nil {
+		t.Fatalf("expected error for invalid metadata queue values")
 	}
-	if cfg.MetadataQueue.Workers != 3 || cfg.MetadataQueue.HighPrioritySize != 100 || cfg.MetadataQueue.LowPrioritySize != 1000 {
-		t.Fatalf("metadata queue config not reset to defaults: %+v", cfg.MetadataQueue)
+}
+
+func TestRealtimeFallbackValidationBounds(t *testing.T) {
+	cfg := createDefaultConfig()
+	cfg.Realtime.FallbackInterval = 10
+	if err := validateConfig(&cfg); err == nil {
+		t.Fatalf("expected error for fallback interval below minimum")
+	}
+
+	cfg = createDefaultConfig()
+	cfg.Realtime.FallbackInterval = int((3 * time.Hour).Seconds())
+	if err := validateConfig(&cfg); err == nil {
+		t.Fatalf("expected error for fallback interval above maximum")
+	}
+
+	cfg = createDefaultConfig()
+	cfg.Realtime.FallbackInterval = 120
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error for valid fallback interval: %v", err)
 	}
 }

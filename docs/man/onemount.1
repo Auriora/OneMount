@@ -147,7 +147,35 @@ performance but uses less bandwidth and memory.
 .TP
 .BR \-i , " \-\-delta-interval " \fIseconds
 Set the interval in seconds between delta query checks.
-Default is 1 second. Set to 0 to use the default.
+Default is 300 seconds (5 minutes). Set to 0 to use the default.
+
+.TP
+.BR " --hydration-workers " \fIcount
+Number of concurrent hydration/download workers. Valid range: 1\-64. Default is 4.
+
+.TP
+.BR " --hydration-queue-size " \fIcount
+Maximum queued hydration requests. Valid range: 1\-100000. Default is 500.
+
+.TP
+.BR " --metadata-workers " \fIcount
+Number of metadata request workers. Valid range: 1\-64. Default is 3.
+
+.TP
+.BR " --metadata-high-queue-size " \fIcount
+High-priority metadata queue size. Valid range: 1\-100000. Default is 100.
+
+.TP
+.BR " --metadata-low-queue-size " \fIcount
+Low-priority metadata queue size. Valid range: 1\-100000. Default is 1000.
+
+.TP
+.BR " --realtime-fallback-seconds " \fIseconds
+Override realtime fallback polling interval in seconds (when Socket.IO is degraded). Valid range: 30\-7200. Default is 1800.
+
+.TP
+.BR " --overlay-policy " \fIpolicy
+Default overlay policy for virtual entries. Must be one of \fBREMOTE_WINS\fR, \fBLOCAL_WINS\fR, or \fBMERGED\fR.
 
 .TP
 .BR \-e , " \-\-cache-expiration " \fIdays

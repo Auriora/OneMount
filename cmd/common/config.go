@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -234,10 +235,7 @@ func validateConfig(config *Config) error {
 	case string(metadata.OverlayPolicyRemoteWins), string(metadata.OverlayPolicyLocalWins), string(metadata.OverlayPolicyMerged):
 		config.Overlay.DefaultPolicy = strings.ToUpper(config.Overlay.DefaultPolicy)
 	default:
-		logging.Warn().
-			Str("overlayPolicy", config.Overlay.DefaultPolicy).
-			Msg("Overlay default must be one of REMOTE_WINS, LOCAL_WINS, or MERGED; using REMOTE_WINS")
-		config.Overlay.DefaultPolicy = string(metadata.OverlayPolicyRemoteWins)
+		return fmt.Errorf("overlay.defaultPolicy must be REMOTE_WINS, LOCAL_WINS, or MERGED; got %s", config.Overlay.DefaultPolicy)
 	}
 
 	// Validate AuthConfig if provided
@@ -251,8 +249,12 @@ func validateConfig(config *Config) error {
 		return err
 	}
 
-	validateHydrationConfig(&config.Hydration)
-	validateMetadataQueueConfig(&config.MetadataQueue)
+	if err := validateHydrationConfig(&config.Hydration); err != nil {
+		return err
+	}
+	if err := validateMetadataQueueConfig(&config.MetadataQueue); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -267,37 +269,42 @@ func validateRealtimeConfig(cfg *RealtimeConfig) error {
 	if cfg.FallbackInterval <= 0 {
 		cfg.FallbackInterval = int((30 * time.Minute).Seconds())
 	}
+	if cfg.FallbackInterval < 30 || cfg.FallbackInterval > int((2*time.Hour).Seconds()) {
+		return fmt.Errorf("realtime fallback interval must be between 30 and 7200 seconds, got %d", cfg.FallbackInterval)
+	}
 	if cfg.Enabled && cfg.ClientState == "" {
 		cfg.ClientState = generateClientState()
 	}
 	return nil
 }
 
-func validateHydrationConfig(cfg *HydrationConfig) {
+func validateHydrationConfig(cfg *HydrationConfig) error {
 	if cfg == nil {
-		return
+		return nil
 	}
-	if cfg.Workers <= 0 {
-		cfg.Workers = 4
+	if cfg.Workers < 1 || cfg.Workers > 64 {
+		return fmt.Errorf("hydration.workers must be between 1 and 64, got %d", cfg.Workers)
 	}
-	if cfg.QueueSize <= 0 {
-		cfg.QueueSize = 500
+	if cfg.QueueSize < 1 || cfg.QueueSize > 100000 {
+		return fmt.Errorf("hydration.queueSize must be between 1 and 100000, got %d", cfg.QueueSize)
 	}
+	return nil
 }
 
-func validateMetadataQueueConfig(cfg *MetadataQueueConfig) {
+func validateMetadataQueueConfig(cfg *MetadataQueueConfig) error {
 	if cfg == nil {
-		return
+		return nil
 	}
-	if cfg.Workers <= 0 {
-		cfg.Workers = 3
+	if cfg.Workers < 1 || cfg.Workers > 64 {
+		return fmt.Errorf("metadataQueue.workers must be between 1 and 64, got %d", cfg.Workers)
 	}
-	if cfg.HighPrioritySize <= 0 {
-		cfg.HighPrioritySize = 100
+	if cfg.HighPrioritySize < 1 || cfg.HighPrioritySize > 100000 {
+		return fmt.Errorf("metadataQueue.highPrioritySize must be between 1 and 100000, got %d", cfg.HighPrioritySize)
 	}
-	if cfg.LowPrioritySize <= 0 {
-		cfg.LowPrioritySize = 1000
+	if cfg.LowPrioritySize < 1 || cfg.LowPrioritySize > 100000 {
+		return fmt.Errorf("metadataQueue.lowPrioritySize must be between 1 and 100000, got %d", cfg.LowPrioritySize)
 	}
+	return nil
 }
 
 func generateClientState() string {

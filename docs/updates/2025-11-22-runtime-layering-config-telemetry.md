@@ -9,6 +9,7 @@
 - Added hydration controls to config/CLI (`--hydration-workers`, `--hydration-queue-size`) and metadata queue sizing knobs (`--metadata-workers`, `--metadata-high-queue-size`, `--metadata-low-queue-size`) so mounts can tune worker counts and queue depths per spec item 6.
 - Exposed realtime fallback override (`--realtime-fallback-seconds`) and overlay default (`--overlay-policy`) as first-class flags on top of YAML fields.
 - Instrumented the metadata request manager to track queue depth and avg wait; `onemount --stats` now reports metadata queue and hydration queue/worker activity alongside realtime heartbeat metrics.
+- Tightened validation: hydration/metadata worker and queue bounds now reject invalid ranges; overlay policy must be REMOTE_WINS|LOCAL_WINS|MERGED; realtime fallback interval must be 30–7200s. README and manpage document the ranges.
 
 ## Usage
 
