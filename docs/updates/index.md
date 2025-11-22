@@ -3,6 +3,7 @@
 Newest entries first.
 
 - **2025-11-21** – [Runtime Layering – Sync & Hydration Pipeline](./2025-11-21-runtime-layering-sync-hydration-pipeline.md)
+- **2025-11-22** – [Performance Harness Duration Guard](./2025-11-22-performance-harness-duration-guard.md)
 - **2025-11-21** – [Runtime Layering – Metadata Hardening](./2025-11-21-runtime-layering-metadata-hardening.md)
 - **2025-11-21** – [Runtime Layering – Config & Telemetry](./2025-11-21-runtime-layering-config-and-telemetry.md)
 - **2025-11-21** – [Runtime Layering – ChangeNotifier Facade](./2025-11-21-runtime-layering-change-notifier.md)

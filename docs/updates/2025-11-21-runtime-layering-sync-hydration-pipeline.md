@@ -9,11 +9,12 @@
 - Reworked the tree sync walker to populate `metadata_v2` via the structured store and state manager instead of instantiating inodes directly; parent/child links now update in a single metadata transaction so FUSE stays local-first per Requirement 2.15.
 - Routed delta reconciliation through validated state transitions: remote deletions now flow through `markEntryDeleted`, metadata updates are written via `metadata_v2`, and content invalidations move items to `GHOST` (or `CONFLICT` when local edits exist) while successful reconciliations force `HYDRATED`.
 - Added helper state transitions that safely reapply options (e.g., `ClearPendingRemote`) even when already in the target state, keeping hydration/upload metadata snapshots consistent with the design’s Item State Model.
-- Introduced focused regression tests to lock in the new delta-driven state behavior and cache eviction path for remote changes.
+- Introduced focused regression tests to lock in the new delta-driven state behavior, cache eviction path for remote changes, and the metadata-only FUSE readdir path when the in-memory cache is cold.
 
 ## Testing
 
 - `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run 'TestApplyDelta(Set|Hydrates|Marks)' -count=1`
+- `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestGetChildrenIDUsesMetadataStoreWhenCold -count=1`
 
 ## Rules Consulted
 
