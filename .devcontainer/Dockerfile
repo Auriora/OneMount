@@ -19,6 +19,9 @@ RUN apt-get update \
         curl \
         fuse3 \
         git \
+        dbus \
+        dbus-user-session \
+        d-feet \
         libasound2 \
         libatk-bridge2.0-0 \
         libatk1.0-0 \

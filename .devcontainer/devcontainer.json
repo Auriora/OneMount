@@ -11,6 +11,7 @@
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "containerUser": "vscode",
+  "init": true,
   "initializeCommand": "bash -lc '.devcontainer/bin/ensure-host-x11'",
   "runArgs": [
     "--device=/dev/fuse",
