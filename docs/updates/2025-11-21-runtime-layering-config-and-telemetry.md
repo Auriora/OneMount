@@ -1,7 +1,7 @@
 # Runtime Layering – Config & Telemetry (2025-11-21)
 
 **Type**: Implementation Update  
-**Status**: Complete  
+**Status**: Complete (validated 2025-11-22)  
 **Components**: `cmd/common/config.go`, `cmd/onemount/main.go`, `internal/fs/cache.go`, `internal/fs/metadata_store.go`, `internal/fs/download_manager.go`, `internal/fs/stats.go`
 
 ## Summary
@@ -15,6 +15,7 @@
 - `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./cmd/common -run TestValidateConfigOverlayPolicy -count=1`
 - `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestStatsReportsMetadataStates -count=1`
 - `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestChangeNotifier -count=1`
+- Validation addendum (2025-11-22): `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestDeltaIntervalRespectsNotifierHealth -count=1`
 
 ## Rules Consulted
 

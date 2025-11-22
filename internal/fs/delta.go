@@ -737,7 +737,11 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			f.handleContentEvicted(id)
 			f.MarkFileOutofSync(id)
 
-			priorPinned := previous != nil && previous.Pin.Mode == metadata.PinModeAlways
+			priorMode := metadata.PinModeUnset
+			if previous != nil {
+				priorMode = previous.Pin.Mode
+			}
+			priorPinned := priorMode == metadata.PinModeAlways
 			currentPin := metadata.PinModeUnset
 			if entry, _ := f.GetMetadataEntry(id); entry != nil {
 				currentPin = entry.Pin.Mode

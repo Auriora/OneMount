@@ -1,7 +1,7 @@
 # Runtime Layering – ChangeNotifier Facade (2025-11-21)
 
 **Type**: Implementation Update  
-**Status**: Complete  
+**Status**: Complete (validated 2025-11-22)  
 **Components**: `internal/fs/change_notifier.go`, `internal/fs/socket_subscription.go`, `internal/fs/delta.go`, `docs/2-architecture/resources/delta-sync-sequence-diagram.puml`, `docs/updates/2025-11-17-socketio-realtime.md`
 
 ## Summary
@@ -13,6 +13,7 @@
 ## Testing
 
 - `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestChangeNotifier -count=1`
+- Validation addendum (2025-11-22): `HOME=/workspaces/OneMount GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestDeltaIntervalRespectsNotifierHealth -count=1`
 
 ## Rules Consulted
 

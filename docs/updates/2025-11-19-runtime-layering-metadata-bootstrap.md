@@ -1,7 +1,7 @@
 # Runtime Layering Metadata Bootstrap (2025-11-19)
 
 **Type**: Implementation Update  
-**Status**: Complete  
+**Status**: Complete (validated 2025-11-22)  
 **Components**: `internal/metadata`, `internal/fs`, `docs/plans/2025-11-18-runtime-layering-and-notifier-plan.md`
 
 ## Summary
@@ -18,6 +18,7 @@
 - `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/metadata -count=1`
 - `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestMetadata -count=1`
 - `GOCACHE=/workspaces/OneMount/.gocache go test ./internal/fs -run TestUploadManager -count=1`
+- Validation addendum (2025-11-22): `go test ./internal/metadata -run TestStateManagerTransitionTable -count=1`
 
 ## Rules Consulted
 
