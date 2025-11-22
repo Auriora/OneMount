@@ -138,12 +138,12 @@ type DownloadStats struct {
 }
 
 // NewDownloadManager creates a new download manager
-func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, db *bolt.DB) *DownloadManager {
+func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, queueSize int, db *bolt.DB) *DownloadManager {
 	dm := &DownloadManager{
 		fs:         fs,
 		auth:       auth,
 		sessions:   make(map[string]*DownloadSession),
-		queue:      make(chan string, 500), // Buffer for 500 download requests
+		queue:      make(chan string, queueSize), // Buffer for download requests
 		numWorkers: numWorkers,
 		stopChan:   make(chan struct{}),
 		db:         db,

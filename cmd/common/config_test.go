@@ -264,3 +264,35 @@ func TestValidateConfigResetsInvalidActiveDeltaTuning(t *testing.T) {
 		t.Fatalf("active delta window not reset; got %d", cfg.ActiveDeltaWindow)
 	}
 }
+
+func TestHydrationConfigDefaultsAndValidation(t *testing.T) {
+	cfg := createDefaultConfig()
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error: %v", err)
+	}
+	if cfg.Hydration.Workers != 4 || cfg.Hydration.QueueSize != 500 {
+		t.Fatalf("unexpected hydration defaults: %+v", cfg.Hydration)
+	}
+
+	cfg.Hydration.Workers = -1
+	cfg.Hydration.QueueSize = 0
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error after invalid hydration settings: %v", err)
+	}
+	if cfg.Hydration.Workers != 4 || cfg.Hydration.QueueSize != 500 {
+		t.Fatalf("hydration config not reset to defaults after validation: %+v", cfg.Hydration)
+	}
+}
+
+func TestMetadataQueueDefaultsAndValidation(t *testing.T) {
+	cfg := createDefaultConfig()
+	cfg.MetadataQueue.Workers = -1
+	cfg.MetadataQueue.HighPrioritySize = 0
+	cfg.MetadataQueue.LowPrioritySize = -10
+	if err := validateConfig(&cfg); err != nil {
+		t.Fatalf("validateConfig returned error: %v", err)
+	}
+	if cfg.MetadataQueue.Workers != 3 || cfg.MetadataQueue.HighPrioritySize != 100 || cfg.MetadataQueue.LowPrioritySize != 1000 {
+		t.Fatalf("metadata queue config not reset to defaults: %+v", cfg.MetadataQueue)
+	}
+}

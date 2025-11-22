@@ -106,6 +106,9 @@ type Stats struct {
 	HydrationErrored         int
 	HydrationQueueDepth      int
 	HydrationActiveDownloads int
+	MetadataQueueHighDepth   int
+	MetadataQueueLowDepth    int
+	MetadataQueueAvgWaitMs   float64
 }
 
 // CachedStats holds cached statistics with TTL
@@ -182,6 +185,13 @@ func (f *Filesystem) GetStatsWithConfig(config *StatsConfig) (*Stats, error) {
 		snap := f.downloads.Snapshot()
 		stats.HydrationQueueDepth = snap.QueueDepth
 		stats.HydrationActiveDownloads = snap.Active
+	}
+
+	if f.metadataRequestManager != nil {
+		q := f.metadataRequestManager.Snapshot()
+		stats.MetadataQueueHighDepth = q.HighDepth
+		stats.MetadataQueueLowDepth = q.LowDepth
+		stats.MetadataQueueAvgWaitMs = q.AvgWaitMs
 	}
 
 	// Cache the statistics

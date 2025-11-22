@@ -28,6 +28,37 @@ var (
 	bucketOfflineChanges = []byte("offline_changes") // New bucket for offline changes
 )
 
+var (
+	defaultHydrationWorkers   = 4
+	defaultHydrationQueueSize = 500
+	defaultMetadataWorkers    = 3
+	defaultMetadataHighQueue  = 100
+	defaultMetadataLowQueue   = 1000
+)
+
+// SetHydrationDefaults configures global defaults for hydration/download worker counts and queue sizing.
+func SetHydrationDefaults(workers, queueSize int) {
+	if workers > 0 {
+		defaultHydrationWorkers = workers
+	}
+	if queueSize > 0 {
+		defaultHydrationQueueSize = queueSize
+	}
+}
+
+// SetMetadataQueueDefaults configures global defaults for metadata request queue sizing and workers.
+func SetMetadataQueueDefaults(workers, highQueue, lowQueue int) {
+	if workers > 0 {
+		defaultMetadataWorkers = workers
+	}
+	if highQueue > 0 {
+		defaultMetadataHighQueue = highQueue
+	}
+	if lowQueue > 0 {
+		defaultMetadataLowQueue = lowQueue
+	}
+}
+
 var errFoundRootInMetadata = errors.New("found root metadata entry")
 
 // so we can tell what format the db has
@@ -292,7 +323,7 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	fs.RawFileSystem = NewCustomRawFileSystem(fs)
 
 	// Initialize metadata request manager with 3 workers
-	fs.metadataRequestManager = NewMetadataRequestManager(fs, 3)
+	fs.metadataRequestManager = NewMetadataRequestManager(fs, defaultMetadataWorkers, defaultMetadataHighQueue, defaultMetadataLowQueue)
 	fs.metadataRequestManager.Start()
 
 	if err := fs.bootstrapMetadataStore(); err != nil {
@@ -373,8 +404,8 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 
 	fs.uploads = NewUploadManager(2*time.Second, db, fs, auth)
 
-	// Initialize download manager with 4 worker threads and database support
-	fs.downloads = NewDownloadManager(fs, auth, 4, db)
+	// Initialize download manager with configurable worker threads and queue size
+	fs.downloads = NewDownloadManager(fs, auth, defaultHydrationWorkers, defaultHydrationQueueSize, db)
 
 	if !fs.IsOffline() {
 		// .Trash-UID is used by "gio trash" for user trash, create it if it

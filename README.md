@@ -440,6 +440,15 @@ If you encounter issues with OneMount:
    - Steps to reproduce the issue
    - Expected vs. actual behavior
 
+## Configuration
+
+- **Config file**: `~/.config/onemount/config.yml` (auto-created on first run). Override with `--config-file`.
+- **Realtime**: `realtime.enabled`, `realtime.pollingOnly`, `realtime.fallbackIntervalSeconds` (or `--realtime-fallback-seconds`) control Socket.IO vs polling cadence.
+- **Hydration (downloads)**: `hydration.workers`, `hydration.queueSize` or CLI `--hydration-workers`, `--hydration-queue-size`.
+- **Metadata requests**: `metadataQueue.workers`, `metadataQueue.highPrioritySize`, `metadataQueue.lowPrioritySize` or CLI `--metadata-workers`, `--metadata-high-queue-size`, `--metadata-low-queue-size`.
+- **Overlay policy**: `overlay.defaultPolicy` or `--overlay-policy` (`REMOTE_WINS`, `LOCAL_WINS`, `MERGED`) sets virtual/overlay precedence.
+- **Stats**: `onemount --stats` now reports hydration queue depth/active downloads, metadata queue depth/avg wait, and realtime heartbeat health in addition to existing metrics.
+
 ## Terms of use
 
 OneMount is licensed under the [GNU General Public License v3.0 (GPLv3)](https://github.com/auriora/OneMount/blob/master/LICENSE).

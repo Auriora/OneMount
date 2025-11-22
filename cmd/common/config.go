@@ -24,19 +24,21 @@ const (
 )
 
 type Config struct {
-	CacheDir             string         `yaml:"cacheDir"`
-	LogLevel             string         `yaml:"log"`
-	LogOutput            string         `yaml:"logOutput"`
-	SyncTree             bool           `yaml:"syncTree"`
-	DeltaInterval        int            `yaml:"deltaInterval"`
-	ActiveDeltaInterval  int            `yaml:"activeDeltaInterval"`
-	ActiveDeltaWindow    int            `yaml:"activeDeltaWindow"`
-	CacheExpiration      int            `yaml:"cacheExpiration"`
-	CacheCleanupInterval int            `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
-	MaxCacheSize         int64          `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
-	MountTimeout         int            `yaml:"mountTimeout"`
-	Realtime             RealtimeConfig `yaml:"realtime"`
-	Overlay              OverlayConfig  `yaml:"overlay"`
+	CacheDir             string              `yaml:"cacheDir"`
+	LogLevel             string              `yaml:"log"`
+	LogOutput            string              `yaml:"logOutput"`
+	SyncTree             bool                `yaml:"syncTree"`
+	DeltaInterval        int                 `yaml:"deltaInterval"`
+	ActiveDeltaInterval  int                 `yaml:"activeDeltaInterval"`
+	ActiveDeltaWindow    int                 `yaml:"activeDeltaWindow"`
+	CacheExpiration      int                 `yaml:"cacheExpiration"`
+	CacheCleanupInterval int                 `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
+	MaxCacheSize         int64               `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
+	MountTimeout         int                 `yaml:"mountTimeout"`
+	Realtime             RealtimeConfig      `yaml:"realtime"`
+	Overlay              OverlayConfig       `yaml:"overlay"`
+	Hydration            HydrationConfig     `yaml:"hydration"`
+	MetadataQueue        MetadataQueueConfig `yaml:"metadataQueue"`
 	graph.AuthConfig     `yaml:"auth"`
 }
 
@@ -52,6 +54,19 @@ type RealtimeConfig struct {
 // OverlayConfig controls default overlay policies for new metadata entries.
 type OverlayConfig struct {
 	DefaultPolicy string `yaml:"defaultPolicy"`
+}
+
+// HydrationConfig controls download/hydration worker counts and queue sizing.
+type HydrationConfig struct {
+	Workers   int `yaml:"workers"`
+	QueueSize int `yaml:"queueSize"`
+}
+
+// MetadataQueueConfig controls priority queue sizing and workers for metadata fetches.
+type MetadataQueueConfig struct {
+	Workers          int `yaml:"workers"`
+	HighPrioritySize int `yaml:"highPrioritySize"`
+	LowPrioritySize  int `yaml:"lowPrioritySize"`
 }
 
 // DefaultConfigPath returns the default config location for onemount
@@ -87,6 +102,15 @@ func createDefaultConfig() Config {
 		},
 		Overlay: OverlayConfig{
 			DefaultPolicy: string(metadata.OverlayPolicyRemoteWins),
+		},
+		Hydration: HydrationConfig{
+			Workers:   4,
+			QueueSize: 500,
+		},
+		MetadataQueue: MetadataQueueConfig{
+			Workers:          3,
+			HighPrioritySize: 100,
+			LowPrioritySize:  1000,
 		},
 	}
 }
@@ -227,6 +251,9 @@ func validateConfig(config *Config) error {
 		return err
 	}
 
+	validateHydrationConfig(&config.Hydration)
+	validateMetadataQueueConfig(&config.MetadataQueue)
+
 	return nil
 }
 
@@ -244,6 +271,33 @@ func validateRealtimeConfig(cfg *RealtimeConfig) error {
 		cfg.ClientState = generateClientState()
 	}
 	return nil
+}
+
+func validateHydrationConfig(cfg *HydrationConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Workers <= 0 {
+		cfg.Workers = 4
+	}
+	if cfg.QueueSize <= 0 {
+		cfg.QueueSize = 500
+	}
+}
+
+func validateMetadataQueueConfig(cfg *MetadataQueueConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Workers <= 0 {
+		cfg.Workers = 3
+	}
+	if cfg.HighPrioritySize <= 0 {
+		cfg.HighPrioritySize = 100
+	}
+	if cfg.LowPrioritySize <= 0 {
+		cfg.LowPrioritySize = 1000
+	}
 }
 
 func generateClientState() string {

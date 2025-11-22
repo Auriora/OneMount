@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
@@ -37,6 +38,14 @@ type MetadataRequest struct {
 	Callback func([]*graph.DriveItem, error)
 	Context  context.Context
 	Path     string // For path-based requests
+	queuedAt time.Time
+}
+
+// MetadataQueueStats summarizes queue depth and latency for telemetry.
+type MetadataQueueStats struct {
+	HighDepth int
+	LowDepth  int
+	AvgWaitMs float64
 }
 
 // MetadataRequestManager manages prioritized metadata requests
@@ -51,6 +60,9 @@ type MetadataRequestManager struct {
 
 	inFlightMu sync.Mutex
 	inFlight   map[string]*inFlightEntry
+
+	waitTotalNs atomic.Int64
+	waitCount   atomic.Int64
 }
 
 type inFlightEntry struct {
@@ -59,14 +71,14 @@ type inFlightEntry struct {
 }
 
 // NewMetadataRequestManager creates a new metadata request manager
-func NewMetadataRequestManager(fs *Filesystem, workers int) *MetadataRequestManager {
+func NewMetadataRequestManager(fs *Filesystem, workers, highQueueSize, lowQueueSize int) *MetadataRequestManager {
 	foregroundWorkers := 0
 	if workers >= 2 {
 		foregroundWorkers = 1
 	}
 	return &MetadataRequestManager{
-		highPriorityQueue: make(chan *MetadataRequest, 100),  // Buffer for foreground requests
-		lowPriorityQueue:  make(chan *MetadataRequest, 1000), // Larger buffer for background requests
+		highPriorityQueue: make(chan *MetadataRequest, highQueueSize), // Buffer for foreground requests
+		lowPriorityQueue:  make(chan *MetadataRequest, lowQueueSize),  // Larger buffer for background requests
 		workers:           workers,
 		foregroundWorkers: foregroundWorkers,
 		stopChan:          make(chan struct{}),
@@ -180,6 +192,7 @@ func (m *MetadataRequestManager) queueRequest(request *MetadataRequest) error {
 
 	var targetQueue chan *MetadataRequest
 	var queueName string
+	request.queuedAt = time.Now()
 
 	if request.Priority == PriorityForeground {
 		if m.fs != nil {
@@ -279,6 +292,12 @@ func (m *MetadataRequestManager) foregroundWorker(workerID int) {
 // processRequest executes a metadata request
 func (m *MetadataRequestManager) processRequest(workerID int, request *MetadataRequest, priorityName string) {
 	startTime := time.Now()
+	var waitDur time.Duration
+	if !request.queuedAt.IsZero() {
+		waitDur = startTime.Sub(request.queuedAt)
+		m.waitTotalNs.Add(waitDur.Nanoseconds())
+		m.waitCount.Add(1)
+	}
 
 	logging.Debug().
 		Int("workerID", workerID).
@@ -338,6 +357,22 @@ func (m *MetadataRequestManager) processRequest(workerID int, request *MetadataR
 // GetQueueStats returns statistics about the request queues
 func (m *MetadataRequestManager) GetQueueStats() (highPriorityCount, lowPriorityCount int) {
 	return len(m.highPriorityQueue), len(m.lowPriorityQueue)
+}
+
+// Snapshot returns lightweight queue telemetry for stats surfaces.
+func (m *MetadataRequestManager) Snapshot() MetadataQueueStats {
+	stats := MetadataQueueStats{}
+	if m == nil {
+		return stats
+	}
+	stats.HighDepth = len(m.highPriorityQueue)
+	stats.LowDepth = len(m.lowPriorityQueue)
+	count := m.waitCount.Load()
+	if count > 0 {
+		total := m.waitTotalNs.Load()
+		stats.AvgWaitMs = float64(total) / float64(count) / float64(time.Millisecond)
+	}
+	return stats
 }
 
 func (r *MetadataRequest) cacheKey() string {

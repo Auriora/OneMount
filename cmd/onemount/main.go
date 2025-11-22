@@ -108,6 +108,13 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	mountTimeout := flag.IntP("mount-timeout", "t", 60,
 		"Set the timeout in seconds for mount operations. "+
 			"Default is 60 seconds. Increase this if mounting fails due to slow network.")
+	hydrationWorkers := flag.Int("hydration-workers", 0, "Number of concurrent hydration/download workers (default 4).")
+	hydrationQueueSize := flag.Int("hydration-queue-size", 0, "Maximum queued hydration requests (default 500).")
+	metadataWorkers := flag.Int("metadata-workers", 0, "Number of metadata request workers (default 3).")
+	metadataHighQueue := flag.Int("metadata-high-queue-size", 0, "High-priority metadata queue size (default 100).")
+	metadataLowQueue := flag.Int("metadata-low-queue-size", 0, "Low-priority metadata queue size (default 1000).")
+	realtimeFallback := flag.Int("realtime-fallback-seconds", 0, "Override realtime fallback polling interval in seconds (default 1800).")
+	overlayPolicy := flag.String("overlay-policy", "", "Default overlay policy (REMOTE_WINS, LOCAL_WINS, MERGED).")
 	statsFlag := flag.BoolP("stats", "", false, "Display statistics about the metadata, content caches, "+
 		"outstanding changes for upload, etc. Does not start a mount point.")
 	pollingOnlyFlag := flag.Bool("polling-only", false, "Force delta polling even if realtime subscriptions are configured (disables the Socket.IO transport).")
@@ -176,6 +183,27 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	}
 	if *mountTimeout > 0 {
 		config.MountTimeout = *mountTimeout
+	}
+	if *hydrationWorkers > 0 {
+		config.Hydration.Workers = *hydrationWorkers
+	}
+	if *hydrationQueueSize > 0 {
+		config.Hydration.QueueSize = *hydrationQueueSize
+	}
+	if *metadataWorkers > 0 {
+		config.MetadataQueue.Workers = *metadataWorkers
+	}
+	if *metadataHighQueue > 0 {
+		config.MetadataQueue.HighPrioritySize = *metadataHighQueue
+	}
+	if *metadataLowQueue > 0 {
+		config.MetadataQueue.LowPrioritySize = *metadataLowQueue
+	}
+	if *realtimeFallback > 0 {
+		config.Realtime.FallbackInterval = *realtimeFallback
+	}
+	if *overlayPolicy != "" {
+		config.Overlay.DefaultPolicy = *overlayPolicy
 	}
 	if *pollingOnlyFlag {
 		config.Realtime.PollingOnly = true
@@ -251,6 +279,11 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to create cache directory")
 	}
 	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
+
+	// Apply runtime tunables before filesystem construction
+	fs.SetHydrationDefaults(config.Hydration.Workers, config.Hydration.QueueSize)
+	fs.SetMetadataQueueDefaults(config.MetadataQueue.Workers, config.MetadataQueue.HighPrioritySize, config.MetadataQueue.LowPrioritySize)
+
 	if authOnly {
 		if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
 			logging.LogError(err, "Failed to remove auth tokens file",
@@ -435,6 +468,22 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	fmt.Printf("  In progress: %d\n", stats.UploadsInProgress)
 	fmt.Printf("  Completed: %d\n", stats.UploadsCompleted)
 	fmt.Printf("  Errors: %d\n", stats.UploadsErrored)
+
+	// Hydration/download queue statistics
+	fmt.Printf("\nHydration Queue:\n")
+	fmt.Printf("  Queue depth: %d\n", stats.HydrationQueueDepth)
+	fmt.Printf("  Active downloads: %d\n", stats.HydrationActiveDownloads)
+	fmt.Printf("  Hydrated items: %d\n", stats.HydrationHydrated)
+	fmt.Printf("  Hydrating items: %d\n", stats.HydrationHydrating)
+	fmt.Printf("  Ghost items: %d\n", stats.HydrationGhost)
+	fmt.Printf("  Dirty local items: %d\n", stats.HydrationDirtyLocal)
+	fmt.Printf("  Errored items: %d\n", stats.HydrationErrored)
+
+	// Metadata request queue statistics
+	fmt.Printf("\nMetadata Request Queue:\n")
+	fmt.Printf("  High-priority depth: %d\n", stats.MetadataQueueHighDepth)
+	fmt.Printf("  Low-priority depth: %d\n", stats.MetadataQueueLowDepth)
+	fmt.Printf("  Avg wait (ms): %.2f\n", stats.MetadataQueueAvgWaitMs)
 
 	// File status statistics
 	fmt.Printf("\nFile Statuses:\n")
