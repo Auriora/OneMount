@@ -157,6 +157,11 @@ type Filesystem struct {
 	// Pending remote visibility tracking for newly created directories
 	pendingRemoteChildren sync.Map
 
+	// Mutation queue for create/rename/delete operations
+	mutationQueue     chan mutationJob
+	mutationQueueStop chan struct{}
+	mutationStopOnce  sync.Once
+
 	// Test hooks (only used in unit/integration tests)
 	testHooks *FilesystemTestHooks
 

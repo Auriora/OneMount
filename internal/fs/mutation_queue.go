@@ -10,6 +10,53 @@ import (
 	"github.com/auriora/onemount/internal/metadata"
 )
 
+const (
+	defaultMutationWorkers  = 2
+	defaultMutationQueueLen = 128
+)
+
+type mutationJob struct {
+	name string
+	id   string
+	work func() error
+}
+
+// startMutationQueue spins up bounded workers so FUSE entry points never block on Graph mutations.
+func (f *Filesystem) startMutationQueue() {
+	if f.mutationQueue != nil {
+		return
+	}
+	f.mutationQueue = make(chan mutationJob, defaultMutationQueueLen)
+	f.mutationQueueStop = make(chan struct{})
+	for i := 0; i < defaultMutationWorkers; i++ {
+		f.Wg.Add(1)
+		go func() {
+			defer f.Wg.Done()
+			for {
+				select {
+				case <-f.ctx.Done():
+					return
+				case <-f.mutationQueueStop:
+					return
+				case job, ok := <-f.mutationQueue:
+					if !ok {
+						return
+					}
+					f.runMutation(job.name, job.id, job.work)
+				}
+			}
+		}()
+	}
+}
+
+func (f *Filesystem) stopMutationQueue() {
+	f.mutationStopOnce.Do(func() {
+		if f.mutationQueueStop != nil {
+			close(f.mutationQueueStop)
+		}
+	})
+}
+
 func (f *Filesystem) queueRemoteDirCreate(parentID, tempID, name string) {
 	if parentID == "" || tempID == "" || name == "" {
 		return
@@ -75,27 +122,59 @@ func (f *Filesystem) queueRemoteDeleteTestHook(id string) error {
 }
 
 func (f *Filesystem) runMutationWithRetry(operation, id string, fn func() error) {
-	f.Wg.Add(1)
-	go func() {
-		defer f.Wg.Done()
-		const maxAttempts = 5
-		baseDelay := 200 * time.Millisecond
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			if err := fn(); err != nil {
-				logging.Warn().
-					Str("mutation", operation).
-					Str("id", id).
-					Int("attempt", attempt).
-					Err(err).
-					Msg("Async mutation failed")
-				if attempt == maxAttempts {
-					return
-				}
-				time.Sleep(baseDelay * time.Duration(attempt))
-				continue
+	job := mutationJob{name: operation, id: id, work: fn}
+	if f.mutationQueue == nil {
+		// Fallback for tests or minimal constructors.
+		f.Wg.Add(1)
+		go func() {
+			defer f.Wg.Done()
+			f.runMutation(operation, id, fn)
+		}()
+		return
+	}
+
+	select {
+	case f.mutationQueue <- job:
+		return
+	default:
+		logging.Warn().
+			Str("mutation", operation).
+			Str("id", id).
+			Msg("Mutation queue full; falling back to detached retry loop")
+		f.Wg.Add(1)
+		go func() {
+			defer f.Wg.Done()
+			f.runMutation(operation, id, fn)
+		}()
+	}
+}
+
+func (f *Filesystem) runMutation(operation, id string, fn func() error) {
+	const maxAttempts = 5
+	baseDelay := 200 * time.Millisecond
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if f.ctx != nil {
+			select {
+			case <-f.ctx.Done():
+				return
+			default:
 			}
 		}
-	}()
+		if err := fn(); err != nil {
+			logging.Warn().
+				Str("mutation", operation).
+				Str("id", id).
+				Int("attempt", attempt).
+				Err(err).
+				Msg("Async mutation failed")
+			if attempt == maxAttempts {
+				return
+			}
+			time.Sleep(baseDelay * time.Duration(attempt))
+			continue
+		}
+		return
+	}
 }
 
 func (f *Filesystem) queueRemoteRename(remoteID, newParentID, newName string) {

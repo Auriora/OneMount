@@ -7,6 +7,7 @@ import (
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/graph/api"
 	"github.com/auriora/onemount/internal/metadata"
+	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/require"
 )
 
@@ -173,4 +174,108 @@ func TestGetChildMissingDoesNotHitGraph(t *testing.T) {
 		require.Len(t, recorder.GetCalls(), 0, "expected no Graph calls on negative lookup with warm metadata")
 	}
 	mockClient.Cleanup()
+}
+
+// OpenDir should succeed offline when metadata exists, rebuilding children from metadata_v2.
+func TestOpenDirUsesMetadataOffline(t *testing.T) {
+	now := time.Now().UTC()
+	fs := newTestFilesystemWithMetadata(t)
+	fs.opendirs = make(map[uint64][]*Inode)
+	fs.auth = &graph.Auth{}
+
+	parent := &metadata.Entry{
+		ID:            "dir",
+		Name:          "dir",
+		ItemType:      metadata.ItemKindDirectory,
+		State:         metadata.ItemStateHydrated,
+		OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+		Children:      []string{"child"},
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	child := &metadata.Entry{
+		ID:            "child",
+		Name:          "child.txt",
+		ParentID:      "dir",
+		ItemType:      metadata.ItemKindFile,
+		State:         metadata.ItemStateHydrated,
+		OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+
+	require.NoError(t, fs.metadataStore.Save(fs.ctx, parent))
+	require.NoError(t, fs.metadataStore.Save(fs.ctx, child))
+
+	directory := fs.ensureInodeFromMetadataStore(parent.ID)
+	require.NotNil(t, directory)
+	childInode := fs.ensureInodeFromMetadataStore(child.ID)
+	require.NotNil(t, childInode)
+
+	// Clear cached children to force rebuild from metadata_v2
+	directory.mu.Lock()
+	directory.children = nil
+	directory.mu.Unlock()
+
+	graph.SetOperationalOffline(true)
+	t.Cleanup(func() { graph.SetOperationalOffline(false) })
+
+	status := fs.OpenDir(nil, &fuse.OpenIn{InHeader: fuse.InHeader{NodeId: directory.NodeID()}}, &fuse.OpenOut{})
+	require.Equal(t, fuse.OK, status)
+
+	fs.opendirsM.RLock()
+	entries := fs.opendirs[directory.NodeID()]
+	fs.opendirsM.RUnlock()
+	require.NotNil(t, entries)
+	require.True(t, len(entries) >= 3)
+	require.Equal(t, childInode.NodeID(), entries[2].NodeID())
+}
+
+// Lookup should be satisfied from metadata without triggering Graph when offline.
+func TestLookupUsesMetadataOffline(t *testing.T) {
+	now := time.Now().UTC()
+	fs := newTestFilesystemWithMetadata(t)
+	fs.auth = &graph.Auth{}
+
+	parent := &metadata.Entry{
+		ID:            "dir",
+		Name:          "dir",
+		ItemType:      metadata.ItemKindDirectory,
+		State:         metadata.ItemStateHydrated,
+		OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+		Children:      []string{"child"},
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	child := &metadata.Entry{
+		ID:            "child",
+		Name:          "child.txt",
+		ParentID:      "dir",
+		ItemType:      metadata.ItemKindFile,
+		State:         metadata.ItemStateHydrated,
+		OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+
+	require.NoError(t, fs.metadataStore.Save(fs.ctx, parent))
+	require.NoError(t, fs.metadataStore.Save(fs.ctx, child))
+
+	directory := fs.ensureInodeFromMetadataStore(parent.ID)
+	require.NotNil(t, directory)
+	childInode := fs.ensureInodeFromMetadataStore(child.ID)
+	require.NotNil(t, childInode)
+
+	// Clear cached children to force rebuild from metadata store on lookup
+	directory.mu.Lock()
+	directory.children = nil
+	directory.mu.Unlock()
+
+	graph.SetOperationalOffline(true)
+	t.Cleanup(func() { graph.SetOperationalOffline(false) })
+
+	out := &fuse.EntryOut{}
+	status := fs.Lookup(nil, &fuse.InHeader{NodeId: directory.NodeID()}, "child.txt", out)
+	require.Equal(t, fuse.OK, status)
+	require.Equal(t, childInode.NodeID(), out.NodeId)
 }

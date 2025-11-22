@@ -318,6 +318,9 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	// Initialize with our custom RawFileSystem implementation
 	fs.RawFileSystem = NewCustomRawFileSystem(fs)
 
+	// Start mutation queue workers to keep FUSE hot paths non-blocking
+	fs.startMutationQueue()
+
 	// Initialize metadata request manager with 3 workers
 	fs.metadataRequestManager = NewMetadataRequestManager(fs, defaultMetadataWorkers, defaultMetadataHighQueue, defaultMetadataLowQueue)
 	fs.metadataRequestManager.Start()
@@ -2305,6 +2308,7 @@ func (f *Filesystem) Stop() {
 		if f.cancel != nil {
 			f.cancel()
 		}
+		f.stopMutationQueue()
 
 		// Stop all background processes in the correct order
 		f.StopCacheCleanup()
