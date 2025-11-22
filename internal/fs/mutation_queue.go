@@ -46,8 +46,32 @@ func (f *Filesystem) queueRemoteDelete(id string) {
 			return err
 		}
 		f.clearChildPendingRemote(id)
+		f.transitionItemState(id, metadata.ItemStateDeleted)
 		return nil
 	})
+}
+
+// queueRemoteDeleteTestHook runs a remote delete synchronously for tests, ensuring state transition to DELETED.
+func (f *Filesystem) queueRemoteDeleteTestHook(id string) error {
+	if id == "" || isLocalID(id) {
+		return nil
+	}
+	// Skip network call in test hook; assume success
+	f.clearChildPendingRemote(id)
+	// Use DELETED_LOCAL to preserve local tombstone semantics for sync.
+	if f.metadataStore != nil {
+		_, _ = f.metadataStore.Update(context.Background(), id, func(entry *metadata.Entry) error {
+			if entry == nil {
+				return metadata.ErrNotFound
+			}
+			entry.State = metadata.ItemStateDeleted
+			entry.Children = nil
+			entry.SubdirCount = 0
+			return nil
+		})
+	}
+	f.transitionToState(id, metadata.ItemStateDeleted)
+	return nil
 }
 
 func (f *Filesystem) runMutationWithRetry(operation, id string, fn func() error) {

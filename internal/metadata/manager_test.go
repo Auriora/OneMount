@@ -123,6 +123,46 @@ func TestStateManagerErrorTransition(t *testing.T) {
 	}
 }
 
+func TestStateManagerTransitionTable(t *testing.T) {
+	type step struct {
+		from    ItemState
+		to      ItemState
+		allowed bool
+	}
+
+	table := []step{
+		{ItemStateGhost, ItemStateHydrated, true},
+		{ItemStateGhost, ItemStateHydrating, true},
+		{ItemStateGhost, ItemStateDirtyLocal, true},
+		{ItemStateGhost, ItemStateConflict, false},
+		{ItemStateHydrated, ItemStateDirtyLocal, true},
+		{ItemStateHydrated, ItemStateConflict, false},
+		{ItemStateDirtyLocal, ItemStateHydrated, true},
+		{ItemStateDirtyLocal, ItemStateHydrating, false},
+		{ItemStateError, ItemStateDeleted, true},
+		{ItemStateError, ItemStateHydrated, false},
+	}
+
+	for idx, tc := range table {
+		store := newMemoryStore()
+		entry := &Entry{ID: fmt.Sprintf("id-%d", idx), Name: "item", State: tc.from}
+		if err := store.Save(context.Background(), entry); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		manager, err := NewStateManager(store)
+		if err != nil {
+			t.Fatalf("manager: %v", err)
+		}
+		_, err = manager.Transition(context.Background(), entry.ID, tc.to)
+		if tc.allowed && err != nil {
+			t.Fatalf("expected allowed transition %s->%s, got err=%v", tc.from, tc.to, err)
+		}
+		if !tc.allowed && !errors.Is(err, ErrInvalidTransition) {
+			t.Fatalf("expected invalid transition for %s->%s, got %v", tc.from, tc.to, err)
+		}
+	}
+}
+
 // memoryStore is a simple in-memory implementation of Store for unit tests.
 type memoryStore struct {
 	mu      sync.RWMutex

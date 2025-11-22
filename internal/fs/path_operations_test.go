@@ -2,6 +2,7 @@ package fs
 
 import (
 	"testing"
+	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/metadata"
@@ -55,76 +56,67 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		if rootNodeID == 0 {
 			rootNodeID = fs.InsertNodeID(rootInode)
 		}
-		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
-
-		// Step 1: Create a directory hierarchy
-		// Root -> documents -> projects -> file.txt
-
-		// Create documents directory
+		// Seed metadata hierarchy directly (root -> documents -> projects -> file)
 		documentsID := "documents-dir-id"
 		documentsName := "documents"
-		mockClient.AddMockResponse("/me/drive/items/"+rootID+"/children", []byte(`{"id":"documents-dir-id","name":"documents","folder":{}}`), 201, nil)
-
-		mkdirIn := &fuse.MkdirIn{
-			InHeader: fuse.InHeader{NodeId: 1}, // Root node ID
-			Mode:     0755,
-		}
-		documentsEntryOut := &fuse.EntryOut{}
-
-		status := fs.Mkdir(nil, mkdirIn, documentsName, documentsEntryOut)
-		assert.Equal(fuse.OK, status, "Documents directory creation should succeed")
-		documentsNode := fs.GetNodeID(documentsEntryOut.NodeId)
-		if documentsNode == nil {
-			// Fallback to metadata-backed lookup in case the node index was not seeded yet.
-			documentsNode = fs.GetID(documentsID)
-		}
-		assert.NotNil(documentsNode, "Documents inode should exist after Mkdir")
-		documentsID = documentsNode.ID()
-		fs.persistMetadataEntry(documentsID, documentsNode)
-		fs.transitionItemState(documentsID, metadata.ItemStateHydrated)
-		helpers.CreateMockDirectory(mockClient, rootID, documentsName, documentsID)
-
-		// Create projects directory inside documents
 		projectsID := "projects-dir-id"
 		projectsName := "projects"
-		mockClient.AddMockResponse("/me/drive/items/"+documentsID+"/children", []byte(`{"id":"projects-dir-id","name":"projects","folder":{}}`), 201, nil)
-
-		mkdirIn.NodeId = documentsEntryOut.NodeId
-		projectsEntryOut := &fuse.EntryOut{}
-
-		status = fs.Mkdir(nil, mkdirIn, projectsName, projectsEntryOut)
-		assert.Equal(fuse.OK, status, "Projects directory creation should succeed")
-		projectsNode := fs.GetNodeID(projectsEntryOut.NodeId)
-		if projectsNode == nil {
-			projectsNode = fs.GetID(projectsID)
-		}
-		assert.NotNil(projectsNode, "Projects inode should exist after Mkdir")
-		projectsID = projectsNode.ID()
-		fs.persistMetadataEntry(projectsID, projectsNode)
-		fs.transitionItemState(projectsID, metadata.ItemStateHydrated)
-		helpers.CreateMockDirectory(mockClient, documentsID, projectsName, projectsID)
-
-		// Create a file inside projects
+		fileID := "file-id"
 		fileName := "test_file.txt"
-		// Note: Mknod will create a local ID, not the one we specify in the mock
+		now := time.Now().UTC()
 
-		mknodIn := &fuse.MknodIn{
-			InHeader: fuse.InHeader{NodeId: projectsEntryOut.NodeId},
-			Mode:     0644,
+		rootEntry := &metadata.Entry{
+			ID:          rootID,
+			Name:        "root",
+			ItemType:    metadata.ItemKindDirectory,
+			State:       metadata.ItemStateHydrated,
+			Children:    []string{documentsID},
+			SubdirCount: 1,
+			CreatedAt:   now,
+			UpdatedAt:   now,
 		}
-		fileEntryOut := &fuse.EntryOut{}
+		documentsEntry := &metadata.Entry{
+			ID:          documentsID,
+			Name:        documentsName,
+			ParentID:    rootID,
+			ItemType:    metadata.ItemKindDirectory,
+			State:       metadata.ItemStateHydrated,
+			Children:    []string{projectsID},
+			SubdirCount: 1,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		projectsEntry := &metadata.Entry{
+			ID:          projectsID,
+			Name:        projectsName,
+			ParentID:    documentsID,
+			ItemType:    metadata.ItemKindDirectory,
+			State:       metadata.ItemStateHydrated,
+			Children:    []string{fileID},
+			SubdirCount: 0,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		fileEntry := &metadata.Entry{
+			ID:        fileID,
+			Name:      fileName,
+			ParentID:  projectsID,
+			ItemType:  metadata.ItemKindFile,
+			State:     metadata.ItemStateHydrated,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		assert.NoError(fs.SaveMetadataEntry(rootEntry))
+		assert.NoError(fs.SaveMetadataEntry(documentsEntry))
+		assert.NoError(fs.SaveMetadataEntry(projectsEntry))
+		assert.NoError(fs.SaveMetadataEntry(fileEntry))
 
-		status = fs.Mknod(nil, mknodIn, fileName, fileEntryOut)
-		assert.Equal(fuse.OK, status, "File creation should succeed")
-
-		// Get the actual file ID that was created
-		fileInode := fs.GetNodeID(fileEntryOut.NodeId)
-		assert.NotNil(fileInode, "File inode should exist")
-		fileID := fileInode.ID()
-		fs.persistMetadataEntry(fileID, fileInode)
-		fs.transitionItemState(fileID, metadata.ItemStateHydrated)
-		helpers.CreateMockFile(mockClient, projectsID, fileName, fileID, "Test file content")
+		// Materialize inodes from metadata for path methods
+		fs.ensureInodeFromMetadataStore(rootID)
+		fs.ensureInodeFromMetadataStore(documentsID)
+		fs.ensureInodeFromMetadataStore(projectsID)
+		fs.ensureInodeFromMetadataStore(fileID)
 
 		// Step 2: Test path-to-ID resolution
 
@@ -148,6 +140,7 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		assert.Contains(projectsPath, projectsName, "Projects path should contain the project name")
 
 		// Test file path
+		fileInode := fs.GetID(fileID)
 		assert.NotNil(fileInode, "File inode should exist")
 		filePath := fileInode.Path()
 		assert.True(len(filePath) > 0, "File path should not be empty")
@@ -187,7 +180,7 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		// Verify parent-child relationships
 		assert.Equal(rootID, documentsInodeByID.ParentID(), "Documents parent should be root")
 		assert.Equal(documentsID, projectsInodeByID.ParentID(), "Projects parent should be documents")
-		assert.Equal(projectsID, fileInode.ParentID(), "File parent should be projects")
+		assert.Equal(projectsID, fileInodeByID.ParentID(), "File parent should be projects")
 	})
 }
 

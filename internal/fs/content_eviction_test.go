@@ -145,3 +145,20 @@ func TestPinnedContentAutoHydratesAfterEviction(t *testing.T) {
 	fs.handleContentEvicted(pinned.ID())
 	require.Equal(t, int32(1), atomic.LoadInt32(&autoHydrateCount), "pinned item should trigger auto hydration")
 }
+
+func TestContentEvictionTransitionsToGhost(t *testing.T) {
+	fs := setupEvictionTestFS(t, 10)
+	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)
+	parent.DriveItem.ID = "parent"
+	registerHydratedEntry(t, fs, parent)
+
+	file := NewInode("evict-me.txt", fuse.S_IFREG|0644, parent)
+	file.DriveItem.ID = "file-evict"
+	registerHydratedEntry(t, fs, file)
+
+	fs.handleContentEvicted(file.ID())
+
+	entry, err := fs.GetMetadataEntry(file.ID())
+	require.NoError(t, err)
+	require.Equal(t, metadata.ItemStateGhost, entry.State, "evicted content should mark entry ghost")
+}

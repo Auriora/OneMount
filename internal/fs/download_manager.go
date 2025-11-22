@@ -130,6 +130,9 @@ type DownloadManager struct {
 	stopChan   chan struct{}
 	db         *bolt.DB
 	completed  sync.Map // tracks IDs whose sessions finished and were cleaned up
+	// retry configuration (overridable for tests via env)
+	retryConfig     retry.Config
+	copyRetryConfig retry.Config
 }
 
 // DownloadStats provides a snapshot of hydration/downloading activity for telemetry.
@@ -141,13 +144,15 @@ type DownloadStats struct {
 // NewDownloadManager creates a new download manager
 func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, queueSize int, db *bolt.DB) *DownloadManager {
 	dm := &DownloadManager{
-		fs:         fs,
-		auth:       auth,
-		sessions:   make(map[string]*DownloadSession),
-		queue:      make(chan string, queueSize), // Buffer for download requests
-		numWorkers: numWorkers,
-		stopChan:   make(chan struct{}),
-		db:         db,
+		fs:              fs,
+		auth:            auth,
+		sessions:        make(map[string]*DownloadSession),
+		queue:           make(chan string, queueSize), // Buffer for download requests
+		numWorkers:      numWorkers,
+		stopChan:        make(chan struct{}),
+		db:              db,
+		retryConfig:     tunedRetryConfig(),
+		copyRetryConfig: tunedRetryConfig(),
 	}
 
 	// Restore any incomplete download sessions from disk
@@ -157,6 +162,19 @@ func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, queueS
 	dm.startWorkers()
 
 	return dm
+}
+
+// tunedRetryConfig returns a retry config, using shorter delays when ONEMOUNT_TEST_FAST_RETRY is set.
+func tunedRetryConfig() retry.Config {
+	cfg := retry.DefaultConfig()
+	if os.Getenv("ONEMOUNT_TEST_FAST_RETRY") != "" {
+		cfg.MaxRetries = 1
+		cfg.InitialDelay = 10 * time.Millisecond
+		cfg.MaxDelay = 50 * time.Millisecond
+		cfg.Multiplier = 1.5
+		cfg.Jitter = 0.1
+	}
+	return cfg
 }
 
 // Snapshot returns a lightweight view of the download manager's workload.
@@ -302,7 +320,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	ctx := context.Background()
 
 	// Create a retry config for the download operation
-	retryConfig := retry.DefaultConfig()
+	retryConfig := dm.retryConfig
 
 	// Download the file content with retry
 	var size uint64
@@ -405,7 +423,8 @@ func (dm *DownloadManager) processDownload(id string) {
 	inode.DriveItem.File.Hashes.QuickXorHash = actualHash
 	inode.mu.Unlock()
 
-	dm.fs.transitionItemState(id, metadata.ItemStateHydrated,
+	dm.fs.markHydratedState(id)
+	dm.fs.transitionToState(id, metadata.ItemStateHydrated,
 		metadata.WithHydrationEvent(),
 		metadata.WithWorker("download:"+id),
 		metadata.WithContentHash(actualHash),
@@ -441,7 +460,7 @@ func (dm *DownloadManager) processDownload(id string) {
 	// The session will be cleaned up when a new download is queued or during shutdown
 }
 
-// setSessionError updates a session with an error
+// setSessionError updates a session with an error and records it in metadata state.
 func (dm *DownloadManager) setSessionError(session *DownloadSession, err error) {
 	session.mutex.Lock()
 	session.State = downloadErrored

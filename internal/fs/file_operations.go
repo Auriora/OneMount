@@ -8,39 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auriora/onemount/internal/logging"
-
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/logging"
 	"github.com/auriora/onemount/internal/metadata"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
-
-func (f *Filesystem) markDirtyLocalState(id string) {
-	if id == "" {
-		return
-	}
-	f.transitionItemState(id, metadata.ItemStateDirtyLocal)
-}
-
-func (f *Filesystem) markHydratedState(id string) {
-	if id == "" {
-		return
-	}
-	f.transitionItemState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
-}
-
-// markPendingUpload records that local content exists and needs upload.
-func (f *Filesystem) markPendingUpload(id string) {
-	if id == "" {
-		return
-	}
-	if inode := f.GetID(id); inode != nil {
-		inode.mu.Lock()
-		inode.hasChanges = true
-		inode.mu.Unlock()
-	}
-	f.transitionItemState(id, metadata.ItemStateDirtyLocal)
-}
 
 // Mknod creates a regular file. The server doesn't have this yet.
 func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out *fuse.EntryOut) fuse.Status {
@@ -690,8 +662,8 @@ func (f *Filesystem) Write(cancel <-chan struct{}, in *fuse.WriteIn, data []byte
 	st, _ := fd.Stat()
 	inode.DriveItem.Size = uint64(st.Size())
 	inode.hasChanges = true
-	f.markDirtyLocalState(id)
 	inode.mu.Unlock()
+	f.transitionItemState(id, metadata.ItemStateDirtyLocal)
 
 	// Mark file as locally modified
 	f.SetFileStatus(id, FileStatusInfo{
@@ -732,24 +704,25 @@ func (f *Filesystem) Fsync(_ <-chan struct{}, in *fuse.FsyncIn) fuse.Status {
 		Logger()
 	ctx.Debug().Msg("")
 	if inode.HasChanges() {
-		inode.mu.Lock()
-		inode.hasChanges = false
-
 		// recompute hashes when saving new content
+		inode.mu.Lock()
 		inode.DriveItem.File = &graph.File{}
 		fd, err := f.content.Open(id)
 		if err != nil {
+			inode.mu.Unlock()
 			logging.LogError(err, "Could not get fd",
 				logging.FieldOperation, "Fsync",
 				logging.FieldID, id,
 				logging.FieldPath, inode.Path())
-		} else {
-			if err := fd.Sync(); err != nil {
-				logging.LogError(err, "Failed to sync file to disk",
-					logging.FieldOperation, "Fsync",
-					logging.FieldID, id,
-					logging.FieldPath, inode.Path())
-			}
+			return fuse.EIO
+		}
+		if err := fd.Sync(); err != nil {
+			inode.mu.Unlock()
+			logging.LogError(err, "Failed to sync file to disk",
+				logging.FieldOperation, "Fsync",
+				logging.FieldID, id,
+				logging.FieldPath, inode.Path())
+			return fuse.EIO
 		}
 		inode.DriveItem.File.Hashes.QuickXorHash = graph.QuickXORHashStream(fd)
 		inode.mu.Unlock()

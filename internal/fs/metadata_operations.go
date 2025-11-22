@@ -202,7 +202,7 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 			return fuse.EIO
 		}
 		i.DriveItem.Size = size
-		i.hasChanges = true
+		f.markDirtyLocalState(i.ID())
 	}
 
 	i.mu.Unlock()

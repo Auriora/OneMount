@@ -91,7 +91,7 @@ func (f *Filesystem) remoteID(i *Inode) (string, error) {
 		}
 
 		// we just successfully uploaded a copy, no need to do it again
-		i.hasChanges = false
+		f.markCleanLocalState(session.ID)
 		i.DriveItem.ETag = session.ETag
 		i.mu.Unlock()
 

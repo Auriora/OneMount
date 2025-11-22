@@ -223,8 +223,8 @@ func (cr *ConflictResolver) acceptRemoteChanges(ctx context.Context, conflict *C
 		// Update local item with remote data
 		conflict.LocalItem.mu.Lock()
 		conflict.LocalItem.DriveItem = *conflict.RemoteItem
-		conflict.LocalItem.hasChanges = false
 		conflict.LocalItem.mu.Unlock()
+		cr.fs.markCleanLocalState(conflict.LocalItem.ID())
 
 		// Invalidate content cache to force re-download
 		cr.fs.content.Delete(conflict.ID)

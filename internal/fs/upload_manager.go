@@ -662,12 +662,9 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 		}
 	}
 
-	inode.mu.Lock()
-	inode.hasChanges = true
-	inode.mu.Unlock()
-
 	if fsImpl, ok := u.filesystem(); ok {
 		fsImpl.persistMetadataEntry(session.ID, inode)
+		fsImpl.markDirtyLocalState(session.ID)
 		fsImpl.transitionItemState(session.ID, metadata.ItemStateDirtyLocal,
 			metadata.WithUploadEvent(),
 			metadata.WithWorker("upload-queue:"+session.ID))
@@ -747,11 +744,8 @@ func (u *UploadManager) QueueUploadWithPriority(inode *Inode, priority UploadPri
 		u.mutex.Lock()
 		delete(pendingMap, session.ID)
 		u.mutex.Unlock()
-		inode.mu.Lock()
-		inode.hasChanges = false
-		inode.mu.Unlock()
 		if fsImpl, ok := u.filesystem(); ok {
-			fsImpl.transitionItemState(session.ID, metadata.ItemStateGhost)
+			fsImpl.markDirtyLocalState(session.ID)
 		}
 		return nil, fmt.Errorf("upload queue is full")
 	}
@@ -926,8 +920,10 @@ func (u *UploadManager) WaitForUpload(id string) error {
 
 				// Use the size from the remote DriveItem
 				inode.DriveItem.Size = session.Size
-				inode.hasChanges = false
 				inode.mu.Unlock()
+				if fsImpl, ok := u.filesystem(); ok {
+					fsImpl.markCleanLocalState(session.ID)
+				}
 
 				// Update file status attributes
 				u.fs.UpdateFileStatus(inode)

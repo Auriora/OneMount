@@ -693,6 +693,7 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 		case "create", "modify":
 			// Queue upload with low priority since it's a background task
 			if inode := f.GetIDWithContext(change.ID, ctx); inode != nil {
+				f.markDirtyLocalState(change.ID)
 				_, err := f.uploads.QueueUploadWithPriority(inode, PriorityLow)
 				if err != nil {
 					logging.LogErrorWithContext(err, ctx, "Failed to queue upload for offline change",
@@ -707,6 +708,7 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 						logging.FieldID, change.ID)
 				}
 			}
+			f.transitionItemState(change.ID, metadata.ItemStateDeleted)
 		case "rename":
 			// Handle rename
 			if inode := f.GetIDWithContext(change.ID, ctx); inode != nil {
@@ -731,6 +733,7 @@ func (f *Filesystem) ProcessOfflineChangesWithContext(goCtx context.Context) {
 					}
 				}
 			}
+			f.markDirtyLocalState(change.ID)
 		}
 
 		// Remove the processed change
