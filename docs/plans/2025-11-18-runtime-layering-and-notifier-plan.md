@@ -83,3 +83,25 @@ These findings inform the work breakdown below.
 2. Design the state-transition helper + integration points (hydration, uploads, eviction).
 3. Finalize the Socket.IO ChangeNotifier interface (webhook transport removed) and validate it in isolation before wiring into the delta loop.
 4. Review with maintainers before executing refactor.
+
+## 6. Reality Check (2025-11-22)
+
+Field verification against the current code shows the plan items above remain largely unfinished despite “Complete” statuses in the 2025-11-19…21 update notes. Gaps by work breakdown item:
+
+- **1) Metadata schema refactor**: Legacy fallback and dual-bucket writes are still active (`loadLegacyMetadataEntry` in `internal/fs/metadata_store.go`; `SerializeAll` writes legacy buckets). No validator/repair pass exists for `metadata_v2`.
+- **2) State machine implementation**: `inode.hasChanges` remains authoritative; write paths don’t consistently call `transitionItemState`; `applyDelta` still mutates inodes directly; conflict/offline/eviction paths bypass the state manager.
+- **3) Local-first FUSE callbacks**: `GetChildrenID` still issues synchronous Graph calls when cold; mkdir/unlink/rename call Graph inline; no mutation queue exists; offline-friendly tests only cover a subset of cases.
+- **4) Sync & hydration pipeline**: Tree sync still materializes `DriveItem`s into inodes; delta reconciliation does not drive validated state transitions for all cases; hydration/upload snapshots and `LastError` plumbing are absent.
+- **5) ChangeNotifier layer**: Delta loop ignores notifier health; 10-second recovery window and degraded-state telemetry are not wired; D-Bus/stats exposure missing.
+- **6) Config & telemetry**: Only the overlay default knob landed. No per-mount hydration/notifier tuning or queue metrics surfaced in `--stats`; README/config docs not updated for the promised knobs.
+- **7) Testing & documentation closure**: Required regressions (no Graph from GetChildrenID when cached, mutation state graph, delta cadence vs notifier health) are missing; `docs/updates/index.md` and Nov 19–21 update files still declare “Complete” contrary to code state.
+
+## 7. Revised Task List to Complete the Plan
+
+1. **Kill legacy metadata**: Remove legacy bucket reads/writes, add one-time migrator/repair, and wire validator over `metadata_v2`.
+2. **State machine everywhere**: Replace `hasChanges` with `transitionItemState`; refit `applyDelta`, eviction, conflict/offline handlers, and uploads/hydration to the state manager with regression tests.
+3. **Local-first FUSE**: Strip synchronous Graph from FUSE paths; add mutation queue; ensure `GetChildrenID` returns cached data and only queues background fetches; add offline/blocking regressions.
+4. **Sync/hydration correctness**: Run walker/delta through metadata_v2 + state manager; persist hydration/upload snapshots and `LastError`; keep pinned/ghost transitions consistent.
+5. **Notifier-driven cadence**: Feed `ChangeNotifier` health into delta loop cadence, implement 10s recovery/backoff logging, expose degraded state via stats/DBus, and add stubbed tests.
+6. **Config/telemetry surface**: Add per-mount knobs (hydration queue thresholds, notifier fallbacks, overlay policies), expose metadata-queue/notifier metrics in `--stats`, and document/validate.
+7. **Close documentation/tests**: Add the promised regressions, then update Nov 19–21 update files and `docs/updates/index.md` to reflect actual completion with links to tests/results.
