@@ -3,6 +3,7 @@
 Newest entries first.
 
 - **2025-11-22** – [Runtime Layering – FUSE Local-First Queueing](./2025-11-22-runtime-layering-fuse-local-first.md)
+- **2025-11-22** – [Runtime Layering – Sync/Hydration Snapshots & Pinned Requeue](./2025-11-22-runtime-layering-sync-hydration-requeue.md)
 - **2025-11-22** – [Runtime Layering – State Manager Hot Paths](./2025-11-22-runtime-layering-state-manager.md)
 - **2025-11-22** – [Runtime Layering – Metadata Migration & Validation Tools](./2025-11-22-runtime-layering-metadata-migration.md)
 - **2025-11-22** – [Runtime Layering – Config & Telemetry Knobs](./2025-11-22-runtime-layering-config-telemetry.md)

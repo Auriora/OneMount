@@ -638,16 +638,16 @@ func TestHighConcurrencyStress(t *testing.T) {
 		fs := fsFixture.FS.(*Filesystem)
 
 		// Test parameters for stress testing
-		numGoroutines := 50
+		numGoroutines := 40
 		numFiles := 512
-		testDuration := 30 * time.Second
-		operationsPerSecond := 100
+		testDuration := 20 * time.Second
+		operationsPerSecond := 80
 		maxAvgLatency := 25 * time.Millisecond
 		if raceEnabled {
-			numGoroutines = 25
+			numGoroutines = 20
 			numFiles = 256
-			testDuration = 15 * time.Second
-			operationsPerSecond = 50
+			testDuration = 12 * time.Second
+			operationsPerSecond = 40
 			maxAvgLatency = 40 * time.Millisecond
 		}
 

@@ -172,6 +172,19 @@ func (f *Filesystem) syncDirectoryTreeRecursiveWithContext(ctx context.Context, 
 				logging.Debug().Err(upsertErr).Str("id", item.ID).Msg("Failed to persist metadata entry during sync")
 				continue
 			}
+			// Normalize state via the validated state manager so hydration/ghost timestamps are persisted.
+			target := entry.State
+			if target == "" {
+				if entry.ItemType == metadata.ItemKindDirectory {
+					target = metadata.ItemStateHydrated
+				} else {
+					target = metadata.ItemStateGhost
+				}
+			}
+			f.transitionToState(entry.ID, target,
+				metadata.ForceTransition(),
+				metadata.WithTransitionTimestamp(now),
+				metadata.ClearPendingRemote())
 			childEntries = append(childEntries, entry)
 
 			if entry.ItemType == metadata.ItemKindDirectory {
