@@ -26,6 +26,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -305,6 +306,7 @@ func (dm *DownloadManager) processDownload(id string) {
 
 	// Download the file content with retry
 	var size uint64
+	var actualHash string
 	err = retry.Do(ctx, func() error {
 		// Reset the file position before each attempt
 		if _, err := temp.Seek(0, 0); err != nil {
@@ -323,8 +325,16 @@ func (dm *DownloadManager) processDownload(id string) {
 			return errors.Wrap(downloadErr, "failed to download file content")
 		}
 
-		// Verify checksum
-		if !inode.DriveItem.VerifyChecksum(graph.QuickXORHashStream(temp)) {
+		// Compute checksum and verify when an expected hash is present.
+		actualHash = graph.QuickXORHashStream(temp)
+		inode.mu.RLock()
+		expectedHash := ""
+		if inode.DriveItem.File != nil {
+			expectedHash = inode.DriveItem.File.Hashes.QuickXorHash
+		}
+		inode.mu.RUnlock()
+
+		if expectedHash != "" && !strings.EqualFold(expectedHash, actualHash) {
 			return errors.NewValidationError("checksum verification failed", nil)
 		}
 
@@ -389,11 +399,16 @@ func (dm *DownloadManager) processDownload(id string) {
 	// Update inode size
 	inode.mu.Lock()
 	inode.DriveItem.Size = size
+	if inode.DriveItem.File == nil {
+		inode.DriveItem.File = &graph.File{}
+	}
+	inode.DriveItem.File.Hashes.QuickXorHash = actualHash
 	inode.mu.Unlock()
 
 	dm.fs.transitionItemState(id, metadata.ItemStateHydrated,
 		metadata.WithHydrationEvent(),
 		metadata.WithWorker("download:"+id),
+		metadata.WithContentHash(actualHash),
 		metadata.WithSize(size),
 		metadata.ClearPendingRemote())
 

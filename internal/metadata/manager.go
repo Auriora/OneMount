@@ -49,6 +49,8 @@ func NewStateManager(store Store, opts ...StateManagerOption) (*StateManager, er
 				ItemStateError,
 			),
 			ItemStateHydrated: stateSet(
+				ItemStateHydrating,
+				ItemStateError,
 				ItemStateDirtyLocal,
 				ItemStateGhost,
 				ItemStateDeleted,
@@ -87,6 +89,7 @@ type transitionConfig struct {
 	hydrationEvent  bool
 	uploadEvent     bool
 	newETag         string
+	newContentHash  string
 	newSize         *uint64
 	pinState        *PinState
 	clearPending    bool
@@ -126,6 +129,13 @@ func WithTransitionError(err error, temporary bool) TransitionOption {
 func WithETag(etag string) TransitionOption {
 	return func(cfg *transitionConfig) {
 		cfg.newETag = etag
+	}
+}
+
+// WithContentHash updates the entry's content hash when the transition succeeds.
+func WithContentHash(hash string) TransitionOption {
+	return func(cfg *transitionConfig) {
+		cfg.newContentHash = hash
 	}
 }
 
@@ -281,6 +291,9 @@ func (m *StateManager) applyTransition(entry *Entry, to ItemState, cfg transitio
 
 	if cfg.pinState != nil {
 		entry.Pin = *cfg.pinState
+	}
+	if cfg.newContentHash != "" {
+		entry.ContentHash = cfg.newContentHash
 	}
 	if cfg.clearPending {
 		entry.PendingRemote = false

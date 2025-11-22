@@ -1,14 +1,17 @@
 package fs
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/internal/errors"
-	"github.com/auriora/onemount/internal/graph"
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"github.com/auriora/onemount/internal/testutil/helpers"
 	"net/http"
 	"testing"
+
+	"github.com/auriora/onemount/internal/errors"
+	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
 // TestUT_FS_07_01_DownloadManager_QueueDownload_NonExistentFile tests that QueueDownload returns an error when the file doesn't exist.
@@ -407,6 +410,128 @@ func TestUT_FS_07_05_DownloadManager_ProcessDownload_ChecksumError(t *testing.T)
 		// Verify the file status
 		fileStatus := fs.GetFileStatus(fileID)
 		assert.Equal(StatusError, fileStatus.Status, "File status should be StatusError")
+	})
+}
+
+// TestUT_FS_07_06_DownloadManager_ProcessDownload_MissingHashSeedsChecksum verifies that downloads succeed
+// when the remote item omits checksum metadata and that the computed hash is persisted for future reads.
+func TestUT_FS_07_06_DownloadManager_ProcessDownload_MissingHashSeedsChecksum(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "DownloadManagerMissingHashFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create filesystem: %w", err)
+		}
+		return fs, nil
+	})
+
+	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
+		fsFixture, err := helpers.SetupFSTest(t, "DownloadManagerMissingHashFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create filesystem: %w", err)
+			}
+			return fs, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		fs := fsFixture.FS.(*Filesystem)
+		fs.root = fsFixture.RootID
+
+		rootItem := &graph.DriveItem{
+			ID:   fsFixture.RootID,
+			Name: "root",
+			Folder: &graph.Folder{
+				ChildCount: 1,
+			},
+		}
+		fsFixture.MockClient.AddMockItem("/me/drive/root", rootItem)
+		rootInode := NewInodeDriveItem(rootItem)
+		fs.InsertID(fsFixture.RootID, rootInode)
+		fs.InsertNodeID(rootInode)
+
+		content := []byte("content without remote hash")
+		actualHash := graph.QuickXORHash(&content)
+		fileID := "missing-hash-file-id"
+		fileName := "missing_hash.txt"
+
+		fileItem := &graph.DriveItem{
+			ID:   fileID,
+			Name: fileName,
+			Parent: &graph.DriveItemParent{
+				ID: rootItem.ID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{}, // no QuickXorHash provided by service
+			},
+			Size: uint64(len(content)),
+		}
+
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertNodeID(fileInode)
+		fs.InsertChild(fsFixture.RootID, fileInode)
+
+		// Persist a metadata entry that claims the item is hydrated but lacks a hash.
+		entry := &metadata.Entry{
+			ID:            fileID,
+			Name:          fileName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          uint64(len(content)),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		_ = fs.metadataStore.Save(context.Background(), entry)
+
+		fileItemJSON, _ := json.Marshal(fileItem)
+		fsFixture.MockClient.AddMockResponse("/me/drive/items/"+fileID, fileItemJSON, http.StatusOK, nil)
+		fsFixture.MockClient.AddMockResponse("/me/drive/items/"+fileID+"/content", content, http.StatusOK, nil)
+
+		fsFixture.Data["fileID"] = fileID
+		fsFixture.Data["expectedHash"] = actualHash
+
+		return fsFixture, nil
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		assert := framework.NewAssert(t)
+
+		unitTestFixture := fixture.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		fs := fsFixture.FS.(*Filesystem)
+		fileID := fsFixture.Data["fileID"].(string)
+		expectedHash := fsFixture.Data["expectedHash"].(string)
+
+		session, err := fs.downloads.QueueDownload(fileID)
+		assert.NoError(err, "Failed to queue download")
+		assert.NotNil(session, "Download session should not be nil")
+
+		err = fs.downloads.WaitForDownload(fileID)
+		assert.NoError(err, "Download should succeed even without remote hash")
+
+		status, err := fs.downloads.GetDownloadStatus(fileID)
+		assert.NoError(err, "Failed to get download status")
+		assert.Equal(DownloadCompletedState, status, "Download status should be completed")
+
+		entry, err := fs.metadataStore.Get(context.Background(), fileID)
+		assert.NoError(err, "Metadata entry should be persisted")
+		assert.Equal(metadata.ItemStateHydrated, entry.State, "Entry should be hydrated after download")
+		assert.Equal(expectedHash, entry.ContentHash, "Computed hash should be stored in metadata")
+
+		inode := fs.GetID(fileID)
+		if inode == nil {
+			t.Fatalf("inode should exist after download")
+		}
+		inode.mu.RLock()
+		hashOnInode := ""
+		if inode.DriveItem.File != nil {
+			hashOnInode = inode.DriveItem.File.Hashes.QuickXorHash
+		}
+		inode.mu.RUnlock()
+		assert.Equal(expectedHash, hashOnInode, "Inode should have seeded checksum")
 	})
 }
 

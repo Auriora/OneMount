@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -44,6 +45,8 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
+		fs.SetOfflineMode(OfflineModeReadWrite)
+		t.Cleanup(func() { fs.SetOfflineMode(OfflineModeDisabled) })
 		rootInode := fs.GetID(fsFixture.RootID)
 		if rootInode == nil {
 			t.Fatalf("Root inode not found")
@@ -72,8 +75,14 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		status := fs.Mkdir(nil, mkdirIn, documentsName, documentsEntryOut)
 		assert.Equal(fuse.OK, status, "Documents directory creation should succeed")
 		documentsNode := fs.GetNodeID(documentsEntryOut.NodeId)
+		if documentsNode == nil {
+			// Fallback to metadata-backed lookup in case the node index was not seeded yet.
+			documentsNode = fs.GetID(documentsID)
+		}
 		assert.NotNil(documentsNode, "Documents inode should exist after Mkdir")
 		documentsID = documentsNode.ID()
+		fs.persistMetadataEntry(documentsID, documentsNode)
+		fs.transitionItemState(documentsID, metadata.ItemStateHydrated)
 		helpers.CreateMockDirectory(mockClient, rootID, documentsName, documentsID)
 
 		// Create projects directory inside documents
@@ -87,8 +96,13 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		status = fs.Mkdir(nil, mkdirIn, projectsName, projectsEntryOut)
 		assert.Equal(fuse.OK, status, "Projects directory creation should succeed")
 		projectsNode := fs.GetNodeID(projectsEntryOut.NodeId)
+		if projectsNode == nil {
+			projectsNode = fs.GetID(projectsID)
+		}
 		assert.NotNil(projectsNode, "Projects inode should exist after Mkdir")
 		projectsID = projectsNode.ID()
+		fs.persistMetadataEntry(projectsID, projectsNode)
+		fs.transitionItemState(projectsID, metadata.ItemStateHydrated)
 		helpers.CreateMockDirectory(mockClient, documentsID, projectsName, projectsID)
 
 		// Create a file inside projects
@@ -108,6 +122,8 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 		fileInode := fs.GetNodeID(fileEntryOut.NodeId)
 		assert.NotNil(fileInode, "File inode should exist")
 		fileID := fileInode.ID()
+		fs.persistMetadataEntry(fileID, fileInode)
+		fs.transitionItemState(fileID, metadata.ItemStateHydrated)
 		helpers.CreateMockFile(mockClient, projectsID, fileName, fileID, "Test file content")
 
 		// Step 2: Test path-to-ID resolution

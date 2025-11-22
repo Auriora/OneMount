@@ -1206,13 +1206,21 @@ func (f *Filesystem) autoHydratePinned(id string) {
 	if entry.Pin.Mode != metadata.PinModeAlways {
 		return
 	}
-	if entry.State == metadata.ItemStateHydrated || entry.State == metadata.ItemStateHydrating {
-		return
-	}
+	logging.Debug().
+		Str("id", id).
+		Str("state", string(entry.State)).
+		Str("pin", string(entry.Pin.Mode)).
+		Msg("Auto hydration requested for pinned item")
 	if hooks := f.testHooks; hooks != nil && hooks.AutoHydrateHook != nil {
 		if handled := hooks.AutoHydrateHook(f, id); handled {
 			return
 		}
+	}
+	// Allow re-hydration even if the entry was previously HYDRATED; invalidation paths
+	// use autoHydratePinned to refresh pinned items with new remote content. Skip only
+	// when a hydration is already in flight.
+	if entry.State == metadata.ItemStateHydrating {
+		return
 	}
 	if f.downloads == nil {
 		logging.Debug().Str("id", id).Msg("Auto hydration skipped; download manager unavailable")
@@ -1270,6 +1278,13 @@ func (f *Filesystem) DeleteID(id string) {
 			}
 		}
 		f.deleteNodeIndex(nodeID)
+		// Clear the nodeID->ID translation slot so future lookups short-circuit
+		// instead of resurrecting deleted entries via TranslateID.
+		f.Lock()
+		if int(nodeID) <= len(f.inodes) && nodeID > 0 {
+			f.inodes[nodeID-1] = ""
+		}
+		f.Unlock()
 	}
 	f.metadata.Delete(id)
 	f.markEntryDeleted(id)
@@ -2039,6 +2054,9 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 	// Lock ordering: parent inode only (child not locked here)
 	// See docs/guides/developer/concurrency-guidelines.md
 	parent := f.GetID(inode.ParentID())
+	if parent == nil {
+		return errors.New("could not move item: parent missing")
+	}
 	parent.mu.Lock()
 	for i, child := range parent.children {
 		if child == oldID {
@@ -2048,9 +2066,29 @@ func (f *Filesystem) MoveID(oldID string, newID string) error {
 	}
 	parent.mu.Unlock()
 
-	// now actually perform the metadata+content move
-	f.DeleteID(oldID)
-	f.InsertID(newID, inode)
+	// Update inode identity without removing its node mapping to avoid transient
+	// EBADF windows while background mutations run.
+	inode.mu.Lock()
+	inode.DriveItem.ID = newID
+	inode.mu.Unlock()
+
+	// Refresh in-memory indices
+	f.metadata.Delete(oldID)
+	f.metadata.Store(newID, inode)
+	f.markEntryDeleted(oldID)
+
+	if nodeID := inode.NodeID(); nodeID != 0 {
+		f.Lock()
+		if int(nodeID-1) < len(f.inodes) {
+			f.inodes[nodeID-1] = newID
+		}
+		f.Unlock()
+		f.storeNodeIndex(nodeID, inode)
+	}
+
+	// Persist updated metadata snapshot when available
+	f.persistMetadataEntry(newID, inode)
+
 	if inode.IsDir() {
 		return nil
 	}

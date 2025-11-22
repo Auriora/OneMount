@@ -1,7 +1,7 @@
 # Runtime Layering – ChangeNotifier Facade (2025-11-21)
 
 **Type**: Implementation Update  
-**Status**: In Progress  
+**Status**: Complete  
 **Components**: `internal/fs/change_notifier.go`, `internal/fs/socket_subscription.go`, `internal/fs/delta.go`, `docs/2-architecture/resources/delta-sync-sequence-diagram.puml`, `docs/updates/2025-11-17-socketio-realtime.md`
 
 ## Summary

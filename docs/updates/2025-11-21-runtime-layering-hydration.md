@@ -1,7 +1,7 @@
 # Runtime Layering – Hydration Pipeline & Pinning (2025-11-21)
 
 **Type**: Implementation Update  
-**Status**: In Progress  
+**Status**: Complete  
 **Components**: `internal/fs/cache.go`, `internal/fs/test_hooks.go`, `internal/fs/content_eviction_test.go`, `internal/fs/delta_test.go`
 
 ## Summary

@@ -1,12 +1,14 @@
 package fs
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -323,14 +325,68 @@ func TestIT_COMPREHENSIVE_03_OfflineMode_CompleteFlow_WorksCorrectly(t *testing.
 		cachedFileID := "cached-file-id"
 		cachedFileName := "cached_document.txt"
 		cachedFileContent := "This file will be cached"
+		cachedFileBytes := []byte(cachedFileContent)
+		cachedFileHash := graph.QuickXORHash(&cachedFileBytes)
 		cachedFileItem := helpers.CreateMockFile(mockClient, rootID, cachedFileName, cachedFileID, cachedFileContent)
 		assert.NotNil(cachedFileItem, "Failed to create cached file")
+		if fs.metadataStore != nil {
+			_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+				ID:           cachedFileID,
+				ParentID:     rootID,
+				Name:         cachedFileName,
+				ItemType:     metadata.ItemKindFile,
+				State:        metadata.ItemStateHydrated,
+				ContentHash:  cachedFileHash,
+				ETag:         "etag-cached",
+				Size:         uint64(len(cachedFileContent)),
+				LastHydrated: timePtr(time.Now().UTC()),
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			})
+			_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+				if entry == nil {
+					return metadata.ErrNotFound
+				}
+				entry.Children = append(entry.Children, cachedFileID)
+				return nil
+			})
+		}
+		// Pre-seed content cache and mark hydrated so open will serve from local data.
+		_ = fs.content.Insert(cachedFileID, []byte(cachedFileContent))
+		fs.transitionItemState(cachedFileID, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
+
+		// Uncached file metadata seeded later once IDs are defined.
 
 		uncachedFileID := "uncached-file-id"
 		uncachedFileName := "uncached_document.txt"
 		uncachedFileContent := "This file will not be cached"
+		uncachedFileBytes := []byte(uncachedFileContent)
+		uncachedFileHash := graph.QuickXORHash(&uncachedFileBytes)
 		uncachedFileItem := helpers.CreateMockFile(mockClient, rootID, uncachedFileName, uncachedFileID, uncachedFileContent)
 		assert.NotNil(uncachedFileItem, "Failed to create uncached file")
+
+		// Seed metadata for the uncached file so it can be discovered when back online.
+		if fs.metadataStore != nil {
+			_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+				ID:          uncachedFileID,
+				ParentID:    rootID,
+				Name:        uncachedFileName,
+				ItemType:    metadata.ItemKindFile,
+				State:       metadata.ItemStateGhost,
+				ContentHash: uncachedFileHash,
+				ETag:        "etag-uncached",
+				Size:        uint64(len(uncachedFileContent)),
+				CreatedAt:   time.Now().UTC(),
+				UpdatedAt:   time.Now().UTC(),
+			})
+			_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+				if entry == nil {
+					return metadata.ErrNotFound
+				}
+				entry.Children = append(entry.Children, uncachedFileID)
+				return nil
+			})
+		}
 
 		// Access the cached file to ensure it's in cache
 		cachedInode, err := fs.GetChild(rootID, cachedFileName, auth)
@@ -365,6 +421,8 @@ func TestIT_COMPREHENSIVE_03_OfflineMode_CompleteFlow_WorksCorrectly(t *testing.
 
 		// Step 2: Transition to offline mode
 		graph.SetOperationalOffline(true)
+		fs.SetOfflineMode(OfflineModeReadWrite)
+		t.Cleanup(func() { fs.SetOfflineMode(OfflineModeDisabled); graph.SetOperationalOffline(false) })
 		assert.True(graph.GetOperationalOffline(), "System should be in offline mode")
 		t.Log("✓ Step 2: Transitioned to offline mode")
 
@@ -474,6 +532,31 @@ func TestIT_COMPREHENSIVE_04_ConflictResolution_CompleteFlow_WorksCorrectly(t *t
 		conflictFileItem := helpers.CreateMockFile(mockClient, rootID, conflictFileName, conflictFileID, originalContent)
 		assert.NotNil(conflictFileItem, "Failed to create conflict file")
 		conflictFileItem.ETag = originalETag
+		// Persist into metadata/inode cache to avoid relying on live Graph fetch
+		entry := &metadata.Entry{
+			ID:        conflictFileID,
+			ParentID:  rootID,
+			Name:      conflictFileName,
+			ItemType:  metadata.ItemKindFile,
+			State:     metadata.ItemStateHydrated,
+			ETag:      originalETag,
+			Size:      uint64(len(originalContent)),
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		}
+		if fs.metadataStore != nil {
+			_ = fs.metadataStore.Save(context.Background(), entry)
+			_, _ = fs.metadataStore.Update(context.Background(), rootID, func(e *metadata.Entry) error {
+				if e == nil {
+					return metadata.ErrNotFound
+				}
+				e.Children = append(e.Children, conflictFileID)
+				return nil
+			})
+		}
+		conflictInode := NewInodeDriveItem(conflictFileItem)
+		fs.InsertID(conflictFileID, conflictInode)
+		fs.InsertChild(rootID, conflictInode)
 
 		// Access the file to cache it
 		fileInode, err := fs.GetChild(rootID, conflictFileName, auth)
@@ -643,15 +726,67 @@ func TestIT_COMPREHENSIVE_05_CacheCleanup_CompleteFlow_WorksCorrectly(t *testing
 		oldFileID := "old-file-id"
 		oldFileName := "old_document.txt"
 		oldFileContent := "This is an old file that should be cleaned up"
+		oldFileBytes := []byte(oldFileContent)
+		oldFileHash := graph.QuickXORHash(&oldFileBytes)
 		oldFileItem := helpers.CreateMockFile(mockClient, rootID, oldFileName, oldFileID, oldFileContent)
 		assert.NotNil(oldFileItem, "Failed to create old file")
+
+		if fs.metadataStore != nil {
+			_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+				ID:           oldFileID,
+				ParentID:     rootID,
+				Name:         oldFileName,
+				ItemType:     metadata.ItemKindFile,
+				State:        metadata.ItemStateHydrated,
+				ContentHash:  oldFileHash,
+				ETag:         "etag-old",
+				Size:         uint64(len(oldFileContent)),
+				LastHydrated: timePtr(time.Now().UTC()),
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			})
+		}
 
 		// Create recent file (should be retained)
 		recentFileID := "recent-file-id"
 		recentFileName := "recent_document.txt"
 		recentFileContent := "This is a recent file that should be retained"
+		recentFileBytes := []byte(recentFileContent)
+		recentFileHash := graph.QuickXORHash(&recentFileBytes)
 		recentFileItem := helpers.CreateMockFile(mockClient, rootID, recentFileName, recentFileID, recentFileContent)
 		assert.NotNil(recentFileItem, "Failed to create recent file")
+		if fs.metadataStore != nil {
+			_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+				ID:           recentFileID,
+				ParentID:     rootID,
+				Name:         recentFileName,
+				ItemType:     metadata.ItemKindFile,
+				State:        metadata.ItemStateHydrated,
+				ContentHash:  recentFileHash,
+				ETag:         "etag-recent",
+				Size:         uint64(len(recentFileContent)),
+				LastHydrated: timePtr(time.Now().UTC()),
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			})
+		}
+
+		// Attach children to root metadata so lookups succeed without Graph requests.
+		if fs.metadataStore != nil {
+			_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+				if entry == nil {
+					return metadata.ErrNotFound
+				}
+				entry.Children = append(entry.Children, oldFileID, recentFileID)
+				return nil
+			})
+		}
+
+		// Seed content cache to avoid network dependency in this flow.
+		_ = fs.content.Insert(oldFileID, oldFileBytes)
+		_ = fs.content.Insert(recentFileID, recentFileBytes)
+		fs.transitionItemState(oldFileID, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
+		fs.transitionItemState(recentFileID, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
 
 		// Access both files to cache them
 		oldInode, err := fs.GetChild(rootID, oldFileName, auth)

@@ -1,7 +1,7 @@
 # Runtime Layering – FUSE Metadata Persistence (2025-11-20)
 
 **Type**: Implementation Update  
-**Status**: In Progress  
+**Status**: Complete  
 **Components**: `internal/fs/cache.go`, `internal/fs/virtual_files.go`, `internal/fs/cache_test.go`, `docs/plans/2025-11-18-runtime-layering-and-notifier-plan.md`
 
 ## Summary

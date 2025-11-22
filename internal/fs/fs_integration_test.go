@@ -186,6 +186,16 @@ func TestIT_FS_13_01_Directory_ListContents_OutputMatchesExpected(t *testing.T) 
 			fs.InsertChild(rootID, dirInode)
 		}
 
+		// Seed file inodes/metadata so directory listing can be served locally without
+		// synchronous Graph calls that may race with fixture teardown in parallel runs.
+		for _, item := range []*graph.DriveItem{file1Item, file2Item} {
+			inode := NewInodeDriveItem(item)
+			fs.InsertChild(dirID, inode)
+			fs.persistMetadataEntry(item.ID, inode)
+		}
+		fs.persistMetadataEntry(dirID, fs.GetID(dirID))
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
+
 		// Step 2: Run ls command on the directory
 		// In a real test, we would execute the ls command and capture its output
 		// For this stub implementation, we'll simulate the ls command by getting the directory contents

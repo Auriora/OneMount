@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -61,6 +62,13 @@ func TestUT_FS_FileRead_01_UncachedFile(t *testing.T) {
 		// Create the mock file
 		fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, testContent)
 		assert.NotNil(fileItem, "Mock file should be created")
+
+		// Seed inode/metadata so GetChild can be served from cache even if the
+		// metadata request manager stops between tests.
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertChild(rootID, fileInode)
+		fs.persistMetadataEntry(testFileID, fileInode)
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
 
 		// Update the root's children to include this file
 		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})
@@ -165,6 +173,12 @@ func TestUT_FS_FileRead_02_CachedFile(t *testing.T) {
 		// Create the mock file
 		fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, testContent)
 		assert.NotNil(fileItem, "Mock file should be created")
+
+		// Seed inode/metadata so lookups can use local cache immediately.
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertChild(rootID, fileInode)
+		fs.persistMetadataEntry(testFileID, fileInode)
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
 
 		// Update the root's children to include this file
 		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})
@@ -290,6 +304,23 @@ func TestUT_FS_FileRead_03_DirectoryListing(t *testing.T) {
 			assert.NotNil(fileItems[i], "Mock file %d should be created", i)
 		}
 
+		// Seed the local metadata/cache so directory lookups can be satisfied without
+		// synchronous Graph calls, matching the local-first behavior required by the
+		// runtime-layering design.
+		dirInode := NewInodeDriveItem(dirItem)
+		fs.InsertChild(rootID, dirInode)
+		fs.persistMetadataEntry(testDirID, dirInode)
+		fs.transitionItemState(testDirID, metadata.ItemStateHydrated)
+		for _, item := range fileItems {
+			inode := NewInodeDriveItem(item)
+			fs.InsertChild(testDirID, inode)
+			fs.persistMetadataEntry(item.ID, inode)
+			fs.transitionItemState(item.ID, metadata.ItemStateHydrated)
+		}
+		if root := fs.GetID(rootID); root != nil {
+			fs.persistMetadataEntry(rootID, root)
+		}
+
 		// Update the mock to return all files as children
 		mockClient.AddMockItems("/me/drive/items/"+testDirID+"/children", fileItems)
 
@@ -403,6 +434,11 @@ func TestUT_FS_FileRead_04_FileMetadata(t *testing.T) {
 		// Create the mock file
 		fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, testContent)
 		assert.NotNil(fileItem, "Mock file should be created")
+
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertChild(rootID, fileInode)
+		fs.persistMetadataEntry(testFileID, fileInode)
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
 
 		// Update the root's children to include this file
 		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})

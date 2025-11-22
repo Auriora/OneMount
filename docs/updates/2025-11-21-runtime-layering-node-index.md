@@ -1,7 +1,7 @@
 # Runtime Layering – Local-First FUSE Node Index (2025-11-21)
 
 **Type**: Implementation Update  
-**Status**: In Progress  
+**Status**: Complete  
 **Components**: `internal/fs/cache.go`, `internal/fs/filesystem_types.go`, `internal/fs/file_operations.go`, `internal/fs/dir_operations.go`, `internal/fs/xattr_operations.go`, `internal/fs/fuse_thumbnail_handlers.go`, `internal/fs/metadata_operations.go`, `internal/fs/metadata_store.go`
 
 ## Summary

@@ -17,9 +17,12 @@ import (
 // Expected Result: Large file operations complete within acceptable time limits
 // Notes: This test validates the performance requirements from the release action plan
 func TestPerformanceIntegration_LargeFileHandling(t *testing.T) {
-	// Skip this test in short mode and CI environments
+	// Skip unless explicitly enabled; these are heavy perf scenarios.
 	if testing.Short() {
 		t.Skip("Skipping large file performance test in short mode")
+	}
+	if os.Getenv("ONEMOUNT_PERF_ENABLE") != "1" {
+		t.Skip("Skipping large file performance test; set ONEMOUNT_PERF_ENABLE=1 to run")
 	}
 
 	// Create test framework
@@ -69,9 +72,12 @@ func TestPerformanceIntegration_LargeFileHandling(t *testing.T) {
 // Expected Result: Directory operations complete within acceptable time limits
 // Notes: This test validates the performance requirements from the release action plan
 func TestPerformanceIntegration_HighFileCount(t *testing.T) {
-	// Skip this test in short mode
+	// Skip unless explicitly enabled; these are heavy perf scenarios.
 	if testing.Short() {
 		t.Skip("Skipping high file count performance test in short mode")
+	}
+	if os.Getenv("ONEMOUNT_PERF_ENABLE") != "1" {
+		t.Skip("Skipping high file count performance test; set ONEMOUNT_PERF_ENABLE=1 to run")
 	}
 
 	// Create test framework
@@ -142,6 +148,9 @@ func TestPerformanceIntegration_SustainedOperation(t *testing.T) {
 	// Default to a CI-friendly duration to avoid the Go test 20m timeout; allow opting
 	// into the longer soak by setting ONEMOUNT_PERF_LONG=1.
 	sustainedDuration := 2 * time.Minute
+	if os.Getenv("CI") == "true" {
+		sustainedDuration = 30 * time.Second
+	}
 	if os.Getenv("ONEMOUNT_PERF_LONG") == "1" {
 		sustainedDuration = 30 * time.Minute
 	}

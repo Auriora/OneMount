@@ -59,14 +59,14 @@ func TestApplyDeltaPersistsMetadataOnMetadataOnlyChange(t *testing.T) {
 			remoteMod := time.Now()
 			delta := *localItem
 			delta.ModTime = &remoteMod
-			delta.ETag = "etag-remote-1"
+			delta.ETag = localItem.ETag // metadata-only change; keep same etag to avoid invalidation
 			delta.Parent = &graph.DriveItemParent{ID: rootID}
 
 			require.NoError(t, filesystem.applyDelta(&delta))
 
 			entry, err := filesystem.GetMetadataEntry(localItem.ID)
 			require.NoError(t, err)
-			require.Equal(t, "etag-remote-1", entry.ETag)
+			require.Equal(t, localItem.ETag, entry.ETag)
 			require.Equal(t, metadata.ItemStateHydrated, entry.State)
 			require.NotNil(t, entry.LastModified)
 			require.WithinDuration(t, remoteMod.UTC(), *entry.LastModified, time.Second)
@@ -178,6 +178,7 @@ func TestApplyDeltaPinnedFileQueuesHydration(t *testing.T) {
 				AutoHydrateHook: func(_ *Filesystem, id string) bool {
 					if id == localItem.ID {
 						atomic.AddInt32(&autoHydrateCount, 1)
+						return true
 					}
 					return true
 				},
@@ -591,6 +592,46 @@ func (f *fakeNotifier) Notifications() <-chan struct{}       { return nil }
 func (f *fakeNotifier) IsActive() bool                       { return f.active }
 func (f *fakeNotifier) HealthSnapshot() socketio.HealthState { return f.health }
 
+type fakeMetadataStore struct {
+	items map[string]*metadata.Entry
+}
+
+func newFakeMetadataStore() *fakeMetadataStore {
+	return &fakeMetadataStore{items: make(map[string]*metadata.Entry)}
+}
+
+func (s *fakeMetadataStore) Get(_ context.Context, id string) (*metadata.Entry, error) {
+	entry, ok := s.items[id]
+	if !ok {
+		return nil, metadata.ErrNotFound
+	}
+	cp := *entry
+	return &cp, nil
+}
+
+func (s *fakeMetadataStore) Save(_ context.Context, entry *metadata.Entry) error {
+	if entry == nil {
+		return metadata.ErrNotFound
+	}
+	cp := *entry
+	s.items[entry.ID] = &cp
+	return nil
+}
+
+func (s *fakeMetadataStore) Update(ctx context.Context, id string, fn func(*metadata.Entry) error) (*metadata.Entry, error) {
+	current, _ := s.Get(ctx, id)
+	if current == nil {
+		current = &metadata.Entry{ID: id}
+	}
+	if err := fn(current); err != nil {
+		return nil, err
+	}
+	if err := s.Save(ctx, current); err != nil {
+		return nil, err
+	}
+	return current, nil
+}
+
 func TestDesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureRealtime(RealtimeOptions{Enabled: true, FallbackInterval: 45 * time.Minute})
@@ -629,4 +670,53 @@ func TestDesiredDeltaIntervalUsesNotifierHealthFailedRecovery(t *testing.T) {
 	if interval := fs.desiredDeltaInterval(); interval != defaultRecoveryInterval {
 		t.Fatalf("expected recovery interval %s, got %s", defaultRecoveryInterval, interval)
 	}
+}
+
+func TestApplyDeltaTransitionsStateOnRemoteInvalidation(t *testing.T) {
+	store := newFakeMetadataStore()
+	manager, err := metadata.NewStateManager(store)
+	require.NoError(t, err)
+	fs := &Filesystem{
+		metadataStore: store,
+		stateManager:  manager,
+		statuses:      make(map[string]FileStatusInfo),
+	}
+
+	ctx := context.Background()
+	parent := &metadata.Entry{
+		ID:        "parent-id",
+		Name:      "Parent",
+		ItemType:  metadata.ItemKindDirectory,
+		State:     metadata.ItemStateHydrated,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	_ = fs.metadataStore.Save(ctx, parent)
+
+	item := &metadata.Entry{
+		ID:       "file-id",
+		ParentID: "parent-id",
+		Name:     "file.txt",
+		ItemType: metadata.ItemKindFile,
+		State:    metadata.ItemStateDirtyLocal,
+		ETag:     "old",
+	}
+	_ = fs.metadataStore.Save(ctx, item)
+
+	delta := &graph.DriveItem{
+		ID:   item.ID,
+		Name: item.Name,
+		ETag: "new",
+		Parent: &graph.DriveItemParent{
+			ID: item.ParentID,
+		},
+		File: &graph.File{},
+	}
+
+	err = fs.applyDelta(delta)
+	require.NoError(t, err)
+
+	entry, err := fs.metadataStore.Get(ctx, item.ID)
+	require.NoError(t, err)
+	require.Equal(t, metadata.ItemStateConflict, entry.State, "dirty local item should become conflict on remote change")
 }

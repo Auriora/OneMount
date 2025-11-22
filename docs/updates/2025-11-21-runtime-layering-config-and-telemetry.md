@@ -1,7 +1,7 @@
 # Runtime Layering – Config & Telemetry (2025-11-21)
 
 **Type**: Implementation Update  
-**Status**: In Progress  
+**Status**: Complete  
 **Components**: `cmd/common/config.go`, `cmd/onemount/main.go`, `internal/fs/cache.go`, `internal/fs/metadata_store.go`, `internal/fs/download_manager.go`, `internal/fs/stats.go`
 
 ## Summary

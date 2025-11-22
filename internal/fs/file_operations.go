@@ -29,6 +29,19 @@ func (f *Filesystem) markHydratedState(id string) {
 	f.transitionItemState(id, metadata.ItemStateHydrated, metadata.ClearPendingRemote())
 }
 
+// markPendingUpload records that local content exists and needs upload.
+func (f *Filesystem) markPendingUpload(id string) {
+	if id == "" {
+		return
+	}
+	if inode := f.GetID(id); inode != nil {
+		inode.mu.Lock()
+		inode.hasChanges = true
+		inode.mu.Unlock()
+	}
+	f.transitionItemState(id, metadata.ItemStateDirtyLocal)
+}
+
 // Mknod creates a regular file. The server doesn't have this yet.
 func (f *Filesystem) Mknod(_ <-chan struct{}, in *fuse.MknodIn, name string, out *fuse.EntryOut) fuse.Status {
 	if isNameRestricted(name) {
@@ -132,8 +145,7 @@ func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name stri
 			logging.Error().Err(err).Str("id", child.ID()).Msg("Failed to open file for writing")
 		}
 		child.DriveItem.Size = 0
-		child.hasChanges = true
-		f.markDirtyLocalState(child.ID())
+		f.markPendingUpload(child.ID())
 		return fuse.OK
 	}
 	// no further initialized required to open the file, it's empty

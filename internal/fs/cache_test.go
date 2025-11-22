@@ -254,6 +254,25 @@ func TestGetChildrenIDUsesMetadataStoreWhenOffline(t *testing.T) {
 		rootID := fsFixture.RootID
 
 		file := helpers.CreateMockFile(fsFixture.MockClient, rootID, "metadata-recovery.txt", "metadata-recovery-id", "hello metadata")
+		if fs.metadataStore != nil {
+			_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+				ID:        file.ID,
+				ParentID:  rootID,
+				Name:      file.Name,
+				ItemType:  metadata.ItemKindFile,
+				State:     metadata.ItemStateHydrated,
+				ETag:      "etag-recovery",
+				CreatedAt: time.Now().UTC(),
+				UpdatedAt: time.Now().UTC(),
+			})
+			_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+				if entry == nil {
+					return metadata.ErrNotFound
+				}
+				entry.Children = []string{file.ID}
+				return nil
+			})
+		}
 		children, err := fs.GetChildrenID(rootID, fs.auth)
 		assert.NoError(err, "Initial metadata fetch should succeed")
 		childInode, exists := children[strings.ToLower(file.Name)]
@@ -298,6 +317,25 @@ func TestGetPathUsesMetadataStoreWhenOffline(t *testing.T) {
 			rootID := fsFixture.RootID
 
 			fileItem := helpers.CreateMockFile(fsFixture.MockClient, rootID, "metadata-path.txt", "metadata-path-id", "path-metadata-content")
+			if fs.metadataStore != nil {
+				_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+					ID:        fileItem.ID,
+					ParentID:  rootID,
+					Name:      fileItem.Name,
+					ItemType:  metadata.ItemKindFile,
+					State:     metadata.ItemStateHydrated,
+					ETag:      "etag-path",
+					CreatedAt: time.Now().UTC(),
+					UpdatedAt: time.Now().UTC(),
+				})
+				_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+					if entry == nil {
+						return metadata.ErrNotFound
+					}
+					entry.Children = []string{fileItem.ID}
+					return nil
+				})
+			}
 
 			_, err := fs.GetPath("/"+fileItem.Name, fs.auth)
 			require.NoError(t, err, "Initial GetPath should succeed online")
@@ -357,6 +395,61 @@ func TestGetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 			require.Len(t, children, 0)
 			if time.Since(start) > 50*time.Millisecond {
 				t.Fatalf("GetChildrenID blocked waiting for metadata refresh")
+			}
+		})
+	})
+}
+
+func TestGetChildrenIDDoesNotCallGraphWhenMetadataPresent(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "MetadataLocalOnlyFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, data interface{}) {
+			unit := data.(*framework.UnitTestFixture)
+			fsFixture := unit.SetupData.(*helpers.FSTestFixture)
+			fs := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+
+			// Seed metadata store with a child entry but make Graph return nothing.
+			child := helpers.CreateMockFile(fsFixture.MockClient, rootID, "local-only.txt", "local-only-id", "payload")
+			if fs.metadataStore != nil {
+				_ = fs.metadataStore.Save(context.Background(), &metadata.Entry{
+					ID:        child.ID,
+					ParentID:  rootID,
+					Name:      child.Name,
+					ItemType:  metadata.ItemKindFile,
+					State:     metadata.ItemStateHydrated,
+					ETag:      "etag",
+					CreatedAt: time.Now().UTC(),
+					UpdatedAt: time.Now().UTC(),
+				})
+				_, _ = fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+					if entry == nil {
+						return metadata.ErrNotFound
+					}
+					entry.Children = []string{child.ID}
+					entry.SubdirCount = 0
+					entry.State = metadata.ItemStateHydrated
+					return nil
+				})
+			}
+			graph.SetOperationalOffline(true)
+			defer graph.SetOperationalOffline(false)
+
+			// Invalidate in-memory cache to force GetChildrenID to rely on metadata, not Graph.
+			if root := fs.GetID(rootID); root != nil {
+				root.mu.Lock()
+				root.children = nil
+				root.subdir = 0
+				root.mu.Unlock()
+			}
+
+			children, err := fs.GetChildrenID(rootID, fs.auth)
+			require.NoError(t, err)
+			if _, ok := children[strings.ToLower(child.Name)]; !ok {
+				t.Fatalf("expected child %s to be returned from metadata without Graph", child.Name)
 			}
 		})
 	})

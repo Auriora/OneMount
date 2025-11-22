@@ -175,6 +175,15 @@ func (f *Filesystem) inodeFromMetadataEntry(entry *metadata.Entry) *Inode {
 		inode.hasChanges = false
 	}
 
+	// Rehydrate file hash metadata so checksum verification can use the
+	// stored QuickXorHash rather than forcing a remote download.
+	if entry.ContentHash != "" {
+		if inode.DriveItem.File == nil {
+			inode.DriveItem.File = &graph.File{}
+		}
+		inode.DriveItem.File.Hashes = graph.Hashes{QuickXorHash: entry.ContentHash}
+	}
+
 	return inode
 }
 
@@ -428,8 +437,12 @@ func (f *Filesystem) upsertDriveItemEntry(ctx context.Context, item *graph.Drive
 		if entry == nil {
 			return metadata.ErrNotFound
 		}
+		priorPin := entry.Pin
 		previous = cloneMetadataEntry(entry)
 		f.applyDriveItemToEntry(entry, item, snapshot)
+		if priorPin.Mode != "" && priorPin.Mode != metadata.PinModeUnset && entry.Pin.Mode == metadata.PinModeUnset {
+			entry.Pin = priorPin
+		}
 		entry.PendingRemote = false
 		return nil
 	})

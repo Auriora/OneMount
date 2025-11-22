@@ -80,7 +80,7 @@ func TestStateManagerRejectsInvalidTransition(t *testing.T) {
 	entry := &Entry{
 		ID:    "id-2",
 		Name:  "virtual.txt",
-		State: ItemStateHydrated,
+		State: ItemStateDirtyLocal,
 	}
 	if err := store.Save(context.Background(), entry); err != nil {
 		t.Fatalf("seed: %v", err)

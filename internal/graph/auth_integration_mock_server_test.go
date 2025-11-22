@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/auriora/onemount/internal/testutil"
 	"github.com/auriora/onemount/internal/testutil/framework"
 )
 
@@ -81,6 +82,8 @@ func TestIT_AUTH_04_01_OAuth2Flow_WithMockServer_CompletesSuccessfully(t *testin
 		RedirectURL: "https://test.example.com/redirect",
 	}
 
+	testutil.AuthTokensPath = filepath.Join(t.TempDir(), "auth_tokens.json")
+
 	// Step 3: Simulate auth code exchange
 	ctx := context.Background()
 	auth, err := getAuthTokens(ctx, authConfig, "mock-auth-code-12345")
@@ -96,6 +99,7 @@ func TestIT_AUTH_04_01_OAuth2Flow_WithMockServer_CompletesSuccessfully(t *testin
 
 	// Step 6: Force token expiration
 	auth.ExpiresAt = 0
+	auth.Path = testutil.AuthTokensPath
 
 	// Step 7: Test token refresh
 	err = auth.Refresh(ctx)
@@ -321,6 +325,7 @@ func TestIT_AUTH_06_01_TokenPersistence_SaveAndLoad_WorksCorrectly(t *testing.T)
 func TestIT_AUTH_07_01_ConcurrentRefresh_MultipleGoroutines_HandlesCorrectly(t *testing.T) {
 	// Create assertions helper
 	assert := framework.NewAssert(t)
+	testutil.AuthTokensPath = filepath.Join(t.TempDir(), "auth_tokens_concurrent.json")
 
 	// Step 1: Create mock server
 	refreshCount := 0
@@ -343,6 +348,7 @@ func TestIT_AUTH_07_01_ConcurrentRefresh_MultipleGoroutines_HandlesCorrectly(t *
 		AccessToken:  "expired-token",
 		RefreshToken: "valid-refresh-token",
 		ExpiresAt:    0,
+		Path:         testutil.AuthTokensPath,
 		AuthConfig: AuthConfig{
 			ClientID:    "test-client-id",
 			TokenURL:    mockServer.URL + "/token",

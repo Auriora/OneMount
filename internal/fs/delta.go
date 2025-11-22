@@ -730,6 +730,39 @@ func (f *Filesystem) applyDelta(delta *graph.DriveItem) error {
 			f.handleContentEvicted(id)
 			f.MarkFileOutofSync(id)
 
+			priorPin := metadata.PinModeUnset
+			if previous != nil {
+				priorPin = previous.Pin.Mode
+			}
+			currentPin := metadata.PinModeUnset
+			if entry, _ := f.GetMetadataEntry(id); entry != nil {
+				currentPin = entry.Pin.Mode
+			}
+			logging.Debug().
+				Str("id", id).
+				Str("pin_prev", string(priorPin)).
+				Str("pin_curr", string(currentPin)).
+				Msg("Evaluating auto-hydration for invalidated item")
+
+			// Respect pinning: if the item was pinned before the remote change, restore the
+			// pin metadata (if the upsert cleared it) and queue hydration.
+			if previous != nil && previous.Pin.Mode == metadata.PinModeAlways {
+				_, _ = f.UpdateMetadataEntry(id, func(entry *metadata.Entry) error {
+					entry.Pin = previous.Pin
+					return nil
+				})
+			}
+			// Queue hydration when the item is (or was) pinned to ALWAYS.
+			if (previous != nil && previous.Pin.Mode == metadata.PinModeAlways) ||
+				func() bool {
+					if entry, _ := f.GetMetadataEntry(id); entry != nil {
+						return entry.Pin.Mode == metadata.PinModeAlways
+					}
+					return false
+				}() {
+				f.autoHydratePinned(id)
+			}
+
 			if previous.State == metadata.ItemStateDirtyLocal {
 				f.transitionToState(id, metadata.ItemStateConflict, metadata.ClearPendingRemote())
 			} else {
