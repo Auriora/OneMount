@@ -205,6 +205,7 @@ func (dm *DownloadManager) restoreDownloadSessions() {
 		return
 	}
 
+	var requeued int
 	dm.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketDownloads)
 		if b == nil {
@@ -226,6 +227,16 @@ func (dm *DownloadManager) restoreDownloadSessions() {
 			dm.sessions[session.ID] = session
 			dm.mutex.Unlock()
 
+			// Re-enqueue for processing
+			select {
+			case dm.queue <- session.ID:
+				requeued++
+			default:
+				// If the queue is unexpectedly full on startup, mark the session errored to avoid waiters hanging.
+				err := errors.NewResourceBusyError("download queue full during recovery", nil)
+				dm.setSessionError(session, err)
+			}
+
 			logging.Info().
 				Str("id", session.ID).
 				Str("path", session.Path).
@@ -235,6 +246,9 @@ func (dm *DownloadManager) restoreDownloadSessions() {
 			return nil
 		})
 	})
+	if requeued > 0 {
+		logging.Info().Int("requeued", requeued).Msg("Re-enqueued restored download sessions")
+	}
 }
 
 // startWorkers starts the download worker goroutines
