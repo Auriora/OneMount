@@ -2,6 +2,7 @@ package fs
 
 import (
 	"testing"
+	"time"
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil/framework"
@@ -270,14 +271,16 @@ func TestUT_FS_DirOps_03_DirectoryDeletion_BasicOperations(t *testing.T) {
 		// Step 2: Delete the directory using Rmdir
 		rmdirIn := &fuse.InHeader{NodeId: 1} // Parent node ID (root)
 
-		// NOTE: Directory deletion in mock environment requires server synchronization
-		// which is not fully supported by MockGraphClient. The Rmdir operation calls
-		// Unlink which attempts to delete on the server. This is tested successfully
-		// in integration tests with real OneDrive.
+		// In the mock environment, server delete can be flaky; allow a short retry window
 		status = fs.Rmdir(nil, rmdirIn, dirName)
 		if status != fuse.OK {
-			t.Logf("Directory deletion failed in mock environment (expected): %v", status)
-			t.Skip("Skipping directory deletion verification - requires real server (see TestIT_FS_17_01)")
+			// retry once after a brief pause
+			time.Sleep(50 * time.Millisecond)
+			status = fs.Rmdir(nil, rmdirIn, dirName)
+		}
+		if status != fuse.OK {
+			t.Logf("Directory deletion failed in mock environment (tolerated): %v", status)
+			t.Skip("Skipping directory deletion verification - mock delete may fail; covered in integration")
 		}
 
 		// Step 3: Verify directory no longer exists (only if deletion succeeded)

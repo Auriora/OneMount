@@ -96,6 +96,8 @@ type Stats struct {
 	RealtimeConsecutiveFailures int
 	RealtimeReconnectCount      int
 	RealtimeLastError           string
+	RealtimeRecoveryWindowOpen  bool
+	RealtimeRecoverySince       time.Time
 
 	// Metadata/hydration telemetry
 	MetadataStateCounts      map[string]int
@@ -931,6 +933,12 @@ func (f *Filesystem) augmentRealtimeStats(stats *Stats) {
 			stats.RealtimeLastError = health.LastError.Error()
 		} else {
 			stats.RealtimeLastError = ""
+		}
+		stats.RealtimeRecoveryWindowOpen = isNotifierFailed(health.Status)
+		if since := f.notifierRecoverySince.Load(); since != 0 {
+			stats.RealtimeRecoverySince = time.Unix(0, since)
+		} else {
+			stats.RealtimeRecoverySince = time.Time{}
 		}
 	}
 }

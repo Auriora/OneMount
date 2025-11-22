@@ -581,16 +581,16 @@ func TestDesiredDeltaIntervalFallsBackAfterWindow(t *testing.T) {
 	}
 }
 
-type fakeNotifier struct {
+type fakeDeltaNotifier struct {
 	active bool
 	health socketio.HealthState
 }
 
-func (f *fakeNotifier) Start(context.Context) error          { return nil }
-func (f *fakeNotifier) Stop(context.Context) error           { return nil }
-func (f *fakeNotifier) Notifications() <-chan struct{}       { return nil }
-func (f *fakeNotifier) IsActive() bool                       { return f.active }
-func (f *fakeNotifier) HealthSnapshot() socketio.HealthState { return f.health }
+func (f *fakeDeltaNotifier) Start(context.Context) error          { return nil }
+func (f *fakeDeltaNotifier) Stop(context.Context) error           { return nil }
+func (f *fakeDeltaNotifier) Notifications() <-chan struct{}       { return nil }
+func (f *fakeDeltaNotifier) IsActive() bool                       { return f.active }
+func (f *fakeDeltaNotifier) HealthSnapshot() socketio.HealthState { return f.health }
 
 type fakeMetadataStore struct {
 	items map[string]*metadata.Entry
@@ -635,7 +635,7 @@ func (s *fakeMetadataStore) Update(ctx context.Context, id string, fn func(*meta
 func TestDesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureRealtime(RealtimeOptions{Enabled: true, FallbackInterval: 45 * time.Minute})
-	fs.subscriptionManager = &fakeNotifier{
+	fs.subscriptionManager = &fakeDeltaNotifier{
 		active: true,
 		health: socketio.HealthState{Status: socketio.StatusHealthy},
 	}
@@ -649,7 +649,7 @@ func TestDesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
 func TestDesiredDeltaIntervalUsesNotifierHealthDegraded(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureRealtime(RealtimeOptions{Enabled: true})
-	fs.subscriptionManager = &fakeNotifier{
+	fs.subscriptionManager = &fakeDeltaNotifier{
 		active: true,
 		health: socketio.HealthState{Status: socketio.StatusDegraded, ConsecutiveFailures: 3},
 	}

@@ -111,9 +111,14 @@ func (f *Filesystem) deltaIntervalFromNotifier() (time.Duration, bool) {
 	}
 
 	health, hasHealth := f.notifierHealthSnapshot()
+	recoverySince := f.notifierRecoverySince.Load()
+	recoveryWindowOpen := recoverySince != 0
 
 	if hasHealth && isNotifierFailed(health.Status) {
 		f.logDeltaInterval(defaultRecoveryInterval, "realtime-recovery", defaultRecoveryInterval)
+		if !recoveryWindowOpen {
+			f.notifierRecoverySince.Store(time.Now().UnixNano())
+		}
 		return defaultRecoveryInterval, true
 	}
 
@@ -136,6 +141,8 @@ func (f *Filesystem) deltaIntervalFromNotifier() (time.Duration, bool) {
 		return interval, true
 	}
 
+	// Clear recovery window when healthy/active again
+	f.notifierRecoverySince.Store(0)
 	return 0, false
 }
 
