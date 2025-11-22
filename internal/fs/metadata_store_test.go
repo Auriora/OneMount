@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -65,21 +66,22 @@ func TestBootstrapMetadataStoreMigratesLegacyEntries(t *testing.T) {
 		content: NewLoopbackCacheWithSize(filepath.Join(dir, "content"), 0),
 	}
 
-	if err := fs.bootstrapMetadataStore(); err != nil {
-		t.Fatalf("bootstrapMetadataStore returned error: %v", err)
+	if err := fs.bootstrapMetadataStore(); err == nil {
+		t.Fatalf("expected bootstrap to require migration, got nil")
+	} else if !errors.Is(err, ErrLegacyMetadataPresent) {
+		t.Fatalf("expected ErrLegacyMetadataPresent, got %v", err)
 	}
 
-	if err := db.View(func(tx *bolt.Tx) error {
-		if b := tx.Bucket(bucketMetadataV2); b != nil {
-			if got := b.Get([]byte(inode.ID())); len(got) == 0 {
-				t.Fatalf("expected migrated entry for %s", inode.ID())
-			}
-		} else {
-			t.Fatalf("metadata_v2 bucket missing")
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("failed to verify migration: %v", err)
+	report, err := MigrateLegacyMetadata(db)
+	if err != nil {
+		t.Fatalf("migrate legacy: %v", err)
+	}
+	if report.Migrated != 1 {
+		t.Fatalf("expected 1 migrated entry, got %d", report.Migrated)
+	}
+
+	if err := fs.bootstrapMetadataStore(); err != nil {
+		t.Fatalf("bootstrap after migration returned error: %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2025-11-22** – [Runtime Layering – Metadata Migration & Validation Tools](./2025-11-22-runtime-layering-metadata-migration.md)
 - **2025-11-22** – [Runtime Layering – Config & Telemetry Knobs](./2025-11-22-runtime-layering-config-telemetry.md)
 - **2025-11-22** – [Runtime Layering – ChangeNotifier Cadence & Recovery](./2025-11-22-change-notifier-cadence.md)
 - **2025-11-21** – [Runtime Layering – Sync & Hydration Pipeline](./2025-11-21-runtime-layering-sync-hydration-pipeline.md)

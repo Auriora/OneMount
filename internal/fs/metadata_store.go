@@ -2,7 +2,6 @@ package fs
 
 import (
 	"context"
-	"encoding/json"
 	goerrors "errors"
 	"sort"
 	"sync"
@@ -15,6 +14,9 @@ import (
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
+
+// ErrLegacyMetadataPresent signals that the legacy metadata bucket still holds entries and must be migrated before mounting.
+var ErrLegacyMetadataPresent = goerrors.New("legacy metadata bucket detected; run onemount --metadata-migrate-legacy")
 
 // metadataEntryFromInode captures a snapshot of an inode for persistence.
 func (f *Filesystem) metadataEntryFromInode(id string, inode *Inode, snapshot time.Time) *metadata.Entry {
@@ -187,61 +189,22 @@ func (f *Filesystem) inodeFromMetadataEntry(entry *metadata.Entry) *Inode {
 	return inode
 }
 
-// bootstrapMetadataStore initializes the v2 bucket and migrates legacy entries.
+// bootstrapMetadataStore initializes the v2 bucket and verifies no legacy metadata remains.
 func (f *Filesystem) bootstrapMetadataStore() error {
 	if f.db == nil {
 		return errors.New("filesystem database is not initialized")
 	}
-	now := time.Now().UTC()
+
 	return f.db.Update(func(tx *bolt.Tx) error {
 		v2 := tx.Bucket(bucketMetadataV2)
 		if v2 == nil {
 			return errors.New("metadata_v2 bucket missing")
 		}
-		if stats := v2.Stats(); stats.KeyN > 0 {
-			return nil
-		}
 		legacy := tx.Bucket(bucketMetadata)
-		if legacy == nil {
-			return nil
-		}
-		migrated := 0
-		if err := legacy.ForEach(func(k, v []byte) error {
-			if len(v) == 0 {
-				return nil
+		if legacy != nil {
+			if stats := legacy.Stats(); stats.KeyN > 0 {
+				return ErrLegacyMetadataPresent
 			}
-			entry, err := f.metadataEntryFromSerializedInode(string(k), v, now)
-			if err != nil {
-				logging.Warn().
-					Err(err).
-					Str("id", string(k)).
-					Msg("Skipping legacy metadata during migration")
-				return nil
-			}
-			if entry == nil {
-				return nil
-			}
-			if err := entry.Validate(); err != nil {
-				logging.Warn().
-					Err(err).
-					Str("id", entry.ID).
-					Msg("Skipping invalid metadata entry during migration")
-				return nil
-			}
-			payload, err := json.Marshal(entry)
-			if err != nil {
-				return errors.Wrap(err, "marshal metadata entry")
-			}
-			if err := v2.Put(k, payload); err != nil {
-				return errors.Wrap(err, "persist metadata_v2 entry")
-			}
-			migrated++
-			return nil
-		}); err != nil {
-			return err
-		}
-		if migrated > 0 {
-			logging.Info().Int("entries", migrated).Msg("Migrated legacy metadata to metadata_v2 bucket")
 		}
 		return nil
 	})
@@ -720,41 +683,4 @@ func (f *Filesystem) ensureInodeFromMetadataStore(id string) *Inode {
 	}
 	f.InsertID(id, inode)
 	return inode
-}
-
-func (f *Filesystem) loadLegacyMetadataEntry(id string) (*metadata.Entry, error) {
-	if f.db == nil {
-		return nil, metadata.ErrNotFound
-	}
-
-	var entry *metadata.Entry
-	err := f.db.View(func(tx *bolt.Tx) error {
-		legacy := tx.Bucket(bucketMetadata)
-		if legacy == nil {
-			return metadata.ErrNotFound
-		}
-		raw := legacy.Get([]byte(id))
-		if len(raw) == 0 && id == "root" {
-			raw = legacy.Get([]byte(f.root))
-		}
-		if len(raw) == 0 {
-			return metadata.ErrNotFound
-		}
-		converted, convErr := f.metadataEntryFromSerializedInode(id, raw, time.Now().UTC())
-		if convErr != nil {
-			return convErr
-		}
-		entry = converted
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if entry != nil && f.metadataStore != nil {
-		if err := f.metadataStore.Save(context.Background(), entry); err != nil {
-			logging.Warn().Err(err).Str("id", entry.ID).Msg("Failed to persist legacy metadata into metadata_v2")
-		}
-	}
-	return entry, nil
 }

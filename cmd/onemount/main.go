@@ -45,6 +45,7 @@ import (
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	flag "github.com/spf13/pflag"
+	bolt "go.etcd.io/bbolt"
 )
 
 func usage() {
@@ -120,6 +121,8 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	pollingOnlyFlag := flag.Bool("polling-only", false, "Force delta polling even if realtime subscriptions are configured (disables the Socket.IO transport).")
 	daemonFlag := flag.BoolP("daemon", "", false, "Run onemount in daemon mode (detached from terminal).")
 	help := flag.BoolP("help", "h", false, "Displays this help message.")
+	metadataValidate := flag.Bool("metadata-validate", false, "Validate metadata_v2 in the cache and exit (no mount started).")
+	metadataMigrate := flag.Bool("metadata-migrate-legacy", false, "Migrate legacy metadata bucket into metadata_v2 and exit (no mount started).")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -132,8 +135,9 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		os.Exit(0)
 	}
 
+	config = common.LoadConfig(*configPath)
+
 	if *wipeCache {
-		config = common.LoadConfig(*configPath)
 		if *cacheDir != "" {
 			config.CacheDir = *cacheDir
 		}
@@ -144,17 +148,6 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 		os.Exit(0)
 	}
 
-	// determine and validate mountpoint
-	if len(flag.Args()) == 0 {
-		flag.Usage()
-		if _, err := fmt.Fprintf(os.Stderr, "\nNo mountpoint provided, exiting.\n"); err != nil {
-			logging.Error().Err(err).Msg("Failed to write to stderr")
-		}
-		os.Exit(1)
-	}
-	mountpoint = flag.Arg(0)
-
-	config = common.LoadConfig(*configPath)
 	// command line options override config options
 	if *cacheDir != "" {
 		config.CacheDir = *cacheDir
@@ -181,6 +174,24 @@ func setupFlags() (config *common.Config, authOnly, headless, debugOn, stats, da
 	if *cacheCleanupInterval > 0 {
 		config.CacheCleanupInterval = *cacheCleanupInterval
 	}
+
+	if *metadataValidate || *metadataMigrate {
+		if err := runMetadataMaintenance(config.CacheDir, *metadataMigrate); err != nil {
+			logging.Error().Err(err).Msg("Metadata maintenance failed")
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	// determine and validate mountpoint
+	if len(flag.Args()) == 0 {
+		flag.Usage()
+		if _, err := fmt.Fprintf(os.Stderr, "\nNo mountpoint provided, exiting.\n"); err != nil {
+			logging.Error().Err(err).Msg("Failed to write to stderr")
+		}
+		os.Exit(1)
+	}
+	mountpoint = flag.Arg(0)
 	if *mountTimeout > 0 {
 		config.MountTimeout = *mountTimeout
 	}
@@ -601,6 +612,46 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 }
 
 // setupLogging configures the logger based on the configuration
+func runMetadataMaintenance(cacheDir string, migrate bool) error {
+	if cacheDir == "" {
+		return fmt.Errorf("cache directory is required for metadata maintenance")
+	}
+	dbPath := filepath.Join(cacheDir, "onemount.db")
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
+	if err != nil {
+		return errors.Wrap(err, "open metadata db")
+	}
+	defer db.Close()
+
+	if migrate {
+		report, err := fs.MigrateLegacyMetadata(db)
+		if err != nil {
+			return err
+		}
+		logging.Info().Int("migrated", report.Migrated).Int("legacy_keys", report.LegacyKeys).Bool("dropped_legacy", report.DroppedLegacy).Msg("metadata migration complete")
+		for _, detail := range report.ErrorDetails {
+			logging.Warn().Msg(detail)
+		}
+		return nil
+	}
+
+	report, err := fs.ValidateMetadataBucket(db)
+	if err != nil {
+		return err
+	}
+	logging.Info().Int("checked", report.Checked).Int("invalid", report.Invalid).Int("legacy_keys", report.LegacyKeys).Msg("metadata validation complete")
+	for _, detail := range report.ErrorDetails {
+		logging.Warn().Msg(detail)
+	}
+	if report.MissingV2 {
+		return fmt.Errorf("metadata_v2 bucket missing")
+	}
+	if report.Invalid > 0 {
+		return fmt.Errorf("metadata validation found %d invalid entries", report.Invalid)
+	}
+	return nil
+}
+
 func setupLogging(config *common.Config, daemon bool) error {
 	// Set the global log level
 	logging.SetGlobalLevel(common.StringToLevel(config.LogLevel))

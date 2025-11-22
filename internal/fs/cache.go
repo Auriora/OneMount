@@ -235,10 +235,6 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	content := NewLoopbackCacheWithSize(contentDir, maxCacheSize)
 	thumbnails := NewThumbnailCache(thumbnailDir)
 	err = db.Update(func(tx *bolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists(bucketMetadata); err != nil {
-			logging.Error().Err(err).Msg("Failed to create metadata bucket")
-			return err
-		}
 		if _, err := tx.CreateBucketIfNotExists(bucketMetadataV2); err != nil {
 			logging.Error().Err(err).Msg("Failed to create metadata_v2 bucket")
 			return err
