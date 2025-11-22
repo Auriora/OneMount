@@ -1,7 +1,7 @@
 # Runtime Layering Recovery Plan (2025-11-22)
 
 **Type**: Plan  
-**Status**: Ready for execution  
+**Status**: Complete  
 **Owner**: Runtime Layering team  
 **Last updated**: 2025-11-22  
 **Purpose**: Close the remaining gaps in items 1‑7 of the 2025-11-18 plan so FUSE is strictly local-first and the metadata state machine governs hydration, uploads, eviction, and notifier cadence.
