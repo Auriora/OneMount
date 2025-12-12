@@ -18,13 +18,6 @@
   ],
   "icons": [
     {
-      "source": "assets/icons/onemount.svg",
-      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount.svg",
-      "dest_system": "/usr/local/share/icons/onemount/onemount.svg",
-      "dest_package": "usr/share/icons/onemount/onemount.svg",
-      "mode": "0644"
-    },
-    {
       "source": "assets/icons/onemount-icon.svg",
       "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon.svg",
       "dest_system": "/usr/local/share/icons/onemount/onemount-icon.svg",
@@ -43,6 +36,55 @@
       "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-128.png",
       "dest_system": "/usr/local/share/icons/onemount/onemount-128.png",
       "dest_package": "usr/share/icons/onemount/onemount-128.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-16.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-16.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-16.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-16.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-32.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-32.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-32.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-32.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-48.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-48.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-48.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-48.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-64.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-64.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-64.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-64.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-128.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-128.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-128.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-128.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-256.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-256.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-256.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-256.png",
+      "mode": "0644"
+    },
+    {
+      "source": "assets/icons/onemount-icon-512.png",
+      "dest_user": "$(HOME)/.local/share/icons/onemount/onemount-icon-512.png",
+      "dest_system": "/usr/local/share/icons/onemount/onemount-icon-512.png",
+      "dest_package": "usr/share/icons/onemount/onemount-icon-512.png",
       "mode": "0644"
     }
   ],
