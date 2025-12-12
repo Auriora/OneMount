@@ -343,10 +343,33 @@ onemount runs as a single process with multiple goroutines for concurrent operat
 
 1. **Main Process**: Handles filesystem mounting and signal handling
 2. **Delta Synchronization**: Background goroutine that periodically fetches changes from OneDrive
-3. **Subscription-based Change Notification**: Background goroutine that listens for real-time change notifications from OneDrive using WebSockets
+3. **Socket.IO Realtime Notifications**: Background goroutine that maintains Socket.IO subscriptions for real-time change notifications from Microsoft Graph
 4. **Upload Workers**: Multiple goroutines that handle file uploads to OneDrive
 5. **Download Workers**: Multiple goroutines that handle file downloads from OneDrive
 6. **Cache Cleanup**: Background goroutine that periodically cleans up the cache
+
+#### 3.4.1.1 Runtime Layering (Authoritative Data Flow)
+
+To ensure predictable latency, OneMount implements a strict layering architecture where each runtime component communicates with a single upstream layer:
+
+```
+┌────────────┐    ┌────────────────────┐    ┌──────────────────────┐
+│   FUSE     │───►│  Metadata / Index  │───►│  Sync & Policy Engine │───► Microsoft Graph
+│ Callbacks  │    │   (BBolt + cache)  │    │  (delta + uploads)    │
+└────┬───────┘    └────────┬───────────┘    └──────────┬───────────┘
+     │                      │                            │
+     │                      ▼                            │
+     │             ┌────────────────┐                    │
+     └────────────►│ Content Cache  │◄───────────────────┘
+                   └────────────────┘
+```
+
+**Key Principles**:
+- FUSE callbacks (`readdir`, `stat`, `rename`, `create`, etc.) consult only the metadata/index layer and local content cache
+- The metadata/index layer is the single source of truth for real and virtual entries, item states, and overlay policies
+- The sync & policy engine is the only component allowed to call Microsoft Graph APIs
+- Content hydration workers operate as part of the sync engine, streaming data into the content cache and updating metadata atomically
+- All user-facing operations use the same metadata view, keeping latency bounded while background sync processes run independently
 
 #### 3.4.2 Process Communication
 
@@ -393,6 +416,51 @@ end
 FS --> FUSE: Return content
 FUSE --> FM: Display file
 FM --> User: Show file content
+@enduml
+```
+
+The following sequence diagram illustrates the Socket.IO realtime notification workflow:
+
+```plantuml
+@startuml
+participant "OneMount FS" as FS
+participant "Socket Manager" as SM
+participant "Microsoft Graph" as Graph
+participant "Socket.IO Server" as Socket
+participant "Delta Sync" as Delta
+participant "Cache" as Cache
+
+== Subscription Setup ==
+FS -> SM: Initialize realtime notifications
+SM -> Graph: POST /subscriptions/socketIo
+Graph --> SM: {id, notificationUrl, expiration}
+SM -> Socket: Connect to WSS endpoint
+Socket --> SM: Connection established
+SM -> FS: Subscription active
+
+== Real-time Notification ==
+Graph -> Socket: Change notification
+Socket -> SM: Notification event
+SM -> Delta: Trigger immediate delta query
+Delta -> Graph: GET /delta?token={deltaToken}
+Graph --> Delta: Changed items
+Delta -> Cache: Update metadata
+Cache --> FS: Metadata updated
+
+== Health Monitoring ==
+SM -> SM: Monitor heartbeat
+alt Socket healthy
+    SM -> Delta: Set polling interval to 30 minutes
+else Socket unhealthy
+    SM -> Delta: Set polling interval to 5 minutes
+    SM -> Socket: Attempt reconnection
+end
+
+== Subscription Renewal ==
+SM -> SM: Check expiration (< 1 hour remaining)
+SM -> Graph: POST /subscriptions/socketIo/renew
+Graph --> SM: Updated expiration
+SM -> SM: Update renewal timer
 @enduml
 ```
 
@@ -539,20 +607,55 @@ onemount scales to handle large OneDrive accounts through:
 - On-demand file downloading
 - Efficient caching of metadata
 - Delta synchronization for efficient updates
-- Subscription-based change notifications for real-time updates
+- Socket.IO realtime notifications for immediate change detection
 - Concurrent file transfers
 
-#### 4.2.2.1 Subscription-based Change Notification
+#### 4.2.2.1 Socket.IO Realtime Notifications
 
-The current realtime design replaces legacy “webhook” terminology with a Socket.IO subscription that is completely owned by the client:
+OneMount implements real-time change notifications using Microsoft Graph's Socket.IO subscription API, replacing traditional webhook approaches:
 
-- The filesystem requests a delegated Socket.IO endpoint for the mounted drive using Microsoft Graph’s `/subscriptions/socketIo` flow and never exposes an inbound webhook URL.
-- A dedicated `SocketSubscriptionManager` coordinates the lifecycle (startup, renewal, shutdown) and publishes notifications to the delta loop through a buffered channel.
-- The manager relies on the in-house `internal/socketio` module, which implements Engine.IO v4/WebSocket transport with deterministic heartbeats, reconnection backoff, and structured tracing.
-- Health signals from the transport determine the polling cadence: when the socket is healthy the delta loop polls no more than every 30 minutes; when unhealthy it falls back to 5 minutes (temporarily down to 10 seconds during prolonged failures).
-- Incoming `notification` events immediately trigger an on-demand delta query so user-visible state stays in sync without waiting for the next watchdog pass.
+**Architecture Overview**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│               Socket.IO Realtime Flow (per mount)           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Microsoft Graph API                                        │
+│       │                                                     │
+│       │ 1. POST /subscriptions/socketIo                     │
+│       ▼                                                     │
+│  ┌──────────────┐                                           │
+│  │ Socket Sub   │                                           │
+│  │   Manager    │                                           │
+│  └──────┬───────┘                                           │
+│         │ health + expiry                                   │
+│         ▼                                                   │
+│  ┌──────────────────────────────────────────────────┐       │
+│  │    RealtimeNotifier (events + health)            │       │
+│  └──────┬──────────────────────┬────────────────────┘       │
+│         │ notifications        │ health snapshot            │
+│         ▼                      ▼                            │
+│   Delta Sync Trigger    Interval Controller                 │
+│         │                      │                            │
+│         ▼                      ▼                            │
+│     Metadata DB        Polling Interval Logic               │
+│                                                             │
+│  Background: renewal loop + reconnect/backoff               │
+└─────────────────────────────────────────────────────────────┘
+```
 
-This mechanism complements the delta synchronization by providing immediate notifications while allowing a graceful fallback to timed polling whenever the realtime channel is unavailable.
+**Key Features**:
+
+- **Client-Owned Subscriptions**: The filesystem requests delegated Socket.IO endpoints using Microsoft Graph's `/subscriptions/socketIo` flow, eliminating the need for publicly accessible webhook URLs
+- **Lifecycle Management**: A dedicated `SocketSubscriptionManager` coordinates startup, renewal, and shutdown, publishing notifications to the delta loop through buffered channels
+- **Transport Layer**: Built on the in-house `internal/socketio` module implementing Engine.IO v4/WebSocket transport with deterministic heartbeats, reconnection backoff, and structured tracing
+- **Adaptive Polling**: Health signals from the transport determine polling cadence:
+  - Healthy socket: Delta loop polls maximum every 30 minutes (configurable, minimum 5 minutes)
+  - Unhealthy socket: Falls back to 5-minute polling (temporarily 10 seconds during failures)
+- **Immediate Synchronization**: Incoming notification events trigger immediate delta queries, keeping user-visible state synchronized without waiting for scheduled polling
+
+**Fallback Strategy**:
+This mechanism complements delta synchronization by providing immediate notifications while maintaining graceful fallback to timed polling when the realtime channel is unavailable. The system automatically transitions between realtime and polling modes based on connection health.
 
 #### 4.2.3 Caching Strategy
 
@@ -596,6 +699,18 @@ Performance is monitored through:
        - Recovers and restarts incomplete upload sessions
        - Processes any changes made while offline
        - Resumes delta synchronization from the last known state
+
+   - State management architecture
+     - **Item State Model**: Every entry in the metadata database carries an explicit state that drives hydration, uploads, eviction, and conflict handling:
+       - `GHOST`: Cloud metadata known, no local content (transitions to `HYDRATING` when accessed)
+       - `HYDRATING`: Content download in progress (success → `HYDRATED`, failure → `ERROR`)
+       - `HYDRATED`: Local content matches remote ETag (local edit → `DIRTY_LOCAL`, eviction → `GHOST`)
+       - `DIRTY_LOCAL`: Local changes pending upload (upload success → `HYDRATED`, remote mismatch → `CONFLICT`)
+       - `DELETED_LOCAL`: Local delete queued for upload (success → tombstone removal)
+       - `CONFLICT`: Local and remote versions diverged (user resolves → `HYDRATED` or duplicate)
+       - `ERROR`: Last hydration/upload failed (manual retry → appropriate state)
+     - **Virtual Items**: `.xdg-volume-info` and policy folders store `remote_id=NULL`, `is_virtual=TRUE`, and stay in `HYDRATED` state since their content is always served locally
+     - **Overlay Policies**: Virtual items use overlay policies (`LOCAL_WINS`, `REMOTE_WINS`, `MERGED`) to handle name collisions with remote content
 
 2. **Reliability**
    - Retry logic for network operations
@@ -683,9 +798,15 @@ Performance is monitored through:
 | Inode | | A data structure that stores information about a file or directory in a filesystem | |
 | Goroutine | | A lightweight thread managed by the Go runtime | |
 | BBolt | | An embedded key-value database for Go | |
+| Socket.IO | | A library that enables real-time bidirectional event-based communication | |
+| Engine.IO | | The transport layer for Socket.IO, providing WebSocket and HTTP long-polling fallback | |
+| Realtime Notifications | | Immediate change notifications from Microsoft Graph via Socket.IO subscriptions | |
+| Subscription Manager | | Component that manages Socket.IO subscription lifecycle (startup, renewal, shutdown) | |
+| Delta Token | | A token used to fetch only changes since the last synchronization | |
 
 ### 6.2 Revision History
 
 | Version | Date       | Description | Author |
 |---------|------------|-------------|--------|
 | 0.1.0   | 2025-04-28 | Initial version | onemount Team |
+| 0.2.0   | 2025-12-12 | Updated Socket.IO realtime implementation, added runtime layering, removed webhook references, added state management documentation | System Verification Team |

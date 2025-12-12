@@ -31,30 +31,22 @@ The following class diagram shows the core classes of the onemount system and th
 @startuml
 class Filesystem {
   -metadata: sync.Map
-  -db: *bolt.DB
+  -db: *bbolt.DB
   -content: *LoopbackCache
   -thumbnails: *ThumbnailCache
   -auth: *graph.Auth
   -root: string
   -deltaLink: string
-  -subscribeChangesLink: string
   -uploads: *UploadManager
   -downloads: *DownloadManager
-  -cacheExpirationDays: int
-  -cacheCleanupStop: chan struct{}
-  -cacheCleanupStopOnce: sync.Once
-  -cacheCleanupWg: sync.WaitGroup
-  -deltaLoopStop: chan struct{}
-  -deltaLoopWg: sync.WaitGroup
-  -deltaLoopStopOnce: sync.Once
-  -deltaLoopCtx: context.Context
-  -deltaLoopCancel: context.CancelFunc
+  -changeNotifier: ChangeNotifier
   -offline: bool
+  -timeouts: TimeoutConfig
+  -statuses: map[string]FileStatusInfo
+  -dbusServer: *FileStatusDBusServer
   -lastNodeID: uint64
   -inodes: []string
   -opendirs: map[uint64][]*Inode
-  -statuses: map[string]FileStatusInfo
-  -dbusServer: *FileStatusDBusServer
   +NewFilesystem(auth, cacheDir, cacheExpirationDays): *Filesystem
   +getInodeContent(i *Inode): *[]byte
   +remoteID(i *Inode): (string, error)
@@ -181,12 +173,58 @@ enum FileStatus {
   +String(): string
 }
 
+interface ChangeNotifier {
+  +Start(ctx): error
+  +Stop(ctx): error
+  +Notifications(): <-chan struct{}
+  +Health(): HealthState
+  +IsActive(): bool
+  +Stats(): NotifierStats
+}
+
+class SocketSubscriptionManager {
+  -subscriptionID: string
+  -notificationURL: string
+  -expiration: time.Time
+  -clientState: string
+  -renewalTicker: *time.Ticker
+  -transport: RealtimeTransport
+  +NewSocketSubscriptionManager(): *SocketSubscriptionManager
+  +Start(): error
+  +Stop(): error
+  +Renew(): error
+}
+
+class TimeoutConfig {
+  -DownloadWorkerShutdown: time.Duration
+  -UploadGracefulShutdown: time.Duration
+  -FilesystemShutdown: time.Duration
+  -NetworkCallbackShutdown: time.Duration
+  -MetadataRequestTimeout: time.Duration
+  -ContentStatsTimeout: time.Duration
+  +DefaultTimeoutConfig(): TimeoutConfig
+  +Validate(): error
+}
+
+class FileStatusInfo {
+  -Status: FileStatus
+  -Progress: float64
+  -Error: string
+  -LastUpdated: time.Time
+  +NewFileStatusInfo(): FileStatusInfo
+  +UpdateStatus(status): void
+  +UpdateProgress(progress): void
+}
+
 Filesystem "1" *-- "many" Inode : contains
 Filesystem "1" *-- "1" UploadManager : manages uploads
 Filesystem "1" *-- "1" DownloadManager : manages downloads
 Filesystem "1" *-- "1" LoopbackCache : caches content
 Filesystem "1" *-- "1" ThumbnailCache : caches thumbnails
 Filesystem "1" *-- "1" Auth : authenticates
+Filesystem "1" *-- "1" ChangeNotifier : notifies changes
+Filesystem "1" *-- "1" TimeoutConfig : configures timeouts
+Filesystem "1" *-- "many" FileStatusInfo : tracks status
 
 Inode "1" *-- "1" DriveItem : represents
 
@@ -195,6 +233,9 @@ UploadManager "1" o-- "1" Auth : uses
 
 DownloadManager "1" o-- "1" Filesystem : references
 DownloadManager "1" o-- "1" Auth : uses
+
+ChangeNotifier "1" *-- "1" SocketSubscriptionManager : manages subscriptions
+SocketSubscriptionManager "1" o-- "1" Filesystem : references
 @enduml
 ```
 
@@ -211,6 +252,8 @@ package "Filesystem (fs)" {
   [Upload Manager] as Upload
   [Download Manager] as Download
   [Delta Synchronization] as Delta
+  [Change Notifier] as ChangeNotifier
+  [File Status Tracking] as FileStatus
 }
 
 package "Graph API (fs/graph)" {
@@ -232,15 +275,26 @@ package "User Interface (ui)" {
   [Status Display] as Status
 }
 
+package "Socket.IO (socketio)" {
+  [Engine.IO Transport] as EngineIO
+  [WebSocket Client] as WebSocket
+  [Heartbeat Manager] as Heartbeat
+  [Subscription Manager] as Subscription
+}
+
 Inode --> DriveItem : uses
 FileOps --> Upload : uses
 FileOps --> Download : uses
 DirOps --> DriveItem : uses
 Cache --> ResponseCache : uses
 Delta --> API : uses
+Delta --> ChangeNotifier : uses
+ChangeNotifier --> EngineIO : uses
+ChangeNotifier --> Subscription : manages
 Auth --> API : authenticates
 Upload --> API : uses
 Download --> API : uses
+FileStatus --> FileOps : tracks
 Args --> Config : uses
 GTK --> Systemd : uses
 Status --> Systemd : uses
@@ -494,50 +548,160 @@ Microsoft’s Graph API has rate limits that onemount must respect. The API inte
 
 ### 4.5 Realtime Notification Module
 
-The realtime notification pipeline is now defined by an explicit Engine.IO/Socket.IO transport interface instead of depending on a third-party client. This section captures the best-practice shape of the module so any future implementation can be validated against Requirement 20.
+The realtime notification system provides efficient change detection through Microsoft Graph's Socket.IO subscription service. This module implements a complete Engine.IO v4/WebSocket client that integrates with the delta synchronization loop to minimize polling frequency while maintaining responsiveness to remote changes.
 
-#### 4.5.1 Layered Components
+#### 4.5.1 Architecture Overview
 
-1. **`SocketSubscriptionManager` (package `internal/fs`)**
-   - Owns the Graph subscription lifecycle (endpoint discovery, renewal, shutdown).
-   - Consumes the transport interface to receive notification events and translate them into filesystem wake-ups.
-   - Publishes health signals to the delta loop so polling cadence can adjust automatically.
+The realtime notification system consists of three main layers:
 
-2. **`RealtimeTransport` interface (package `internal/socketio`)**
-   - Defines the contract between subscription management and the Engine.IO implementation.
-   - Facilitates dependency injection in tests; alternative transports must obey the same semantics.
+1. **Change Notifier Facade** (`internal/fs/change_notifier.go`)
+   - Provides a unified interface for both Socket.IO and polling-only modes
+   - Manages subscription lifecycle and health monitoring
+   - Integrates with the delta loop to adjust polling cadence based on transport health
 
-3. **`EngineTransport` implementation (package `internal/socketio`)**
-   - Concrete Engine.IO v4/WebSocket client that satisfies `RealtimeTransport`.
-   - Implements heartbeat, reconnection, logging, and packet parsing rules mandated by Requirement 20.
+2. **Socket.IO Transport** (`internal/socketio/`)
+   - Implements Engine.IO v4 protocol over WebSocket
+   - Handles connection management, heartbeats, and reconnection logic
+   - Provides structured logging and health reporting
 
-#### 4.5.2 Interface Definition
+3. **Subscription Manager** (`internal/fs/socket_subscription.go`)
+   - Manages Microsoft Graph subscription endpoints
+   - Handles subscription renewal and cleanup
+   - Persists subscription state in BBolt database
+
+#### 4.5.2 Change Notifier Interface
+
+The change notifier facade provides a consistent interface regardless of the underlying transport:
 
 ```go
-// RealtimeTransport exposes the minimum surface needed by the filesystem.
-type RealtimeTransport interface {
-    Connect(ctx context.Context, endpoint string, headers http.Header) error
-    Close(ctx context.Context) error
-    On(event EventType, handler Listener)
+// ChangeNotifier provides a unified interface for realtime notifications
+type ChangeNotifier interface {
+    // Start initializes the notifier and begins listening for changes
+    Start(ctx context.Context) error
+    
+    // Stop gracefully shuts down the notifier
+    Stop(ctx context.Context) error
+    
+    // Notifications returns a channel that receives change events
+    Notifications() <-chan struct{}
+    
+    // Health returns the current health state of the transport
     Health() HealthState
+    
+    // IsActive returns true if realtime notifications are active
+    IsActive() bool
+    
+    // Stats returns statistics about the notifier
+    Stats() NotifierStats
 }
 
-type EventType string
-
 type HealthState struct {
-    Status          StatusCode // Healthy, Degraded, Failed
-    LastError       error
-    MissedHeartbeats int
-    LastHeartbeat    time.Time
+    Status           StatusCode    // Healthy, Degraded, Failed, Disabled
+    LastError        error         // Last error encountered
+    LastHeartbeat    time.Time     // Last successful heartbeat
+    MissedHeartbeats int          // Consecutive missed heartbeats
+    ConnectedAt      time.Time     // When connection was established
+    ReconnectCount   int          // Number of reconnections
+}
+
+type NotifierStats struct {
+    Mode                string        // "socket.io" or "polling-only"
+    NotificationsReceived int64       // Total notifications received
+    ConnectionUptime     time.Duration // Total connection uptime
+    SubscriptionExpiry   time.Time     // When subscription expires
+    PollingInterval      time.Duration // Current polling interval
 }
 ```
 
-- `Connect` negotiates the Engine.IO handshake (`EIO=4&transport=websocket`) and must be idempotent; repeated calls after a healthy connection return immediately.
-- `On` registers strongly typed listeners for events such as `EventConnected`, `EventNotification`, `EventError`, and `EventEngineMetrics`.
-- `Health` executes in O(1) time and is safe for concurrent calls from the delta loop watchdog.
-- `Close` stops heartbeats, drains goroutines, and ensures that the connection is torn down before unmounting.
+#### 4.5.3 Socket.IO Transport Implementation
 
-#### 4.5.3 EngineTransport Responsibilities
+The Socket.IO transport implements the Engine.IO v4 protocol with the following features:
+
+**Connection Management:**
+- Establishes WebSocket connection with `EIO=4&transport=websocket` parameters
+- Attaches OAuth bearer token in Authorization header
+- Handles Graph API subscription endpoint discovery
+- Implements automatic reconnection with exponential backoff
+
+**Heartbeat Protocol:**
+- Parses server-provided ping interval and timeout values
+- Sends ping frames at the negotiated interval
+- Declares connection degraded after 2 consecutive missed pongs
+- Logs heartbeat timing for diagnostics
+
+**Error Handling:**
+- Implements exponential backoff for reconnection (1s → 60s with jitter)
+- Gracefully handles network failures and token expiration
+- Provides detailed error context for troubleshooting
+
+**Structured Logging:**
+- Emits trace-level logs for all packet exchanges
+- Logs connection state changes and health transitions
+- Truncates large payloads to prevent log bloat
+- Includes timing information for performance analysis
+
+#### 4.5.4 Integration with Delta Synchronization
+
+The change notifier integrates closely with the delta synchronization loop:
+
+**Polling Cadence Adjustment:**
+- When Socket.IO is healthy: polling interval ≥ 30 minutes (configurable)
+- When Socket.IO is degraded: polling interval = 5 minutes (fallback)
+- During recovery: polling interval = 10 seconds (temporary aggressive mode)
+
+**Change Event Processing:**
+1. Socket.IO receives notification from Microsoft Graph
+2. Change notifier signals the delta loop via the notifications channel
+3. Delta loop immediately schedules a delta query
+4. High-priority metadata requests preempt background work
+5. Changes are applied to the local metadata cache
+
+**Health Monitoring:**
+- Delta loop queries notifier health before adjusting polling intervals
+- Health state changes are logged with context
+- Statistics are exposed via the `--stats` command for diagnostics
+
+#### 4.5.5 Subscription Management
+
+The subscription manager handles the Microsoft Graph subscription lifecycle:
+
+**Subscription Creation:**
+- Discovers Socket.IO endpoint via `GET {resource}/subscriptions/socketIo`
+- Extracts `notificationUrl` and subscription metadata
+- Stores subscription details in BBolt database for persistence
+
+**Subscription Renewal:**
+- Monitors subscription expiration (Graph limit: 4230 minutes)
+- Automatically renews subscriptions before expiration
+- Handles renewal failures with fallback to polling mode
+
+**Subscription Cleanup:**
+- Gracefully disconnects WebSocket on unmount
+- Removes subscription metadata from database
+- Ensures no resource leaks during shutdown
+
+#### 4.5.6 Configuration Options
+
+The realtime notification system supports the following configuration:
+
+```yaml
+realtime:
+  enabled: true                    # Enable Socket.IO notifications
+  polling_only: false             # Force polling-only mode
+  subscription_renewal: true       # Enable automatic renewal
+  heartbeat_timeout: 60s          # Heartbeat timeout
+  reconnect_backoff_max: 60s      # Maximum reconnection backoff
+  log_packets: false              # Enable packet-level logging
+  
+delta:
+  realtime_interval: 30m          # Polling interval when Socket.IO is healthy
+  fallback_interval: 5m           # Polling interval when Socket.IO is degraded
+  recovery_interval: 10s          # Polling interval during recovery
+```
+
+This architecture ensures reliable realtime notifications while maintaining backward compatibility with polling-only mode and providing comprehensive observability for troubleshooting.
+
+
 
 - **Handshake & Auth**: Attach the current OAuth bearer token and preserve Graph query parameters (resource, delta tokens). Rotate the connection when tokens are refreshed.
  - **Handshake & Auth**: Attach the current OAuth bearer token and preserve Graph query parameters (resource, delta tokens). Rotate the connection when tokens are refreshed. Use the host and query string from the `notificationUrl` Microsoft Graph returns, but always target the standard Socket.IO path (`/socket.io/`) and connect via WebSocket with `EIO=4&transport=websocket` so the push service treats the session the same way as the official client.
@@ -573,7 +737,7 @@ onemount's data model consists of several key entities that represent the filesy
 - **Description**: The main entity that manages the filesystem operations
 - **Attributes**:
   - `metadata` (sync.Map): Stores metadata for inodes
-  - `db` (*bolt.DB): Database for persistent storage
+  - `db` (*bbolt.DB): BBolt database for persistent storage
   - `content` (*LoopbackCache): Cache for file content
   - `thumbnails` (*ThumbnailCache): Cache for thumbnails
   - `auth` (*graph.Auth): Authentication information
@@ -581,7 +745,11 @@ onemount's data model consists of several key entities that represent the filesy
   - `deltaLink` (string): Link for delta synchronization
   - `uploads` (*UploadManager): Manages file uploads
   - `downloads` (*DownloadManager): Manages file downloads
+  - `changeNotifier` (ChangeNotifier): Realtime notification interface
   - `offline` (bool): Whether the system is in offline mode
+  - `timeouts` (TimeoutConfig): Centralized timeout configuration
+  - `statuses` (map[string]FileStatusInfo): File status tracking
+  - `dbusServer` (*FileStatusDBusServer): D-Bus server for status updates
 - **Relationships**:
   - Contains many Inodes
   - Has one UploadManager
@@ -589,6 +757,8 @@ onemount's data model consists of several key entities that represent the filesy
   - Has one LoopbackCache
   - Has one ThumbnailCache
   - Has one Auth
+  - Has one ChangeNotifier
+  - Has one FileStatusDBusServer
 
 #### 5.2.2 Inode
 - **Description**: Represents files and directories in the filesystem
@@ -619,6 +789,55 @@ onemount's data model consists of several key entities that represent the filesy
   - Is represented by one Inode
   - Has one Parent (if not root)
   - Is either a File or a Folder
+
+#### 5.2.4 ChangeNotifier
+- **Description**: Provides unified interface for realtime notifications
+- **Attributes**:
+  - `transport` (RealtimeTransport): Underlying Socket.IO transport
+  - `subscriptionManager` (*SocketSubscriptionManager): Manages Graph subscriptions
+  - `notifications` (chan struct{}): Channel for change events
+  - `health` (HealthState): Current transport health
+  - `stats` (NotifierStats): Statistics and metrics
+- **Relationships**:
+  - Belongs to one Filesystem
+  - Uses one RealtimeTransport
+  - Manages one SocketSubscriptionManager
+
+#### 5.2.5 SocketSubscriptionManager
+- **Description**: Manages Microsoft Graph Socket.IO subscriptions
+- **Attributes**:
+  - `subscriptionID` (string): Graph subscription identifier
+  - `notificationURL` (string): WebSocket endpoint URL
+  - `expiration` (time.Time): Subscription expiration time
+  - `clientState` (string): Validation token
+  - `renewalTicker` (*time.Ticker): Automatic renewal timer
+- **Relationships**:
+  - Belongs to one ChangeNotifier
+  - Persists data in BBolt database
+
+#### 5.2.6 TimeoutConfig
+- **Description**: Centralized timeout configuration for all components
+- **Attributes**:
+  - `DownloadWorkerShutdown` (time.Duration): Download worker shutdown timeout
+  - `UploadGracefulShutdown` (time.Duration): Upload completion timeout
+  - `FilesystemShutdown` (time.Duration): Filesystem shutdown timeout
+  - `NetworkCallbackShutdown` (time.Duration): Network callback timeout
+  - `MetadataRequestTimeout` (time.Duration): Metadata request timeout
+  - `ContentStatsTimeout` (time.Duration): Content statistics timeout
+- **Relationships**:
+  - Belongs to one Filesystem
+  - Used by all manager components
+
+#### 5.2.7 FileStatusInfo
+- **Description**: Tracks file synchronization status
+- **Attributes**:
+  - `Status` (FileStatus): Current file status (synced, downloading, error, etc.)
+  - `Progress` (float64): Download/upload progress percentage
+  - `Error` (string): Last error message (if any)
+  - `LastUpdated` (time.Time): When status was last updated
+- **Relationships**:
+  - Belongs to one Filesystem
+  - Associated with one Inode
 
 ### 5.3 Database Schema
 onemount uses BBolt, an embedded key/value database, to store metadata. The database schema is organized as follows:
