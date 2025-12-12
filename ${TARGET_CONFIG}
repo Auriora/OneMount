@@ -1,0 +1,5 @@
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+[profiles]
+[profiles.default]
+model = "gpt-5-codex"
