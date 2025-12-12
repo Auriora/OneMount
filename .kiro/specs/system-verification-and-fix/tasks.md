@@ -168,7 +168,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze `internal/fs/raw_filesystem.go`
   - Review `cmd/onemount/main.go` mount logic
   - Compare against design document
-  - _Requirements: 2.1, 2.2_
+  - _Requirements: 2.1, 2A.1, 2C.1-2C.5, 2D.1_
 
 - [x] 5.2 Test basic mounting
   - Mount filesystem at test mount point inside a docker container
@@ -258,7 +258,32 @@ This implementation plan breaks down the verification and fix process into discr
   - Check for resource leaks and orphaned processes
   - _Requirements: 2.5_
 
-- [x] 5.9 Document mounting issues and create fix plan
+- [ ] 5.9 Verify granular mounting requirements
+- [ ] 5.9.1 Test initial synchronization and caching (Requirement 2A)
+  - Verify non-blocking initial sync behavior
+  - Test cached metadata serving with async refresh
+  - Test scoped cache invalidation for failed lookups
+  - _Requirements: 2A.1-2A.3_
+
+- [ ] 5.9.2 Test virtual file management (Requirement 2B)
+  - Verify `.xdg-volume-info` immediate availability
+  - Test virtual file persistence with `local-*` identifiers
+  - Test overlay policy resolution
+  - _Requirements: 2B.1-2B.2_
+
+- [ ] 5.9.3 Test advanced mounting options (Requirement 2C)
+  - Test daemon mode process forking
+  - Test mount timeout configuration
+  - Test stale lock file detection and cleanup
+  - _Requirements: 2C.1-2C.5_
+
+- [ ] 5.9.4 Test FUSE operation performance (Requirement 2D)
+  - Verify operations served from local metadata/cache only
+  - Test Graph API delegation to background workers
+  - Measure operation response times
+  - _Requirements: 2D.1_
+
+- [x] 5.10 Document mounting issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -273,7 +298,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze `internal/fs/file_operations.go`
   - Review FUSE operation handlers (Open, Read, Release)
   - Compare against design document
-  - _Requirements: 3.1, 3.2, 3.3_
+  - _Requirements: 3.1-3.6, 3A.1-3A.2, 3B.1-3B.13, 3C.1-3C.2_
 
 - [x] 6.2 Test reading uncached files
   - Clear cache
@@ -352,7 +377,27 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ETag mismatch detection accuracy
   - _Requirements: 3.6_
 
-- [x] 6.8 Document file read issues and create fix plan
+- [ ] 6.8 Verify granular file access requirements
+- [ ] 6.8.1 Test download status and progress tracking (Requirement 3A)
+  - Verify file status updates during downloads
+  - Test error status marking for failed downloads
+  - Test status persistence and notification
+  - _Requirements: 3A.1-3A.2_
+
+- [ ] 6.8.2 Test download manager configuration (Requirement 3B)
+  - Test worker pool size configuration and validation
+  - Test retry attempts configuration and validation
+  - Test queue size and chunk size configuration
+  - Test configuration error messages
+  - _Requirements: 3B.1-3B.13_
+
+- [ ] 6.8.3 Test file hydration state management (Requirement 3C)
+  - Test GHOST state blocking until hydration
+  - Test state transitions during hydration/eviction
+  - Test metadata preservation during eviction
+  - _Requirements: 3C.1-3C.2_
+
+- [x] 6.9 Document file read issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -442,7 +487,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Read and analyze `internal/fs/download_manager.go`
   - Review worker pool implementation
   - Check queue management
-  - _Requirements: 3.2, 3.4, 3.5_
+  - _Requirements: 3.2, 3A.1-3A.2, 3B.1-3B.13, 3C.1-3C.2_
 
 - [x] 8.2 Test single file download
   - Trigger download of one file
@@ -853,6 +898,48 @@ This implementation plan breaks down the verification and fix process into discr
   - Create prioritized fix plan
   - Update the relevant sections of the verification-tracking.md document
   - _Requirements: 12.1_
+
+- [ ] 12.10 Verify network error pattern recognition
+- [ ] 12.10.1 Review network error pattern matching code
+  - Read and analyze `internal/graph/network_feedback.go`
+  - Review `internal/fs/offline.go` error pattern detection
+  - Check pattern matching implementation
+  - Review error pattern list completeness
+  - _Requirements: 19.1-19.11_
+
+- [ ] 12.10.2 Test recognized error patterns
+  - Test "no such host" pattern recognition
+  - Test "network is unreachable" pattern recognition
+  - Test "connection refused" pattern recognition
+  - Test "connection timed out" pattern recognition
+  - Test "dial tcp" pattern recognition
+  - Test "context deadline exceeded" pattern recognition
+  - Test "no route to host" pattern recognition
+  - Test "network is down" pattern recognition
+  - Test "temporary failure in name resolution" pattern recognition
+  - Test "operation timed out" pattern recognition
+  - _Requirements: 19.1-19.10_
+
+- [ ] 12.10.3 Test offline state transition on pattern match
+  - Simulate network errors with recognized patterns
+  - Verify offline state is triggered correctly
+  - Test pattern matching is case-insensitive where appropriate
+  - Verify false positives are minimized
+  - _Requirements: 19.1-19.11_
+
+- [ ] 12.10.4 Test error pattern logging
+  - Verify detected patterns are logged with context
+  - Test specific error pattern logging
+  - Check log format and content
+  - Verify error pattern identification in logs
+  - _Requirements: 19.11_
+
+- [ ] 12.10.5 Create network error pattern integration tests
+  - Write test for each recognized error pattern
+  - Write test for offline state transition
+  - Write test for error pattern logging
+  - Write test for pattern matching accuracy
+  - _Requirements: 19.1-19.11_
 
 ---
 
@@ -1538,6 +1625,42 @@ This implementation plan breaks down the verification and fix process into discr
   - Remove references to deferred features
   - _Requirements: Requirements traceability_
 
+- [ ] 22.7 Verify documentation alignment (Requirement 18)
+- [ ] 22.7.1 Verify architecture documentation accuracy
+  - Compare architecture docs with actual component interactions
+  - Verify component diagrams match implementation
+  - Check interface descriptions are current
+  - Update outdated architectural decisions
+  - _Requirements: 18.1_
+
+- [ ] 22.7.2 Verify design documentation accuracy
+  - Compare design docs with implemented data models
+  - Verify API documentation matches function signatures
+  - Check design patterns match implementation
+  - Update design rationale where implementation differs
+  - _Requirements: 18.2_
+
+- [ ] 22.7.3 Verify API documentation accuracy
+  - Review all public API documentation
+  - Verify godoc comments match actual behavior
+  - Check function signatures are current
+  - Update parameter and return value descriptions
+  - _Requirements: 18.3_
+
+- [ ] 22.7.4 Document implementation deviations
+  - Identify where implementation differs from design
+  - Document rationale for each deviation
+  - Update design docs or justify implementation choice
+  - Create decision records for significant changes
+  - _Requirements: 18.4_
+
+- [ ] 22.7.5 Establish documentation update process
+  - Create process for updating docs with code changes
+  - Add documentation review to development workflow
+  - Set up automated checks for doc-code alignment
+  - Train team on documentation maintenance
+  - _Requirements: 18.5_
+
 ---
 
 ## Phase 15: XDG Compliance Verification ✅ COMPLETE
@@ -1583,20 +1706,82 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## ~~Phase 16: Socket.IO Realtime Notifications~~ ✅ ALREADY IMPLEMENTED
+## Phase 16: Socket.IO Transport Implementation Verification
 
-**Status**: ✅ **COMPLETE** (2025-11-17)  
-**Note**: Socket.IO realtime notifications are already implemented and working in production code.
+**Status**: ✅ **IMPLEMENTED** - Verification tasks for Requirement 20 compliance
 
-**Implementation Details**:
-- Socket.IO client in `internal/socketio/` (complete)
-- Configuration via `realtime.*` block in config.yml
-- Change notifier facade implemented (2025-11-21)
-- Webhook support removed (2025-11-18) - Socket.IO only
-- Delta loop integration complete
-- Health monitoring and stats reporting implemented
+- [ ] 27. Verify Engine.IO/Socket.IO Transport Implementation (Requirement 20)
+- [ ] 27.1 Review Socket.IO transport implementation
+  - Read and analyze `internal/socketio/` implementation
+  - Review Engine.IO v4 WebSocket transport
+  - Check EIO=4 and transport=websocket query parameters
+  - Verify default namespace (/) joining
+  - _Requirements: 20.1_
 
-**No verification needed** - this is working production code, not planned features.
+- [ ] 27.2 Test OAuth token attachment and refresh
+  - Test Authorization bearer header attachment
+  - Test token refresh during connection
+  - Verify additional Graph-required headers
+  - Test connection refresh on token rotation
+  - _Requirements: 20.2_
+
+- [ ] 27.3 Test Engine.IO handshake and heartbeat
+  - Test Engine.IO handshake frame parsing
+  - Verify ping interval/timeout value parsing
+  - Test debug level logging of handshake data
+  - Test heartbeat timer configuration
+  - _Requirements: 20.3_
+
+- [ ] 27.4 Test ping/pong and failure detection
+  - Test ping/pong frame sending per negotiated interval
+  - Test two consecutive missed heartbeat detection
+  - Verify unhealthy state surfacing to ChangeNotifier
+  - Test fallback to polling on heartbeat failure
+  - _Requirements: 20.4_
+
+- [ ] 27.5 Test reconnection and backoff logic
+  - Test exponential backoff on connection close/error
+  - Verify backoff parameters (1s start, 2x multiplier, 60s cap, ±10% jitter)
+  - Test backoff reset after successful reconnect
+  - Test connection retry behavior
+  - _Requirements: 20.5_
+
+- [ ] 27.6 Test event streaming and health monitoring
+  - Test Socket.IO event streaming (notification, error)
+  - Verify strongly typed callback handling
+  - Test health indicator constant-time queries
+  - Test ChangeNotifier integration
+  - _Requirements: 20.6_
+
+- [ ] 27.7 Test verbose logging and tracing
+  - Test structured trace logs for handshake data
+  - Test ping/pong timing logs
+  - Test packet read/write summary logs
+  - Test payload truncation to configurable limit
+  - Test close/error code logging
+  - _Requirements: 20.7_
+
+- [ ] 27.8 Test automated transport tests
+  - Run packet encode/decode tests
+  - Run heartbeat scheduling tests
+  - Run reconnection backoff tests
+  - Run error propagation tests
+  - Verify tests work without live Graph access
+  - _Requirements: 20.8_
+
+- [ ] 27.9 Verify self-contained implementation
+  - Verify no third-party Socket.IO client libraries
+  - Verify no external proxies or managed relays
+  - Check configuration whitelist for troubleshooting tools
+  - Verify implementation is within OneMount codebase
+  - _Requirements: 20.9_
+
+- [ ] 27.10 Create Socket.IO transport integration tests
+  - Write test for complete transport lifecycle
+  - Write test for OAuth integration
+  - Write test for heartbeat and reconnection
+  - Write test for event streaming
+  - _Requirements: 20.1-20.9_
 
 ---
 
@@ -1662,10 +1847,83 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 17: State Management Property-Based Tests
+## Phase 17: State Management Verification
 
-- [ ] 30. Implement metadata state model property-based tests
-- [ ] 30.1 Implement Property 40: Initial Item State
+- [ ] 30. Verify metadata state model implementation
+- [ ] 30.1 Review state model implementation
+  - Read and analyze `internal/fs/state_manager.go`
+  - Review `internal/fs/hydration.go` state transitions
+  - Check state persistence in metadata database
+  - Review state transition diagram implementation
+  - Verify all 7 states are implemented (GHOST, HYDRATING, HYDRATED, DIRTY_LOCAL, DELETED_LOCAL, CONFLICT, ERROR)
+  - _Requirements: 21.1-21.10_
+
+- [ ] 30.2 Test initial item state assignment
+  - Test items discovered via delta are inserted with GHOST state
+  - Verify no content download until required
+  - Test state persistence in metadata database
+  - Verify virtual entries use correct state and flags
+  - _Requirements: 21.2, 21.10_
+
+- [ ] 30.3 Test hydration state transitions
+  - Test GHOST → HYDRATING transition on user access
+  - Test HYDRATING → HYDRATED transition on successful download
+  - Test HYDRATING → ERROR transition on download failure
+  - Test HYDRATING → GHOST transition on cancellation
+  - Verify worker deduplication during hydration
+  - _Requirements: 21.3, 21.4, 21.5_
+
+- [ ] 30.4 Test modification and upload state transitions
+  - Test HYDRATED → DIRTY_LOCAL transition on local modification
+  - Test DIRTY_LOCAL → HYDRATED transition on successful upload
+  - Test DIRTY_LOCAL → ERROR transition on upload failure
+  - Test ETag updates after successful upload
+  - _Requirements: 21.6_
+
+- [ ] 30.5 Test deletion state transitions
+  - Test HYDRATED → DELETED_LOCAL transition on local delete
+  - Test DELETED_LOCAL → [REMOVED] transition on server confirmation
+  - Test DELETED_LOCAL → CONFLICT transition on remote modification
+  - Verify tombstone handling
+  - _Requirements: 21.7_
+
+- [ ] 30.6 Test conflict state transitions
+  - Test DIRTY_LOCAL → CONFLICT transition on remote changes
+  - Test CONFLICT → HYDRATED transition on conflict resolution
+  - Test CONFLICT → GHOST transition on local version deletion
+  - Verify both versions are preserved during conflict
+  - _Requirements: 21.8_
+
+- [ ] 30.7 Test eviction and error recovery
+  - Test HYDRATED → GHOST transition on cache eviction
+  - Test ERROR → HYDRATING transition on retry
+  - Test ERROR → DIRTY_LOCAL transition on upload retry
+  - Test ERROR → GHOST transition on error clearing
+  - _Requirements: 21.9_
+
+- [ ] 30.8 Test virtual file state handling
+  - Test virtual entries have item_state=HYDRATED
+  - Test virtual entries have remote_id=NULL and is_virtual=TRUE
+  - Verify virtual entries bypass sync/upload logic
+  - Test virtual entries participate in directory listings
+  - _Requirements: 21.10_
+
+- [ ] 30.9 Test state transition atomicity and consistency
+  - Test state transitions are atomic
+  - Test no intermediate inconsistent states
+  - Test state persistence across restarts
+  - Test concurrent state transition safety
+  - _Requirements: 21.1-21.10_
+
+- [ ] 30.10 Create state model integration tests
+  - Write test for complete state lifecycle
+  - Write test for state transition edge cases
+  - Write test for state persistence and recovery
+  - Write test for concurrent state operations
+  - _Requirements: 21.1-21.10_
+
+- [ ] 30.11 Implement metadata state model property-based tests
+- [ ] 30.11.1 Implement Property 40: Initial Item State
   - **Property 40: Initial Item State**
   - **Validates: Requirements 21.2**
   - Create `internal/fs/state_property_test.go`
@@ -1674,7 +1932,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify no content download until required
   - _Requirements: 21.2_
 
-- [ ] 30.2 Implement Property 41: Successful Hydration State Transition
+- [ ] 30.11.2 Implement Property 41: Successful Hydration State Transition
   - **Property 41: Successful Hydration State Transition**
   - **Validates: Requirements 21.4**
   - Generate random successful hydration scenarios
@@ -1683,7 +1941,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify error field clearing
   - _Requirements: 21.4_
 
-- [ ] 30.3 Implement Property 42: Local Modification State Transition
+- [ ] 30.11.3 Implement Property 42: Local Modification State Transition
   - **Property 42: Local Modification State Transition**
   - **Validates: Requirements 21.6**
   - Generate random locally modified hydrated file scenarios
@@ -1839,25 +2097,96 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 21: Audit and Compliance Property-Based Tests
+## Phase 21: Audit and Compliance Verification
 
-- [ ] 34. Implement audit and compliance property-based tests
-- [ ] 34.1 Implement Property 59: File Operation Audit Logging
+- [ ] 34. Verify audit and compliance component
+- [ ] 34.1 Review audit logging implementation
+  - Read and analyze `internal/audit/logger.go`
+  - Review `internal/audit/buffer.go` ring buffer implementation
+  - Review `internal/audit/exporter.go` export functionality
+  - Check asynchronous logging architecture
+  - Review performance optimization strategies
+  - _Requirements: 25.1-25.10_
+
+- [ ] 34.2 Test audit performance impact
+  - Measure FUSE operation latency with audit disabled vs enabled
+  - Test with different audit levels (minimal, standard, detailed, verbose)
+  - Verify performance impact stays within 5% for FUSE operations
+  - Test memory overhead stays under 10MB for audit buffers
+  - Test CPU overhead stays under 2% under normal load
+  - _Requirements: 23.1-23.12, 25.1_
+
+- [ ] 34.3 Test asynchronous audit logging
+  - Verify FUSE threads never block on audit I/O
+  - Test ring buffer prevents memory growth under high load
+  - Test batch processing optimizes disk I/O
+  - Verify background thread handles all audit writes
+  - Test audit buffer overflow handling
+  - _Requirements: 25.1, 23.1, 23.2_
+
+- [ ] 34.4 Test audit level configuration and auto-tuning
+  - Test audit level configuration (disabled, minimal, standard, detailed, verbose)
+  - Test auto-tuning reduces audit level when performance degrades
+  - Test auto-tuning restores audit level when performance improves
+  - Verify performance thresholds are respected
+  - Test manual audit level override
+  - _Requirements: 25.1, 23.1-23.12_
+
+- [ ] 34.5 Test audit log export and querying
+  - Test export in multiple formats (JSON, CSV, syslog)
+  - Test audit log filtering by user, time range, event type
+  - Test audit log compression and rotation
+  - Test audit log retention policies
+  - Verify export performance for large log files
+  - _Requirements: 25.9, 25.10_
+
+- [ ] 34.6 Test GDPR compliance features
+  - Test user data deletion mechanisms
+  - Test data anonymization features
+  - Test data retention policy enforcement
+  - Test audit log purging based on retention settings
+  - Verify compliance with GDPR requirements
+  - _Requirements: 25.6, 25.7, 25.8_
+
+- [ ] 34.7 Test tamper-evidence mechanisms
+  - Test audit log checksums and signatures
+  - Test tamper-evident log format
+  - Test log integrity verification
+  - Test append-only log behavior
+  - Verify cryptographic signature validation
+  - _Requirements: 25.4, 25.5_
+
+- [ ] 34.8 Create audit integration tests
+  - Write test for complete audit logging workflow
+  - Write test for audit performance under load
+  - Write test for audit log export and import
+  - Write test for GDPR compliance scenarios
+  - _Requirements: 25.1-25.10_
+
+- [ ] 34.9 Implement audit property-based tests
+- [ ] 34.9.1 Implement Property 59: File Operation Audit Logging
   - **Property 59: File Operation Audit Logging**
   - **Validates: Requirements 25.1**
   - Create `internal/audit/audit_property_test.go`
   - Generate random file operation scenarios
-  - Verify audit logs are created with timestamps
-  - Test log completeness and accuracy
+  - Verify audit logs are created with timestamps using asynchronous logging
+  - Test log completeness and accuracy with performance constraints
   - _Requirements: 25.1_
 
-- [ ] 34.2 Implement Property 60: Authentication Event Audit Logging
+- [ ] 34.9.2 Implement Property 60: Authentication Event Audit Logging
   - **Property 60: Authentication Event Audit Logging**
   - **Validates: Requirements 25.2**
   - Generate random authentication event scenarios
-  - Verify authentication events are logged appropriately
+  - Verify authentication events are logged appropriately using asynchronous logging
   - Test audit trail integrity and security
   - _Requirements: 25.2_
+
+- [ ] 34.10 Document audit issues and create fix plan
+  - List all discovered audit-related issues
+  - Identify performance bottlenecks in audit system
+  - Create prioritized fix plan for audit optimizations
+  - Update verification tracking document
+  - _Requirements: 25.1-25.10_
 
 ---
 
@@ -1975,8 +2304,12 @@ This implementation plan breaks down the verification and fix process into discr
 - **Phase 15**: Issue Resolution (many medium-priority issues already fixed)
 
 ### ⏭️ **REMAINING WORK**
-- **Phase 17**: Documentation Updates
-- **Phase 18**: Final Verification
+- **Phase 12**: Offline Mode (Network Error Pattern Recognition tasks added)
+- **Phase 16**: Socket.IO Transport Implementation Verification (Requirement 20)
+- **Phase 17**: State Management Verification (Requirement 21) + Documentation Updates
+- **Phase 17**: State Management Property-Based Tests
+- **Phase 18-22**: Security, Performance, Resource, Audit Property-Based Tests
+- **Phase 23**: Final Verification
 
 ### ❌ **REMOVED/DEFERRED**
 - ~~Webhook Subscriptions~~: Obsolete (replaced by Socket.IO)

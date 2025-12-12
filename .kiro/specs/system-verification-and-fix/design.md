@@ -649,12 +649,161 @@ Based on the prework analysis of acceptance criteria, the following 65 correctne
 ### Audit and Compliance Properties
 
 **Property 59: File Operation Audit Logging**
-*For any* file operation (access, modification, deletion), the system should log the event with timestamps
+*For any* file operation (access, modification, deletion), the system should log the event with timestamps using asynchronous, batched logging to minimize performance impact
 **Validates: Requirements 25.1**
 
 **Property 60: Authentication Event Audit Logging**
-*For any* authentication event (login attempts, token refreshes, failures), the system should log the event appropriately
+*For any* authentication event (login attempts, token refreshes, failures), the system should log the event appropriately using asynchronous logging
 **Validates: Requirements 25.2**
+
+## Audit Logging Performance Optimization
+
+### Performance-First Audit Design
+
+To meet both audit requirements (Requirement 25) and performance requirements (Requirement 23), the audit logging system uses several optimization strategies:
+
+#### 1. Asynchronous Logging Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   FUSE Thread   │───►│  Audit Buffer    │───►│ Background      │
+│   (Hot Path)    │    │  (Ring Buffer)   │    │ Logger Thread   │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                              │                          │
+                              ▼                          ▼
+                       ┌──────────────────┐    ┌─────────────────┐
+                       │ Batch Processor  │    │ Structured Log  │
+                       │ (Every 100ms)    │    │ Files (JSON)    │
+                       └──────────────────┘    └─────────────────┘
+```
+
+**Key Principles**:
+- **Zero-copy logging**: FUSE threads never block on I/O
+- **Ring buffer**: Fixed-size circular buffer prevents memory growth
+- **Batch processing**: Logs written in batches every 100ms or when buffer is 80% full
+- **Structured format**: JSON logs for efficient parsing and querying
+
+#### 2. Selective Audit Levels
+
+```go
+type AuditLevel int
+const (
+    AuditDisabled AuditLevel = iota  // No audit logging (performance-first)
+    AuditMinimal                     // Authentication + security events only
+    AuditStandard                    // + file modifications (create/delete/write)
+    AuditDetailed                    // + file access (read/stat) - high overhead
+    AuditVerbose                     // + directory listings - very high overhead
+)
+```
+
+**Performance Impact by Level**:
+- **Disabled**: 0% overhead
+- **Minimal**: <1% overhead (auth events are infrequent)
+- **Standard**: 2-5% overhead (modification events are moderate frequency)
+- **Detailed**: 5-15% overhead (read operations are high frequency)
+- **Verbose**: 15-30% overhead (directory listings can be very frequent)
+
+#### 3. Smart Filtering and Aggregation
+
+**High-Frequency Operation Optimization**:
+- **Read Access Aggregation**: Group multiple reads of same file within 1-second window
+- **Directory Listing Deduplication**: Log unique directory access, not every readdir() call
+- **Metadata Operation Batching**: Combine multiple stat() calls on same file
+- **Session-Based Grouping**: Group related operations by user session
+
+**Example Aggregated Log Entry**:
+```json
+{
+  "timestamp": "2025-12-12T10:30:00Z",
+  "event_type": "file_access_batch",
+  "user_id": "user123",
+  "session_id": "sess456",
+  "operations": [
+    {"file": "/path/to/file1.txt", "operation": "read", "count": 15, "first_access": "10:29:45Z", "last_access": "10:30:00Z"},
+    {"file": "/path/to/file2.txt", "operation": "stat", "count": 3, "first_access": "10:29:50Z", "last_access": "10:29:55Z"}
+  ]
+}
+```
+
+#### 4. Performance Monitoring and Auto-Tuning
+
+**Adaptive Audit Levels**:
+- Monitor FUSE operation latency in real-time
+- If directory listing exceeds 1.5 seconds (75% of 2-second limit), temporarily reduce audit level
+- If CPU usage exceeds 20% (80% of 25% limit), disable verbose audit logging
+- Auto-restore audit level when performance improves
+
+**Performance Metrics Integration**:
+```go
+type AuditPerformanceMetrics struct {
+    BufferUtilization    float64  // Ring buffer usage percentage
+    BatchProcessingTime  time.Duration  // Time to process each batch
+    LogWriteLatency     time.Duration  // Disk write latency
+    DroppedEvents       int64     // Events dropped due to buffer overflow
+    AverageEventSize    int       // Average log entry size in bytes
+}
+```
+
+#### 5. Configuration Options
+
+**Runtime Configuration**:
+```yaml
+audit:
+  enabled: true
+  level: "standard"  # disabled, minimal, standard, detailed, verbose
+  buffer_size: 10000  # Ring buffer size (number of events)
+  batch_interval: "100ms"  # How often to flush batches
+  batch_size: 500  # Maximum events per batch
+  auto_tune: true  # Enable performance-based auto-tuning
+  performance_thresholds:
+    max_fuse_latency: "1.5s"  # Reduce audit level if exceeded
+    max_cpu_usage: 20  # Reduce audit level if exceeded
+  retention:
+    days: 90  # How long to keep audit logs
+    max_size: "1GB"  # Maximum total audit log size
+  export:
+    formats: ["json", "csv"]  # Supported export formats
+    compression: true  # Compress archived logs
+```
+
+#### 6. Memory and Storage Optimization
+
+**Memory Management**:
+- **Fixed-size ring buffer**: Prevents unbounded memory growth
+- **Object pooling**: Reuse log entry objects to reduce GC pressure
+- **Structured logging**: Use efficient JSON encoding (no reflection)
+
+**Storage Optimization**:
+- **Log rotation**: Automatic rotation based on size/time
+- **Compression**: Gzip compression for archived logs (90% size reduction)
+- **Indexing**: Create indexes on timestamp, user_id, event_type for fast queries
+- **Purging**: Automatic purging based on retention policies
+
+#### 7. Compliance Without Performance Impact
+
+**GDPR Compliance Optimizations**:
+- **Lazy anonymization**: Hash user identifiers in logs, keep mapping separately
+- **Selective retention**: Different retention periods for different event types
+- **Right to erasure**: Efficient deletion by user ID without full log reprocessing
+
+**Tamper-Evidence with Performance**:
+- **Merkle tree hashing**: Batch hash computation every 1000 events
+- **Append-only logs**: No in-place modifications, only appends
+- **Cryptographic signatures**: Sign log batches, not individual events
+
+### Performance Validation
+
+**Benchmarking Requirements**:
+- Audit logging must not increase FUSE operation latency by more than 5%
+- Memory overhead must not exceed 10MB for audit buffers
+- CPU overhead must not exceed 2% under normal load
+- Disk I/O for audit logs must not exceed 1MB/s sustained
+
+**Testing Strategy**:
+- Load testing with audit enabled vs disabled
+- Measure impact on all performance requirements (23.1-23.12)
+- Stress testing with high-frequency operations
+- Memory leak testing for long-running audit sessions
 
 ### Concurrency and Lock Management Properties
 
@@ -812,14 +961,14 @@ defer filesystem.mutex.Unlock()
 - Token storage in `~/.config/onemount/auth_tokens.json` or test-artifacts directory
 
 **Verification Criteria**:
-- Authentication succeeds with valid credentials
-- Tokens are stored securely with appropriate permissions
-- Token refresh works automatically before expiration
-- Failed authentication provides clear error messages
-- Headless mode uses device code flow correctly
-- Tests run in isolated Docker containers without affecting host system
+- Authentication succeeds with valid credentials (Requirements 1.1, 1.2)
+- Tokens are stored securely with appropriate permissions (Requirements 1.2, 22.1, 22.2)
+- Token refresh works automatically before expiration (Requirements 1.3)
+- Failed authentication provides clear error messages (Requirements 1.4)
+- Headless mode uses device code flow correctly (Requirements 1.5)
+- Tests run in isolated Docker containers without affecting host system (Requirements 16.1-16.7)
 
-### 2. Filesystem Mounting Component
+### 2. Basic Filesystem Mounting Component
 
 **Location**: `internal/fs/raw_filesystem.go`, `cmd/onemount/main.go`
 
@@ -842,9 +991,104 @@ defer filesystem.mutex.Unlock()
 - Unmount releases all resources
 - Signal handlers trigger clean shutdown
 - No orphaned processes or mount points after exit
+- Root directory contents are visible after mount
+- Standard file operations work correctly
+
+### 2A. Initial Synchronization and Caching Component
+
+**Location**: `internal/fs/sync.go`, `internal/fs/cache.go`, `internal/fs/metadata_manager.go`
+
+**Verification Steps**:
+1. Review background tree synchronization implementation
+2. Test non-blocking initial sync behavior
+3. Test cached metadata serving
+4. Test asynchronous refresh triggers
+5. Test scoped cache invalidation
+
+**Expected Interfaces**:
+- `StartBackgroundSync()` method for non-blocking sync
+- `ServeFromCache()` method for immediate responses
+- `TriggerAsyncRefresh()` for background updates
+- `InvalidateEntry()` for scoped invalidation
+
+**Verification Criteria**:
+- Initial sync runs in background without blocking operations
+- Interactive commands use cached metadata immediately
+- Stale cache triggers async refresh while serving cached data
+- Failed lookups only invalidate specific entries, not entire directories
+- Background sync progress is trackable
+
+### 2B. Virtual File Management Component
+
+**Location**: `cmd/common/xdg.go`, `internal/fs/virtual_files.go`
+
+**Verification Steps**:
+1. Review virtual file creation and serving
+2. Test `.xdg-volume-info` immediate availability
+3. Test virtual file persistence with `local-*` identifiers
+4. Test overlay policy resolution
+5. Test virtual file exclusion from sync operations
+
+**Expected Interfaces**:
+- `CreateVirtualFile()` method for virtual file creation
+- `ServeVirtualFile()` method for immediate serving
+- `SetOverlayPolicy()` for precedence management
+- Virtual file metadata with `is_virtual=TRUE` flag
+
+**Verification Criteria**:
+- `.xdg-volume-info` available immediately on mount
+- Virtual files bypass Graph API lookups
+- Virtual files persist with `local-*` identifiers
+- Overlay policies resolve conflicts correctly
+- Virtual files excluded from upload/delete operations
+
+### 2C. Advanced Mounting Options Component
+
+**Location**: `cmd/onemount/main.go`, `internal/fs/daemon.go`, `internal/fs/database.go`
+
+**Verification Steps**:
+1. Review daemon mode implementation
+2. Test mount timeout configuration
+3. Test stale lock file detection and cleanup
+4. Test database retry logic with exponential backoff
+5. Test command-line option parsing
+
+**Expected Interfaces**:
+- `ForkDaemon()` method for background operation
+- `SetMountTimeout()` for timeout configuration
+- `DetectStaleLocks()` for lock file cleanup
+- `RetryWithBackoff()` for database operations
+
+**Verification Criteria**:
 - Daemon mode forks process and detaches from terminal
 - Mount timeout is configurable and enforced
-- Stale lock files are detected and cleaned up
+- Stale lock files (>5 minutes) are detected and removed
+- Database retries use exponential backoff (max 10 attempts)
+- Configuration validation provides clear error messages
+
+### 2D. FUSE Operation Performance Component
+
+**Location**: `internal/fs/fuse_operations.go`, `internal/fs/metadata_cache.go`
+
+**Verification Steps**:
+1. Review FUSE operation handlers
+2. Test metadata-only operation serving
+3. Test background worker delegation
+4. Test operation response times
+5. Test concurrent operation handling
+
+**Expected Interfaces**:
+- FUSE operation handlers (`readdir`, `getattr`, etc.)
+- `ServeFromMetadata()` for local-only operations
+- `DelegateToWorker()` for Graph API interactions
+- Performance monitoring and metrics
+
+**Verification Criteria**:
+- All FUSE operations served from local metadata/cache
+- No Graph API calls block FUSE threads
+- Graph interactions delegated to background workers
+- Operation response times meet performance requirements
+- Concurrent operations handled safely
 
 #### Daemon Mode
 
@@ -904,29 +1148,107 @@ defer filesystem.mutex.Unlock()
 - Logs each retry attempt with backoff duration
 - After 10 failed attempts, returns error with diagnostic information
 
-### 3. File Operations Component
+### 3. Basic On-Demand File Access Component
 
 **Location**: `internal/fs/file_operations.go`, `internal/fs/dir_operations.go`
 
 **Verification Steps**:
 1. Review FUSE operation implementations
 2. Test read operations (Open, Read, Release)
-3. Test write operations (Create, Write, Flush, Fsync)
-4. Test directory operations (OpenDir, ReadDir, ReleaseDir)
-5. Test metadata operations (GetAttr, SetAttr)
-6. Test file/directory creation and deletion
+3. Test directory operations (OpenDir, ReadDir, ReleaseDir)
+4. Test metadata operations (GetAttr, SetAttr)
+5. Test ETag-based cache validation
+6. Test redirect handling for downloads
 
 **Expected Interfaces**:
-- FUSE operation handlers (Open, Read, Write, etc.)
-- Inode management (GetID, InsertNodeID, DeleteNodeID)
-- Content caching (Get, Set from LoopbackCache)
+- FUSE operation handlers (Open, Read, etc.)
+- `RequestFileContent()` for uncached files
+- `ValidateCache()` for ETag comparison
+- `FollowRedirect()` for download URLs
 
 **Verification Criteria**:
-- Files can be read without errors
-- File writes are queued for upload
-- Directory listings show all files
-- File metadata is accurate
-- Operations return appropriate FUSE status codes
+- Directory listings use metadata without downloading content
+- Uncached files trigger download via GET `/items/{id}/content`
+- 302 redirects are followed to pre-authenticated URLs
+- Cached files validated using ETag comparison from delta sync
+- Cache hits serve from local storage without network requests
+- Cache misses invalidate and re-download content
+
+### 3A. Download Status and Progress Tracking Component
+
+**Location**: `internal/fs/file_status.go`, `internal/fs/download_manager.go`
+
+**Verification Steps**:
+1. Review file status tracking implementation
+2. Test status updates during download
+3. Test error status marking
+4. Test status persistence and retrieval
+5. Test status notification mechanisms
+
+**Expected Interfaces**:
+- `UpdateFileStatus()` for status changes
+- `SetDownloadingStatus()` for active downloads
+- `SetErrorStatus()` for failed downloads
+- `GetFileStatus()` for status queries
+
+**Verification Criteria**:
+- File status updates to "downloading" during active downloads
+- Failed downloads marked with error status and logged
+- Status changes are persistent and queryable
+- Status updates trigger appropriate notifications
+- Status information available via extended attributes and D-Bus
+
+### 3B. Download Manager Configuration Component
+
+**Location**: `internal/fs/download_manager.go`, `internal/config/download_config.go`
+
+**Verification Steps**:
+1. Review download configuration implementation
+2. Test worker pool size configuration
+3. Test retry attempts configuration
+4. Test queue size configuration
+5. Test chunk size configuration
+6. Test configuration validation
+
+**Expected Interfaces**:
+- `ConfigureWorkerPool()` for worker management
+- `SetRetryAttempts()` for retry configuration
+- `SetQueueSize()` for queue management
+- `SetChunkSize()` for large file handling
+- `ValidateConfig()` for parameter validation
+
+**Verification Criteria**:
+- Worker pool size configurable (1-10, default: 3)
+- Retry attempts configurable (1-10, default: 3)
+- Queue size configurable (100-5000, default: 500)
+- Chunk size configurable (1MB-100MB, default: 10MB)
+- Invalid configurations display clear error messages with valid ranges
+- Configuration parameters validated on startup
+
+### 3C. File Hydration State Management Component
+
+**Location**: `internal/fs/state_manager.go`, `internal/fs/hydration.go`
+
+**Verification Steps**:
+1. Review item state management implementation
+2. Test GHOST state handling
+3. Test hydration state transitions
+4. Test eviction state transitions
+5. Test state persistence and recovery
+
+**Expected Interfaces**:
+- `GetItemState()` for state queries
+- `TransitionToHydrating()` for download initiation
+- `TransitionToHydrated()` for successful completion
+- `TransitionToGhost()` for eviction
+- `BlockUntilHydrated()` for access control
+
+**Verification Criteria**:
+- GHOST state items block access until hydration
+- Hydration transitions to HYDRATED on success or ERROR on failure
+- Evicted files transition back to GHOST without metadata loss
+- State transitions are atomic and persistent
+- Future FUSE requests can immediately rehydrate on demand
 
 ### 4. Download Manager Component
 
@@ -1469,6 +1791,44 @@ This approach is more efficient than per-file conditional GET because:
 - False positives are minimized
 - Pattern matching is case-insensitive where appropriate
 
+### 17. Audit and Compliance Component
+
+**Location**: `internal/audit/logger.go`, `internal/audit/buffer.go`, `internal/audit/exporter.go`
+
+**Verification Steps**:
+1. Review asynchronous audit logging implementation
+2. Test performance impact on FUSE operations
+3. Test audit level configuration and auto-tuning
+4. Test batch processing and log rotation
+5. Test GDPR compliance features (data deletion, anonymization)
+6. Test tamper-evidence mechanisms
+7. Test audit log export and querying
+
+**Expected Interfaces**:
+- `AuditLogger` with asynchronous logging
+- `AuditBuffer` with ring buffer implementation
+- `AuditExporter` for log export in multiple formats
+- `AuditQuery` for filtering and searching logs
+- Performance monitoring and auto-tuning
+
+**Performance Requirements**:
+- FUSE operation latency increase: <5%
+- Memory overhead: <10MB for audit buffers
+- CPU overhead: <2% under normal load
+- Disk I/O: <1MB/s sustained for audit logs
+
+**Verification Criteria**:
+- Audit logging meets all compliance requirements (Requirements 25.1-25.10)
+- Performance impact stays within acceptable limits (Requirements 23.1-23.12)
+- Asynchronous logging prevents FUSE thread blocking
+- Ring buffer prevents memory growth under high load
+- Batch processing optimizes disk I/O
+- Auto-tuning maintains performance under stress
+- Log rotation and retention policies work correctly
+- Export functionality supports required formats (JSON, CSV, syslog)
+- GDPR compliance features (data deletion, anonymization) work correctly
+- Tamper-evidence mechanisms (checksums, signatures) are reliable
+
 ## Data Models
 
 ### User Notification and Feedback Data Model
@@ -1590,6 +1950,131 @@ type MountInstance struct {
     DeltaLoop    *DeltaLoop
     Subscription *SubscriptionManager
     MountedAt    time.Time
+}
+```
+
+### Download Manager Configuration Data Model
+
+```go
+type DownloadConfig struct {
+    WorkerPoolSize   int           // Number of concurrent download workers (1-10, default: 3)
+    RetryAttempts    int           // Maximum retry attempts for failed downloads (1-10, default: 3)
+    QueueSize        int           // Buffer capacity for pending downloads (100-5000, default: 500)
+    ChunkSize        int64         // Chunk size for large file downloads (1MB-100MB, default: 10MB)
+    Timeout          time.Duration // Timeout per download attempt (default: 30s)
+}
+
+type DownloadStatus struct {
+    State        DownloadState // Current download state
+    Progress     int64         // Bytes downloaded
+    TotalSize    int64         // Total file size
+    StartTime    time.Time     // Download start time
+    LastError    string        // Last error message (if any)
+    RetryCount   int           // Number of retry attempts
+}
+
+type DownloadState int
+const (
+    DownloadStateIdle DownloadState = iota
+    DownloadStateQueued
+    DownloadStateActive
+    DownloadStateCompleted
+    DownloadStateFailed
+    DownloadStateCancelled
+)
+```
+
+### Virtual File Management Data Model
+
+```go
+type VirtualFile struct {
+    LocalID       string        // Local identifier (prefixed with "local-")
+    Path          string        // Virtual file path
+    Content       []byte        // File content
+    OverlayPolicy OverlayPolicy // Conflict resolution policy
+    IsVirtual     bool          // Always true for virtual files
+    CreatedAt     time.Time     // Creation timestamp
+    LastAccessed  time.Time     // Last access timestamp
+}
+
+type OverlayPolicy int
+const (
+    LocalWins  OverlayPolicy = iota // Local virtual file takes precedence
+    RemoteWins                      // Remote file takes precedence
+    Merged                          // Merge local and remote content
+)
+
+type VirtualFileManager struct {
+    files map[string]*VirtualFile // path -> VirtualFile
+    mutex sync.RWMutex
+}
+```
+
+### Advanced Mounting Configuration Data Model
+
+```go
+type MountConfig struct {
+    MountPoint      string        // Path where filesystem will be mounted
+    DaemonMode      bool          // Run as background daemon
+    MountTimeout    time.Duration // Maximum time to wait for mount (default: 60s)
+    NoSyncTree      bool          // Skip initial tree sync
+    Debug           bool          // Enable debug logging
+    AllowOther      bool          // Allow other users to access mount
+}
+
+type DaemonConfig struct {
+    LogFile         string        // Path to log file for daemon output
+    PIDFile         string        // Path to PID file (optional)
+    WorkingDir      string        // Working directory for daemon
+}
+
+type DatabaseConfig struct {
+    Path            string        // Path to BBolt database file
+    Timeout         time.Duration // Timeout per open attempt (default: 10s)
+    MaxRetries      int           // Maximum retry attempts (default: 10)
+    InitialBackoff  time.Duration // Initial backoff duration (default: 200ms)
+    MaxBackoff      time.Duration // Maximum backoff duration (default: 5s)
+    StaleLockAge    time.Duration // Age threshold for stale locks (default: 5m)
+}
+```
+
+### File Hydration State Data Model
+
+```go
+type ItemState int
+const (
+    StateGhost ItemState = iota      // Cloud metadata known, no local content
+    StateHydrating                   // Content download in progress
+    StateHydrated                    // Local content matches remote ETag
+    StateDirtyLocal                  // Local changes pending upload
+    StateDeletedLocal                // Local delete queued for upload
+    StateConflict                    // Local + remote diverged
+    StateError                       // Last hydration/upload failed
+)
+
+type HydrationManager struct {
+    activeHydrations map[string]*HydrationJob // itemID -> job
+    stateTransitions chan StateTransition
+    mutex           sync.RWMutex
+}
+
+type HydrationJob struct {
+    ItemID      string        // OneDrive item ID
+    State       ItemState     // Current state
+    WorkerID    string        // Responsible worker ID
+    StartTime   time.Time     // Hydration start time
+    Progress    int64         // Bytes downloaded
+    TotalSize   int64         // Total file size
+    LastError   string        // Last error message
+    RetryCount  int           // Number of retry attempts
+}
+
+type StateTransition struct {
+    ItemID    string    // Item being transitioned
+    FromState ItemState // Previous state
+    ToState   ItemState // New state
+    Reason    string    // Reason for transition
+    Timestamp time.Time // When transition occurred
 }
 ```
 
@@ -1809,6 +2294,104 @@ const (
     Inconsistent GapType = "inconsistent"  // Implementation differs from docs
     Outdated     GapType = "outdated"      // Docs describe old implementation
 )
+```
+
+### Audit and Compliance Data Model
+
+```go
+type AuditLevel int
+const (
+    AuditDisabled AuditLevel = iota
+    AuditMinimal                     // Auth + security events only
+    AuditStandard                    // + file modifications
+    AuditDetailed                    // + file access
+    AuditVerbose                     // + directory listings
+)
+
+type AuditEvent struct {
+    ID          string    `json:"id"`
+    Timestamp   time.Time `json:"timestamp"`
+    EventType   string    `json:"event_type"`
+    UserID      string    `json:"user_id,omitempty"`
+    SessionID   string    `json:"session_id,omitempty"`
+    FilePath    string    `json:"file_path,omitempty"`
+    Operation   string    `json:"operation"`
+    Result      string    `json:"result"`
+    ErrorCode   string    `json:"error_code,omitempty"`
+    Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type AuditBatch struct {
+    BatchID     string       `json:"batch_id"`
+    Timestamp   time.Time    `json:"timestamp"`
+    Events      []AuditEvent `json:"events"`
+    Checksum    string       `json:"checksum"`
+    Signature   string       `json:"signature,omitempty"`
+}
+
+type AuditConfig struct {
+    Enabled             bool          `yaml:"enabled"`
+    Level               AuditLevel    `yaml:"level"`
+    BufferSize          int           `yaml:"buffer_size"`
+    BatchInterval       time.Duration `yaml:"batch_interval"`
+    BatchSize           int           `yaml:"batch_size"`
+    AutoTune            bool          `yaml:"auto_tune"`
+    MaxFUSELatency      time.Duration `yaml:"max_fuse_latency"`
+    MaxCPUUsage         float64       `yaml:"max_cpu_usage"`
+    RetentionDays       int           `yaml:"retention_days"`
+    MaxLogSize          int64         `yaml:"max_log_size"`
+    CompressionEnabled  bool          `yaml:"compression_enabled"`
+}
+
+type AuditBuffer struct {
+    events    []AuditEvent
+    head      int
+    tail      int
+    size      int
+    capacity  int
+    mutex     sync.RWMutex
+    notEmpty  *sync.Cond
+    notFull   *sync.Cond
+}
+
+type AuditLogger struct {
+    config       AuditConfig
+    buffer       *AuditBuffer
+    batchChan    chan []AuditEvent
+    stopChan     chan struct{}
+    wg           sync.WaitGroup
+    metrics      AuditPerformanceMetrics
+    writer       io.Writer
+}
+
+type AuditPerformanceMetrics struct {
+    BufferUtilization   float64       `json:"buffer_utilization"`
+    BatchProcessingTime time.Duration `json:"batch_processing_time"`
+    LogWriteLatency     time.Duration `json:"log_write_latency"`
+    DroppedEvents       int64         `json:"dropped_events"`
+    AverageEventSize    int           `json:"average_event_size"`
+    EventsPerSecond     float64       `json:"events_per_second"`
+    TotalEvents         int64         `json:"total_events"`
+    TotalBatches        int64         `json:"total_batches"`
+}
+
+type AuditQuery struct {
+    StartTime   *time.Time `json:"start_time,omitempty"`
+    EndTime     *time.Time `json:"end_time,omitempty"`
+    UserID      string     `json:"user_id,omitempty"`
+    EventType   string     `json:"event_type,omitempty"`
+    FilePath    string     `json:"file_path,omitempty"`
+    Operation   string     `json:"operation,omitempty"`
+    Limit       int        `json:"limit,omitempty"`
+    Offset      int        `json:"offset,omitempty"`
+}
+
+type AuditExportOptions struct {
+    Format      string     `json:"format"`      // json, csv, syslog
+    Compression bool       `json:"compression"`
+    Query       AuditQuery `json:"query"`
+    OutputPath  string     `json:"output_path"`
+}
 ```
 
 ## Error Handling
