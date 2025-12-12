@@ -219,6 +219,51 @@ go version
    onemount /path/to/mount/point
    ```
 
+### Socket.IO Realtime Issues
+
+**Symptoms:**
+- Changes in OneDrive don't appear immediately locally
+- High polling frequency despite realtime being enabled
+- "Socket.IO connection failed" messages in logs
+
+**Causes:**
+- WebSocket connections blocked by firewall/proxy
+- Network doesn't support WebSocket protocols
+- Corporate network restrictions
+
+**Solutions:**
+1. **Check Socket.IO status:**
+   ```bash
+   # View realtime notification status
+   onemount --stats /path/to/mount/point | grep -A 10 "Realtime"
+   ```
+
+2. **Test WebSocket connectivity:**
+   ```bash
+   # Test if WebSocket connections work
+   curl -I https://graph.microsoft.com/v1.0/subscriptions/socketIo
+   ```
+
+3. **Force polling-only mode:**
+   ```bash
+   # Disable Socket.IO and use polling only
+   onemount --polling-only /path/to/mount/point
+   ```
+
+4. **Configure polling-only in config file:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   realtime:
+     enabled: true
+     pollingOnly: true
+     fallbackIntervalSeconds: 300  # 5 minutes
+   ```
+
+5. **Check firewall/proxy settings:**
+   - Ensure WebSocket (WSS) traffic is allowed to `*.graph.microsoft.com`
+   - Configure proxy settings if needed
+   - Contact network administrator about WebSocket support
+
 ### Proxy and Firewall Issues
 
 **Symptoms:**
@@ -380,6 +425,69 @@ onemount --stats /path/to/mount/point | grep -i xattr
    # Check cache usage
    onemount --stats /path/to/mount/point
    ```
+
+## Realtime Notification Troubleshooting
+
+### Understanding Realtime Modes
+
+OneMount supports three realtime notification modes:
+
+1. **Socket.IO Mode** (default when enabled): Uses WebSocket connections for instant notifications
+2. **Polling-Only Mode**: Regular polling without WebSocket connections  
+3. **Disabled Mode**: Minimal polling for basic functionality
+
+### Checking Realtime Status
+
+```bash
+# View current realtime configuration and status
+onemount --stats /path/to/mount/point
+
+# Look for the "Realtime Notifications" section:
+# Mode: socketio | polling | disabled
+# Status: healthy | degraded | failed | unknown
+# Last heartbeat: timestamp of last Socket.IO activity
+```
+
+### Common Realtime Issues
+
+**Issue: Changes don't appear immediately**
+- Check if realtime is enabled: `realtime.enabled: true` in config
+- Verify Socket.IO status is "healthy" in stats output
+- If status is "failed", consider using polling-only mode
+
+**Issue: High CPU/network usage**
+- Check polling interval: should be 1800s (30 min) with healthy Socket.IO
+- If polling every few minutes, Socket.IO may be failing
+- Enable polling-only mode to reduce connection attempts
+
+**Issue: Corporate network blocks WebSocket**
+- Use polling-only mode: `pollingOnly: true` in config
+- Set reasonable polling interval: 300-900 seconds (5-15 minutes)
+- Contact IT about allowing WebSocket traffic to Microsoft Graph
+
+### Configuration Examples
+
+**Optimal for home networks:**
+```yaml
+realtime:
+  enabled: true
+  pollingOnly: false
+  fallbackIntervalSeconds: 1800  # 30 minutes
+```
+
+**Optimal for corporate networks:**
+```yaml
+realtime:
+  enabled: true
+  pollingOnly: true
+  fallbackIntervalSeconds: 600   # 10 minutes
+```
+
+**Minimal resource usage:**
+```yaml
+realtime:
+  enabled: false
+```
 
 ## Debugging and Logging
 

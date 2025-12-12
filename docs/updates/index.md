@@ -2,6 +2,9 @@
 
 Newest entries first.
 
+- **2025-11-23** – [Inode Truncate Lock Reduction](./2025-11-23-inode-truncate-lock.md)
+- **2025-11-23** – [Launcher Icon Packaging Fix](./2025-11-23-launcher-icon-packaging.md)
+- **2025-11-23** – [Devcontainer Systemd User Support](./2025-11-23-devcontainer-systemd-user-support.md)
 - **2025-11-22** – [Runtime Layering – FUSE Local-First Queueing](./2025-11-22-runtime-layering-fuse-local-first.md)
 - **2025-11-22** – [Runtime Layering – Sync/Hydration Snapshots & Pinned Requeue](./2025-11-22-runtime-layering-sync-hydration-requeue.md)
 - **2025-11-22** – [Runtime Layering – State Manager Hot Paths](./2025-11-22-runtime-layering-state-manager.md)
