@@ -126,8 +126,16 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 	if i == nil {
 		return fuse.ENOENT
 	}
+
 	path := i.Path()
 	isDir := i.IsDir() // holds an rlock
+	inodeID := i.ID()
+
+	var (
+		doTruncate   bool
+		truncateSize uint64
+	)
+
 	i.mu.Lock()
 
 	ctx := logging.DefaultLogger.With().
@@ -177,35 +185,46 @@ func (f *Filesystem) SetAttr(_ <-chan struct{}, in *fuse.SetAttrIn, out *fuse.At
 					logging.FieldPath, path)
 				return fuse.EIO
 			}
+			i.DriveItem.Size = size
 			i.mu.Unlock()
 			out.Attr = i.makeAttr()
 			out.SetTimeout(timeout)
 			return fuse.OK
 		}
-		fd, err := f.content.Open(i.DriveItem.ID)
-		if err != nil {
-			logging.LogError(err, "Failed to open file for truncation",
-				logging.FieldID, i.DriveItem.ID,
-				logging.FieldOperation, "SetAttr.truncate",
-				logging.FieldPath, path)
-			i.mu.Unlock()
-			return fuse.EIO
-		}
-		// the unix syscall does not update the seek position, so neither should we
-		if err := fd.Truncate(int64(size)); err != nil {
-			logging.LogError(err, "Failed to truncate file",
-				logging.FieldID, i.DriveItem.ID,
-				logging.FieldOperation, "SetAttr.truncate",
-				logging.FieldPath, path,
-				"size", size)
-			i.mu.Unlock()
-			return fuse.EIO
-		}
-		i.DriveItem.Size = size
-		f.markDirtyLocalState(i.ID())
+
+		// Defer the I/O-heavy truncate until after releasing the inode lock.
+		doTruncate = true
+		truncateSize = size
 	}
 
 	i.mu.Unlock()
+
+	if doTruncate {
+		fd, err := f.content.Open(inodeID)
+		if err != nil {
+			logging.LogError(err, "Failed to open file for truncation",
+				logging.FieldID, inodeID,
+				logging.FieldOperation, "SetAttr.truncate",
+				logging.FieldPath, path)
+			return fuse.EIO
+		}
+		// the unix syscall does not update the seek position, so neither should we
+		if err := fd.Truncate(int64(truncateSize)); err != nil {
+			logging.LogError(err, "Failed to truncate file",
+				logging.FieldID, inodeID,
+				logging.FieldOperation, "SetAttr.truncate",
+				logging.FieldPath, path,
+				"size", truncateSize)
+			return fuse.EIO
+		}
+
+		// Update metadata with a short lock hold.
+		i.mu.Lock()
+		i.DriveItem.Size = truncateSize
+		i.mu.Unlock()
+		f.markDirtyLocalState(inodeID)
+	}
+
 	out.Attr = i.makeAttr()
 	out.SetTimeout(timeout)
 	return fuse.OK

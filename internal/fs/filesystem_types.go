@@ -17,8 +17,10 @@ type metadataStateController interface {
 }
 
 // FilesystemInterface defines the interface for the filesystem operations
-// that are used by other packages. This interface is implemented by the
-// Filesystem type in the cache package.
+// FilesystemInterface defines the core filesystem operations and state management methods
+// that are used by other packages. This interface is implemented by the Filesystem type
+// and provides a clean abstraction for file status tracking, inode management, and
+// filesystem state queries without exposing internal implementation details.
 type FilesystemInterface interface {
 	// GetFileStatus File status methods
 	GetFileStatus(id string) FileStatusInfo

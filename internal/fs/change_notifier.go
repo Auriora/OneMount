@@ -16,9 +16,10 @@ type socketNotifier interface {
 	HealthSnapshot() socketio.HealthState
 }
 
-// ChangeNotifier provides a facade over the realtime subscription manager so the rest of the
-// filesystem can reason about health, mode, and fallbacks without referencing the underlying
-// Socket.IO implementation directly.
+// ChangeNotifier provides a facade over the realtime subscription manager, allowing the
+// filesystem to receive change notifications without directly depending on Socket.IO implementation details.
+// It abstracts the complexity of managing Socket.IO connections, health monitoring, and fallback logic,
+// providing a simple interface for the delta loop to consume realtime notifications.
 type ChangeNotifier struct {
 	opts    RealtimeOptions
 	auth    *graph.Auth
@@ -26,6 +27,10 @@ type ChangeNotifier struct {
 	factory func(RealtimeOptions, *graph.Auth) socketNotifier
 }
 
+// NewChangeNotifier creates a new change notifier with the specified realtime options and authentication.
+// The notifier manages Socket.IO subscriptions to Microsoft Graph and provides change notifications
+// to the filesystem's delta loop. When realtime is disabled or polling-only mode is enabled,
+// the notifier operates in a passive mode that doesn't establish Socket.IO connections.
 func NewChangeNotifier(opts RealtimeOptions, auth *graph.Auth) *ChangeNotifier {
 	return newChangeNotifierWithFactory(opts, auth, func(o RealtimeOptions, a *graph.Auth) socketNotifier {
 		return NewSocketSubscriptionManager(o, a, nil)
