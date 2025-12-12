@@ -413,6 +413,9 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	return filesystem, auth, server, cachePath, absMountPath, nil
 }
 
+// toRealtimeOptions converts configuration RealtimeConfig to filesystem RealtimeOptions.
+// This function bridges the configuration layer (which uses YAML-friendly types)
+// with the filesystem layer (which uses Go duration types and other internal representations).
 func toRealtimeOptions(cfg common.RealtimeConfig) fs.RealtimeOptions {
 	return fs.RealtimeOptions{
 		Enabled:          cfg.Enabled,

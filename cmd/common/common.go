@@ -21,7 +21,9 @@ const version = "0.1.0rc1"
 
 var commit string
 
-// Version returns the current version string
+// Version returns the current version string including git commit information.
+// The format is "vversion commit" where commit is truncated to 8 characters.
+// This is used for diagnostic output and version reporting.
 func Version() string {
 	clen := 0
 	if len(commit) > 7 {
@@ -30,7 +32,9 @@ func Version() string {
 	return fmt.Sprintf("v%s %s", version, commit[:clen])
 }
 
-// StringToLevel converts a string to a logging.Level that can be used with the logging package
+// StringToLevel converts a string to a logging.Level that can be used with the logging package.
+// If the input string is not a valid log level, DebugLevel is returned as a safe default.
+// Valid levels include: trace, debug, info, warn, error, fatal.
 func StringToLevel(input string) logging.Level {
 	level, err := logging.ParseLevel(input)
 	if err != nil {
@@ -40,7 +44,9 @@ func StringToLevel(input string) logging.Level {
 	return level
 }
 
-// LogLevels returns the available logging levels
+// LogLevels returns the available logging levels supported by OneMount.
+// These levels can be used in configuration files and command-line arguments
+// to control the verbosity of log output.
 func LogLevels() []string {
 	return []string{"trace", "debug", "info", "warn", "error", "fatal"}
 }
@@ -73,8 +79,10 @@ func GetXDGVolumeInfoName(path string) (string, error) {
 }
 
 // CreateXDGVolumeInfo creates .xdg-volume-info for a nice little onedrive logo in the
-// corner of the mountpoint and shows the account name in the nautilus sidebar.
+// CreateXDGVolumeInfo creates a .xdg-volume-info file that displays an icon in the
+// corner of the mountpoint and shows the account name in the Nautilus sidebar.
 // This file is created as a local-only virtual file and is NOT synced to OneDrive.
+// The file follows the XDG Volume Info specification for removable media identification.
 func CreateXDGVolumeInfo(filesystem *fs.Filesystem, auth *graph.Auth) {
 	const fileName = ".xdg-volume-info"
 

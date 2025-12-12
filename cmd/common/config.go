@@ -43,13 +43,32 @@ type Config struct {
 	graph.AuthConfig     `yaml:"auth"`
 }
 
-// RealtimeConfig controls Microsoft Graph Socket.IO subscriptions.
+// RealtimeConfig controls Microsoft Graph Socket.IO subscriptions for realtime change notifications.
+// When enabled, OneMount establishes a Socket.IO connection to Microsoft Graph to receive
+// immediate notifications of file changes, reducing the need for frequent polling.
 type RealtimeConfig struct {
-	Enabled          bool   `yaml:"enabled"`
-	PollingOnly      bool   `yaml:"pollingOnly"`
-	ClientState      string `yaml:"clientState"`
-	Resource         string `yaml:"resource"`
-	FallbackInterval int    `yaml:"fallbackIntervalSeconds"`
+	// Enabled controls whether realtime notifications are active.
+	// When false, OneMount relies entirely on periodic delta polling.
+	Enabled bool `yaml:"enabled"`
+
+	// PollingOnly forces delta polling even when realtime subscriptions are configured.
+	// This disables the Socket.IO transport while keeping the realtime infrastructure active.
+	// Useful for debugging or environments where WebSocket connections are problematic.
+	PollingOnly bool `yaml:"pollingOnly"`
+
+	// ClientState is a validation token echoed in notification events.
+	// If empty, a random token is generated automatically.
+	ClientState string `yaml:"clientState"`
+
+	// Resource specifies the Microsoft Graph resource path to monitor.
+	// Examples: "/me/drive/root" (personal OneDrive), "/drives/{drive-id}" (shared drive).
+	// If empty, defaults to "/me/drive/root".
+	Resource string `yaml:"resource"`
+
+	// FallbackInterval is the polling interval in seconds when Socket.IO is unavailable or degraded.
+	// Must be between 30 and 7200 seconds (2 hours). Default is 1800 seconds (30 minutes).
+	// When Socket.IO is healthy, polling occurs much less frequently (every 30+ minutes).
+	FallbackInterval int `yaml:"fallbackIntervalSeconds"`
 }
 
 // OverlayConfig controls default overlay policies for new metadata entries.
@@ -259,6 +278,9 @@ func validateConfig(config *Config) error {
 	return nil
 }
 
+// validateRealtimeConfig validates and applies defaults to realtime configuration.
+// This ensures that all realtime settings are within acceptable ranges and that
+// required fields have appropriate default values when not specified.
 func validateRealtimeConfig(cfg *RealtimeConfig) error {
 	if cfg == nil {
 		return nil
@@ -307,6 +329,9 @@ func validateMetadataQueueConfig(cfg *MetadataQueueConfig) error {
 	return nil
 }
 
+// generateClientState creates a random client state token for realtime subscriptions.
+// The client state is used to validate that notification events are intended for this
+// specific client instance. If random generation fails, a static fallback is used.
 func generateClientState() string {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
@@ -316,7 +341,11 @@ func generateClientState() string {
 	return hex.EncodeToString(buf)
 }
 
-// LoadConfig is the primary way of loading onemount's config
+// LoadConfig is the primary way of loading OneMount's configuration from a file.
+// It reads the configuration file at the specified path, validates all settings,
+// and applies appropriate defaults for missing values. If the configuration file
+// doesn't exist, a default configuration file is created automatically.
+// The returned configuration is fully validated and ready for use.
 func LoadConfig(path string) *Config {
 	// Create default configuration
 	defaults := createDefaultConfig()

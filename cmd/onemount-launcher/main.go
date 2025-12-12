@@ -60,10 +60,11 @@ func setWindowIcon(window *gtk.ApplicationWindow, candidates ...string) {
 		if logoPath == "" {
 			continue
 		}
-		if err := window.SetIconFromFile(logoPath); err != nil {
-			logging.Warn().Err(err).Str("path", logoPath).Msg("Could not load logo.")
-			continue
-		}
+        if err := window.SetIconFromFile(logoPath); err != nil {
+            // Missing/invalid icon is non-fatal; log informationally and try next candidate.
+            logging.Info().Err(err).Str("path", logoPath).Msg("Could not load logo.")
+            continue
+        }
 		logging.Debug().Str("path", logoPath).Msg("Window icon set.")
 		return
 	}
@@ -180,7 +181,7 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	header.SetTitle("OneMount")
 	window.SetTitlebar(header)
 
-	setWindowIcon(window, "onemount.svg", "onemount.png", "onemount-128.png")
+	setWindowIcon(window, "onemount-icon.svg", "onemount-icon-256.png", "onemount-icon-128.png", "onemount-icon-64.png")
 
 	listbox, _ := gtk.ListBoxNew()
 	window.Add(listbox)
@@ -251,11 +252,12 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 		aboutDialog.SetWebsiteLabel("github.com/auriora/onemount")
 		aboutDialog.SetVersion(fmt.Sprintf("onemount %s", common.Version()))
 		aboutDialog.SetLicenseType(gtk.LICENSE_GPL_3_0)
-		logoPath := findLogoPath("onemount-128.png")
+		logoPath := findLogoPath("onemount.png")
 		if logoPath != "" {
 			logo, err := gtk.ImageNewFromFile(logoPath)
 			if err != nil {
-				logging.Warn().Err(err).Str("path", logoPath).Msg("Could not load logo.")
+				// About dialog banner is optional; treat failures as informational noise.
+				logging.Info().Err(err).Str("path", logoPath).Msg("Could not load logo.")
 			} else {
 				aboutDialog.SetLogo(logo.GetPixbuf())
 			}
