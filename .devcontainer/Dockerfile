@@ -81,6 +81,8 @@ RUN apt-get update \
         python3-pip \
         python3-venv \
         procps \
+        systemd \
+        systemd-sysv \
         software-properties-common \
         sudo \
         unzip \
@@ -142,6 +144,18 @@ RUN mkdir -p /workspaces \
 
 # Prepare OpenSSH so JetBrains Gateway can attach over SSH inside the container
 RUN mkdir -p /var/run/sshd
+
+# Pre-create per-user runtime dir so user-level systemd/dbus can run without sudo
+RUN mkdir -p /run/user/${USER_UID} \
+    && chown ${USER_UID}:${USER_GID} /run/user/${USER_UID} \
+    && chmod 700 /run/user/${USER_UID}
+
+# Prepare container for running systemd as PID 1
+ENV container=docker
+STOPSIGNAL SIGRTMIN+3
+RUN mkdir -p /etc/systemd/system/getty.target.wants \
+    && ln -sf /dev/null /etc/systemd/system/getty.target.wants/getty@tty1.service \
+    && ln -sf /dev/null /etc/systemd/system/systemd-logind.service || true
 
 USER ${USERNAME}
 WORKDIR /workspaces

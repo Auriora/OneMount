@@ -11,13 +11,13 @@ Enable the devcontainer to run a real `systemd` PID 1 so `scripts/with-user-syst
 
 ## Key Changes
 
-1. Switched the devcontainer to start with `/sbin/init` (systemd) as PID 1 by setting `overrideCommand` and disabling the default `init` shim.
-2. Added privileged/cgroup/`tmpfs` run arguments and a writable `/sys/fs/cgroup` bind to allow nested user systemd to create its delegated hierarchy.
-3. Retained existing FUSE device exposure and AppArmor relaxation so launcher/systemd integration tests keep working.
+1. Ensure the container now launches as `root` to let `/sbin/init` (systemd) run as PID 1, while the editor still logs in as `vscode` via `remoteUser`.
+2. Explicitly install `systemd`/`systemd-sysv`, set `container=docker`, and mask tty/logind units so systemd can start cleanly inside the devcontainer.
+3. Keep privileged/cgroup/`tmpfs` run arguments plus writable `/sys/fs/cgroup` to allow the user instance to create delegated cgroups; retain FUSE/AppArmor relaxations for launcher tests.
 
 ## Verification
 
-- Pending: rebuild/reopen the devcontainer (`Dev Containers: Rebuild and Reopen in Container`) and re-run `scripts/with-user-systemd.sh onemount-launcher`; user systemd should stay up and the launcher should no longer log `Process org.freedesktop.systemd1 exited with status 1`.
+- Pending: rebuild/reopen the devcontainer (`Dev Containers: Rebuild and Reopen in Container`) so PID 1 becomes systemd, then rerun `scripts/with-user-systemd.sh onemount-launcher`; user systemd should stay up and the launcher should no longer log `Process org.freedesktop.systemd1 exited with status 1`.
 
 ## Rules Consulted
 

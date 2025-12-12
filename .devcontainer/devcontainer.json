@@ -10,13 +10,23 @@
     }
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "containerUser": "vscode",
-  "init": true,
+  "containerUser": "root",
+  "remoteUser": "vscode",
+  "init": false,
+  "overrideCommand": true,
+  "containerCommand": [
+    "/sbin/init"
+  ],
   "initializeCommand": "bash -lc '.devcontainer/bin/ensure-host-x11'",
   "runArgs": [
+    "--privileged",
+    "--cgroupns=host",
+    "--volume=/sys/fs/cgroup:/sys/fs/cgroup:rw",
+    "--tmpfs=/run",
+    "--tmpfs=/run/lock",
     "--device=/dev/fuse",
-    "--cap-add=SYS_ADMIN",
-    "--name", "onemount-dev",
+    "--name",
+    "onemount-dev",
     "--security-opt=apparmor:unconfined"
   ],
   "mounts": [
