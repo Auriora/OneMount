@@ -22,8 +22,7 @@ This specification defines the requirements for systematically verifying and fix
 - **TLS**: Transport Layer Security protocol for secure communication over networks
 - **HTTPS**: HTTP over TLS for secure web communication
 - **Rate Limiting**: Technique to control the rate of requests to prevent abuse or overload
-- **Audit Trail**: Chronological record of system activities for security and compliance purposes
-- **GDPR**: General Data Protection Regulation - European Union data protection law
+
 - **Resource Throttling**: Technique to limit resource consumption to prevent system overload
 - **File Descriptor**: Operating system handle for accessing files and network connections
 - **Cache Retention**: Policy for how long cached data is kept before being purged
@@ -75,7 +74,7 @@ This specification defines the requirements for systematically verifying and fix
 
 ### Requirement 2C: Advanced Mounting Options
 
-**User Story:** As a system administrator, I want advanced mounting options so that I can deploy OneMount in various environments and configurations.
+**User Story:** As a user, I want advanced mounting options so that I can use OneMount in different scenarios and configurations.
 
 #### Acceptance Criteria
 
@@ -125,7 +124,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 
 ### Requirement 3B: Download Manager Configuration
 
-**User Story:** As a system administrator, I want to configure download behavior so that I can optimize performance for my environment and network conditions.
+**User Story:** As a power user, I want to configure download behavior so that I can optimize performance for my network conditions and usage patterns.
 
 #### Acceptance Criteria
 
@@ -513,7 +512,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 
 ### Requirement 24: Resource Management Requirements
 
-**User Story:** As a system administrator, I want OneMount to manage system resources responsibly so that it doesn't interfere with other applications.
+**User Story:** As a user, I want OneMount to use system resources responsibly so that it doesn't slow down my computer or consume excessive resources.
 
 #### Acceptance Criteria
 
@@ -528,19 +527,4 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 9. WHEN CPU usage is high, THE OneMount System SHALL reduce background processing priority
 10. WHEN the system is under resource pressure, THE OneMount System SHALL gracefully degrade non-essential features
 
-### Requirement 25: Audit and Compliance Requirements
 
-**User Story:** As a compliance officer, I want OneMount to provide audit trails and comply with data protection regulations so that our organization meets regulatory requirements.
-
-#### Acceptance Criteria
-
-1. WHEN file operations occur, THE OneMount System SHALL log file access, modification, and deletion events with timestamps
-2. WHEN authentication events occur, THE OneMount System SHALL log login attempts, token refreshes, and authentication failures
-3. WHEN security events occur, THE OneMount System SHALL log potential security threats and policy violations
-4. WHEN audit logging is enabled, THE OneMount System SHALL store logs in a tamper-evident format
-5. WHEN log rotation occurs, THE OneMount System SHALL maintain log integrity and prevent data loss
-6. WHEN handling personal data, THE OneMount System SHALL comply with GDPR data protection requirements
-7. WHEN users request data deletion, THE OneMount System SHALL provide mechanisms to securely delete cached user data
-8. WHEN data retention policies are configured, THE OneMount System SHALL automatically purge data according to the specified retention period
-9. WHEN exporting audit logs, THE OneMount System SHALL provide logs in standard formats (JSON, CSV, syslog)
-10. WHEN audit trails are queried, THE OneMount System SHALL support filtering by user, time range, and event type

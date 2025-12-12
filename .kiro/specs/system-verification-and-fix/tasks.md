@@ -2095,106 +2095,47 @@ This implementation plan breaks down the verification and fix process into discr
   - Test thread pool management and cleanup
   - _Requirements: 24.5_
 
----
+- [ ] 33.4 Implement Property 59: Adaptive Network Throttling
+  - **Property 59: Adaptive Network Throttling**
+  - **Validates: Requirements 24.7**
+  - Generate random limited bandwidth scenarios
+  - Verify adaptive throttling prevents network saturation
+  - Test throttling adjustment based on network conditions
+  - _Requirements: 24.7_
 
-## Phase 21: Audit and Compliance Verification
+- [ ] 33.5 Implement Property 60: Memory Pressure Handling
+  - **Property 60: Memory Pressure Handling**
+  - **Validates: Requirements 24.8**
+  - Generate random system memory pressure scenarios
+  - Verify in-memory caching reduction and disk-based increase
+  - Test memory usage adaptation under pressure
+  - _Requirements: 24.8_
 
-- [ ] 34. Verify audit and compliance component
-- [ ] 34.1 Review audit logging implementation
-  - Read and analyze `internal/audit/logger.go`
-  - Review `internal/audit/buffer.go` ring buffer implementation
-  - Review `internal/audit/exporter.go` export functionality
-  - Check asynchronous logging architecture
-  - Review performance optimization strategies
-  - _Requirements: 25.1-25.10_
+- [ ] 33.6 Implement Property 61: CPU Usage Management
+  - **Property 61: CPU Usage Management**
+  - **Validates: Requirements 24.9**
+  - Generate random high CPU usage scenarios
+  - Verify background processing priority reduction
+  - Test system responsiveness maintenance
+  - _Requirements: 24.9_
 
-- [ ] 34.2 Test audit performance impact
-  - Measure FUSE operation latency with audit disabled vs enabled
-  - Test with different audit levels (minimal, standard, detailed, verbose)
-  - Verify performance impact stays within 5% for FUSE operations
-  - Test memory overhead stays under 10MB for audit buffers
-  - Test CPU overhead stays under 2% under normal load
-  - _Requirements: 23.1-23.12, 25.1_
-
-- [ ] 34.3 Test asynchronous audit logging
-  - Verify FUSE threads never block on audit I/O
-  - Test ring buffer prevents memory growth under high load
-  - Test batch processing optimizes disk I/O
-  - Verify background thread handles all audit writes
-  - Test audit buffer overflow handling
-  - _Requirements: 25.1, 23.1, 23.2_
-
-- [ ] 34.4 Test audit level configuration and auto-tuning
-  - Test audit level configuration (disabled, minimal, standard, detailed, verbose)
-  - Test auto-tuning reduces audit level when performance degrades
-  - Test auto-tuning restores audit level when performance improves
-  - Verify performance thresholds are respected
-  - Test manual audit level override
-  - _Requirements: 25.1, 23.1-23.12_
-
-- [ ] 34.5 Test audit log export and querying
-  - Test export in multiple formats (JSON, CSV, syslog)
-  - Test audit log filtering by user, time range, event type
-  - Test audit log compression and rotation
-  - Test audit log retention policies
-  - Verify export performance for large log files
-  - _Requirements: 25.9, 25.10_
-
-- [ ] 34.6 Test GDPR compliance features
-  - Test user data deletion mechanisms
-  - Test data anonymization features
-  - Test data retention policy enforcement
-  - Test audit log purging based on retention settings
-  - Verify compliance with GDPR requirements
-  - _Requirements: 25.6, 25.7, 25.8_
-
-- [ ] 34.7 Test tamper-evidence mechanisms
-  - Test audit log checksums and signatures
-  - Test tamper-evident log format
-  - Test log integrity verification
-  - Test append-only log behavior
-  - Verify cryptographic signature validation
-  - _Requirements: 25.4, 25.5_
-
-- [ ] 34.8 Create audit integration tests
-  - Write test for complete audit logging workflow
-  - Write test for audit performance under load
-  - Write test for audit log export and import
-  - Write test for GDPR compliance scenarios
-  - _Requirements: 25.1-25.10_
-
-- [ ] 34.9 Implement audit property-based tests
-- [ ] 34.9.1 Implement Property 59: File Operation Audit Logging
-  - **Property 59: File Operation Audit Logging**
-  - **Validates: Requirements 25.1**
-  - Create `internal/audit/audit_property_test.go`
-  - Generate random file operation scenarios
-  - Verify audit logs are created with timestamps using asynchronous logging
-  - Test log completeness and accuracy with performance constraints
-  - _Requirements: 25.1_
-
-- [ ] 34.9.2 Implement Property 60: Authentication Event Audit Logging
-  - **Property 60: Authentication Event Audit Logging**
-  - **Validates: Requirements 25.2**
-  - Generate random authentication event scenarios
-  - Verify authentication events are logged appropriately using asynchronous logging
-  - Test audit trail integrity and security
-  - _Requirements: 25.2_
-
-- [ ] 34.10 Document audit issues and create fix plan
-  - List all discovered audit-related issues
-  - Identify performance bottlenecks in audit system
-  - Create prioritized fix plan for audit optimizations
-  - Update verification tracking document
-  - _Requirements: 25.1-25.10_
+- [ ] 33.7 Implement Property 62: Graceful Resource Degradation
+  - **Property 62: Graceful Resource Degradation**
+  - **Validates: Requirements 24.10**
+  - Generate random system resource pressure scenarios
+  - Verify graceful degradation of non-essential features
+  - Test core functionality preservation under pressure
+  - _Requirements: 24.10_
 
 ---
 
-## Phase 22: Concurrency and Lock Management Property-Based Tests
 
-- [ ] 35. Implement concurrency and lock management property-based tests
-- [ ] 35.1 Implement Property 61: Lock Ordering Compliance
-  - **Property 61: Lock Ordering Compliance**
+
+## Phase 21: Concurrency and Lock Management Property-Based Tests
+
+- [ ] 34. Implement concurrency and lock management property-based tests
+- [ ] 34.1 Implement Property 63: Lock Ordering Compliance
+  - **Property 63: Lock Ordering Compliance**
   - **Validates: Concurrency Design Requirements**
   - Create `internal/concurrency/lock_property_test.go`
   - Generate random sequences of lock acquisitions
@@ -2202,32 +2143,32 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various concurrent scenarios
   - _Requirements: Concurrency Design_
 
-- [ ] 35.2 Implement Property 62: Deadlock Prevention
-  - **Property 62: Deadlock Prevention**
+- [ ] 34.2 Implement Property 64: Deadlock Prevention
+  - **Property 64: Deadlock Prevention**
   - **Validates: Concurrency Design Requirements**
   - Generate random concurrent operation scenarios
   - Verify no deadlocks occur when following lock ordering
   - Test with high concurrency and stress conditions
   - _Requirements: Concurrency Design_
 
-- [ ] 35.3 Implement Property 63: Lock Release Consistency
-  - **Property 63: Lock Release Consistency**
+- [ ] 34.3 Implement Property 65: Lock Release Consistency
+  - **Property 65: Lock Release Consistency**
   - **Validates: Concurrency Design Requirements**
   - Generate random lock acquisition scenarios with errors
   - Verify locks are released in reverse order (LIFO)
   - Test error handling and cleanup paths
   - _Requirements: Concurrency Design_
 
-- [ ] 35.4 Implement Property 64: Concurrent File Access Safety
-  - **Property 64: Concurrent File Access Safety**
+- [ ] 34.4 Implement Property 66: Concurrent File Access Safety
+  - **Property 66: Concurrent File Access Safety**
   - **Validates: Concurrency Design Requirements**
   - Generate random concurrent file operations on different inodes
   - Verify operations complete safely without race conditions
   - Test with race detector enabled
   - _Requirements: Concurrency Design_
 
-- [ ] 35.5 Implement Property 65: State Transition Atomicity
-  - **Property 65: State Transition Atomicity**
+- [ ] 34.5 Implement Property 67: State Transition Atomicity
+  - **Property 67: State Transition Atomicity**
   - **Validates: State Machine Design Requirements**
   - Generate random item state transition scenarios
   - Verify transitions complete atomically
@@ -2236,9 +2177,9 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 23: Final Verification
+## Phase 22: Final Verification
 
-- [ ] 36. Run complete test suite in Docker
+- [ ] 35. Run complete test suite in Docker
   - Build latest test images: `docker compose -f docker/compose/docker-compose.build.yml build`
   - Run all unit tests: `docker compose -f docker/compose/docker-compose.test.yml run unit-tests`
   - Run all integration tests: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
@@ -2249,7 +2190,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Document any remaining failures
   - _Requirements: All core requirements_
 
-- [ ] 37. Perform manual verification in Docker
+- [ ] 36. Perform manual verification in Docker
   - Use interactive shell: `docker compose -f docker/compose/docker-compose.test.yml run shell`
   - Follow user workflows manually within container
   - Test mounting and file operations
@@ -2259,7 +2200,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Document any issues found during manual testing
   - _Requirements: All core requirements_
 
-- [ ] 38. Performance verification
+- [ ] 37. Performance verification
   - Run performance benchmarks
   - Test with Socket.IO realtime (30min polling fallback)
   - Test polling-only mode (5min polling)
@@ -2268,7 +2209,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Check resource usage is reasonable
   - _Requirements: Performance requirements_
 
-- [ ] 39. Create verification report
+- [ ] 38. Create verification report
   - Summarize all verification activities
   - List all issues found and fixed
   - Document Socket.IO realtime behavior
@@ -2278,7 +2219,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Provide recommendations for future work
   - _Requirements: All core requirements_
 
-- [ ] 40. Final documentation review
+- [ ] 39. Final documentation review
   - Review all updated documentation
   - Ensure Socket.IO realtime documentation is complete
   - Ensure ETag validation is documented
@@ -2361,7 +2302,7 @@ The project is much closer to completion than originally indicated!
 
 **STATUS**: ✅ **ALL PROPERTY-BASED TEST TASKS HAVE BEEN ADDED**
 
-All 65 correctness properties from the design document have been implemented as property-based test tasks in their respective phases:
+All 67 correctness properties from the design document have been implemented as property-based test tasks in their respective phases:
 
 ### ✅ **Completed Property-Based Test Task Additions:**
 
@@ -2453,18 +2394,14 @@ All 65 correctness properties from the design document have been implemented as 
 - ✅ Property 57: File Descriptor Limits (Requirements 24.4)
 - ✅ Property 58: Worker Thread Limits (Requirements 24.5)
 
-**✅ Audit and Compliance Properties (Phase 21)**:
-- ✅ Property 59: File Operation Audit Logging (Requirements 25.1)
-- ✅ Property 60: Authentication Event Audit Logging (Requirements 25.2)
+**✅ Concurrency and Lock Management Properties (Phase 21)**:
+- ✅ Property 63: Lock Ordering Compliance (Concurrency Design)
+- ✅ Property 64: Deadlock Prevention (Concurrency Design)
+- ✅ Property 65: Lock Release Consistency (Concurrency Design)
+- ✅ Property 66: Concurrent File Access Safety (Concurrency Design)
+- ✅ Property 67: State Transition Atomicity (State Machine Design)
 
-**✅ Concurrency and Lock Management Properties (Phase 22)**:
-- ✅ Property 61: Lock Ordering Compliance (Concurrency Design)
-- ✅ Property 62: Deadlock Prevention (Concurrency Design)
-- ✅ Property 63: Lock Release Consistency (Concurrency Design)
-- ✅ Property 64: Concurrent File Access Safety (Concurrency Design)
-- ✅ Property 65: State Transition Atomicity (State Machine Design)
-
-**TOTAL**: 65 correctness properties across 23 phases, each with dedicated property-based test implementation tasks.
+**TOTAL**: 67 correctness properties across 22 phases, each with dedicated property-based test implementation tasks.
 
 The specification now provides comprehensive coverage of all functional, security, performance, and concurrency requirements with formal correctness properties and a complete implementation plan.irements 3.2)
 - ✅ Property 13: ETag Cache Validation (Requirements 3.4)
@@ -2538,10 +2475,6 @@ The specification now provides comprehensive coverage of all functional, securit
 - ✅ Property 57: File Descriptor Limits (Requirements 24.4)
 - ✅ Property 58: Worker Thread Limits (Requirements 24.5)
 
-**✅ Audit and Compliance Properties (Phase 21)**:
-- ✅ Property 59: File Operation Audit Logging (Requirements 25.1)
-- ✅ Property 60: Authentication Event Audit Logging (Requirements 25.2)
-
 ### 📋 **Property-Based Test Implementation Guidelines:**
 
 1. **File Naming**: Use `*_property_test.go` for property test files
@@ -2557,6 +2490,6 @@ The specification now provides comprehensive coverage of all functional, securit
 2. **MEDIUM**: Properties 20-32 (Delta Sync, Offline, Cache, Conflicts) - Advanced features  
 3. **MEDIUM**: Properties 43-48 (Security) - Critical security requirements
 4. **LOW**: Properties 33-42 (Concurrency, Error Handling, Configuration, State) - System robustness
-5. **LOW**: Properties 49-60 (Performance, Resource Management, Audit) - Quality and compliance
+5. **LOW**: Properties 49-62 (Performance, Resource Management) - Quality and system efficiency
 
 **✅ RESULT**: The spec is now **FULLY COMPLIANT** with the property-based testing workflow requirements.

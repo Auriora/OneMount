@@ -382,7 +382,7 @@ Pre-authenticated download URLs from Microsoft Graph API do not support conditio
 
 *A property is a characteristic or behavior that should hold true across all valid executions of a system-essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-Based on the prework analysis of acceptance criteria, the following 65 correctness properties have been identified for property-based testing:
+Based on the prework analysis of acceptance criteria, the following 67 correctness properties have been identified for property-based testing:
 
 ### Authentication Properties
 
@@ -646,184 +646,41 @@ Based on the prework analysis of acceptance criteria, the following 65 correctne
 *For any* worker thread spawning scenario, the system should limit concurrent workers to the configured maximum (default: 10)
 **Validates: Requirements 24.5**
 
-### Audit and Compliance Properties
+**Property 59: Adaptive Network Throttling**
+*For any* limited network bandwidth scenario, the system should implement adaptive throttling to prevent network saturation
+**Validates: Requirements 24.7**
 
-**Property 59: File Operation Audit Logging**
-*For any* file operation (access, modification, deletion), the system should log the event with timestamps using asynchronous, batched logging to minimize performance impact
-**Validates: Requirements 25.1**
+**Property 60: Memory Pressure Handling**
+*For any* system memory pressure scenario, the system should reduce in-memory caching and increase disk-based caching
+**Validates: Requirements 24.8**
 
-**Property 60: Authentication Event Audit Logging**
-*For any* authentication event (login attempts, token refreshes, failures), the system should log the event appropriately using asynchronous logging
-**Validates: Requirements 25.2**
+**Property 61: CPU Usage Management**
+*For any* high CPU usage scenario, the system should reduce background processing priority to maintain system responsiveness
+**Validates: Requirements 24.9**
 
-## Audit Logging Performance Optimization
-
-### Performance-First Audit Design
-
-To meet both audit requirements (Requirement 25) and performance requirements (Requirement 23), the audit logging system uses several optimization strategies:
-
-#### 1. Asynchronous Logging Architecture
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   FUSE Thread   │───►│  Audit Buffer    │───►│ Background      │
-│   (Hot Path)    │    │  (Ring Buffer)   │    │ Logger Thread   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │                          │
-                              ▼                          ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ Batch Processor  │    │ Structured Log  │
-                       │ (Every 100ms)    │    │ Files (JSON)    │
-                       └──────────────────┘    └─────────────────┘
-```
-
-**Key Principles**:
-- **Zero-copy logging**: FUSE threads never block on I/O
-- **Ring buffer**: Fixed-size circular buffer prevents memory growth
-- **Batch processing**: Logs written in batches every 100ms or when buffer is 80% full
-- **Structured format**: JSON logs for efficient parsing and querying
-
-#### 2. Selective Audit Levels
-
-```go
-type AuditLevel int
-const (
-    AuditDisabled AuditLevel = iota  // No audit logging (performance-first)
-    AuditMinimal                     // Authentication + security events only
-    AuditStandard                    // + file modifications (create/delete/write)
-    AuditDetailed                    // + file access (read/stat) - high overhead
-    AuditVerbose                     // + directory listings - very high overhead
-)
-```
-
-**Performance Impact by Level**:
-- **Disabled**: 0% overhead
-- **Minimal**: <1% overhead (auth events are infrequent)
-- **Standard**: 2-5% overhead (modification events are moderate frequency)
-- **Detailed**: 5-15% overhead (read operations are high frequency)
-- **Verbose**: 15-30% overhead (directory listings can be very frequent)
-
-#### 3. Smart Filtering and Aggregation
-
-**High-Frequency Operation Optimization**:
-- **Read Access Aggregation**: Group multiple reads of same file within 1-second window
-- **Directory Listing Deduplication**: Log unique directory access, not every readdir() call
-- **Metadata Operation Batching**: Combine multiple stat() calls on same file
-- **Session-Based Grouping**: Group related operations by user session
-
-**Example Aggregated Log Entry**:
-```json
-{
-  "timestamp": "2025-12-12T10:30:00Z",
-  "event_type": "file_access_batch",
-  "user_id": "user123",
-  "session_id": "sess456",
-  "operations": [
-    {"file": "/path/to/file1.txt", "operation": "read", "count": 15, "first_access": "10:29:45Z", "last_access": "10:30:00Z"},
-    {"file": "/path/to/file2.txt", "operation": "stat", "count": 3, "first_access": "10:29:50Z", "last_access": "10:29:55Z"}
-  ]
-}
-```
-
-#### 4. Performance Monitoring and Auto-Tuning
-
-**Adaptive Audit Levels**:
-- Monitor FUSE operation latency in real-time
-- If directory listing exceeds 1.5 seconds (75% of 2-second limit), temporarily reduce audit level
-- If CPU usage exceeds 20% (80% of 25% limit), disable verbose audit logging
-- Auto-restore audit level when performance improves
-
-**Performance Metrics Integration**:
-```go
-type AuditPerformanceMetrics struct {
-    BufferUtilization    float64  // Ring buffer usage percentage
-    BatchProcessingTime  time.Duration  // Time to process each batch
-    LogWriteLatency     time.Duration  // Disk write latency
-    DroppedEvents       int64     // Events dropped due to buffer overflow
-    AverageEventSize    int       // Average log entry size in bytes
-}
-```
-
-#### 5. Configuration Options
-
-**Runtime Configuration**:
-```yaml
-audit:
-  enabled: true
-  level: "standard"  # disabled, minimal, standard, detailed, verbose
-  buffer_size: 10000  # Ring buffer size (number of events)
-  batch_interval: "100ms"  # How often to flush batches
-  batch_size: 500  # Maximum events per batch
-  auto_tune: true  # Enable performance-based auto-tuning
-  performance_thresholds:
-    max_fuse_latency: "1.5s"  # Reduce audit level if exceeded
-    max_cpu_usage: 20  # Reduce audit level if exceeded
-  retention:
-    days: 90  # How long to keep audit logs
-    max_size: "1GB"  # Maximum total audit log size
-  export:
-    formats: ["json", "csv"]  # Supported export formats
-    compression: true  # Compress archived logs
-```
-
-#### 6. Memory and Storage Optimization
-
-**Memory Management**:
-- **Fixed-size ring buffer**: Prevents unbounded memory growth
-- **Object pooling**: Reuse log entry objects to reduce GC pressure
-- **Structured logging**: Use efficient JSON encoding (no reflection)
-
-**Storage Optimization**:
-- **Log rotation**: Automatic rotation based on size/time
-- **Compression**: Gzip compression for archived logs (90% size reduction)
-- **Indexing**: Create indexes on timestamp, user_id, event_type for fast queries
-- **Purging**: Automatic purging based on retention policies
-
-#### 7. Compliance Without Performance Impact
-
-**GDPR Compliance Optimizations**:
-- **Lazy anonymization**: Hash user identifiers in logs, keep mapping separately
-- **Selective retention**: Different retention periods for different event types
-- **Right to erasure**: Efficient deletion by user ID without full log reprocessing
-
-**Tamper-Evidence with Performance**:
-- **Merkle tree hashing**: Batch hash computation every 1000 events
-- **Append-only logs**: No in-place modifications, only appends
-- **Cryptographic signatures**: Sign log batches, not individual events
-
-### Performance Validation
-
-**Benchmarking Requirements**:
-- Audit logging must not increase FUSE operation latency by more than 5%
-- Memory overhead must not exceed 10MB for audit buffers
-- CPU overhead must not exceed 2% under normal load
-- Disk I/O for audit logs must not exceed 1MB/s sustained
-
-**Testing Strategy**:
-- Load testing with audit enabled vs disabled
-- Measure impact on all performance requirements (23.1-23.12)
-- Stress testing with high-frequency operations
-- Memory leak testing for long-running audit sessions
+**Property 62: Graceful Resource Degradation**
+*For any* system resource pressure scenario, the system should gracefully degrade non-essential features while maintaining core functionality
+**Validates: Requirements 24.10**
 
 ### Concurrency and Lock Management Properties
 
-**Property 61: Lock Ordering Compliance**
+**Property 63: Lock Ordering Compliance**
 *For any* sequence of lock acquisitions, the system should acquire locks in the defined order (filesystem → mount manager → cache manager → inode → worker pool → network state)
 **Validates: Concurrency Design Requirements**
 
-**Property 62: Deadlock Prevention**
+**Property 64: Deadlock Prevention**
 *For any* concurrent operation scenario, the system should complete all operations without deadlocks when following the lock ordering policy
 **Validates: Concurrency Design Requirements**
 
-**Property 63: Lock Release Consistency**
+**Property 65: Lock Release Consistency**
 *For any* lock acquisition, the system should release locks in reverse order (LIFO) and handle all error conditions properly
 **Validates: Concurrency Design Requirements**
 
-**Property 64: Concurrent File Access Safety**
+**Property 66: Concurrent File Access Safety**
 *For any* set of concurrent file operations on different inodes, the system should handle all operations safely without race conditions
 **Validates: Concurrency Design Requirements**
 
-**Property 65: State Transition Atomicity**
+**Property 67: State Transition Atomicity**
 *For any* item state transition, the system should complete the transition atomically without intermediate inconsistent states
 **Validates: State Machine Design Requirements**
 
@@ -1791,43 +1648,7 @@ This approach is more efficient than per-file conditional GET because:
 - False positives are minimized
 - Pattern matching is case-insensitive where appropriate
 
-### 17. Audit and Compliance Component
 
-**Location**: `internal/audit/logger.go`, `internal/audit/buffer.go`, `internal/audit/exporter.go`
-
-**Verification Steps**:
-1. Review asynchronous audit logging implementation
-2. Test performance impact on FUSE operations
-3. Test audit level configuration and auto-tuning
-4. Test batch processing and log rotation
-5. Test GDPR compliance features (data deletion, anonymization)
-6. Test tamper-evidence mechanisms
-7. Test audit log export and querying
-
-**Expected Interfaces**:
-- `AuditLogger` with asynchronous logging
-- `AuditBuffer` with ring buffer implementation
-- `AuditExporter` for log export in multiple formats
-- `AuditQuery` for filtering and searching logs
-- Performance monitoring and auto-tuning
-
-**Performance Requirements**:
-- FUSE operation latency increase: <5%
-- Memory overhead: <10MB for audit buffers
-- CPU overhead: <2% under normal load
-- Disk I/O: <1MB/s sustained for audit logs
-
-**Verification Criteria**:
-- Audit logging meets all compliance requirements (Requirements 25.1-25.10)
-- Performance impact stays within acceptable limits (Requirements 23.1-23.12)
-- Asynchronous logging prevents FUSE thread blocking
-- Ring buffer prevents memory growth under high load
-- Batch processing optimizes disk I/O
-- Auto-tuning maintains performance under stress
-- Log rotation and retention policies work correctly
-- Export functionality supports required formats (JSON, CSV, syslog)
-- GDPR compliance features (data deletion, anonymization) work correctly
-- Tamper-evidence mechanisms (checksums, signatures) are reliable
 
 ## Data Models
 
@@ -2296,103 +2117,7 @@ const (
 )
 ```
 
-### Audit and Compliance Data Model
 
-```go
-type AuditLevel int
-const (
-    AuditDisabled AuditLevel = iota
-    AuditMinimal                     // Auth + security events only
-    AuditStandard                    // + file modifications
-    AuditDetailed                    // + file access
-    AuditVerbose                     // + directory listings
-)
-
-type AuditEvent struct {
-    ID          string    `json:"id"`
-    Timestamp   time.Time `json:"timestamp"`
-    EventType   string    `json:"event_type"`
-    UserID      string    `json:"user_id,omitempty"`
-    SessionID   string    `json:"session_id,omitempty"`
-    FilePath    string    `json:"file_path,omitempty"`
-    Operation   string    `json:"operation"`
-    Result      string    `json:"result"`
-    ErrorCode   string    `json:"error_code,omitempty"`
-    Metadata    map[string]interface{} `json:"metadata,omitempty"`
-}
-
-type AuditBatch struct {
-    BatchID     string       `json:"batch_id"`
-    Timestamp   time.Time    `json:"timestamp"`
-    Events      []AuditEvent `json:"events"`
-    Checksum    string       `json:"checksum"`
-    Signature   string       `json:"signature,omitempty"`
-}
-
-type AuditConfig struct {
-    Enabled             bool          `yaml:"enabled"`
-    Level               AuditLevel    `yaml:"level"`
-    BufferSize          int           `yaml:"buffer_size"`
-    BatchInterval       time.Duration `yaml:"batch_interval"`
-    BatchSize           int           `yaml:"batch_size"`
-    AutoTune            bool          `yaml:"auto_tune"`
-    MaxFUSELatency      time.Duration `yaml:"max_fuse_latency"`
-    MaxCPUUsage         float64       `yaml:"max_cpu_usage"`
-    RetentionDays       int           `yaml:"retention_days"`
-    MaxLogSize          int64         `yaml:"max_log_size"`
-    CompressionEnabled  bool          `yaml:"compression_enabled"`
-}
-
-type AuditBuffer struct {
-    events    []AuditEvent
-    head      int
-    tail      int
-    size      int
-    capacity  int
-    mutex     sync.RWMutex
-    notEmpty  *sync.Cond
-    notFull   *sync.Cond
-}
-
-type AuditLogger struct {
-    config       AuditConfig
-    buffer       *AuditBuffer
-    batchChan    chan []AuditEvent
-    stopChan     chan struct{}
-    wg           sync.WaitGroup
-    metrics      AuditPerformanceMetrics
-    writer       io.Writer
-}
-
-type AuditPerformanceMetrics struct {
-    BufferUtilization   float64       `json:"buffer_utilization"`
-    BatchProcessingTime time.Duration `json:"batch_processing_time"`
-    LogWriteLatency     time.Duration `json:"log_write_latency"`
-    DroppedEvents       int64         `json:"dropped_events"`
-    AverageEventSize    int           `json:"average_event_size"`
-    EventsPerSecond     float64       `json:"events_per_second"`
-    TotalEvents         int64         `json:"total_events"`
-    TotalBatches        int64         `json:"total_batches"`
-}
-
-type AuditQuery struct {
-    StartTime   *time.Time `json:"start_time,omitempty"`
-    EndTime     *time.Time `json:"end_time,omitempty"`
-    UserID      string     `json:"user_id,omitempty"`
-    EventType   string     `json:"event_type,omitempty"`
-    FilePath    string     `json:"file_path,omitempty"`
-    Operation   string     `json:"operation,omitempty"`
-    Limit       int        `json:"limit,omitempty"`
-    Offset      int        `json:"offset,omitempty"`
-}
-
-type AuditExportOptions struct {
-    Format      string     `json:"format"`      // json, csv, syslog
-    Compression bool       `json:"compression"`
-    Query       AuditQuery `json:"query"`
-    OutputPath  string     `json:"output_path"`
-}
-```
 
 ## Error Handling
 
