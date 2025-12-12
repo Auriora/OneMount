@@ -142,6 +142,100 @@ Every entry in the metadata database carries an explicit state that drives hydra
 
 Virtual entries (.xdg files, pinned/policy folders) store `remote_id=NULL`, `is_virtual=TRUE`, and stay in `HYDRATED` because their content is always served locally. Sync code skips uploads/deletes for entries marked virtual so FUSE never needs a special wrapper layer.
 
+#### State Transition Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> GHOST : Delta sync discovers item
+    
+    GHOST --> HYDRATING : User access or pinning policy
+    GHOST --> DELETED_LOCAL : Local delete (tombstone)
+    
+    HYDRATING --> HYDRATED : Download success
+    HYDRATING --> ERROR : Download failure
+    HYDRATING --> GHOST : Download cancelled
+    
+    HYDRATED --> DIRTY_LOCAL : Local modification
+    HYDRATED --> GHOST : Cache eviction
+    HYDRATED --> DELETED_LOCAL : Local delete
+    HYDRATED --> CONFLICT : Remote change + local change
+    
+    DIRTY_LOCAL --> HYDRATED : Upload success
+    DIRTY_LOCAL --> CONFLICT : Remote change detected
+    DIRTY_LOCAL --> ERROR : Upload failure
+    
+    ERROR --> HYDRATING : Retry download
+    ERROR --> DIRTY_LOCAL : Retry upload
+    ERROR --> GHOST : Clear error (evict)
+    
+    CONFLICT --> HYDRATED : Conflict resolved
+    CONFLICT --> GHOST : Conflict resolved (delete local)
+    
+    DELETED_LOCAL --> [*] : Delete confirmed on server
+    DELETED_LOCAL --> CONFLICT : Remote modification detected
+    
+    note right of GHOST
+        Cloud metadata available
+        No local content
+        Blocks file access until hydrated
+    end note
+    
+    note right of HYDRATED
+        Local content matches remote ETag
+        File accessible for read/write
+        Can be evicted to save space
+    end note
+    
+    note right of CONFLICT
+        Local and remote versions differ
+        Both versions preserved
+        User intervention required
+    end note
+```
+
+#### State Transition Rules
+
+**Valid Transitions**:
+- `GHOST` → `HYDRATING`: Triggered by file access, pinning policy, or manual hydration
+- `HYDRATING` → `HYDRATED`: Download completes successfully, content hash verified
+- `HYDRATING` → `ERROR`: Download fails after all retry attempts exhausted
+- `HYDRATING` → `GHOST`: Download cancelled by user or system shutdown
+- `HYDRATED` → `DIRTY_LOCAL`: File modified locally (write, truncate, metadata change)
+- `HYDRATED` → `GHOST`: Cache eviction due to space constraints or policy
+- `HYDRATED` → `DELETED_LOCAL`: File deleted locally via unlink operation
+- `HYDRATED` → `CONFLICT`: Delta sync detects remote changes while local changes exist
+- `DIRTY_LOCAL` → `HYDRATED`: Upload completes successfully, ETags match
+- `DIRTY_LOCAL` → `CONFLICT`: Delta sync detects conflicting remote changes
+- `DIRTY_LOCAL` → `ERROR`: Upload fails after all retry attempts exhausted
+- `ERROR` → `HYDRATING`: Manual retry of failed download
+- `ERROR` → `DIRTY_LOCAL`: Manual retry of failed upload
+- `ERROR` → `GHOST`: Clear error state and evict content
+- `CONFLICT` → `HYDRATED`: Conflict resolved, single version remains
+- `CONFLICT` → `GHOST`: Conflict resolved by deleting local version
+- `DELETED_LOCAL` → `[REMOVED]`: Delete confirmed on server, entry removed
+- `DELETED_LOCAL` → `CONFLICT`: Remote modification detected before delete processed
+
+**Invalid Transitions** (System Invariants):
+- Direct transitions between `GHOST` ↔ `HYDRATED` (must go through `HYDRATING`)
+- Direct transitions between `GHOST` ↔ `DIRTY_LOCAL` (must hydrate first)
+- Transitions from `ERROR` to `CONFLICT` (must resolve error first)
+- Transitions from `DELETED_LOCAL` to `HYDRATED` (cannot resurrect deleted files)
+
+**Trigger Conditions**:
+- **File Access**: User opens file, triggers `GHOST` → `HYDRATING`
+- **Delta Sync**: Remote changes detected, may trigger various transitions
+- **Upload Complete**: Successful upload triggers `DIRTY_LOCAL` → `HYDRATED`
+- **Download Complete**: Successful download triggers `HYDRATING` → `HYDRATED`
+- **Cache Pressure**: LRU eviction triggers `HYDRATED` → `GHOST`
+- **User Action**: File modification triggers `HYDRATED` → `DIRTY_LOCAL`
+- **Error Recovery**: Manual retry triggers transitions from `ERROR` state
+
+**Error Handling**:
+- All failed operations transition to `ERROR` state with error details preserved
+- Error state includes retry count, last error message, and timestamp
+- System provides mechanisms to retry from `ERROR` state
+- Persistent errors may require manual intervention or cache clearing
+
 ### `.xdg-volume-info` Handling
 
 `.xdg-volume-info` is a local-only virtual file. Creating or refreshing it:
@@ -283,6 +377,420 @@ Pre-authenticated download URLs from Microsoft Graph API do not support conditio
 │  • Cache invalidation before file access                    │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## Correctness Properties
+
+*A property is a characteristic or behavior that should hold true across all valid executions of a system-essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
+Based on the prework analysis of acceptance criteria, the following 65 correctness properties have been identified for property-based testing:
+
+### Authentication Properties
+
+**Property 1: OAuth2 Token Storage Security**
+*For any* successful OAuth2 authentication completion, the system should store authentication tokens with proper security attributes (correct file permissions, secure location)
+**Validates: Requirements 1.2**
+
+**Property 2: Automatic Token Refresh**
+*For any* expired authentication token with valid refresh token, the system should automatically refresh the token without user intervention
+**Validates: Requirements 1.3**
+
+**Property 3: Re-authentication on Refresh Failure**
+*For any* token refresh failure scenario, the system should prompt the user to re-authenticate
+**Validates: Requirements 1.4**
+
+**Property 4: Headless Authentication Method**
+*For any* system running in headless mode, the authentication process should use device code flow
+**Validates: Requirements 1.5**
+
+### Filesystem Mounting Properties
+
+**Property 5: FUSE Mount Success**
+*For any* valid mount point specification, the system should successfully mount OneDrive using FUSE
+**Validates: Requirements 2.1**
+
+**Property 6: Non-blocking Initial Sync**
+*For any* first-time filesystem mount, the initial directory structure fetch should complete while keeping interactive operations responsive
+**Validates: Requirements 2A.1**
+
+**Property 7: Root Directory Visibility**
+*For any* successfully mounted filesystem, the root directory contents should be visible and accessible
+**Validates: Requirements 2.2**
+
+**Property 8: Standard File Operations Support**
+*For any* mounted filesystem, standard file operations (ls, cat, cp, etc.) should work correctly
+**Validates: Requirements 2.3**
+
+**Property 9: Mount Conflict Error Handling**
+*For any* mount point that is already in use, the system should display a clear error message identifying the conflicting process
+**Validates: Requirements 2.4**
+
+**Property 10: Clean Resource Release**
+*For any* mounted filesystem, unmounting should cleanly release all associated resources
+**Validates: Requirements 2.5**
+
+### File Access Properties
+
+**Property 11: Metadata-Only Directory Listing**
+*For any* directory listing operation, the system should display all files using cached metadata without downloading file content
+**Validates: Requirements 3.1**
+
+**Property 12: On-Demand Content Download**
+*For any* uncached file access, the system should request file content using the correct API endpoint (GET /items/{id}/content)
+**Validates: Requirements 3.2**
+
+**Property 13: ETag Cache Validation**
+*For any* cached file access, the system should validate the cache using ETag comparison from delta sync metadata
+**Validates: Requirements 3.4**
+
+**Property 14: Cache Hit Serving**
+*For any* cached file with matching ETag, the system should serve content from local cache without network requests
+**Validates: Requirements 3.5**
+
+**Property 15: Cache Invalidation on ETag Mismatch**
+*For any* cached file with different ETag, the system should invalidate the cache entry and download new content
+**Validates: Requirements 3.6**
+
+### File Modification Properties
+
+**Property 16: Local Change Tracking**
+*For any* file modification, the system should mark the file as having local changes
+**Validates: Requirements 4.1**
+
+**Property 17: Upload Queuing**
+*For any* saved modified file, the system should queue the file for upload to the server
+**Validates: Requirements 4.2**
+
+**Property 18: ETag Update After Upload**
+*For any* successful upload completion, the system should update the file's ETag from the server response
+**Validates: Requirements 4.7**
+
+**Property 19: Modified Flag Cleanup**
+*For any* successful upload completion, the system should clear the modified flag
+**Validates: Requirements 4.8**
+
+### Delta Synchronization Properties
+
+**Property 20: Initial Delta Sync**
+*For any* first filesystem mount, the system should fetch the complete directory structure using the delta API
+**Validates: Requirements 5.1**
+
+**Property 21: Metadata Cache Updates**
+*For any* remote changes detected via delta query, the system should update the local metadata cache
+**Validates: Requirements 5.8**
+
+**Property 22: Conflict Copy Creation**
+*For any* file with both local and remote changes, the system should create a conflict copy
+**Validates: Requirements 5.11**
+
+**Property 23: Delta Token Persistence**
+*For any* completed delta sync, the system should store the @odata.deltaLink token for the next sync cycle
+**Validates: Requirements 5.12**
+
+### Offline Mode Properties
+
+**Property 24: Offline Detection**
+*For any* network connectivity loss, the system should detect the offline state through passive monitoring of API call failures
+**Validates: Requirements 6.1**
+
+**Property 25: Offline Read Access**
+*For any* cached file, the system should serve the file for read operations while offline
+**Validates: Requirements 6.4**
+
+**Property 26: Offline Write Queuing**
+*For any* write operation while offline, the system should allow the operation and queue changes for synchronization when connectivity is restored
+**Validates: Requirements 6.5**
+
+**Property 27: Batch Upload Processing**
+*For any* network connectivity restoration, the system should process queued uploads in batches
+**Validates: Requirements 6.10**
+
+### Cache Management Properties
+
+**Property 28: ETag-Based Cache Storage**
+*For any* downloaded file, the system should store content in the cache directory with the file's ETag
+**Validates: Requirements 7.1**
+
+**Property 29: Cache Invalidation on Remote ETag Change**
+*For any* cached file with different remote ETag, the system should invalidate the cache entry and download the new version
+**Validates: Requirements 7.3**
+
+### Conflict Resolution Properties
+
+**Property 30: ETag-Based Conflict Detection**
+*For any* file modified both locally and remotely, the system should detect the conflict by comparing ETags
+**Validates: Requirements 8.1**
+
+**Property 31: Local Version Preservation**
+*For any* detected conflict, the system should preserve the local version with its original name
+**Validates: Requirements 8.4**
+
+**Property 32: Conflict Copy Creation with Timestamp**
+*For any* detected conflict, the system should create a conflict copy with a timestamp suffix
+**Validates: Requirements 8.5**
+
+### Concurrency Properties
+
+**Property 33: Safe Concurrent File Access**
+*For any* simultaneous file access operations, the system should handle concurrent operations safely without race conditions
+**Validates: Requirements 10.1**
+
+**Property 34: Non-blocking Downloads**
+*For any* ongoing download operations, other file operations should be allowed to proceed without blocking
+**Validates: Requirements 10.2**
+
+### Error Handling Properties
+
+**Property 35: Network Error Logging**
+*For any* network error occurrence, the system should log the error with appropriate context information
+**Validates: Requirements 11.1**
+
+**Property 36: Rate Limit Backoff**
+*For any* API rate limit encounter, the system should implement exponential backoff
+**Validates: Requirements 11.2**
+
+### Configuration Properties
+
+**Property 37: XDG Configuration Directory Usage**
+*For any* system configuration, the system should use os.UserConfigDir() to determine the configuration directory
+**Validates: Requirements 15.1**
+
+**Property 38: Token Storage Location**
+*For any* authentication token storage, the system should store tokens in the configuration directory
+**Validates: Requirements 15.7**
+
+**Property 39: Cache Storage Location**
+*For any* file content caching, the system should store cache in the cache directory
+**Validates: Requirements 15.8**
+
+### State Management Properties
+
+**Property 40: Initial Item State**
+*For any* drive item discovered via delta for the first time, the system should insert it with GHOST state and not download content until required
+**Validates: Requirements 21.2**
+
+**Property 41: Successful Hydration State Transition**
+*For any* successful hydration completion, the system should transition the item to HYDRATED state, record content path, update metadata, and clear error fields
+**Validates: Requirements 21.4**
+
+**Property 42: Local Modification State Transition**
+*For any* locally modified hydrated file, the system should transition it to DIRTY_LOCAL state until upload succeeds
+**Validates: Requirements 21.6**
+
+### Security Properties
+
+**Property 43: Token Encryption at Rest**
+*For any* authentication token storage operation, the system should encrypt tokens using AES-256 encryption
+**Validates: Requirements 22.1**
+
+**Property 44: Token File Permissions**
+*For any* token storage file creation, the system should set file permissions to 0600 (owner read/write only)
+**Validates: Requirements 22.2**
+
+**Property 45: Secure Token Storage Location**
+*For any* authentication token storage, the system should store tokens in the XDG configuration directory with restricted access
+**Validates: Requirements 22.3**
+
+**Property 46: HTTPS/TLS Communication**
+*For any* Microsoft Graph API communication, the system should use HTTPS/TLS 1.2 or higher for all connections
+**Validates: Requirements 22.4**
+
+**Property 47: Sensitive Data Logging Prevention**
+*For any* logging operation, the system should never log authentication tokens, passwords, or sensitive user data
+**Validates: Requirements 22.6**
+
+**Property 48: Cache File Security**
+*For any* cached file content storage, the system should set appropriate file permissions to prevent unauthorized access
+**Validates: Requirements 22.8**
+
+### Performance Properties
+
+**Property 49: Directory Listing Performance**
+*For any* directory listing operation with up to 1000 files, the system should respond within 2 seconds
+**Validates: Requirements 23.1**
+
+**Property 50: Cached File Access Performance**
+*For any* cached file opening operation, the system should serve content within 100 milliseconds
+**Validates: Requirements 23.2**
+
+**Property 51: Idle Memory Usage**
+*For any* idle system state, the system should consume no more than 50 MB of RAM
+**Validates: Requirements 23.3**
+
+**Property 52: Active Sync Memory Usage**
+*For any* active file synchronization operation, the system should consume no more than 200 MB of RAM
+**Validates: Requirements 23.4**
+
+**Property 53: Concurrent Operations Performance**
+*For any* concurrent file operations scenario with at least 10 simultaneous operations, the system should handle them without performance degradation
+**Validates: Requirements 23.7**
+
+**Property 54: Startup Performance**
+*For any* system startup scenario, the system should complete initialization and be ready for file operations within 5 seconds
+**Validates: Requirements 23.9**
+
+**Property 55: Shutdown Performance**
+*For any* system shutdown scenario, the system should complete graceful shutdown within 10 seconds
+**Validates: Requirements 23.10**
+
+### Resource Management Properties
+
+**Property 56: Cache Size Enforcement**
+*For any* cache size configuration, the system should enforce the specified maximum cache size limit
+**Validates: Requirements 24.1**
+
+**Property 57: File Descriptor Limits**
+*For any* file descriptor management scenario, the system should not exceed 1000 open file descriptors simultaneously
+**Validates: Requirements 24.4**
+
+**Property 58: Worker Thread Limits**
+*For any* worker thread spawning scenario, the system should limit concurrent workers to the configured maximum (default: 10)
+**Validates: Requirements 24.5**
+
+### Audit and Compliance Properties
+
+**Property 59: File Operation Audit Logging**
+*For any* file operation (access, modification, deletion), the system should log the event with timestamps
+**Validates: Requirements 25.1**
+
+**Property 60: Authentication Event Audit Logging**
+*For any* authentication event (login attempts, token refreshes, failures), the system should log the event appropriately
+**Validates: Requirements 25.2**
+
+### Concurrency and Lock Management Properties
+
+**Property 61: Lock Ordering Compliance**
+*For any* sequence of lock acquisitions, the system should acquire locks in the defined order (filesystem → mount manager → cache manager → inode → worker pool → network state)
+**Validates: Concurrency Design Requirements**
+
+**Property 62: Deadlock Prevention**
+*For any* concurrent operation scenario, the system should complete all operations without deadlocks when following the lock ordering policy
+**Validates: Concurrency Design Requirements**
+
+**Property 63: Lock Release Consistency**
+*For any* lock acquisition, the system should release locks in reverse order (LIFO) and handle all error conditions properly
+**Validates: Concurrency Design Requirements**
+
+**Property 64: Concurrent File Access Safety**
+*For any* set of concurrent file operations on different inodes, the system should handle all operations safely without race conditions
+**Validates: Concurrency Design Requirements**
+
+**Property 65: State Transition Atomicity**
+*For any* item state transition, the system should complete the transition atomically without intermediate inconsistent states
+**Validates: State Machine Design Requirements**
+
+## Concurrency and Lock Management
+
+### Lock Ordering Policy
+
+To prevent deadlocks, all components MUST acquire locks in the following order:
+
+1. **Global Filesystem Lock** (`filesystem.mutex`)
+2. **Mount Manager Lock** (`mountManager.mutex`) 
+3. **Cache Manager Lock** (`cacheManager.mutex`)
+4. **Individual Inode Locks** (`inode.mutex`)
+5. **Worker Pool Locks** (`downloadManager.mutex`, `uploadManager.mutex`)
+6. **Network State Lock** (`networkState.mutex`)
+
+**Lock Ordering Rules**:
+- Always acquire locks in the order listed above
+- Never acquire a higher-numbered lock while holding a lower-numbered lock
+- Release locks in reverse order (LIFO)
+- Use `defer` statements to ensure proper lock release
+- Minimize lock hold time by preparing data before acquiring locks
+
+### Concurrent Operation Guidelines
+
+**Safe Concurrent Operations**:
+- Multiple file reads from different inodes (each inode has its own lock)
+- Directory listings while files are being downloaded (read-only metadata access)
+- Delta sync while serving file operations (background sync uses separate locks)
+- Upload and download operations on different files (separate worker pools)
+
+**Operations Requiring Coordination**:
+- File modification + delta sync (coordinate via inode state)
+- Cache eviction + file access (coordinate via cache manager)
+- Filesystem shutdown + active operations (coordinate via context cancellation)
+
+### Deadlock Prevention Strategies
+
+**Lock Timeout Policy**:
+```go
+// Example lock acquisition with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+if !filesystem.mutex.TryLockContext(ctx) {
+    return fmt.Errorf("failed to acquire filesystem lock within timeout")
+}
+defer filesystem.mutex.Unlock()
+```
+
+**Lock-Free Operations Where Possible**:
+- File status queries use atomic operations
+- Statistics collection uses read-only snapshots
+- Network state checks use atomic boolean flags
+
+**Goroutine Management**:
+- All long-running goroutines MUST be tracked with `sync.WaitGroup`
+- Use context cancellation for graceful shutdown
+- Set reasonable timeouts for all blocking operations
+- Implement circuit breakers for external API calls
+
+### Lock Granularity Guidelines
+
+**Filesystem Level** (Coarse-grained):
+- Mount/unmount operations
+- Global configuration changes
+- Shutdown coordination
+
+**Cache Level** (Medium-grained):
+- Cache cleanup operations
+- Cache size enforcement
+- Statistics collection
+
+**Inode Level** (Fine-grained):
+- Individual file operations
+- Metadata updates
+- State transitions
+
+**Operation Level** (Finest-grained):
+- Network request queuing
+- Worker thread coordination
+- Status updates
+
+### Race Condition Prevention
+
+**Common Race Conditions and Solutions**:
+
+1. **File State Changes During Access**:
+   - Solution: Use atomic state transitions with compare-and-swap
+   - Lock inode before checking and updating state
+
+2. **Cache Invalidation During Read**:
+   - Solution: Use reference counting for cache entries
+   - Delay invalidation until all readers complete
+
+3. **Concurrent Uploads of Same File**:
+   - Solution: Use file-level upload locks
+   - Queue subsequent uploads until first completes
+
+4. **Delta Sync vs Local Modifications**:
+   - Solution: Use ETag comparison with atomic updates
+   - Detect conflicts before applying changes
+
+### Performance Considerations
+
+**Lock Contention Reduction**:
+- Use read-write locks where appropriate (`sync.RWMutex`)
+- Implement lock-free fast paths for common operations
+- Batch operations to reduce lock acquisition frequency
+- Use channels for producer-consumer patterns instead of shared state
+
+**Monitoring and Debugging**:
+- Log lock acquisition times in debug mode
+- Implement lock contention metrics
+- Use Go's race detector during testing
+- Profile lock usage under load
 
 ## Components and Interfaces
 
@@ -1456,6 +1964,49 @@ All tests run in isolated Docker containers to avoid affecting the host system:
 - `ONEMOUNT_TEST_VERBOSE`: Enable verbose test output
 - `GORACE`: Race detector configuration
 - `DOCKER_CONTAINER`: Flag indicating tests run in Docker
+
+### Property-Based Testing Requirements
+
+**Library Selection**: Use Go's `testing/quick` package for property-based testing, with `github.com/leanovate/gopter` as an alternative for more complex property generation.
+
+**Test Configuration**:
+- Each property-based test MUST run a minimum of 100 iterations
+- Each test MUST be tagged with a comment explicitly referencing the correctness property from the design document
+- Use this exact format: `**Feature: system-verification-and-fix, Property {number}: {property_text}**`
+
+**Property Implementation Requirements**:
+- Each correctness property MUST be implemented by a SINGLE property-based test
+- Property tests MUST generate random inputs within the valid domain
+- Property tests MUST verify the property holds for all generated inputs
+- Property tests MUST provide clear failure messages with counterexamples
+
+**Example Property Test Structure**:
+```go
+// **Feature: system-verification-and-fix, Property 1: OAuth2 Token Storage Security**
+func TestProperty_OAuth2TokenStorageSecurity(t *testing.T) {
+    property := func(authData AuthData) bool {
+        // Generate random valid OAuth2 completion
+        tokens, err := completeOAuth2(authData)
+        if err != nil {
+            return true // Skip invalid inputs
+        }
+        
+        // Verify tokens are stored securely
+        return verifySecureTokenStorage(tokens)
+    }
+    
+    config := &quick.Config{MaxCount: 100}
+    if err := quick.Check(property, config); err != nil {
+        t.Errorf("Property failed: %v", err)
+    }
+}
+```
+
+**Property Test Organization**:
+- Group property tests by component (authentication, filesystem, etc.)
+- Place property tests in `*_property_test.go` files
+- Run property tests as part of integration test suite
+- Include property tests in coverage analysis
 
 ### Unit Test Verification
 

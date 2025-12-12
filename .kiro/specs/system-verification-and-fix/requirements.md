@@ -18,6 +18,15 @@ This specification defines the requirements for systematically verifying and fix
 - **Docker Container**: Isolated environment for running tests without affecting the host system
 - **Test Runner**: Docker container configured with all dependencies needed to run OneMount tests
 - **BBolt**: Embedded key/value database used for persistent storage of metadata and state
+- **AES-256**: Advanced Encryption Standard with 256-bit key length used for encrypting sensitive data
+- **TLS**: Transport Layer Security protocol for secure communication over networks
+- **HTTPS**: HTTP over TLS for secure web communication
+- **Rate Limiting**: Technique to control the rate of requests to prevent abuse or overload
+- **Audit Trail**: Chronological record of system activities for security and compliance purposes
+- **GDPR**: General Data Protection Regulation - European Union data protection law
+- **Resource Throttling**: Technique to limit resource consumption to prevent system overload
+- **File Descriptor**: Operating system handle for accessing files and network connections
+- **Cache Retention**: Policy for how long cached data is kept before being purged
 
 ## Requirements
 
@@ -33,30 +42,58 @@ This specification defines the requirements for systematically verifying and fix
 4. IF token refresh fails, THEN THE OneMount System SHALL prompt the user to re-authenticate
 5. WHERE the system is running in headless mode, THE OneMount System SHALL use device code flow for authentication
 
-### Requirement 2: Filesystem Mounting Verification
+### Requirement 2: Basic Filesystem Mounting
 
 **User Story:** As a Linux user, I want to mount my OneDrive as a local directory so that I can access files using standard file operations.
 
 #### Acceptance Criteria
 
 1. WHEN the user specifies a mount point, THE OneMount System SHALL mount OneDrive at that location using FUSE
-2. WHEN the filesystem is mounted for the first time, THE OneMount System SHALL fetch and cache the complete directory structure from OneDrive without blocking interactive operations; commands SHALL use whatever metadata is already cached while the remaining tree sync runs in the background
-3. WHEN the filesystem is mounted, THE OneMount System SHALL display the root directory contents
-4. WHILE the filesystem is mounted, THE OneMount System SHALL respond to standard file operations (ls, cat, cp, etc.)
-5. WHEN the user navigates directories, THE OneMount System SHALL serve directory listings from the cached metadata without network requests; if cached metadata exists but is older than the refresh threshold, THE OneMount System SHALL return the cached data immediately and trigger a refresh asynchronously
-6. WHEN a directory lookup fails (including typos, case mismatches, or maintenance of virtual files such as `.xdg-volume-info`), THE OneMount System SHALL scope cache invalidation to the affected entry rather than clearing the entire parent directory cache
-7. WHEN the path `.xdg-volume-info` is requested, THE OneMount System SHALL bypass Graph and cached metadata lookups and serve the virtual file immediately so that it is always available, even on first mount
-8. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
-9. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
-10. WHERE the user specifies daemon mode, THE OneMount System SHALL fork the process and detach from the terminal for background operation
-11. WHEN the user specifies a mount timeout, THE OneMount System SHALL wait up to the specified duration for the mount operation to complete
-12. IF the mount timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 60 seconds
-13. WHEN opening the metadata database, THE OneMount System SHALL detect stale lock files older than 5 minutes and attempt to remove them
-14. IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
-15. WHEN fulfilling FUSE operations such as `readdir`, `getattr`, `rename`, `create`, `unlink`, `chmod`, or `chown`, THE OneMount System SHALL service the request exclusively from the local metadata database and content cache so that Graph API latency never blocks the FUSE thread; any Graph interaction SHALL be delegated to background sync or hydration workers
-16. WHEN representing filesystem entries that exist only locally (e.g., `.xdg-volume-info`, policy folders, or pinned views), THE OneMount System SHALL persist them as metadata records with `local-*` identifiers and overlay policies describing precedence so that the virtual view is resolved inside the metadata database without a separate wrapper layer
+2. WHEN the filesystem is mounted, THE OneMount System SHALL display the root directory contents
+3. WHILE the filesystem is mounted, THE OneMount System SHALL respond to standard file operations (ls, cat, cp, etc.)
+4. IF the mount point is already in use, THEN THE OneMount System SHALL display an error message with the conflicting process
+5. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
 
-### Requirement 3: On-Demand File Download Verification
+### Requirement 2A: Initial Synchronization and Caching
+
+**User Story:** As a user, I want the initial sync to be non-blocking so that I can start using the filesystem immediately while it populates in the background.
+
+#### Acceptance Criteria
+
+1. WHEN the filesystem is mounted for the first time, THE OneMount System SHALL fetch and cache the complete directory structure from OneDrive without blocking interactive operations; commands SHALL use whatever metadata is already cached while the remaining tree sync runs in the background
+2. WHEN the user navigates directories, THE OneMount System SHALL serve directory listings from the cached metadata without network requests; if cached metadata exists but is older than the refresh threshold, THE OneMount System SHALL return the cached data immediately and trigger a refresh asynchronously
+3. WHEN a directory lookup fails (including typos, case mismatches, or maintenance of virtual files such as `.xdg-volume-info`), THE OneMount System SHALL scope cache invalidation to the affected entry rather than clearing the entire parent directory cache
+
+### Requirement 2B: Virtual File Management
+
+**User Story:** As a Linux desktop user, I want virtual files like `.xdg-volume-info` to work correctly so that my file manager displays proper volume information.
+
+#### Acceptance Criteria
+
+1. WHEN the path `.xdg-volume-info` is requested, THE OneMount System SHALL bypass Graph and cached metadata lookups and serve the virtual file immediately so that it is always available, even on first mount
+2. WHEN representing filesystem entries that exist only locally (e.g., `.xdg-volume-info`, policy folders, or pinned views), THE OneMount System SHALL persist them as metadata records with `local-*` identifiers and overlay policies describing precedence so that the virtual view is resolved inside the metadata database without a separate wrapper layer
+
+### Requirement 2C: Advanced Mounting Options
+
+**User Story:** As a system administrator, I want advanced mounting options so that I can deploy OneMount in various environments and configurations.
+
+#### Acceptance Criteria
+
+1. WHERE the user specifies daemon mode, THE OneMount System SHALL fork the process and detach from the terminal for background operation
+2. WHEN the user specifies a mount timeout, THE OneMount System SHALL wait up to the specified duration for the mount operation to complete
+3. IF the mount timeout is not specified, THEN THE OneMount System SHALL use a default timeout of 60 seconds
+4. WHEN opening the metadata database, THE OneMount System SHALL detect stale lock files older than 5 minutes and attempt to remove them
+5. IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
+
+### Requirement 2D: FUSE Operation Performance
+
+**User Story:** As a user, I want file operations to be fast and responsive so that the mounted filesystem feels like a local filesystem.
+
+#### Acceptance Criteria
+
+1. WHEN fulfilling FUSE operations such as `readdir`, `getattr`, `rename`, `create`, `unlink`, `chmod`, or `chown`, THE OneMount System SHALL service the request exclusively from the local metadata database and content cache so that Graph API latency never blocks the FUSE thread; any Graph interaction SHALL be delegated to background sync or hydration workers
+
+### Requirement 3: Basic On-Demand File Access
 
 **User Story:** As a user with limited disk space, I want files to download only when I access them so that I don't need to sync my entire OneDrive.
 
@@ -68,10 +105,6 @@ This specification defines the requirements for systematically verifying and fix
 4. WHEN the user opens a cached file, THE OneMount System SHALL validate the cache using ETag comparison from delta sync metadata
 5. IF the cached file's ETag matches the current metadata ETag, THEN THE OneMount System SHALL serve the content from local cache
 6. IF the cached file's ETag differs from the current metadata ETag, THEN THE OneMount System SHALL invalidate the cache entry and download the new content
-7. WHILE a file is downloading, THE OneMount System SHALL update the file status to "downloading"
-8. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
-9. WHERE the user specifies download worker pool size, THE OneMount System SHALL use the specified number of concurrent download workers
-10. IF the download worker pool size is not specified, THEN THE OneMount System SHALL use a default of 3 concurrent workers
 
 **Note on ETag Validation Implementation**:
 Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implementation achieves this through delta sync rather than HTTP `if-none-match` headers because Microsoft Graph API's pre-authenticated download URLs (from `@microsoft.graph.downloadUrl`) do not support conditional GET requests. The delta sync approach:
@@ -81,19 +114,43 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 - Provides equivalent or better behavior than conditional GET (batch updates, proactive detection)
 - Satisfies the intent of requirements 3.4, 3.5, and 3.6
 
-11. WHEN configuring download worker pool size, THE OneMount System SHALL validate the value is between 1 and 10 workers
-12. WHERE the user specifies download retry attempts limit, THE OneMount System SHALL retry failed downloads up to the specified number of attempts
-13. IF the download retry attempts limit is not specified, THEN THE OneMount System SHALL use a default of 3 retry attempts
-14. WHEN configuring download retry attempts, THE OneMount System SHALL validate the value is between 1 and 10 attempts
-15. WHERE the user specifies download queue size, THE OneMount System SHALL buffer up to the specified number of pending download requests
-16. IF the download queue size is not specified, THEN THE OneMount System SHALL use a default queue size of 500 requests
-17. WHEN configuring download queue size, THE OneMount System SHALL validate the value is between 100 and 5000 requests
-18. WHERE the user specifies download chunk size for large files, THE OneMount System SHALL download files in chunks of the specified size
-19. IF the download chunk size is not specified, THEN THE OneMount System SHALL use a default chunk size of 10 MB
-20. WHEN configuring download chunk size, THE OneMount System SHALL validate the value is between 1 MB and 100 MB
-21. WHEN download manager configuration is invalid, THE OneMount System SHALL display a clear error message with valid ranges
-22. WHEN the metadata database reports an item in the `GHOST` state (cloud-only), THE OneMount System SHALL block file access until hydration either completes successfully or is cancelled, at which point the state SHALL transition to `HYDRATED` (success) or `ERROR` (failure) and the cache SHALL reflect the outcome
-23. WHEN a hydrated file is evicted to save space, THE OneMount System SHALL transition the item back to `GHOST` without removing its metadata so that future FUSE requests can immediately rehydrate it on demand
+### Requirement 3A: Download Status and Progress Tracking
+
+**User Story:** As a user, I want to see the status of file downloads so that I know when files are being downloaded and if any errors occur.
+
+#### Acceptance Criteria
+
+1. WHILE a file is downloading, THE OneMount System SHALL update the file status to "downloading"
+2. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
+
+### Requirement 3B: Download Manager Configuration
+
+**User Story:** As a system administrator, I want to configure download behavior so that I can optimize performance for my environment and network conditions.
+
+#### Acceptance Criteria
+
+1. WHERE the user specifies download worker pool size, THE OneMount System SHALL use the specified number of concurrent download workers
+2. IF the download worker pool size is not specified, THEN THE OneMount System SHALL use a default of 3 concurrent workers
+3. WHEN configuring download worker pool size, THE OneMount System SHALL validate the value is between 1 and 10 workers
+4. WHERE the user specifies download retry attempts limit, THE OneMount System SHALL retry failed downloads up to the specified number of attempts
+5. IF the download retry attempts limit is not specified, THEN THE OneMount System SHALL use a default of 3 retry attempts
+6. WHEN configuring download retry attempts, THE OneMount System SHALL validate the value is between 1 and 10 attempts
+7. WHERE the user specifies download queue size, THE OneMount System SHALL buffer up to the specified number of pending download requests
+8. IF the download queue size is not specified, THEN THE OneMount System SHALL use a default queue size of 500 requests
+9. WHEN configuring download queue size, THE OneMount System SHALL validate the value is between 100 and 5000 requests
+10. WHERE the user specifies download chunk size for large files, THE OneMount System SHALL download files in chunks of the specified size
+11. IF the download chunk size is not specified, THEN THE OneMount System SHALL use a default chunk size of 10 MB
+12. WHEN configuring download chunk size, THE OneMount System SHALL validate the value is between 1 MB and 100 MB
+13. WHEN download manager configuration is invalid, THE OneMount System SHALL display a clear error message with valid ranges
+
+### Requirement 3C: File Hydration State Management
+
+**User Story:** As a user, I want the system to manage file availability states efficiently so that I can understand which files are available locally and which need to be downloaded.
+
+#### Acceptance Criteria
+
+1. WHEN the metadata database reports an item in the `GHOST` state (cloud-only), THE OneMount System SHALL block file access until hydration either completes successfully or is cancelled, at which point the state SHALL transition to `HYDRATED` (success) or `ERROR` (failure) and the cache SHALL reflect the outcome
+2. WHEN a hydrated file is evicted to save space, THE OneMount System SHALL transition the item back to `GHOST` without removing its metadata so that future FUSE requests can immediately rehydrate it on demand
 
 ### Requirement 4: File Modification and Upload Verification
 
@@ -417,3 +474,73 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 8. WHEN delta detects conflicting remote changes for an item that is `DIRTY_LOCAL`, THE OneMount System SHALL transition it to `CONFLICT`, persist both versions’ metadata, and emit the conflict notification defined in Requirement 8.
 9. WHEN pinning or eviction policies remove local content for disk-space reasons, THE OneMount System SHALL transition the item back to `GHOST` (or `HYDRATED` if immediately rehydrated) without deleting its metadata entry.
 10. ALL virtual-only entries (Requirement 2.16) SHALL set `item_state=HYDRATED`, `remote_id=NULL`, and `is_virtual=TRUE`, ensuring they bypass sync/upload logic while still participating in directory listings.
+
+### Requirement 22: Security Requirements
+
+**User Story:** As a security-conscious user, I want my authentication tokens and file data to be protected from unauthorized access so that my OneDrive account remains secure.
+
+#### Acceptance Criteria
+
+1. WHEN storing authentication tokens, THE OneMount System SHALL encrypt tokens at rest using AES-256 encryption
+2. WHEN creating token storage files, THE OneMount System SHALL set file permissions to 0600 (owner read/write only)
+3. WHEN storing authentication tokens, THE OneMount System SHALL store them in the XDG configuration directory with restricted access
+4. WHEN communicating with Microsoft Graph API, THE OneMount System SHALL use HTTPS/TLS 1.2 or higher for all connections
+5. WHEN validating TLS certificates, THE OneMount System SHALL verify certificate chains and reject invalid certificates
+6. WHEN logging operations, THE OneMount System SHALL never log authentication tokens, passwords, or sensitive user data
+7. WHEN handling authentication failures, THE OneMount System SHALL implement rate limiting to prevent brute force attacks
+8. WHEN storing cached file content, THE OneMount System SHALL set appropriate file permissions to prevent unauthorized access
+9. WHEN the system detects potential security threats, THE OneMount System SHALL log security events for audit purposes
+10. WHEN cleaning up temporary files, THE OneMount System SHALL securely delete temporary authentication data
+
+### Requirement 23: Performance Requirements
+
+**User Story:** As a user, I want OneMount to be responsive and efficient so that it doesn't impact my system performance or consume excessive resources.
+
+#### Acceptance Criteria
+
+1. WHEN listing a directory with up to 1000 files, THE OneMount System SHALL respond within 2 seconds
+2. WHEN opening a cached file, THE OneMount System SHALL serve the content within 100 milliseconds
+3. WHEN the system is idle, THE OneMount System SHALL consume no more than 50 MB of RAM
+4. WHEN actively syncing files, THE OneMount System SHALL consume no more than 200 MB of RAM
+5. WHEN downloading files, THE OneMount System SHALL achieve at least 80% of available network bandwidth utilization
+6. WHEN uploading files, THE OneMount System SHALL achieve at least 70% of available network bandwidth utilization
+7. WHEN performing concurrent operations, THE OneMount System SHALL handle at least 10 simultaneous file operations without degradation
+8. WHEN the cache grows large, THE OneMount System SHALL maintain directory listing performance within 3 seconds for directories with up to 10,000 files
+9. WHEN starting up, THE OneMount System SHALL complete initialization and be ready for file operations within 5 seconds
+10. WHEN shutting down, THE OneMount System SHALL complete graceful shutdown within 10 seconds
+11. WHEN processing delta sync updates, THE OneMount System SHALL handle up to 1000 changed files within 30 seconds
+12. WHEN under heavy load, THE OneMount System SHALL maintain CPU usage below 25% on average
+
+### Requirement 24: Resource Management Requirements
+
+**User Story:** As a system administrator, I want OneMount to manage system resources responsibly so that it doesn't interfere with other applications.
+
+#### Acceptance Criteria
+
+1. WHEN configuring cache size limits, THE OneMount System SHALL enforce the specified maximum cache size
+2. WHEN the cache reaches 90% of the configured limit, THE OneMount System SHALL begin proactive cleanup
+3. WHEN the cache reaches 100% of the configured limit, THE OneMount System SHALL block new downloads until space is available
+4. WHEN managing file descriptors, THE OneMount System SHALL not exceed 1000 open file descriptors simultaneously
+5. WHEN spawning worker threads, THE OneMount System SHALL limit concurrent workers to a configurable maximum (default: 10)
+6. WHEN detecting low disk space, THE OneMount System SHALL reduce cache retention and warn the user
+7. WHEN network bandwidth is limited, THE OneMount System SHALL implement adaptive throttling to prevent network saturation
+8. WHEN system memory is low, THE OneMount System SHALL reduce in-memory caching and increase disk-based caching
+9. WHEN CPU usage is high, THE OneMount System SHALL reduce background processing priority
+10. WHEN the system is under resource pressure, THE OneMount System SHALL gracefully degrade non-essential features
+
+### Requirement 25: Audit and Compliance Requirements
+
+**User Story:** As a compliance officer, I want OneMount to provide audit trails and comply with data protection regulations so that our organization meets regulatory requirements.
+
+#### Acceptance Criteria
+
+1. WHEN file operations occur, THE OneMount System SHALL log file access, modification, and deletion events with timestamps
+2. WHEN authentication events occur, THE OneMount System SHALL log login attempts, token refreshes, and authentication failures
+3. WHEN security events occur, THE OneMount System SHALL log potential security threats and policy violations
+4. WHEN audit logging is enabled, THE OneMount System SHALL store logs in a tamper-evident format
+5. WHEN log rotation occurs, THE OneMount System SHALL maintain log integrity and prevent data loss
+6. WHEN handling personal data, THE OneMount System SHALL comply with GDPR data protection requirements
+7. WHEN users request data deletion, THE OneMount System SHALL provide mechanisms to securely delete cached user data
+8. WHEN data retention policies are configured, THE OneMount System SHALL automatically purge data according to the specified retention period
+9. WHEN exporting audit logs, THE OneMount System SHALL provide logs in standard formats (JSON, CSV, syslog)
+10. WHEN audit trails are queried, THE OneMount System SHALL support filtering by user, time range, and event type

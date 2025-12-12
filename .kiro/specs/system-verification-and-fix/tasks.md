@@ -118,7 +118,41 @@ This implementation plan breaks down the verification and fix process into discr
   - Run tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 13.2, 13.4_
 
-- [x] 4.7 Document authentication issues and create fix plan
+- [ ] 4.7 Implement authentication property-based tests
+- [ ] 4.7.1 Implement Property 1: OAuth2 Token Storage Security
+  - **Property 1: OAuth2 Token Storage Security**
+  - **Validates: Requirements 1.2**
+  - Create `internal/graph/auth_property_test.go`
+  - Generate random valid OAuth2 completions
+  - Verify tokens stored with proper security attributes
+  - Run 100+ iterations per property test
+  - _Requirements: 1.2_
+
+- [ ] 4.7.2 Implement Property 2: Automatic Token Refresh
+  - **Property 2: Automatic Token Refresh**
+  - **Validates: Requirements 1.3**
+  - Generate random expired tokens with valid refresh tokens
+  - Verify automatic refresh occurs without user intervention
+  - Test with various expiration scenarios
+  - _Requirements: 1.3_
+
+- [ ] 4.7.3 Implement Property 3: Re-authentication on Refresh Failure
+  - **Property 3: Re-authentication on Refresh Failure**
+  - **Validates: Requirements 1.4**
+  - Generate random token refresh failure scenarios
+  - Verify user re-authentication prompt occurs
+  - Test with various failure types
+  - _Requirements: 1.4_
+
+- [ ] 4.7.4 Implement Property 4: Headless Authentication Method
+  - **Property 4: Headless Authentication Method**
+  - **Validates: Requirements 1.5**
+  - Generate random headless system configurations
+  - Verify device code flow is used
+  - Test with various headless scenarios
+  - _Requirements: 1.5_
+
+- [x] 4.8 Document authentication issues and create fix plan
   - List all discovered issues with severity
   - Identify root causes
   - Create prioritized fix plan
@@ -177,7 +211,54 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for graceful unmount
   - _Requirements: 2.1, 2.2, 2.4, 2.5_
 
-- [x] 5.8 Document mounting issues and create fix plan
+- [ ] 5.8 Implement filesystem mounting property-based tests
+- [ ] 5.8.1 Implement Property 5: FUSE Mount Success
+  - **Property 5: FUSE Mount Success**
+  - **Validates: Requirements 2.1**
+  - Create `internal/fs/mount_property_test.go`
+  - Generate random valid mount point specifications
+  - Verify successful FUSE mounting for all valid inputs
+  - _Requirements: 2.1_
+
+- [ ] 5.8.2 Implement Property 6: Non-blocking Initial Sync
+  - **Property 6: Non-blocking Initial Sync**
+  - **Validates: Requirements 2A.1**
+  - Generate random first-time mount scenarios
+  - Verify initial sync completes while operations remain responsive
+  - Measure response times during initial sync
+  - _Requirements: 2A.1_
+
+- [ ] 5.8.3 Implement Property 7: Root Directory Visibility
+  - **Property 7: Root Directory Visibility**
+  - **Validates: Requirements 2.2**
+  - Generate random successful mount scenarios
+  - Verify root directory contents are visible and accessible
+  - _Requirements: 2.2_
+
+- [ ] 5.8.4 Implement Property 8: Standard File Operations Support
+  - **Property 8: Standard File Operations Support**
+  - **Validates: Requirements 2.3**
+  - Generate random mounted filesystem scenarios
+  - Verify standard operations (ls, cat, cp) work correctly
+  - Test with various file types and sizes
+  - _Requirements: 2.3_
+
+- [ ] 5.8.5 Implement Property 9: Mount Conflict Error Handling
+  - **Property 9: Mount Conflict Error Handling**
+  - **Validates: Requirements 2.4**
+  - Generate random already-in-use mount points
+  - Verify clear error messages with conflicting process info
+  - _Requirements: 2.4_
+
+- [ ] 5.8.6 Implement Property 10: Clean Resource Release
+  - **Property 10: Clean Resource Release**
+  - **Validates: Requirements 2.5**
+  - Generate random mounted filesystem scenarios
+  - Verify unmounting cleanly releases all resources
+  - Check for resource leaks and orphaned processes
+  - _Requirements: 2.5_
+
+- [x] 5.9 Document mounting issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -229,7 +310,49 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for metadata operations
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [x] 6.7 Document file read issues and create fix plan
+- [ ] 6.7 Implement file access property-based tests
+- [ ] 6.7.1 Implement Property 11: Metadata-Only Directory Listing
+  - **Property 11: Metadata-Only Directory Listing**
+  - **Validates: Requirements 3.1**
+  - Create `internal/fs/file_access_property_test.go`
+  - Generate random directory listing operations
+  - Verify no file content downloads during listing
+  - Monitor network calls to ensure metadata-only access
+  - _Requirements: 3.1_
+
+- [ ] 6.7.2 Implement Property 12: On-Demand Content Download
+  - **Property 12: On-Demand Content Download**
+  - **Validates: Requirements 3.2**
+  - Generate random uncached file access scenarios
+  - Verify correct API endpoint usage (GET /items/{id}/content)
+  - Test with various file types and sizes
+  - _Requirements: 3.2_
+
+- [ ] 6.7.3 Implement Property 13: ETag Cache Validation
+  - **Property 13: ETag Cache Validation**
+  - **Validates: Requirements 3.4**
+  - Generate random cached file access scenarios
+  - Verify ETag comparison from delta sync metadata
+  - Test with various ETag states
+  - _Requirements: 3.4_
+
+- [ ] 6.7.4 Implement Property 14: Cache Hit Serving
+  - **Property 14: Cache Hit Serving**
+  - **Validates: Requirements 3.5**
+  - Generate random cached files with matching ETags
+  - Verify content served from local cache without network requests
+  - Monitor network activity to ensure no API calls
+  - _Requirements: 3.5_
+
+- [ ] 6.7.5 Implement Property 15: Cache Invalidation on ETag Mismatch
+  - **Property 15: Cache Invalidation on ETag Mismatch**
+  - **Validates: Requirements 3.6**
+  - Generate random cached files with different ETags
+  - Verify cache invalidation and new content download
+  - Test ETag mismatch detection accuracy
+  - _Requirements: 3.6_
+
+- [x] 6.8 Document file read issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -270,7 +393,41 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for directory operations
   - _Requirements: 4.1, 4.2_
 
-- [x] 7.6 Document file write issues and create fix plan
+- [ ] 7.6 Implement file modification property-based tests
+- [ ] 7.6.1 Implement Property 16: Local Change Tracking
+  - **Property 16: Local Change Tracking**
+  - **Validates: Requirements 4.1**
+  - Create `internal/fs/file_modification_property_test.go`
+  - Generate random file modification scenarios
+  - Verify files are marked as having local changes
+  - Test with various modification types
+  - _Requirements: 4.1_
+
+- [ ] 7.6.2 Implement Property 17: Upload Queuing
+  - **Property 17: Upload Queuing**
+  - **Validates: Requirements 4.2**
+  - Generate random saved modified file scenarios
+  - Verify files are queued for upload to server
+  - Test queue management and ordering
+  - _Requirements: 4.2_
+
+- [ ] 7.6.3 Implement Property 18: ETag Update After Upload
+  - **Property 18: ETag Update After Upload**
+  - **Validates: Requirements 4.7**
+  - Generate random successful upload scenarios
+  - Verify ETag is updated from server response
+  - Test ETag consistency after upload
+  - _Requirements: 4.7_
+
+- [ ] 7.6.4 Implement Property 19: Modified Flag Cleanup
+  - **Property 19: Modified Flag Cleanup**
+  - **Validates: Requirements 4.8**
+  - Generate random successful upload scenarios
+  - Verify modified flag is cleared after upload
+  - Test flag state consistency
+  - _Requirements: 4.8_
+
+- [x] 7.7 Document file write issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -448,7 +605,65 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for delta link persistence
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [x] 10.8 Document delta sync issues and create fix plan
+- [ ] 10.8 Implement delta synchronization property-based tests
+- [ ] 10.8.1 Implement Property 20: Initial Delta Sync
+  - **Property 20: Initial Delta Sync**
+  - **Validates: Requirements 5.1**
+  - Create `internal/fs/delta_property_test.go`
+  - Generate random first filesystem mount scenarios
+  - Verify complete directory structure fetch using delta API
+  - Test with various OneDrive structures
+  - _Requirements: 5.1_
+
+- [ ] 10.8.2 Implement Property 21: Metadata Cache Updates
+  - **Property 21: Metadata Cache Updates**
+  - **Validates: Requirements 5.8**
+  - Generate random remote change scenarios via delta query
+  - Verify local metadata cache is updated correctly
+  - Test with various change types (create, modify, delete)
+  - _Requirements: 5.8_
+
+- [ ] 10.8.3 Implement Property 22: Conflict Copy Creation
+  - **Property 22: Conflict Copy Creation**
+  - **Validates: Requirements 5.11**
+  - Generate random files with both local and remote changes
+  - Verify conflict copy is created correctly
+  - Test conflict detection accuracy
+  - _Requirements: 5.11_
+
+- [ ] 10.8.4 Implement Property 23: Delta Token Persistence
+  - **Property 23: Delta Token Persistence**
+  - **Validates: Requirements 5.12**
+  - Generate random delta sync completion scenarios
+  - Verify @odata.deltaLink token is stored for next cycle
+  - Test token persistence across restarts
+  - _Requirements: 5.12_
+
+- [ ] 10.8.5 Implement Property 30: ETag-Based Conflict Detection
+  - **Property 30: ETag-Based Conflict Detection**
+  - **Validates: Requirements 8.1**
+  - Generate random files modified both locally and remotely
+  - Verify conflict detection using ETag comparison
+  - Test ETag comparison accuracy
+  - _Requirements: 8.1_
+
+- [ ] 10.8.6 Implement Property 31: Local Version Preservation
+  - **Property 31: Local Version Preservation**
+  - **Validates: Requirements 8.4**
+  - Generate random conflict scenarios
+  - Verify local version is preserved with original name
+  - Test version preservation integrity
+  - _Requirements: 8.4_
+
+- [ ] 10.8.7 Implement Property 32: Conflict Copy Creation with Timestamp
+  - **Property 32: Conflict Copy Creation with Timestamp**
+  - **Validates: Requirements 8.5**
+  - Generate random conflict scenarios
+  - Verify conflict copy creation with timestamp suffix
+  - Test timestamp format and uniqueness
+  - _Requirements: 8.5_
+
+- [x] 10.9 Document delta sync issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -517,7 +732,25 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for cache statistics
   - _Requirements: 7.1, 7.2, 7.3, 7.5_
 
-- [x] 11.8 Document cache issues and create fix plan
+- [ ] 11.8 Implement cache management property-based tests
+- [ ] 11.8.1 Implement Property 28: ETag-Based Cache Storage
+  - **Property 28: ETag-Based Cache Storage**
+  - **Validates: Requirements 7.1**
+  - Create `internal/fs/cache_property_test.go`
+  - Generate random downloaded file scenarios
+  - Verify content stored in cache directory with file's ETag
+  - Test ETag association accuracy
+  - _Requirements: 7.1_
+
+- [ ] 11.8.2 Implement Property 29: Cache Invalidation on Remote ETag Change
+  - **Property 29: Cache Invalidation on Remote ETag Change**
+  - **Validates: Requirements 7.3**
+  - Generate random cached files with different remote ETags
+  - Verify cache invalidation and new version download
+  - Test invalidation trigger accuracy
+  - _Requirements: 7.3_
+
+- [x] 11.9 Document cache issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -580,7 +813,41 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for online transition
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-- [x] 12.8 Document offline mode issues and create fix plan
+- [ ] 12.8 Implement offline mode property-based tests
+- [ ] 12.8.1 Implement Property 24: Offline Detection
+  - **Property 24: Offline Detection**
+  - **Validates: Requirements 6.1**
+  - Create `internal/fs/offline_property_test.go`
+  - Generate random network connectivity loss scenarios
+  - Verify offline state detection through API call failures
+  - Test detection accuracy and timing
+  - _Requirements: 6.1_
+
+- [ ] 12.8.2 Implement Property 25: Offline Read Access
+  - **Property 25: Offline Read Access**
+  - **Validates: Requirements 6.4**
+  - Generate random cached file scenarios while offline
+  - Verify files can be served for read operations
+  - Test read access reliability offline
+  - _Requirements: 6.4_
+
+- [ ] 12.8.3 Implement Property 26: Offline Write Queuing
+  - **Property 26: Offline Write Queuing**
+  - **Validates: Requirements 6.5**
+  - Generate random write operations while offline
+  - Verify operations are allowed and changes queued
+  - Test queue management and persistence
+  - _Requirements: 6.5_
+
+- [ ] 12.8.4 Implement Property 27: Batch Upload Processing
+  - **Property 27: Batch Upload Processing**
+  - **Validates: Requirements 6.10**
+  - Generate random network connectivity restoration scenarios
+  - Verify queued uploads are processed in batches
+  - Test batch processing efficiency
+  - _Requirements: 6.10_
+
+- [x] 12.9 Document offline mode issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -696,7 +963,25 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for crash recovery
   - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [x] 14.7 Document error handling issues and create fix plan
+- [ ] 14.7 Implement error handling property-based tests
+- [ ] 14.7.1 Implement Property 35: Network Error Logging
+  - **Property 35: Network Error Logging**
+  - **Validates: Requirements 11.1**
+  - Create `internal/errors/error_property_test.go`
+  - Generate random network error scenarios
+  - Verify errors are logged with appropriate context
+  - Test logging completeness and accuracy
+  - _Requirements: 11.1_
+
+- [ ] 14.7.2 Implement Property 36: Rate Limit Backoff
+  - **Property 36: Rate Limit Backoff**
+  - **Validates: Requirements 11.2**
+  - Generate random API rate limit scenarios
+  - Verify exponential backoff implementation
+  - Test backoff timing and progression
+  - _Requirements: 11.2_
+
+- [x] 14.8 Document error handling issues and create fix plan
   - List all discovered issues
   - Identify root causes
   - Create prioritized fix plan
@@ -760,7 +1045,25 @@ This implementation plan breaks down the verification and fix process into discr
   - Write benchmark for concurrent operations
   - _Requirements: 10.2, 10.3_
 
-- [x] 15.9 Document performance issues and create fix plan
+- [ ] 15.9 Implement concurrency property-based tests
+- [ ] 15.9.1 Implement Property 33: Safe Concurrent File Access
+  - **Property 33: Safe Concurrent File Access**
+  - **Validates: Requirements 10.1**
+  - Create `internal/fs/concurrency_property_test.go`
+  - Generate random simultaneous file access scenarios
+  - Verify operations are handled safely without race conditions
+  - Test with race detector enabled
+  - _Requirements: 10.1_
+
+- [ ] 15.9.2 Implement Property 34: Non-blocking Downloads
+  - **Property 34: Non-blocking Downloads**
+  - **Validates: Requirements 10.2**
+  - Generate random ongoing download scenarios
+  - Verify other file operations can proceed without blocking
+  - Test operation concurrency and responsiveness
+  - _Requirements: 10.2_
+
+- [x] 15.10 Document performance issues and create fix plan
   - List all discovered issues
   - Identify bottlenecks
   - Create prioritized fix plan
@@ -1248,6 +1551,32 @@ This implementation plan breaks down the verification and fix process into discr
 - [x] 26.6 Test directory permissions ✅ COMPLETE
 - [x] 26.7 Document XDG compliance verification results ✅ COMPLETE
 
+- [ ] 26.8 Implement XDG compliance property-based tests
+- [ ] 26.8.1 Implement Property 37: XDG Configuration Directory Usage
+  - **Property 37: XDG Configuration Directory Usage**
+  - **Validates: Requirements 15.1**
+  - Create `internal/config/xdg_property_test.go`
+  - Generate random system configuration scenarios
+  - Verify os.UserConfigDir() is used for configuration
+  - Test with various XDG environment settings
+  - _Requirements: 15.1_
+
+- [ ] 26.8.2 Implement Property 38: Token Storage Location
+  - **Property 38: Token Storage Location**
+  - **Validates: Requirements 15.7**
+  - Generate random authentication token storage scenarios
+  - Verify tokens are stored in configuration directory
+  - Test storage location consistency
+  - _Requirements: 15.7_
+
+- [ ] 26.8.3 Implement Property 39: Cache Storage Location
+  - **Property 39: Cache Storage Location**
+  - **Validates: Requirements 15.8**
+  - Generate random file content caching scenarios
+  - Verify cache is stored in cache directory
+  - Test cache location consistency
+  - _Requirements: 15.8_
+
 **Status**: ✅ **COMPLETE** (2025-11-13)  
 **Requirements**: 15.1-15.10 all verified  
 **Results**: OneMount correctly implements XDG Base Directory Specification with only minor deviation (auth token location) that has minimal impact.
@@ -1333,9 +1662,254 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
-## Phase 18: Final Verification
+## Phase 17: State Management Property-Based Tests
 
-- [ ] 30. Run complete test suite in Docker
+- [ ] 30. Implement metadata state model property-based tests
+- [ ] 30.1 Implement Property 40: Initial Item State
+  - **Property 40: Initial Item State**
+  - **Validates: Requirements 21.2**
+  - Create `internal/fs/state_property_test.go`
+  - Generate random drive items discovered via delta
+  - Verify items are inserted with GHOST state
+  - Verify no content download until required
+  - _Requirements: 21.2_
+
+- [ ] 30.2 Implement Property 41: Successful Hydration State Transition
+  - **Property 41: Successful Hydration State Transition**
+  - **Validates: Requirements 21.4**
+  - Generate random successful hydration scenarios
+  - Verify transition to HYDRATED state
+  - Verify content path recording and metadata updates
+  - Verify error field clearing
+  - _Requirements: 21.4_
+
+- [ ] 30.3 Implement Property 42: Local Modification State Transition
+  - **Property 42: Local Modification State Transition**
+  - **Validates: Requirements 21.6**
+  - Generate random locally modified hydrated file scenarios
+  - Verify transition to DIRTY_LOCAL state
+  - Verify state persists until upload succeeds
+  - _Requirements: 21.6_
+
+---
+
+## Phase 18: Security Property-Based Tests
+
+- [ ] 31. Implement security property-based tests
+- [ ] 31.1 Implement Property 43: Token Encryption at Rest
+  - **Property 43: Token Encryption at Rest**
+  - **Validates: Requirements 22.1**
+  - Create `internal/security/security_property_test.go`
+  - Generate random authentication token storage scenarios
+  - Verify tokens are encrypted using AES-256
+  - Test encryption key management and storage
+  - _Requirements: 22.1_
+
+- [ ] 31.2 Implement Property 44: Token File Permissions
+  - **Property 44: Token File Permissions**
+  - **Validates: Requirements 22.2**
+  - Generate random token file creation scenarios
+  - Verify file permissions are set to 0600
+  - Test permission enforcement across different platforms
+  - _Requirements: 22.2_
+
+- [ ] 31.3 Implement Property 45: Secure Token Storage Location
+  - **Property 45: Secure Token Storage Location**
+  - **Validates: Requirements 22.3**
+  - Generate random token storage scenarios
+  - Verify storage in XDG configuration directory
+  - Test access restriction enforcement
+  - _Requirements: 22.3_
+
+- [ ] 31.4 Implement Property 46: HTTPS/TLS Communication
+  - **Property 46: HTTPS/TLS Communication**
+  - **Validates: Requirements 22.4**
+  - Generate random Graph API communication scenarios
+  - Verify HTTPS/TLS 1.2+ usage for all connections
+  - Test certificate validation and security protocols
+  - _Requirements: 22.4_
+
+- [ ] 31.5 Implement Property 47: Sensitive Data Logging Prevention
+  - **Property 47: Sensitive Data Logging Prevention**
+  - **Validates: Requirements 22.6**
+  - Generate random logging scenarios with sensitive data
+  - Verify no tokens, passwords, or sensitive data in logs
+  - Test log sanitization mechanisms
+  - _Requirements: 22.6_
+
+- [ ] 31.6 Implement Property 48: Cache File Security
+  - **Property 48: Cache File Security**
+  - **Validates: Requirements 22.8**
+  - Generate random cached file storage scenarios
+  - Verify appropriate file permissions for cached content
+  - Test unauthorized access prevention
+  - _Requirements: 22.8_
+
+---
+
+## Phase 19: Performance Property-Based Tests
+
+- [ ] 32. Implement performance property-based tests
+- [ ] 32.1 Implement Property 49: Directory Listing Performance
+  - **Property 49: Directory Listing Performance**
+  - **Validates: Requirements 23.1**
+  - Create `internal/performance/performance_property_test.go`
+  - Generate random directory listing scenarios (up to 1000 files)
+  - Verify response times within 2 seconds
+  - Test performance under various load conditions
+  - _Requirements: 23.1_
+
+- [ ] 32.2 Implement Property 50: Cached File Access Performance
+  - **Property 50: Cached File Access Performance**
+  - **Validates: Requirements 23.2**
+  - Generate random cached file access scenarios
+  - Verify content served within 100 milliseconds
+  - Test performance consistency across file sizes
+  - _Requirements: 23.2_
+
+- [ ] 32.3 Implement Property 51: Idle Memory Usage
+  - **Property 51: Idle Memory Usage**
+  - **Validates: Requirements 23.3**
+  - Generate random idle system scenarios
+  - Verify memory consumption stays below 50 MB
+  - Test memory leak detection during idle periods
+  - _Requirements: 23.3_
+
+- [ ] 32.4 Implement Property 52: Active Sync Memory Usage
+  - **Property 52: Active Sync Memory Usage**
+  - **Validates: Requirements 23.4**
+  - Generate random active synchronization scenarios
+  - Verify memory consumption stays below 200 MB
+  - Test memory usage during various sync operations
+  - _Requirements: 23.4_
+
+- [ ] 32.5 Implement Property 53: Concurrent Operations Performance
+  - **Property 53: Concurrent Operations Performance**
+  - **Validates: Requirements 23.7**
+  - Generate random concurrent operation scenarios (10+ operations)
+  - Verify no performance degradation under concurrent load
+  - Test scalability and resource contention
+  - _Requirements: 23.7_
+
+- [ ] 32.6 Implement Property 54: Startup Performance
+  - **Property 54: Startup Performance**
+  - **Validates: Requirements 23.9**
+  - Generate random system startup scenarios
+  - Verify initialization completes within 5 seconds
+  - Test startup performance under various conditions
+  - _Requirements: 23.9_
+
+- [ ] 32.7 Implement Property 55: Shutdown Performance
+  - **Property 55: Shutdown Performance**
+  - **Validates: Requirements 23.10**
+  - Generate random system shutdown scenarios
+  - Verify graceful shutdown completes within 10 seconds
+  - Test shutdown performance under load
+  - _Requirements: 23.10_
+
+---
+
+## Phase 20: Resource Management Property-Based Tests
+
+- [ ] 33. Implement resource management property-based tests
+- [ ] 33.1 Implement Property 56: Cache Size Enforcement
+  - **Property 56: Cache Size Enforcement**
+  - **Validates: Requirements 24.1**
+  - Create `internal/resources/resource_property_test.go`
+  - Generate random cache configuration scenarios
+  - Verify cache size limits are enforced
+  - Test cache eviction and size management
+  - _Requirements: 24.1_
+
+- [ ] 33.2 Implement Property 57: File Descriptor Limits
+  - **Property 57: File Descriptor Limits**
+  - **Validates: Requirements 24.4**
+  - Generate random file descriptor usage scenarios
+  - Verify file descriptor count stays below 1000
+  - Test resource cleanup and leak prevention
+  - _Requirements: 24.4_
+
+- [ ] 33.3 Implement Property 58: Worker Thread Limits
+  - **Property 58: Worker Thread Limits**
+  - **Validates: Requirements 24.5**
+  - Generate random worker thread spawning scenarios
+  - Verify worker count respects configured limits
+  - Test thread pool management and cleanup
+  - _Requirements: 24.5_
+
+---
+
+## Phase 21: Audit and Compliance Property-Based Tests
+
+- [ ] 34. Implement audit and compliance property-based tests
+- [ ] 34.1 Implement Property 59: File Operation Audit Logging
+  - **Property 59: File Operation Audit Logging**
+  - **Validates: Requirements 25.1**
+  - Create `internal/audit/audit_property_test.go`
+  - Generate random file operation scenarios
+  - Verify audit logs are created with timestamps
+  - Test log completeness and accuracy
+  - _Requirements: 25.1_
+
+- [ ] 34.2 Implement Property 60: Authentication Event Audit Logging
+  - **Property 60: Authentication Event Audit Logging**
+  - **Validates: Requirements 25.2**
+  - Generate random authentication event scenarios
+  - Verify authentication events are logged appropriately
+  - Test audit trail integrity and security
+  - _Requirements: 25.2_
+
+---
+
+## Phase 22: Concurrency and Lock Management Property-Based Tests
+
+- [ ] 35. Implement concurrency and lock management property-based tests
+- [ ] 35.1 Implement Property 61: Lock Ordering Compliance
+  - **Property 61: Lock Ordering Compliance**
+  - **Validates: Concurrency Design Requirements**
+  - Create `internal/concurrency/lock_property_test.go`
+  - Generate random sequences of lock acquisitions
+  - Verify locks are acquired in defined order
+  - Test with various concurrent scenarios
+  - _Requirements: Concurrency Design_
+
+- [ ] 35.2 Implement Property 62: Deadlock Prevention
+  - **Property 62: Deadlock Prevention**
+  - **Validates: Concurrency Design Requirements**
+  - Generate random concurrent operation scenarios
+  - Verify no deadlocks occur when following lock ordering
+  - Test with high concurrency and stress conditions
+  - _Requirements: Concurrency Design_
+
+- [ ] 35.3 Implement Property 63: Lock Release Consistency
+  - **Property 63: Lock Release Consistency**
+  - **Validates: Concurrency Design Requirements**
+  - Generate random lock acquisition scenarios with errors
+  - Verify locks are released in reverse order (LIFO)
+  - Test error handling and cleanup paths
+  - _Requirements: Concurrency Design_
+
+- [ ] 35.4 Implement Property 64: Concurrent File Access Safety
+  - **Property 64: Concurrent File Access Safety**
+  - **Validates: Concurrency Design Requirements**
+  - Generate random concurrent file operations on different inodes
+  - Verify operations complete safely without race conditions
+  - Test with race detector enabled
+  - _Requirements: Concurrency Design_
+
+- [ ] 35.5 Implement Property 65: State Transition Atomicity
+  - **Property 65: State Transition Atomicity**
+  - **Validates: State Machine Design Requirements**
+  - Generate random item state transition scenarios
+  - Verify transitions complete atomically
+  - Test for intermediate inconsistent states
+  - _Requirements: State Machine Design_
+
+---
+
+## Phase 23: Final Verification
+
+- [ ] 36. Run complete test suite in Docker
   - Build latest test images: `docker compose -f docker/compose/docker-compose.build.yml build`
   - Run all unit tests: `docker compose -f docker/compose/docker-compose.test.yml run unit-tests`
   - Run all integration tests: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
@@ -1346,7 +1920,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Document any remaining failures
   - _Requirements: All core requirements_
 
-- [ ] 31. Perform manual verification in Docker
+- [ ] 37. Perform manual verification in Docker
   - Use interactive shell: `docker compose -f docker/compose/docker-compose.test.yml run shell`
   - Follow user workflows manually within container
   - Test mounting and file operations
@@ -1356,7 +1930,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Document any issues found during manual testing
   - _Requirements: All core requirements_
 
-- [ ] 32. Performance verification
+- [ ] 38. Performance verification
   - Run performance benchmarks
   - Test with Socket.IO realtime (30min polling fallback)
   - Test polling-only mode (5min polling)
@@ -1365,7 +1939,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Check resource usage is reasonable
   - _Requirements: Performance requirements_
 
-- [ ] 33. Create verification report
+- [ ] 39. Create verification report
   - Summarize all verification activities
   - List all issues found and fixed
   - Document Socket.IO realtime behavior
@@ -1375,7 +1949,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Provide recommendations for future work
   - _Requirements: All core requirements_
 
-- [ ] 34. Final documentation review
+- [ ] 40. Final documentation review
   - Review all updated documentation
   - Ensure Socket.IO realtime documentation is complete
   - Ensure ETag validation is documented
@@ -1411,7 +1985,245 @@ This implementation plan breaks down the verification and fix process into discr
 ### 📊 **ACTUAL PROGRESS**
 - **Core Functionality**: ~95% complete
 - **Verification**: ~85% complete  
-- **Documentation**: ~75% complete
+- **Documentation**: ~80% complete (enhanced with concurrency guidelines)
 - **Ready for Release**: After completing Phase 10 and final verification
 
 The project is much closer to completion than originally indicated!
+
+---
+
+## ENHANCED SPECIFICATION IMPROVEMENTS ✅ COMPLETE
+
+**STATUS**: ✅ **ALL MEDIUM PRIORITY IMPROVEMENTS IMPLEMENTED**
+
+### ✅ **Completed Enhancements:**
+
+**✅ Requirement Granularity**:
+- Split Requirement 2 (Filesystem Mounting) into 5 focused requirements (2, 2A, 2B, 2C, 2D)
+- Split Requirement 3 (On-Demand Download) into 4 focused requirements (3, 3A, 3B, 3C)
+- Each requirement now has 2-6 acceptance criteria instead of 16-23
+- Improved testability and traceability
+
+**✅ State Machine Diagrams**:
+- Added comprehensive Mermaid state transition diagram
+- Documented all valid and invalid state transitions
+- Added trigger conditions and error handling rules
+- Included system invariants and recovery procedures
+
+**✅ Concurrency Documentation**:
+- Added formal lock ordering policy (6-level hierarchy)
+- Documented deadlock prevention strategies
+- Added lock granularity guidelines
+- Included race condition prevention patterns
+- Added performance considerations and monitoring
+
+**✅ Enhanced Property-Based Testing**:
+- Added 5 new correctness properties for concurrency (Properties 61-65)
+- Added Phase 22 for concurrency property-based tests
+- Updated existing property references to match granular requirements
+
+---
+
+## PROPERTY-BASED TEST IMPLEMENTATION TASKS ✅ COMPLETE
+
+**STATUS**: ✅ **ALL PROPERTY-BASED TEST TASKS HAVE BEEN ADDED**
+
+All 65 correctness properties from the design document have been implemented as property-based test tasks in their respective phases:
+
+### ✅ **Completed Property-Based Test Task Additions:**
+
+**✅ Authentication Properties (Phase 3)**:
+- ✅ Property 1: OAuth2 Token Storage Security (Requirements 1.2)
+- ✅ Property 2: Automatic Token Refresh (Requirements 1.3)
+- ✅ Property 3: Re-authentication on Refresh Failure (Requirements 1.4)
+- ✅ Property 4: Headless Authentication Method (Requirements 1.5)
+
+**✅ Filesystem Mounting Properties (Phase 4)**:
+- ✅ Property 5: FUSE Mount Success (Requirements 2.1)
+- ✅ Property 6: Non-blocking Initial Sync (Requirements 2.2)
+- ✅ Property 7: Root Directory Visibility (Requirements 2.3)
+- ✅ Property 8: Standard File Operations Support (Requirements 2.4)
+- ✅ Property 9: Mount Conflict Error Handling (Requirements 2.8)
+- ✅ Property 10: Clean Resource Release (Requirements 2.9)
+
+**✅ File Access Properties (Phase 5)**:
+- ✅ Property 11: Metadata-Only Directory Listing (Requirements 3.1)
+- ✅ Property 12: On-Demand Content Download (Requirements 3.2)
+- ✅ Property 13: ETag Cache Validation (Requirements 3.4)
+- ✅ Property 14: Cache Hit Serving (Requirements 3.5)
+- ✅ Property 15: Cache Invalidation on ETag Mismatch (Requirements 3.6)
+
+**✅ File Modification Properties (Phase 5)**:
+- ✅ Property 16: Local Change Tracking (Requirements 4.1)
+- ✅ Property 17: Upload Queuing (Requirements 4.2)
+- ✅ Property 18: ETag Update After Upload (Requirements 4.7)
+- ✅ Property 19: Modified Flag Cleanup (Requirements 4.8)
+
+**✅ Delta Synchronization Properties (Phase 8)**:
+- ✅ Property 20: Initial Delta Sync (Requirements 5.1)
+- ✅ Property 21: Metadata Cache Updates (Requirements 5.8)
+- ✅ Property 22: Conflict Copy Creation (Requirements 5.11)
+- ✅ Property 23: Delta Token Persistence (Requirements 5.12)
+
+**✅ Offline Mode Properties (Phase 10)**:
+- ✅ Property 24: Offline Detection (Requirements 6.1)
+- ✅ Property 25: Offline Read Access (Requirements 6.4)
+- ✅ Property 26: Offline Write Queuing (Requirements 6.5)
+- ✅ Property 27: Batch Upload Processing (Requirements 6.10)
+
+**✅ Cache Management Properties (Phase 9)**:
+- ✅ Property 28: ETag-Based Cache Storage (Requirements 7.1)
+- ✅ Property 29: Cache Invalidation on Remote ETag Change (Requirements 7.3)
+
+**✅ Conflict Resolution Properties (Phase 8)**:
+- ✅ Property 30: ETag-Based Conflict Detection (Requirements 8.1)
+- ✅ Property 31: Local Version Preservation (Requirements 8.4)
+- ✅ Property 32: Conflict Copy Creation with Timestamp (Requirements 8.5)
+
+**✅ Concurrency Properties (Phase 13)**:
+- ✅ Property 33: Safe Concurrent File Access (Requirements 10.1)
+- ✅ Property 34: Non-blocking Downloads (Requirements 10.2)
+
+**✅ Error Handling Properties (Phase 12)**:
+- ✅ Property 35: Network Error Logging (Requirements 11.1)
+- ✅ Property 36: Rate Limit Backoff (Requirements 11.2)
+
+**✅ Configuration Properties (Phase 15)**:
+- ✅ Property 37: XDG Configuration Directory Usage (Requirements 15.1)
+- ✅ Property 38: Token Storage Location (Requirements 15.7)
+- ✅ Property 39: Cache Storage Location (Requirements 15.8)
+
+**✅ State Management Properties (Phase 17)**:
+- ✅ Property 40: Initial Item State (Requirements 21.2)
+- ✅ Property 41: Successful Hydration State Transition (Requirements 21.4)
+- ✅ Property 42: Local Modification State Transition (Requirements 21.6)
+
+**✅ Security Properties (Phase 18)**:
+- ✅ Property 43: Token Encryption at Rest (Requirements 22.1)
+- ✅ Property 44: Token File Permissions (Requirements 22.2)
+- ✅ Property 45: Secure Token Storage Location (Requirements 22.3)
+- ✅ Property 46: HTTPS/TLS Communication (Requirements 22.4)
+- ✅ Property 47: Sensitive Data Logging Prevention (Requirements 22.6)
+- ✅ Property 48: Cache File Security (Requirements 22.8)
+
+**✅ Performance Properties (Phase 19)**:
+- ✅ Property 49: Directory Listing Performance (Requirements 23.1)
+- ✅ Property 50: Cached File Access Performance (Requirements 23.2)
+- ✅ Property 51: Idle Memory Usage (Requirements 23.3)
+- ✅ Property 52: Active Sync Memory Usage (Requirements 23.4)
+- ✅ Property 53: Concurrent Operations Performance (Requirements 23.7)
+- ✅ Property 54: Startup Performance (Requirements 23.9)
+- ✅ Property 55: Shutdown Performance (Requirements 23.10)
+
+**✅ Resource Management Properties (Phase 20)**:
+- ✅ Property 56: Cache Size Enforcement (Requirements 24.1)
+- ✅ Property 57: File Descriptor Limits (Requirements 24.4)
+- ✅ Property 58: Worker Thread Limits (Requirements 24.5)
+
+**✅ Audit and Compliance Properties (Phase 21)**:
+- ✅ Property 59: File Operation Audit Logging (Requirements 25.1)
+- ✅ Property 60: Authentication Event Audit Logging (Requirements 25.2)
+
+**✅ Concurrency and Lock Management Properties (Phase 22)**:
+- ✅ Property 61: Lock Ordering Compliance (Concurrency Design)
+- ✅ Property 62: Deadlock Prevention (Concurrency Design)
+- ✅ Property 63: Lock Release Consistency (Concurrency Design)
+- ✅ Property 64: Concurrent File Access Safety (Concurrency Design)
+- ✅ Property 65: State Transition Atomicity (State Machine Design)
+
+**TOTAL**: 65 correctness properties across 23 phases, each with dedicated property-based test implementation tasks.
+
+The specification now provides comprehensive coverage of all functional, security, performance, and concurrency requirements with formal correctness properties and a complete implementation plan.irements 3.2)
+- ✅ Property 13: ETag Cache Validation (Requirements 3.4)
+- ✅ Property 14: Cache Hit Serving (Requirements 3.5)
+- ✅ Property 15: Cache Invalidation on ETag Mismatch (Requirements 3.6)
+
+**✅ File Modification Properties (Phase 5)**:
+- ✅ Property 16: Local Change Tracking (Requirements 4.1)
+- ✅ Property 17: Upload Queuing (Requirements 4.2)
+- ✅ Property 18: ETag Update After Upload (Requirements 4.7)
+- ✅ Property 19: Modified Flag Cleanup (Requirements 4.8)
+
+**✅ Delta Synchronization Properties (Phase 8)**:
+- ✅ Property 20: Initial Delta Sync (Requirements 5.1)
+- ✅ Property 21: Metadata Cache Updates (Requirements 5.8)
+- ✅ Property 22: Conflict Copy Creation (Requirements 5.11)
+- ✅ Property 23: Delta Token Persistence (Requirements 5.12)
+
+**✅ Conflict Resolution Properties (Phase 8)**:
+- ✅ Property 30: ETag-Based Conflict Detection (Requirements 8.1)
+- ✅ Property 31: Local Version Preservation (Requirements 8.4)
+- ✅ Property 32: Conflict Copy Creation with Timestamp (Requirements 8.5)
+
+**✅ Cache Management Properties (Phase 9)**:
+- ✅ Property 28: ETag-Based Cache Storage (Requirements 7.1)
+- ✅ Property 29: Cache Invalidation on Remote ETag Change (Requirements 7.3)
+
+**✅ Offline Mode Properties (Phase 10)**:
+- ✅ Property 24: Offline Detection (Requirements 6.1)
+- ✅ Property 25: Offline Read Access (Requirements 6.4)
+- ✅ Property 26: Offline Write Queuing (Requirements 6.5)
+- ✅ Property 27: Batch Upload Processing (Requirements 6.10)
+
+**✅ Error Handling Properties (Phase 12)**:
+- ✅ Property 35: Network Error Logging (Requirements 11.1)
+- ✅ Property 36: Rate Limit Backoff (Requirements 11.2)
+
+**✅ Concurrency Properties (Phase 13)**:
+- ✅ Property 33: Safe Concurrent File Access (Requirements 10.1)
+- ✅ Property 34: Non-blocking Downloads (Requirements 10.2)
+
+**✅ Configuration Properties (Phase 15)**:
+- ✅ Property 37: XDG Configuration Directory Usage (Requirements 15.1)
+- ✅ Property 38: Token Storage Location (Requirements 15.7)
+- ✅ Property 39: Cache Storage Location (Requirements 15.8)
+
+**✅ State Management Properties (Phase 17)**:
+- ✅ Property 40: Initial Item State (Requirements 21.2)
+- ✅ Property 41: Successful Hydration State Transition (Requirements 21.4)
+- ✅ Property 42: Local Modification State Transition (Requirements 21.6)
+
+**✅ Security Properties (Phase 18)**:
+- ✅ Property 43: Token Encryption at Rest (Requirements 22.1)
+- ✅ Property 44: Token File Permissions (Requirements 22.2)
+- ✅ Property 45: Secure Token Storage Location (Requirements 22.3)
+- ✅ Property 46: HTTPS/TLS Communication (Requirements 22.4)
+- ✅ Property 47: Sensitive Data Logging Prevention (Requirements 22.6)
+- ✅ Property 48: Cache File Security (Requirements 22.8)
+
+**✅ Performance Properties (Phase 19)**:
+- ✅ Property 49: Directory Listing Performance (Requirements 23.1)
+- ✅ Property 50: Cached File Access Performance (Requirements 23.2)
+- ✅ Property 51: Idle Memory Usage (Requirements 23.3)
+- ✅ Property 52: Active Sync Memory Usage (Requirements 23.4)
+- ✅ Property 53: Concurrent Operations Performance (Requirements 23.7)
+- ✅ Property 54: Startup Performance (Requirements 23.9)
+- ✅ Property 55: Shutdown Performance (Requirements 23.10)
+
+**✅ Resource Management Properties (Phase 20)**:
+- ✅ Property 56: Cache Size Enforcement (Requirements 24.1)
+- ✅ Property 57: File Descriptor Limits (Requirements 24.4)
+- ✅ Property 58: Worker Thread Limits (Requirements 24.5)
+
+**✅ Audit and Compliance Properties (Phase 21)**:
+- ✅ Property 59: File Operation Audit Logging (Requirements 25.1)
+- ✅ Property 60: Authentication Event Audit Logging (Requirements 25.2)
+
+### 📋 **Property-Based Test Implementation Guidelines:**
+
+1. **File Naming**: Use `*_property_test.go` for property test files
+2. **Test Annotation**: Each test must include the exact comment format:
+   `// **Feature: system-verification-and-fix, Property {number}: {property_text}**`
+3. **Library**: Use Go's `testing/quick` package or `github.com/leanovate/gopter`
+4. **Iterations**: Minimum 100 iterations per property test
+5. **Organization**: Group by component (auth, filesystem, cache, etc.)
+6. **Integration**: Run as part of integration test suite in Docker
+
+### 🎯 **Implementation Priority:**
+1. **HIGH**: Properties 1-19 (Authentication, Mounting, File Operations) - Core functionality
+2. **MEDIUM**: Properties 20-32 (Delta Sync, Offline, Cache, Conflicts) - Advanced features  
+3. **MEDIUM**: Properties 43-48 (Security) - Critical security requirements
+4. **LOW**: Properties 33-42 (Concurrency, Error Handling, Configuration, State) - System robustness
+5. **LOW**: Properties 49-60 (Performance, Resource Management, Audit) - Quality and compliance
+
+**✅ RESULT**: The spec is now **FULLY COMPLIANT** with the property-based testing workflow requirements.
