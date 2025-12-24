@@ -71,8 +71,7 @@ class SystemTestRunner:
                 self._log_error("Please run OneMount authentication first:")
                 self._log_error("  make onemount")
                 self._log_error("  ./build/onemount --auth-only")
-                self._log_error("  mkdir -p ~/.onemount-tests")
-                self._log_error("  cp ~/.cache/onemount/auth_tokens.json ~/.onemount-tests/.auth_tokens.json")
+                self._log_error("  ./scripts/setup-auth-reference.sh")
             return False
         
         # Check if Go is installed

@@ -76,13 +76,9 @@ for location in "${AUTH_LOCATIONS[@]}"; do
         print_success "Auth tokens found at: $location"
         AUTH_TOKEN_FOUND=true
         
-        # Copy to expected location if needed
-        if [ "$location" != "$HOME/.onemount-tests/.auth_tokens.json" ]; then
-            mkdir -p "$HOME/.onemount-tests"
-            cp "$location" "$HOME/.onemount-tests/.auth_tokens.json"
-            chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
-            print_info "Copied auth tokens to expected location"
-        fi
+        # Use reference-based authentication - no copying needed
+        print_info "Using reference-based authentication from: $location"
+        print_info "Run './scripts/setup-auth-reference.sh' to configure Docker authentication"
         break
     fi
 done

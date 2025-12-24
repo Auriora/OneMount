@@ -550,22 +550,18 @@ class DockerTestRunner:
                 "--tmpfs", "/tmp/home-tester/.cache:rw,noexec,nosuid,size=512m"
             ])
 
-            # Copy auth tokens to test-artifacts if available (ONLY for testing, NOT production tokens)
+            # Use reference-based authentication (no copying)
             if self.auth_tokens_path.exists():
-                test_artifacts_dir = self.paths['project_root'] / "test-artifacts"
-                test_artifacts_dir.mkdir(exist_ok=True)
-                auth_tokens_dest = test_artifacts_dir / ".auth_tokens.json"
-
-                # Ensure we're not accidentally using production tokens
-                if str(self.auth_tokens_path) == str(Path.home() / ".cache/onemount/auth_tokens.json"):
-                    self._log_warning("WARNING: Using production auth tokens for testing!")
-                    self._log_warning("Consider using dedicated test tokens at ~/.onemount-tests/.auth_tokens.json")
-
-                if not auth_tokens_dest.exists():
-                    import shutil
-                    shutil.copy2(self.auth_tokens_path, auth_tokens_dest)
-                    self._log_info(f"Copied auth tokens to {auth_tokens_dest}")
-                    self._log_info("NOTE: Use dedicated test OneDrive account, not production!")
+                self._log_info(f"Using reference-based authentication from: {self.auth_tokens_path}")
+                self._log_info("NOTE: Use dedicated test OneDrive account, not production!")
+                
+                # Check if auth reference system is set up
+                auth_override_file = self.paths['project_root'] / "docker/compose/docker-compose.auth.yml"
+                if not auth_override_file.exists():
+                    self._log_warning("Authentication reference system not configured!")
+                    self._log_warning("Run: ./scripts/setup-auth-reference.sh")
+                else:
+                    self._log_info("✅ Authentication reference system configured")
 
             # FUSE support for filesystem testing
             cmd.extend([
@@ -701,25 +697,14 @@ class DockerTestRunner:
             if test_artifacts_dir.exists():
                 self._log_info("Cleaning up test artifacts...")
 
-                # Preserve auth tokens if they exist
-                auth_tokens_file = test_artifacts_dir / ".auth_tokens.json"
-                auth_tokens_backup = None
-
-                if auth_tokens_file.exists() and auth_tokens_file.is_file():
-                    import tempfile
-                    auth_tokens_backup = tempfile.NamedTemporaryFile(delete=False)
-                    shutil.copy2(auth_tokens_file, auth_tokens_backup.name)
-                    self._log_info("Backing up auth tokens during cleanup")
+                # With reference-based auth, no need to backup/restore tokens
+                # The auth system references tokens from their canonical location
+                self._log_info("Using reference-based authentication - no token backup needed")
 
                 # Remove test artifacts directory
                 shutil.rmtree(test_artifacts_dir)
 
-                # Restore auth tokens if they were backed up
-                if auth_tokens_backup:
-                    test_artifacts_dir.mkdir(exist_ok=True)
-                    shutil.copy2(auth_tokens_backup.name, auth_tokens_file)
-                    os.unlink(auth_tokens_backup.name)
-                    self._log_info("Restored auth tokens after cleanup")
+                self._log_info("Test artifacts cleaned up (auth tokens remain in canonical location)")
             
             self._log_success("Docker cleanup complete")
             return True
@@ -776,12 +761,12 @@ class DockerTestRunner:
         console.print("2. Authenticate with your [red]TEST[/red] OneDrive account (NOT production):")
         console.print("   [yellow]./build/onemount --auth-only[/yellow]")
         console.print()
-        console.print("3. Create test directory and copy tokens:")
-        console.print("   [yellow]mkdir -p ~/.onemount-tests[/yellow]")
-        console.print("   [yellow]cp ~/.cache/onemount/auth_tokens.json ~/.onemount-tests/.auth_tokens.json[/yellow]")
+        console.print("3. Set up reference-based authentication:")
+        console.print("   [yellow]./scripts/setup-auth-reference.sh[/yellow]")
         console.print()
-        console.print("4. Verify the tokens file exists:")
-        console.print("   [yellow]ls -la ~/.onemount-tests/.auth_tokens.json[/yellow]")
+        console.print("4. Verify the authentication reference is configured:")
+        console.print("   [yellow]ls -la docker/compose/docker-compose.auth.yml[/yellow]")
+        console.print("   [yellow]cat .env.auth[/yellow]")
         console.print()
         console.print("5. Now you can run system tests:")
         console.print("   [yellow]dev.py test docker system[/yellow]")
@@ -793,6 +778,7 @@ class DockerTestRunner:
         console.print()
         console.print("[yellow]Important Notes:[/yellow]")
         console.print("- Use a dedicated test OneDrive account, not your production account")
+        console.print("- Reference-based auth avoids copying tokens - they stay in canonical location")
         console.print("- The auth tokens file will be mounted into the Docker container")
         console.print("- System tests create and delete files in /onemount_system_tests/ on OneDrive")
         console.print("- Production tokens should NEVER be used for testing")

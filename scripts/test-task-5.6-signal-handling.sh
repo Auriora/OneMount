@@ -67,11 +67,7 @@ AUTH_LOCATIONS=(
 for location in "${AUTH_LOCATIONS[@]}"; do
     if [ -f "$location" ]; then
         AUTH_TOKEN_FOUND=true
-        if [ "$location" != "$HOME/.onemount-tests/.auth_tokens.json" ]; then
-            mkdir -p "$HOME/.onemount-tests"
-            cp "$location" "$HOME/.onemount-tests/.auth_tokens.json"
-            chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
-        fi
+        print_info "Using reference-based authentication from: $location"
         break
     fi
 done
