@@ -2,41 +2,75 @@
 
 ## Overview
 
-This document describes the test environment setup for OneMount, including Docker configuration, authentication, and test data.
+This document describes the test environment setup for OneMount, including Docker configuration, reference-based authentication, and test data.
 
-## Test Credentials
+## Authentication Reference System
 
-### Authentication Tokens
+### Reference-Based Authentication (NEW)
 
-Authentication tokens for system tests are stored in `test-artifacts/.auth_tokens.json`. This file contains:
+**CRITICAL**: OneMount now uses a reference-based authentication system that eliminates token copying and symlinking.
 
-- `access_token`: OAuth2 access token for OneDrive API
-- `refresh_token`: OAuth2 refresh token for token renewal
-- `expires_at`: Token expiration timestamp
-- `config`: Configuration details
-- `account`: Account information
+#### Setup Process
 
-**SECURITY WARNING**: 
-- Use a dedicated test OneDrive account, NOT your production account
-- Never commit production credentials to version control
-- The `.auth_tokens.json` file is in `.gitignore` to prevent accidental commits
-- Tokens should be refreshed regularly to ensure tests can run
+```bash
+# 1. Authenticate with OneMount (creates tokens in canonical location)
+./build/onemount --auth-only
+
+# 2. Set up authentication reference system
+./scripts/setup-auth-reference.sh
+
+# This creates:
+# - docker/compose/docker-compose.auth.yml (Docker override)
+# - .env.auth (environment configuration)
+# - Direct reference to canonical token location (no copying)
+```
+
+#### How It Works
+
+1. **Canonical Location**: Tokens remain in their original location (e.g., `~/.cache/onedriver/*/auth_tokens.json`)
+2. **Reference Configuration**: `setup-auth-reference.sh` finds the newest valid tokens and creates reference configuration
+3. **Docker Integration**: `docker-compose.auth.yml` mounts the canonical location into containers
+4. **Automatic Updates**: When tokens are refreshed, just run `setup-auth-reference.sh` again
+
+#### Key Benefits
+
+- ✅ **Single source of truth**: Tokens stay in canonical location
+- ✅ **No duplication**: No copying or symlinking required  
+- ✅ **Automatic updates**: Refreshed tokens are immediately available
+- ✅ **Container isolation**: Docker mounts reference location read-only
 
 ### Token Validation
 
-To verify tokens are valid:
+To verify the reference system is working:
 
 ```bash
-python3 -c "import json; data = json.load(open('test-artifacts/.auth_tokens.json')); print('Valid JSON'); print('Keys:', list(data.keys()))"
+# Check if reference system is configured
+ls -la docker/compose/docker-compose.auth.yml
+cat .env.auth
+
+# Test authentication in Docker container
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm test-runner \
+  bash -c "ls -la \$ONEMOUNT_AUTH_PATH && echo 'Auth reference working'"
 ```
 
 ### Token Refresh
 
-If tokens are expired, you'll need to re-authenticate:
+When tokens expire, refresh them and update the reference:
 
-1. Run OneMount with authentication: `./build/onemount --auth`
-2. Complete the OAuth2 flow
-3. Copy the new tokens to `test-artifacts/.auth_tokens.json`
+```bash
+# 1. Re-authenticate (creates new tokens in canonical location)
+./build/onemount --auth-only
+
+# 2. Update reference system to point to new tokens
+./scripts/setup-auth-reference.sh
+
+# The reference system automatically finds the newest valid tokens
+```
+
+### Legacy Authentication (DEPRECATED)
+
+**WARNING**: The old system of copying tokens to `test-artifacts/.auth_tokens.json` is deprecated and should not be used. Use the reference-based system instead.
 
 ## Test Data
 
@@ -92,30 +126,48 @@ Two Docker images are used for testing:
 ### Building Images
 
 ```bash
-# Build base image
-docker compose -f docker/compose/docker-compose.build.yml build base-build
-
-# Build test runner
-docker compose -f docker/compose/docker-compose.build.yml build test-runner-build
+# Build test runner (includes latest authentication system)
+./docker/scripts/build-images.sh test-runner
 ```
 
 ### Running Tests
 
+**IMPORTANT**: Always include the authentication override for integration/system tests:
+
 ```bash
-# Unit tests (no FUSE required)
+# Unit tests (no authentication required)
 docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests
 
-# Integration tests (requires FUSE)
-docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests
+# Integration tests (requires FUSE and authentication)
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm integration-tests
 
-# System tests (requires auth tokens)
-docker compose -f docker/compose/docker-compose.test.yml run --rm system-tests
+# System tests (requires authentication)
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm system-tests
 
-# All tests
-docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner all
+# All tests with authentication
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm test-runner all
 
 # Interactive shell for debugging
-docker compose -f docker/compose/docker-compose.test.yml run --rm shell
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm shell
+```
+
+### Timeout Protection for Hanging Tests
+
+**CRITICAL**: Some FUSE filesystem tests may hang indefinitely. Use timeout protection:
+
+```bash
+# Use timeout wrapper for potentially hanging tests
+./scripts/timeout-test-wrapper.sh "TestIT_FS_ETag_01_CacheValidationWithTimeoutFix" 60
+
+# The wrapper provides:
+# - Hard timeout enforcement (kills hanging processes)
+# - Progress monitoring with heartbeat  
+# - Container cleanup
+# - Detailed logging to test-artifacts/debug/
 ```
 
 ### Environment Validation
@@ -126,45 +178,78 @@ The Docker test environment provides:
 - **Go environment**: Go 1.24.2 installed and configured
 - **Python environment**: Python 3.12.3 with required packages
 - **Workspace mounting**: Project source mounted at `/workspace`
+- **Authentication reference**: Canonical tokens mounted via reference system
 - **Test artifacts**: Output directory at `/tmp/home-tester/.onemount-tests`
 
 Validation commands:
 
 ```bash
 # Check FUSE device
-docker compose -f docker/compose/docker-compose.test.yml run --rm --entrypoint /bin/bash shell -c "ls -l /dev/fuse"
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell \
+  bash -c "ls -l /dev/fuse"
+
+# Check authentication reference system
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm shell \
+  bash -c "ls -la \$ONEMOUNT_AUTH_PATH && echo 'Auth: OK'"
 
 # Check Go version
-docker compose -f docker/compose/docker-compose.test.yml run --rm --entrypoint /bin/bash shell -c "go version"
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell \
+  bash -c "go version"
 
-# Check Python version
-docker compose -f docker/compose/docker-compose.test.yml run --rm --entrypoint /bin/bash shell -c "python3 --version"
+# Check Python version  
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell \
+  bash -c "python3 --version"
 
 # Check workspace
-docker compose -f docker/compose/docker-compose.test.yml run --rm --entrypoint /bin/bash shell -c "ls -la /workspace"
-
-# Check test artifacts directory
-docker compose -f docker/compose/docker-compose.test.yml run --rm --entrypoint /bin/bash shell -c "ls -la /tmp/home-tester/.onemount-tests"
+docker compose -f docker/compose/docker-compose.test.yml run --rm shell \
+  bash -c "ls -la /workspace"
 ```
 
 ## Test Artifacts
 
 Test artifacts are stored in `test-artifacts/` directory:
 
-- `.auth_tokens.json`: Authentication tokens (gitignored)
+- `debug/`: Timeout wrapper logs and debugging information
 - `logs/`: Test execution logs
 - `system-test-data/`: System test data and cache
 - `tmp/`: Temporary files created during tests
 
+**Note**: Authentication tokens are no longer stored in `test-artifacts/`. They remain in their canonical location and are referenced via the authentication reference system.
+
 ## Troubleshooting
 
-### Auth Token Issues
+### Authentication Reference Issues
 
 If system tests fail with authentication errors:
 
-1. Check token expiration: `python3 -c "import json, time; data = json.load(open('test-artifacts/.auth_tokens.json')); print('Expired' if data['expires_at'] < time.time() else 'Valid')"`
-2. Refresh tokens by re-authenticating
-3. Verify token file permissions: `ls -l test-artifacts/.auth_tokens.json` (should be 600)
+1. **Check reference system setup**:
+   ```bash
+   # Verify reference files exist
+   ls -la docker/compose/docker-compose.auth.yml .env.auth
+   
+   # Check environment configuration
+   cat .env.auth
+   ```
+
+2. **Verify canonical tokens exist and are valid**:
+   ```bash
+   # Check if setup script can find tokens
+   ./scripts/setup-auth-reference.sh
+   ```
+
+3. **Test authentication in container**:
+   ```bash
+   docker compose -f docker/compose/docker-compose.test.yml \
+     -f docker/compose/docker-compose.auth.yml run --rm shell \
+     bash -c "ls -la \$ONEMOUNT_AUTH_PATH"
+   ```
+
+4. **Re-authenticate if tokens are expired**:
+   ```bash
+   ./build/onemount --auth-only
+   ./scripts/setup-auth-reference.sh
+   ```
 
 ### Docker Issues
 
@@ -172,7 +257,17 @@ If Docker tests fail:
 
 1. Verify FUSE device is available: `ls -l /dev/fuse`
 2. Check Docker has necessary capabilities: `--device=/dev/fuse --cap-add=SYS_ADMIN`
-3. Rebuild images if dependencies changed: `docker compose -f docker/compose/docker-compose.build.yml build --no-cache`
+3. Rebuild images if dependencies changed: `./docker/scripts/build-images.sh test-runner`
+4. Verify authentication reference system: `./scripts/setup-auth-reference.sh`
+
+### Hanging Tests
+
+If tests hang indefinitely:
+
+1. **Use timeout wrapper**: `./scripts/timeout-test-wrapper.sh "TestPattern" 60`
+2. **Check for FUSE deadlocks**: Look for goroutine dumps in logs
+3. **Verify authentication**: Expired tokens can cause hangs during initialization
+4. **Interactive debugging**: Use shell service to investigate manually
 
 ### Network Issues
 
