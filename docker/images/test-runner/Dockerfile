@@ -26,12 +26,77 @@ RUN apt-get update && apt-get install -y \
     less \
     # JSON processing for auth tokens
     jq \
+    # GUI and webkit dependencies for authentication
+    libwebkit2gtk-4.1-dev \
+    libgtk-3-dev \
+    libgtk-3-0 \
+    pkg-config \
+    dbus \
+    dbus-user-session \
+    # X11 and display dependencies
+    libx11-6 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxinerama1 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    xauth \
+    x11-apps \
+    xdg-utils \
+    # Graphics and Mesa drivers for WebKit
+    mesa-utils \
+    libegl1-mesa-dev \
+    libgl1-mesa-dev \
+    libglu1-mesa \
+    libgl1-mesa-dri \
+    # Additional GUI runtime dependencies (matching devcontainer)
+    libasound2t64 \
+    libatk-bridge2.0-0t64 \
+    libatk1.0-0t64 \
+    libcairo2 \
+    libdbus-1-3 \
+    libfontconfig1 \
+    libfreetype6 \
+    libgdk-pixbuf-2.0-0 \
+    libglib2.0-0t64 \
+    libharfbuzz0b \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libsecret-1-0 \
+    # Additional packages from devcontainer for full GUI support
+    libgl1 \
+    libglu1-mesa \
+    libxkbcommon0 \
+    libxkbcommon-x11-0 \
+    libxv1 \
+    libxcb1 \
+    libxcb-render0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-shm0 \
+    libxcb-util1 \
+    libxcb-xfixes0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-xkb1 \
+    libxslt1.1 \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
 # Set Go environment for test user
 # Note: GOCACHE and GOMODCACHE are set dynamically in entrypoint to avoid permission issues
-ENV GOPATH="/home/tester/go"
+ENV GOPATH="/home/tester/go" \
+    GIO_USE_PORTALS=1 \
+    GTK_USE_PORTAL=1
 
 # Install Python dependencies for OneMount development CLI
 COPY scripts/requirements-dev-cli.txt /tmp/requirements-dev-cli.txt
@@ -75,25 +140,25 @@ USER root
 COPY docker/scripts/common.sh /usr/local/bin/common.sh
 COPY docker/scripts/test-entrypoint.sh /usr/local/bin/test-entrypoint.sh
 COPY docker/scripts/python-helper.sh /usr/local/bin/python-helper.sh
+COPY docker/scripts/host-open.sh /usr/local/bin/host-open
 
 RUN chmod +x /usr/local/bin/common.sh && \
     chmod +x /usr/local/bin/test-entrypoint.sh && \
-    chmod +x /usr/local/bin/python-helper.sh
+    chmod +x /usr/local/bin/python-helper.sh && \
+    chmod +x /usr/local/bin/host-open
 
 # Switch back to tester user
 USER tester
 
 # Pre-build OneMount binaries for faster test execution
-RUN bash scripts/cgo-helper.sh && \
+# First run CGO helper with CGO enabled to update webkit version in source
+RUN CGO_ENABLED=1 bash scripts/cgo-helper.sh && \
     mkdir -p build/binaries && \
-    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
+    CGO_ENABLED=0 go build -v \
         -o build/binaries/onemount \
         -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
         ./cmd/onemount && \
-    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
-        -o build/binaries/onemount-launcher \
-        -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
-        ./cmd/onemount-launcher
+    echo "Built onemount binary without CGO/GUI support for testing"
 
 # Default command
 ENTRYPOINT ["/usr/local/bin/test-entrypoint.sh"]

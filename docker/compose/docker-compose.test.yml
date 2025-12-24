@@ -30,6 +30,9 @@ services:
       # Cache Go build artifacts to speed up subsequent builds
       - go-build-cache:/tmp/go-build-cache:rw
       - go-mod-cache:/tmp/go-mod-cache:rw
+      # X11 forwarding for GUI applications
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/tmp/.Xauthority:ro
 
     # Enable FUSE support for filesystem testing
     devices:
@@ -65,6 +68,21 @@ services:
       - GORACE=log_path=fusefs_tests.race strip_path_prefix=1
       - GOGC=50
       - GOMEMLIMIT=2GiB
+      # X11 forwarding environment
+      - DISPLAY=${DISPLAY:-:0}
+      - XAUTHORITY=/tmp/.Xauthority
+      - XDG_RUNTIME_DIR=/tmp/runtime-tester
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/runtime-tester/bus
+      # Allow X11 access
+      - QT_X11_NO_MITSHM=1
+      - _X11_NO_MITSHM=1
+      - _MITSHM=0
+      # WebKit software rendering (disable hardware acceleration for Docker)
+      - WEBKIT_DISABLE_COMPOSITING_MODE=1
+      - LIBGL_ALWAYS_SOFTWARE=1
+      # Portal support for browser launching
+      - GIO_USE_PORTALS=1
+      - GTK_USE_PORTAL=1
 
     # Default command
     command: ["help"]

@@ -133,6 +133,9 @@ setup_environment() {
         print_info "FUSE device available for filesystem testing"
     fi
 
+    # Setup X11 for GUI applications
+    setup_x11
+
     # Setup auth tokens if available
     setup_auth_tokens
 
@@ -154,27 +157,124 @@ refresh_auth_tokens() {
     return 1
 }
 
+# Setup X11 function
+setup_x11() {
+    # Set up X11 forwarding for GUI applications
+    if [[ -n "$DISPLAY" ]]; then
+        print_info "Setting up X11 forwarding for GUI applications..."
+        
+        # Create runtime directory for D-Bus
+        export XDG_RUNTIME_DIR="/tmp/runtime-$(whoami)"
+        mkdir -p "$XDG_RUNTIME_DIR"
+        chmod 700 "$XDG_RUNTIME_DIR"
+        
+        # Set up D-Bus session
+        if command -v dbus-launch >/dev/null 2>&1; then
+            # Start D-Bus session if not already running
+            if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]]; then
+                eval $(dbus-launch --sh-syntax)
+                export DBUS_SESSION_BUS_ADDRESS
+                print_info "Started D-Bus session: $DBUS_SESSION_BUS_ADDRESS"
+            fi
+        fi
+        
+        # Allow X11 access for current user
+        if [[ -f "/tmp/.Xauthority" ]]; then
+            export XAUTHORITY="/tmp/.Xauthority"
+            print_info "Using X11 authority file: $XAUTHORITY"
+        fi
+        
+        # Test X11 connection
+        if command -v xauth >/dev/null 2>&1 && [[ -n "$XAUTHORITY" ]]; then
+            if xauth list >/dev/null 2>&1; then
+                print_success "X11 forwarding configured successfully"
+            else
+                print_warning "X11 authority file may have permission issues"
+            fi
+        fi
+        
+        # Set additional X11 environment variables to prevent issues
+        export QT_X11_NO_MITSHM=1
+        export _X11_NO_MITSHM=1
+        export _MITSHM=0
+        
+        print_info "X11 environment configured for display: $DISPLAY"
+    else
+        print_info "No DISPLAY set - GUI applications will not be available"
+    fi
+}
+
 # Setup auth tokens function
 setup_auth_tokens() {
     # Ensure test directories exist
     mkdir -p "$HOME/.onemount-tests/tmp"
     mkdir -p "$HOME/.onemount-tests/logs"
     
+    # Define canonical auth location
+    CANONICAL_AUTH_FILE="$HOME/.onemount-tests/.auth_tokens.json"
+    
+    # Check if canonical auth file exists and is valid
+    if [[ -f "$CANONICAL_AUTH_FILE" ]] && [[ -s "$CANONICAL_AUTH_FILE" ]]; then
+        print_info "Using canonical auth tokens from: $CANONICAL_AUTH_FILE"
+        
+        # Verify the tokens file is valid JSON
+        if command -v jq >/dev/null 2>&1; then
+            if jq empty "$CANONICAL_AUTH_FILE" 2>/dev/null; then
+                print_success "Auth tokens are valid JSON"
+
+                # Check token expiration if jq is available
+                EXPIRES_AT=$(jq -r '.expires_at // 0' "$CANONICAL_AUTH_FILE" 2>/dev/null || echo "0")
+                CURRENT_TIME=$(date +%s)
+
+                if [[ "$EXPIRES_AT" != "0" ]] && [[ "$EXPIRES_AT" -le "$CURRENT_TIME" ]]; then
+                    print_warning "Auth tokens appear to be expired"
+                    print_info "Attempting to refresh tokens..."
+                    
+                    # Try to refresh the tokens using a Go helper
+                    if refresh_auth_tokens "$CANONICAL_AUTH_FILE"; then
+                        print_success "Auth tokens refreshed successfully"
+                    else
+                        print_warning "Failed to refresh tokens - tests may fail"
+                        print_warning "You may need to re-authenticate manually"
+                    fi
+                else
+                    print_success "Auth tokens are valid"
+                fi
+            else
+                print_error "Invalid auth tokens format"
+                return 1
+            fi
+        else
+            print_success "Auth tokens found (JSON validation skipped - jq not available)"
+        fi
+        return 0
+    fi
+    
+    # If canonical file doesn't exist, look for tokens in other locations and link them
+    print_info "Canonical auth file not found, searching for tokens..."
+    
     # Check multiple possible locations for auth tokens
-    # Priority order: test-artifacts (most recent) > mounted home > workspace root (legacy)
+    # Priority order: mounted reference > test-artifacts > mounted cache > workspace root (legacy)
     local auth_tokens_file=""
 
-    # Check test-artifacts first (preferred location for Docker tests)
-    if [[ -f "/workspace/test-artifacts/.auth_tokens.json" ]]; then
+    # Check mounted reference location first (new reference-based system)
+    if [[ -n "$ONEMOUNT_AUTH_PATH" ]] && [[ -f "$ONEMOUNT_AUTH_PATH" ]]; then
+        auth_tokens_file="$ONEMOUNT_AUTH_PATH"
+        print_info "Auth tokens found via reference system: $ONEMOUNT_AUTH_PATH"
+    # Check test-artifacts (preferred location for Docker tests)
+    elif [[ -f "/workspace/test-artifacts/.auth_tokens.json" ]]; then
         auth_tokens_file="/workspace/test-artifacts/.auth_tokens.json"
         print_info "Auth tokens found in test-artifacts directory (hidden file)"
     elif [[ -f "/workspace/test-artifacts/auth_tokens.json" ]]; then
         auth_tokens_file="/workspace/test-artifacts/auth_tokens.json"
         print_info "Auth tokens found in test-artifacts directory"
-    # Check mounted home directory (from docker-compose volume mount)
-    elif [[ -f "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
-        auth_tokens_file="$HOME/.onemount-tests/.auth_tokens.json"
-        print_info "Auth tokens found in mounted directory"
+    # Check mounted cache directory for fresh tokens
+    elif [[ -f "/tmp/home-tester/.cache/onedriver/home-bcherrington-OneDrive/auth_tokens.json" ]]; then
+        auth_tokens_file="/tmp/home-tester/.cache/onedriver/home-bcherrington-OneDrive/auth_tokens.json"
+        print_info "Auth tokens found in mounted cache directory (onedriver)"
+    elif [[ -f "/tmp/home-tester/.cache/onemount/home-bcherrington-OneMountTest/auth_tokens.json" ]]; then
+        auth_tokens_file="/tmp/home-tester/.cache/onemount/home-bcherrington-OneMountTest/auth_tokens.json"
+        print_info "Auth tokens found in mounted cache directory (onemount)"
     # Check workspace root last (legacy location, may be stale)
     elif [[ -f "/workspace/auth_tokens.json" ]]; then
         auth_tokens_file="/workspace/auth_tokens.json"
@@ -183,29 +283,18 @@ setup_auth_tokens() {
     fi
 
     if [[ -n "$auth_tokens_file" ]]; then
-        # Ensure the target directory exists
-        mkdir -p "$HOME/.onemount-tests"
-
-        # Copy auth tokens to the expected location if not already there
-        if [[ "$auth_tokens_file" != "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
-            # Ensure target is a file, not a directory
-            if [[ -d "$HOME/.onemount-tests/.auth_tokens.json" ]]; then
-                print_warning "Removing incorrect directory at auth tokens location"
-                rm -rf "$HOME/.onemount-tests/.auth_tokens.json"
-            fi
-
-            cp "$auth_tokens_file" "$HOME/.onemount-tests/.auth_tokens.json"
-            chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
-            print_info "Copied auth tokens to expected location"
-        fi
+        # Create symlink to canonical location instead of copying
+        print_info "Creating symlink to canonical location: $CANONICAL_AUTH_FILE"
+        ln -sf "$auth_tokens_file" "$CANONICAL_AUTH_FILE"
+        print_info "Symlinked auth tokens to canonical location"
 
         # Verify the tokens file is valid JSON
         if command -v jq >/dev/null 2>&1; then
-            if jq empty "$HOME/.onemount-tests/.auth_tokens.json" 2>/dev/null; then
+            if jq empty "$CANONICAL_AUTH_FILE" 2>/dev/null; then
                 print_success "Auth tokens are valid JSON"
 
                 # Check token expiration if jq is available
-                EXPIRES_AT=$(jq -r '.expires_at // 0' "$HOME/.onemount-tests/.auth_tokens.json" 2>/dev/null || echo "0")
+                EXPIRES_AT=$(jq -r '.expires_at // 0' "$CANONICAL_AUTH_FILE" 2>/dev/null || echo "0")
                 CURRENT_TIME=$(date +%s)
 
                 if [[ "$EXPIRES_AT" != "0" ]] && [[ "$EXPIRES_AT" -le "$CURRENT_TIME" ]]; then
@@ -213,7 +302,7 @@ setup_auth_tokens() {
                     print_info "Attempting to refresh tokens..."
                     
                     # Try to refresh the tokens using a Go helper
-                    if refresh_auth_tokens "$HOME/.onemount-tests/.auth_tokens.json"; then
+                    if refresh_auth_tokens "$CANONICAL_AUTH_FILE"; then
                         print_success "Auth tokens refreshed successfully"
                     else
                         print_warning "Failed to refresh tokens - tests may fail"
@@ -232,19 +321,16 @@ setup_auth_tokens() {
     elif [[ -n "$ONEMOUNT_AUTH_TOKENS" ]]; then
         print_info "Setting up auth tokens from environment variable..."
 
-        # Ensure the target directory exists
-        mkdir -p "$HOME/.onemount-tests"
-
-        # Write auth tokens from environment variable
-        echo "$ONEMOUNT_AUTH_TOKENS" > "$HOME/.onemount-tests/.auth_tokens.json"
-        chmod 600 "$HOME/.onemount-tests/.auth_tokens.json"
+        # Write auth tokens from environment variable to canonical location
+        echo "$ONEMOUNT_AUTH_TOKENS" > "$CANONICAL_AUTH_FILE"
+        chmod 600 "$CANONICAL_AUTH_FILE"
 
         print_success "Auth tokens configured from environment"
     else
         print_info "No auth tokens found - system tests will be skipped"
         print_info "To enable system tests:"
-        print_info "  - Copy auth tokens to workspace root as 'auth_tokens.json', or"
-        print_info "  - Copy auth tokens to test-artifacts/auth_tokens.json, or"
+        print_info "  - Run: ./scripts/fix-auth-tokens.sh (to find and link fresh tokens)"
+        print_info "  - Copy auth tokens to test-artifacts/.auth_tokens.json, or"
         print_info "  - Set ONEMOUNT_AUTH_TOKENS environment variable"
         print_info ""
         print_info "SECURITY NOTE: Use dedicated test OneDrive account, NOT production!"
