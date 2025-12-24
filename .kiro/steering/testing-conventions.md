@@ -38,6 +38,18 @@ inclusion: always
 ./docker/scripts/build-images.sh test-runner
 ```
 
+**Set up authentication (required for integration/system tests):**
+
+```bash
+# Set up reference-based authentication (REQUIRED for tests with auth)
+./scripts/setup-auth-reference.sh
+
+# This creates:
+# - docker/compose/docker-compose.auth.yml (Docker override)
+# - .env.auth (environment configuration)
+# - References canonical token location (no copying/symlinking)
+```
+
 **The test runner supports two modes:**
 
 1. **Helper Commands** - Predefined test suites (unit, integration, system, all, coverage, shell)
@@ -50,21 +62,26 @@ inclusion: always
 # Verbose output is automatically redirected to test-artifacts/logs/
 docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests
 
-# Integration tests (requires FUSE, moderate speed)
-docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests
+# Integration tests (requires FUSE and auth, moderate speed)
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm integration-tests
 
 # System tests (requires auth tokens, slow)
-docker compose -f docker/compose/docker-compose.test.yml run --rm system-tests
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm system-tests
 
 # All tests with coverage
-docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner all
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm test-runner all
 
 # Interactive debugging shell
-docker compose -f docker/compose/docker-compose.test.yml run --rm shell
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm shell
 
 # Disable log file redirection (show all output on console)
-docker compose -f docker/compose/docker-compose.test.yml run --rm \
-  -e ONEMOUNT_LOG_TO_FILE=false unit-tests
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
+  -e ONEMOUNT_LOG_TO_FILE=false integration-tests
 ```
 
 **Run specific tests (pass-through mode):**
@@ -73,29 +90,37 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm \
 # IMPORTANT: Use test-runner service (not integration-tests) for pass-through mode
 # The specialized services (integration-tests, unit-tests) have default commands
 
+# Run specific test pattern with timeout protection
+./scripts/timeout-test-wrapper.sh "TestIT_FS_ETag" 60
+
 # Run specific test pattern - pass-through mode automatically sets up environment
-docker compose -f docker/compose/docker-compose.test.yml run --rm \
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
   test-runner go test -v -run TestIT_FS_ETag ./internal/fs
 
 # Run tests with custom timeout
-docker compose -f docker/compose/docker-compose.test.yml run --rm \
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
   test-runner go test -v -timeout 10m -run TestPattern ./internal/fs
 
 # Run tests with race detector
-docker compose -f docker/compose/docker-compose.test.yml run --rm \
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
   test-runner go test -v -race ./internal/...
 
 # Run benchmarks
-docker compose -f docker/compose/docker-compose.test.yml run --rm \
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
   test-runner go test -v -bench=. -run=^$ ./internal/fs
 ```
 
 **Key Points for AI Agents:**
 - ✅ **Use specialized services** for full test suites: `unit-tests`, `integration-tests`, `system-tests`
 - ✅ **Use test-runner service** for pass-through mode: `test-runner go test -v -run TestPattern ./path`
+- ✅ **Always include auth override** for integration/system tests: `-f docker/compose/docker-compose.auth.yml`
+- ✅ **Use timeout wrapper** for potentially hanging tests: `./scripts/timeout-test-wrapper.sh "TestPattern" 60`
 - ❌ **Don't use specialized services for pass-through** - they have default commands that will conflict
 - ❌ **Don't use** `--entrypoint /bin/bash` workarounds - pass-through mode handles this
-```
 
 ### Test Environment Details
 
@@ -108,9 +133,36 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm \
   - Test Runner: `docker/images/test-runner/Dockerfile`
 - **Workspace**: Mounted at `/workspace` with read-write access
 - **Test Artifacts**: Output to `test-artifacts/` (mounted from host)
-- **Auth Tokens**: Located at `test-artifacts/.auth_tokens.json` (gitignored)
+- **Auth Reference System**: 
+  - Setup: `./scripts/setup-auth-reference.sh`
+  - Override: `docker/compose/docker-compose.auth.yml`
+  - Environment: `.env.auth`
+  - Canonical location referenced (no copying/symlinking)
 - **FUSE Device**: `/dev/fuse` with SYS_ADMIN capability
 - **Resources**: 4GB RAM / 2 CPUs (unit), 6GB RAM / 4 CPUs (system)
+
+### Authentication Reference System
+
+**CRITICAL**: Use reference-based authentication - never copy or symlink tokens.
+
+```bash
+# Set up authentication reference (run once after token refresh)
+./scripts/setup-auth-reference.sh
+
+# This creates:
+# - docker/compose/docker-compose.auth.yml (mounts canonical token location)
+# - .env.auth (environment configuration with paths)
+# - Direct reference to canonical token location
+
+# When tokens are refreshed, just run setup again:
+./scripts/setup-auth-reference.sh
+```
+
+**Key Benefits:**
+- ✅ **Single source of truth**: Tokens stay in canonical location
+- ✅ **Automatic updates**: Refreshed tokens are immediately available
+- ✅ **No duplication**: No copying or symlinking required
+- ✅ **Container isolation**: Docker mounts reference location read-only
 
 ### Docker Environment Modifications
 
@@ -148,10 +200,29 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm \
 If tests fail in Docker:
 
 1. **Check FUSE device**: `docker compose -f docker/compose/docker-compose.test.yml run --rm shell` then `ls -l /dev/fuse`
-2. **Verify images are up-to-date**: Rebuild with `docker compose -f docker/compose/docker-compose.build.yml build --no-cache`
-3. **Check auth tokens**: Verify `test-artifacts/.auth_tokens.json` exists and is valid
+2. **Verify images are up-to-date**: Rebuild with `./docker/scripts/build-images.sh test-runner`
+3. **Check auth reference system**: 
+   - Run `./scripts/setup-auth-reference.sh` to configure authentication
+   - Verify `docker/compose/docker-compose.auth.yml` exists
+   - Check `.env.auth` for correct paths
 4. **Review logs**: Check `test-artifacts/logs/` for detailed error messages
-5. **Interactive debugging**: Use `docker compose -f docker/compose/docker-compose.test.yml run --rm shell`
+5. **Interactive debugging**: Use `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm shell`
+6. **Test hanging prevention**: Use `./scripts/timeout-test-wrapper.sh "TestPattern" 60` for potentially hanging tests
+
+### Hanging Test Prevention
+
+**CRITICAL**: Some FUSE filesystem tests may hang indefinitely. Always use timeout protection:
+
+```bash
+# Use timeout wrapper for potentially hanging tests
+./scripts/timeout-test-wrapper.sh "TestIT_FS_ETag_01_CacheValidationWithTimeoutFix" 60
+
+# The wrapper provides:
+# - Hard timeout enforcement (kills hanging processes)
+# - Progress monitoring with heartbeat
+# - Container cleanup
+# - Detailed logging to test-artifacts/debug/
+```
 
 ### References
 
