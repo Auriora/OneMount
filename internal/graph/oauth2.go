@@ -133,6 +133,11 @@ func (a *Auth) FromFile(file string) error {
 	return nil
 }
 
+// applyDefaults applies default values to the Auth struct's AuthConfig
+func (a *Auth) applyDefaults() error {
+	return a.AuthConfig.applyDefaults()
+}
+
 // createRefreshTokenRequest creates the HTTP request for refreshing tokens
 func (a *Auth) createRefreshTokenRequest() *strings.Reader {
 	return strings.NewReader("client_id=" + a.ClientID +
