@@ -211,8 +211,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for graceful unmount
   - _Requirements: 2.1, 2.2, 2.4, 2.5_
 
-- [ ] 5.8 Implement filesystem mounting property-based tests
-- [ ] 5.8.1 Implement Property 5: FUSE Mount Success
+- [x] 5.8 Implement filesystem mounting property-based tests
+- [x] 5.8.1 Implement Property 5: FUSE Mount Success
   - **Property 5: FUSE Mount Success**
   - **Validates: Requirements 2.1**
   - Create `internal/fs/mount_property_test.go`
@@ -220,7 +220,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify successful FUSE mounting for all valid inputs
   - _Requirements: 2.1_
 
-- [ ] 5.8.2 Implement Property 6: Non-blocking Initial Sync
+- [x] 5.8.2 Implement Property 6: Non-blocking Initial Sync
   - **Property 6: Non-blocking Initial Sync**
   - **Validates: Requirements 2A.1**
   - Generate random first-time mount scenarios
@@ -228,14 +228,14 @@ This implementation plan breaks down the verification and fix process into discr
   - Measure response times during initial sync
   - _Requirements: 2A.1_
 
-- [ ] 5.8.3 Implement Property 7: Root Directory Visibility
+- [x] 5.8.3 Implement Property 7: Root Directory Visibility
   - **Property 7: Root Directory Visibility**
   - **Validates: Requirements 2.2**
   - Generate random successful mount scenarios
   - Verify root directory contents are visible and accessible
   - _Requirements: 2.2_
 
-- [ ] 5.8.4 Implement Property 8: Standard File Operations Support
+- [x] 5.8.4 Implement Property 8: Standard File Operations Support
   - **Property 8: Standard File Operations Support**
   - **Validates: Requirements 2.3**
   - Generate random mounted filesystem scenarios
@@ -243,14 +243,14 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various file types and sizes
   - _Requirements: 2.3_
 
-- [ ] 5.8.5 Implement Property 9: Mount Conflict Error Handling
+- [x] 5.8.5 Implement Property 9: Mount Conflict Error Handling
   - **Property 9: Mount Conflict Error Handling**
   - **Validates: Requirements 2.4**
   - Generate random already-in-use mount points
   - Verify clear error messages with conflicting process info
   - _Requirements: 2.4_
 
-- [ ] 5.8.6 Implement Property 10: Clean Resource Release
+- [x] 5.8.6 Implement Property 10: Clean Resource Release
   - **Property 10: Clean Resource Release**
   - **Validates: Requirements 2.5**
   - Generate random mounted filesystem scenarios
