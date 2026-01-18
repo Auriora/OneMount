@@ -258,26 +258,26 @@ This implementation plan breaks down the verification and fix process into discr
   - Check for resource leaks and orphaned processes
   - _Requirements: 2.5_
 
-- [ ] 5.9 Verify granular mounting requirements
-- [ ] 5.9.1 Test initial synchronization and caching (Requirement 2A)
+- [x] 5.9 Verify granular mounting requirements
+- [x] 5.9.1 Test initial synchronization and caching (Requirement 2A)
   - Verify non-blocking initial sync behavior
   - Test cached metadata serving with async refresh
   - Test scoped cache invalidation for failed lookups
   - _Requirements: 2A.1-2A.3_
 
-- [ ] 5.9.2 Test virtual file management (Requirement 2B)
+- [x] 5.9.2 Test virtual file management (Requirement 2B)
   - Verify `.xdg-volume-info` immediate availability
   - Test virtual file persistence with `local-*` identifiers
   - Test overlay policy resolution
   - _Requirements: 2B.1-2B.2_
 
-- [ ] 5.9.3 Test advanced mounting options (Requirement 2C)
+- [x] 5.9.3 Test advanced mounting options (Requirement 2C)
   - Test daemon mode process forking
   - Test mount timeout configuration
   - Test stale lock file detection and cleanup
   - _Requirements: 2C.1-2C.5_
 
-- [ ] 5.9.4 Test FUSE operation performance (Requirement 2D)
+- [x] 5.9.4 Test FUSE operation performance (Requirement 2D)
   - Verify operations served from local metadata/cache only
   - Test Graph API delegation to background workers
   - Measure operation response times
