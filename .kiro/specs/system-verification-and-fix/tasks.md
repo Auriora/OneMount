@@ -1730,50 +1730,50 @@ This implementation plan breaks down the verification and fix process into discr
 
 **Status**: ✅ **IMPLEMENTED** - Verification tasks for Requirement 20 compliance
 
-- [ ] 27. Verify Engine.IO/Socket.IO Transport Implementation (Requirement 20)
-- [ ] 27.1 Review Socket.IO transport implementation
+- [x] 27. Verify Engine.IO/Socket.IO Transport Implementation (Requirement 20)
+- [x] 27.1 Review Socket.IO transport implementation
   - Read and analyze `internal/socketio/` implementation
   - Review Engine.IO v4 WebSocket transport
   - Check EIO=4 and transport=websocket query parameters
   - Verify default namespace (/) joining
   - _Requirements: 20.1_
 
-- [ ] 27.2 Test OAuth token attachment and refresh
+- [x] 27.2 Test OAuth token attachment and refresh
   - Test Authorization bearer header attachment
   - Test token refresh during connection
   - Verify additional Graph-required headers
   - Test connection refresh on token rotation
   - _Requirements: 20.2_
 
-- [ ] 27.3 Test Engine.IO handshake and heartbeat
+- [x] 27.3 Test Engine.IO handshake and heartbeat
   - Test Engine.IO handshake frame parsing
   - Verify ping interval/timeout value parsing
   - Test debug level logging of handshake data
   - Test heartbeat timer configuration
   - _Requirements: 20.3_
 
-- [ ] 27.4 Test ping/pong and failure detection
+- [x] 27.4 Test ping/pong and failure detection
   - Test ping/pong frame sending per negotiated interval
   - Test two consecutive missed heartbeat detection
   - Verify unhealthy state surfacing to ChangeNotifier
   - Test fallback to polling on heartbeat failure
   - _Requirements: 20.4_
 
-- [ ] 27.5 Test reconnection and backoff logic
+- [x] 27.5 Test reconnection and backoff logic
   - Test exponential backoff on connection close/error
   - Verify backoff parameters (1s start, 2x multiplier, 60s cap, ±10% jitter)
   - Test backoff reset after successful reconnect
   - Test connection retry behavior
   - _Requirements: 20.5_
 
-- [ ] 27.6 Test event streaming and health monitoring
+- [x] 27.6 Test event streaming and health monitoring
   - Test Socket.IO event streaming (notification, error)
   - Verify strongly typed callback handling
   - Test health indicator constant-time queries
   - Test ChangeNotifier integration
   - _Requirements: 20.6_
 
-- [ ] 27.7 Test verbose logging and tracing
+- [x] 27.7 Test verbose logging and tracing
   - Test structured trace logs for handshake data
   - Test ping/pong timing logs
   - Test packet read/write summary logs
@@ -1781,7 +1781,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test close/error code logging
   - _Requirements: 20.7_
 
-- [ ] 27.8 Test automated transport tests
+- [x] 27.8 Test automated transport tests
   - Run packet encode/decode tests
   - Run heartbeat scheduling tests
   - Run reconnection backoff tests
@@ -1789,14 +1789,14 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify tests work without live Graph access
   - _Requirements: 20.8_
 
-- [ ] 27.9 Verify self-contained implementation
+- [x] 27.9 Verify self-contained implementation
   - Verify no third-party Socket.IO client libraries
   - Verify no external proxies or managed relays
   - Check configuration whitelist for troubleshooting tools
   - Verify implementation is within OneMount codebase
   - _Requirements: 20.9_
 
-- [ ] 27.10 Create Socket.IO transport integration tests
+- [x] 27.10 Create Socket.IO transport integration tests
   - Write test for complete transport lifecycle
   - Write test for OAuth integration
   - Write test for heartbeat and reconnection

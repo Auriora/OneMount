@@ -46,6 +46,11 @@ func decodePacket(payload string) (*Packet, error) {
 	return &Packet{typ, payload[1:]}, nil
 }
 
+// DecodePacket decodes a packet from a string payload (exported for testing).
+func DecodePacket(payload string) (*Packet, error) {
+	return decodePacket(payload)
+}
+
 func (p *Packet) String() string {
 	return fmt.Sprintf("type: %s\npayload: %s", p.Type, p.payload)
 }
