@@ -650,8 +650,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for delta link persistence
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 10.8 Implement delta synchronization property-based tests
-- [ ] 10.8.1 Implement Property 20: Initial Delta Sync
+- [x] 10.8 Implement delta synchronization property-based tests
+- [x] 10.8.1 Implement Property 20: Initial Delta Sync
   - **Property 20: Initial Delta Sync**
   - **Validates: Requirements 5.1**
   - Create `internal/fs/delta_property_test.go`
@@ -660,7 +660,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various OneDrive structures
   - _Requirements: 5.1_
 
-- [ ] 10.8.2 Implement Property 21: Metadata Cache Updates
+- [x] 10.8.2 Implement Property 21: Metadata Cache Updates
   - **Property 21: Metadata Cache Updates**
   - **Validates: Requirements 5.8**
   - Generate random remote change scenarios via delta query
@@ -668,7 +668,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various change types (create, modify, delete)
   - _Requirements: 5.8_
 
-- [ ] 10.8.3 Implement Property 22: Conflict Copy Creation
+- [x] 10.8.3 Implement Property 22: Conflict Copy Creation
   - **Property 22: Conflict Copy Creation**
   - **Validates: Requirements 5.11**
   - Generate random files with both local and remote changes
@@ -676,7 +676,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test conflict detection accuracy
   - _Requirements: 5.11_
 
-- [ ] 10.8.4 Implement Property 23: Delta Token Persistence
+- [x] 10.8.4 Implement Property 23: Delta Token Persistence
   - **Property 23: Delta Token Persistence**
   - **Validates: Requirements 5.12**
   - Generate random delta sync completion scenarios
@@ -684,7 +684,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test token persistence across restarts
   - _Requirements: 5.12_
 
-- [ ] 10.8.5 Implement Property 30: ETag-Based Conflict Detection
+- [x] 10.8.5 Implement Property 30: ETag-Based Conflict Detection
   - **Property 30: ETag-Based Conflict Detection**
   - **Validates: Requirements 8.1**
   - Generate random files modified both locally and remotely
@@ -692,7 +692,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ETag comparison accuracy
   - _Requirements: 8.1_
 
-- [ ] 10.8.6 Implement Property 31: Local Version Preservation
+- [x] 10.8.6 Implement Property 31: Local Version Preservation
   - **Property 31: Local Version Preservation**
   - **Validates: Requirements 8.4**
   - Generate random conflict scenarios
@@ -700,7 +700,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test version preservation integrity
   - _Requirements: 8.4_
 
-- [ ] 10.8.7 Implement Property 32: Conflict Copy Creation with Timestamp
+- [x] 10.8.7 Implement Property 32: Conflict Copy Creation with Timestamp
   - **Property 32: Conflict Copy Creation with Timestamp**
   - **Validates: Requirements 8.5**
   - Generate random conflict scenarios
