@@ -777,8 +777,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for cache statistics
   - _Requirements: 7.1, 7.2, 7.3, 7.5_
 
-- [ ] 11.8 Implement cache management property-based tests
-- [ ] 11.8.1 Implement Property 28: ETag-Based Cache Storage
+- [x] 11.8 Implement cache management property-based tests
+- [x] 11.8.1 Implement Property 28: ETag-Based Cache Storage
   - **Property 28: ETag-Based Cache Storage**
   - **Validates: Requirements 7.1**
   - Create `internal/fs/cache_property_test.go`
@@ -787,7 +787,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ETag association accuracy
   - _Requirements: 7.1_
 
-- [ ] 11.8.2 Implement Property 29: Cache Invalidation on Remote ETag Change
+- [x] 11.8.2 Implement Property 29: Cache Invalidation on Remote ETag Change
   - **Property 29: Cache Invalidation on Remote ETag Change**
   - **Validates: Requirements 7.3**
   - Generate random cached files with different remote ETags
