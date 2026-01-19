@@ -118,8 +118,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Run tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run integration-tests`
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 13.2, 13.4_
 
-- [ ] 4.7 Implement authentication property-based tests
-- [ ] 4.7.1 Implement Property 1: OAuth2 Token Storage Security
+- [x] 4.7 Implement authentication property-based tests
+- [x] 4.7.1 Implement Property 1: OAuth2 Token Storage Security
   - **Property 1: OAuth2 Token Storage Security**
   - **Validates: Requirements 1.2**
   - Create `internal/graph/auth_property_test.go`
@@ -128,7 +128,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Run 100+ iterations per property test
   - _Requirements: 1.2_
 
-- [ ] 4.7.2 Implement Property 2: Automatic Token Refresh
+- [x] 4.7.2 Implement Property 2: Automatic Token Refresh
   - **Property 2: Automatic Token Refresh**
   - **Validates: Requirements 1.3**
   - Generate random expired tokens with valid refresh tokens
@@ -136,7 +136,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various expiration scenarios
   - _Requirements: 1.3_
 
-- [ ] 4.7.3 Implement Property 3: Re-authentication on Refresh Failure
+- [x] 4.7.3 Implement Property 3: Re-authentication on Refresh Failure
   - **Property 3: Re-authentication on Refresh Failure**
   - **Validates: Requirements 1.4**
   - Generate random token refresh failure scenarios
@@ -144,7 +144,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various failure types
   - _Requirements: 1.4_
 
-- [ ] 4.7.4 Implement Property 4: Headless Authentication Method
+- [x] 4.7.4 Implement Property 4: Headless Authentication Method
   - **Property 4: Headless Authentication Method**
   - **Validates: Requirements 1.5**
   - Generate random headless system configurations
