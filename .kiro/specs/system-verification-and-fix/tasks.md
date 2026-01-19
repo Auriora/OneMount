@@ -1050,8 +1050,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for crash recovery
   - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [ ] 14.7 Implement error handling property-based tests
-- [ ] 14.7.1 Implement Property 35: Network Error Logging
+- [x] 14.7 Implement error handling property-based tests
+- [x] 14.7.1 Implement Property 35: Network Error Logging
   - **Property 35: Network Error Logging**
   - **Validates: Requirements 11.1**
   - Create `internal/errors/error_property_test.go`
@@ -1060,7 +1060,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test logging completeness and accuracy
   - _Requirements: 11.1_
 
-- [ ] 14.7.2 Implement Property 36: Rate Limit Backoff
+- [x] 14.7.2 Implement Property 36: Rate Limit Backoff
   - **Property 36: Rate Limit Backoff**
   - **Validates: Requirements 11.2**
   - Generate random API rate limit scenarios
@@ -1478,6 +1478,26 @@ This implementation plan breaks down the verification and fix process into discr
     - Test with multiple OneMount instances
   - **Estimate**: 3-4 hours
   - _Requirements: 8.2, 8.3_
+
+- [ ] 20.17 Fix Issue #OF-002: Offline Detection False Positives
+  - **Component**: Offline Mode / Network Detection
+  - **Status**: ❌ FAILED Property-Based Test (Property 24)
+  - **Action**: Fix conservative offline detection to avoid false positives
+  - **Issue**: The `IsOffline` function in `internal/graph/graph.go` has an overly conservative default that treats all unknown errors as offline conditions, causing false positives for authentication errors, permission errors, and other non-network issues
+  - **Failing Example**: Pattern 'permission denied' incorrectly detected as offline=true (expected false)
+  - **Tasks**:
+    - Review `IsOffline` function in `internal/graph/graph.go`
+    - Remove or modify the conservative default that treats unknown errors as offline
+    - Add explicit checks for authentication/authorization error patterns (401, 403, "permission denied", "invalid token", etc.)
+    - Ensure these non-network errors return false (online)
+    - Update error pattern matching to be more precise
+    - Consider adding an explicit whitelist of offline patterns instead of blacklist approach
+    - Run Property 24 test to verify fix: `go test -v -run TestProperty24_OfflineDetection ./internal/fs`
+    - Ensure all 100 iterations pass with correct offline/online detection
+    - Update integration tests if needed
+  - **Test**: `go test -v -run TestProperty24_OfflineDetection ./internal/fs -timeout 30s`
+  - **Estimate**: 2-3 hours
+  - _Requirements: 6.1, 19.1-19.11_
 
 - [x] 21. Address ACTION REQUIRED items
   - Review all "ACTION REQUIRED" items in verification documents
