@@ -377,21 +377,21 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ETag mismatch detection accuracy
   - _Requirements: 3.6_
 
-- [ ] 6.8 Verify granular file access requirements
-- [ ] 6.8.1 Test download status and progress tracking (Requirement 3A)
+- [x] 6.8 Verify granular file access requirements
+- [x] 6.8.1 Test download status and progress tracking (Requirement 3A)
   - Verify file status updates during downloads
   - Test error status marking for failed downloads
   - Test status persistence and notification
   - _Requirements: 3A.1-3A.2_
 
-- [ ] 6.8.2 Test download manager configuration (Requirement 3B)
+- [x] 6.8.2 Test download manager configuration (Requirement 3B)
   - Test worker pool size configuration and validation
   - Test retry attempts configuration and validation
   - Test queue size and chunk size configuration
   - Test configuration error messages
   - _Requirements: 3B.1-3B.13_
 
-- [ ] 6.8.3 Test file hydration state management (Requirement 3C)
+- [x] 6.8.3 Test file hydration state management (Requirement 3C)
   - Test GHOST state blocking until hydration
   - Test state transitions during hydration/eviction
   - Test metadata preservation during eviction
