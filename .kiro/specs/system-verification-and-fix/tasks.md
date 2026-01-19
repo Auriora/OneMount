@@ -335,8 +335,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for metadata operations
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 6.7 Implement file access property-based tests
-- [ ] 6.7.1 Implement Property 11: Metadata-Only Directory Listing
+- [x] 6.7 Implement file access property-based tests
+- [x] 6.7.1 Implement Property 11: Metadata-Only Directory Listing
   - **Property 11: Metadata-Only Directory Listing**
   - **Validates: Requirements 3.1**
   - Create `internal/fs/file_access_property_test.go`
@@ -345,7 +345,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Monitor network calls to ensure metadata-only access
   - _Requirements: 3.1_
 
-- [ ] 6.7.2 Implement Property 12: On-Demand Content Download
+- [x] 6.7.2 Implement Property 12: On-Demand Content Download
   - **Property 12: On-Demand Content Download**
   - **Validates: Requirements 3.2**
   - Generate random uncached file access scenarios
@@ -353,7 +353,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various file types and sizes
   - _Requirements: 3.2_
 
-- [ ] 6.7.3 Implement Property 13: ETag Cache Validation
+- [x] 6.7.3 Implement Property 13: ETag Cache Validation
   - **Property 13: ETag Cache Validation**
   - **Validates: Requirements 3.4**
   - Generate random cached file access scenarios
@@ -361,7 +361,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various ETag states
   - _Requirements: 3.4_
 
-- [ ] 6.7.4 Implement Property 14: Cache Hit Serving
+- [x] 6.7.4 Implement Property 14: Cache Hit Serving
   - **Property 14: Cache Hit Serving**
   - **Validates: Requirements 3.5**
   - Generate random cached files with matching ETags
@@ -369,7 +369,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Monitor network activity to ensure no API calls
   - _Requirements: 3.5_
 
-- [ ] 6.7.5 Implement Property 15: Cache Invalidation on ETag Mismatch
+- [x] 6.7.5 Implement Property 15: Cache Invalidation on ETag Mismatch
   - **Property 15: Cache Invalidation on ETag Mismatch**
   - **Validates: Requirements 3.6**
   - Generate random cached files with different ETags
