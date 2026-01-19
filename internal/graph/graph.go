@@ -636,11 +636,35 @@ func IsOffline(err error) bool {
 
 	// Enhanced error pattern detection for offline conditions
 	errorStr := err.Error()
+	errorStrLower := strings.ToLower(errorStr)
 
-	// Check for HTTP response patterns (indicates we're online)
+	// Check for HTTP response patterns (indicates we're online, even if error)
 	httpResponsePattern := regexp.MustCompile("HTTP [0-9]+ - ")
 	if httpResponsePattern.MatchString(errorStr) {
 		return false
+	}
+
+	// Check for authentication/authorization errors (indicates we're online)
+	authPatterns := []string{
+		"401",
+		"403",
+		"unauthorized",
+		"forbidden",
+		"invalid token",
+		"permission denied",
+		"access denied",
+		"authentication failed",
+		"authorization failed",
+	}
+
+	for _, pattern := range authPatterns {
+		if strings.Contains(errorStrLower, pattern) {
+			logging.Debug().
+				Str("pattern", pattern).
+				Str("error", errorStr).
+				Msg("Online condition detected via authentication/authorization error pattern")
+			return false
+		}
 	}
 
 	// Check for common network error patterns that indicate offline state
@@ -657,7 +681,6 @@ func IsOffline(err error) bool {
 		"operation timed out",
 	}
 
-	errorStrLower := strings.ToLower(errorStr)
 	for _, pattern := range offlinePatterns {
 		if strings.Contains(errorStrLower, pattern) {
 			// Log the specific pattern that triggered offline detection (Requirement 19.11)
@@ -677,12 +700,12 @@ func IsOffline(err error) bool {
 		return true
 	}
 
-	// Default to offline if we can't determine the error type
-	// This is conservative but safer for offline functionality
+	// Default to online for unknown errors (non-conservative approach)
+	// This prevents false positives for authentication, permission, and other non-network errors
 	logging.Debug().
 		Str("error", errorStr).
-		Msg("Offline condition detected via unknown error type (conservative default)")
-	return true
+		Msg("Online condition assumed for unknown error type (non-conservative default)")
+	return false
 }
 
 // NetworkConnectivityChecker provides methods for checking network connectivity

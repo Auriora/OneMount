@@ -1479,7 +1479,7 @@ This implementation plan breaks down the verification and fix process into discr
   - **Estimate**: 3-4 hours
   - _Requirements: 8.2, 8.3_
 
-- [ ] 20.17 Fix Issue #OF-002: Offline Detection False Positives
+- [x] 20.17 Fix Issue #OF-002: Offline Detection False Positives
   - **Component**: Offline Mode / Network Detection
   - **Status**: ❌ FAILED Property-Based Test (Property 24)
   - **Action**: Fix conservative offline detection to avoid false positives
