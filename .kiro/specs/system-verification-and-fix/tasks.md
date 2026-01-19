@@ -858,8 +858,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for online transition
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-- [ ] 12.8 Implement offline mode property-based tests
-- [ ] 12.8.1 Implement Property 24: Offline Detection
+- [x] 12.8 Implement offline mode property-based tests
+- [x] 12.8.1 Implement Property 24: Offline Detection
   - **Property 24: Offline Detection**
   - **Validates: Requirements 6.1**
   - Create `internal/fs/offline_property_test.go`
@@ -868,7 +868,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test detection accuracy and timing
   - _Requirements: 6.1_
 
-- [ ] 12.8.2 Implement Property 25: Offline Read Access
+- [x] 12.8.2 Implement Property 25: Offline Read Access
   - **Property 25: Offline Read Access**
   - **Validates: Requirements 6.4**
   - Generate random cached file scenarios while offline
@@ -876,7 +876,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test read access reliability offline
   - _Requirements: 6.4_
 
-- [ ] 12.8.3 Implement Property 26: Offline Write Queuing
+- [x] 12.8.3 Implement Property 26: Offline Write Queuing
   - **Property 26: Offline Write Queuing**
   - **Validates: Requirements 6.5**
   - Generate random write operations while offline
@@ -884,7 +884,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test queue management and persistence
   - _Requirements: 6.5_
 
-- [ ] 12.8.4 Implement Property 27: Batch Upload Processing
+- [x] 12.8.4 Implement Property 27: Batch Upload Processing
   - **Property 27: Batch Upload Processing**
   - **Validates: Requirements 6.10**
   - Generate random network connectivity restoration scenarios
