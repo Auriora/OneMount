@@ -660,17 +660,28 @@ func IsOffline(err error) bool {
 	errorStrLower := strings.ToLower(errorStr)
 	for _, pattern := range offlinePatterns {
 		if strings.Contains(errorStrLower, pattern) {
+			// Log the specific pattern that triggered offline detection (Requirement 19.11)
+			logging.Debug().
+				Str("pattern", pattern).
+				Str("error", errorStr).
+				Msg("Offline condition detected via error pattern")
 			return true
 		}
 	}
 
 	// Check for specific error types that indicate network issues
 	if errors.IsNetworkError(err) {
+		logging.Debug().
+			Str("error", errorStr).
+			Msg("Offline condition detected via network error type")
 		return true
 	}
 
 	// Default to offline if we can't determine the error type
 	// This is conservative but safer for offline functionality
+	logging.Debug().
+		Str("error", errorStr).
+		Msg("Offline condition detected via unknown error type (conservative default)")
 	return true
 }
 

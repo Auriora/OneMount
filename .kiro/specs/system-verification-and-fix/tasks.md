@@ -899,15 +899,15 @@ This implementation plan breaks down the verification and fix process into discr
   - Update the relevant sections of the verification-tracking.md document
   - _Requirements: 12.1_
 
-- [ ] 12.10 Verify network error pattern recognition
-- [ ] 12.10.1 Review network error pattern matching code
+- [x] 12.10 Verify network error pattern recognition
+- [x] 12.10.1 Review network error pattern matching code
   - Read and analyze `internal/graph/network_feedback.go`
   - Review `internal/fs/offline.go` error pattern detection
   - Check pattern matching implementation
   - Review error pattern list completeness
   - _Requirements: 19.1-19.11_
 
-- [ ] 12.10.2 Test recognized error patterns
+- [x] 12.10.2 Test recognized error patterns
   - Test "no such host" pattern recognition
   - Test "network is unreachable" pattern recognition
   - Test "connection refused" pattern recognition
@@ -920,21 +920,21 @@ This implementation plan breaks down the verification and fix process into discr
   - Test "operation timed out" pattern recognition
   - _Requirements: 19.1-19.10_
 
-- [ ] 12.10.3 Test offline state transition on pattern match
+- [x] 12.10.3 Test offline state transition on pattern match
   - Simulate network errors with recognized patterns
   - Verify offline state is triggered correctly
   - Test pattern matching is case-insensitive where appropriate
   - Verify false positives are minimized
   - _Requirements: 19.1-19.11_
 
-- [ ] 12.10.4 Test error pattern logging
+- [x] 12.10.4 Test error pattern logging
   - Verify detected patterns are logged with context
   - Test specific error pattern logging
   - Check log format and content
   - Verify error pattern identification in logs
   - _Requirements: 19.11_
 
-- [ ] 12.10.5 Create network error pattern integration tests
+- [x] 12.10.5 Create network error pattern integration tests
   - Write test for each recognized error pattern
   - Write test for offline state transition
   - Write test for error pattern logging
