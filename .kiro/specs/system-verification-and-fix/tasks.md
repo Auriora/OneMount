@@ -438,8 +438,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for directory operations
   - _Requirements: 4.1, 4.2_
 
-- [ ] 7.6 Implement file modification property-based tests
-- [ ] 7.6.1 Implement Property 16: Local Change Tracking
+- [x] 7.6 Implement file modification property-based tests
+- [x] 7.6.1 Implement Property 16: Local Change Tracking
   - **Property 16: Local Change Tracking**
   - **Validates: Requirements 4.1**
   - Create `internal/fs/file_modification_property_test.go`
@@ -448,7 +448,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various modification types
   - _Requirements: 4.1_
 
-- [ ] 7.6.2 Implement Property 17: Upload Queuing
+- [x] 7.6.2 Implement Property 17: Upload Queuing
   - **Property 17: Upload Queuing**
   - **Validates: Requirements 4.2**
   - Generate random saved modified file scenarios
@@ -456,7 +456,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test queue management and ordering
   - _Requirements: 4.2_
 
-- [ ] 7.6.3 Implement Property 18: ETag Update After Upload
+- [x] 7.6.3 Implement Property 18: ETag Update After Upload
   - **Property 18: ETag Update After Upload**
   - **Validates: Requirements 4.7**
   - Generate random successful upload scenarios
@@ -464,7 +464,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ETag consistency after upload
   - _Requirements: 4.7_
 
-- [ ] 7.6.4 Implement Property 19: Modified Flag Cleanup
+- [x] 7.6.4 Implement Property 19: Modified Flag Cleanup
   - **Property 19: Modified Flag Cleanup**
   - **Validates: Requirements 4.8**
   - Generate random successful upload scenarios
