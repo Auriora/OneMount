@@ -1694,8 +1694,8 @@ This implementation plan breaks down the verification and fix process into discr
 - [x] 26.6 Test directory permissions ✅ COMPLETE
 - [x] 26.7 Document XDG compliance verification results ✅ COMPLETE
 
-- [ ] 26.8 Implement XDG compliance property-based tests
-- [ ] 26.8.1 Implement Property 37: XDG Configuration Directory Usage
+- [x] 26.8 Implement XDG compliance property-based tests
+- [x] 26.8.1 Implement Property 37: XDG Configuration Directory Usage
   - **Property 37: XDG Configuration Directory Usage**
   - **Validates: Requirements 15.1**
   - Create `internal/config/xdg_property_test.go`
@@ -1704,7 +1704,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various XDG environment settings
   - _Requirements: 15.1_
 
-- [ ] 26.8.2 Implement Property 38: Token Storage Location
+- [x] 26.8.2 Implement Property 38: Token Storage Location
   - **Property 38: Token Storage Location**
   - **Validates: Requirements 15.7**
   - Generate random authentication token storage scenarios
@@ -1712,7 +1712,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test storage location consistency
   - _Requirements: 15.7_
 
-- [ ] 26.8.3 Implement Property 39: Cache Storage Location
+- [x] 26.8.3 Implement Property 39: Cache Storage Location
   - **Property 39: Cache Storage Location**
   - **Validates: Requirements 15.8**
   - Generate random file content caching scenarios
