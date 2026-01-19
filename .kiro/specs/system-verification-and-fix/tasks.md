@@ -1973,8 +1973,8 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 18: Security Property-Based Tests
 
-- [ ] 31. Implement security property-based tests
-- [ ] 31.1 Implement Property 43: Token Encryption at Rest
+- [x] 31. Implement security property-based tests
+- [x] 31.1 Implement Property 43: Token Encryption at Rest
   - **Property 43: Token Encryption at Rest**
   - **Validates: Requirements 22.1**
   - Create `internal/security/security_property_test.go`
@@ -1983,7 +1983,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test encryption key management and storage
   - _Requirements: 22.1_
 
-- [ ] 31.2 Implement Property 44: Token File Permissions
+- [x] 31.2 Implement Property 44: Token File Permissions
   - **Property 44: Token File Permissions**
   - **Validates: Requirements 22.2**
   - Generate random token file creation scenarios
@@ -1991,7 +1991,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test permission enforcement across different platforms
   - _Requirements: 22.2_
 
-- [ ] 31.3 Implement Property 45: Secure Token Storage Location
+- [x] 31.3 Implement Property 45: Secure Token Storage Location
   - **Property 45: Secure Token Storage Location**
   - **Validates: Requirements 22.3**
   - Generate random token storage scenarios
@@ -1999,7 +1999,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test access restriction enforcement
   - _Requirements: 22.3_
 
-- [ ] 31.4 Implement Property 46: HTTPS/TLS Communication
+- [x] 31.4 Implement Property 46: HTTPS/TLS Communication
   - **Property 46: HTTPS/TLS Communication**
   - **Validates: Requirements 22.4**
   - Generate random Graph API communication scenarios
@@ -2007,7 +2007,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test certificate validation and security protocols
   - _Requirements: 22.4_
 
-- [ ] 31.5 Implement Property 47: Sensitive Data Logging Prevention
+- [x] 31.5 Implement Property 47: Sensitive Data Logging Prevention
   - **Property 47: Sensitive Data Logging Prevention**
   - **Validates: Requirements 22.6**
   - Generate random logging scenarios with sensitive data
@@ -2015,7 +2015,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test log sanitization mechanisms
   - _Requirements: 22.6_
 
-- [ ] 31.6 Implement Property 48: Cache File Security
+- [x] 31.6 Implement Property 48: Cache File Security
   - **Property 48: Cache File Security**
   - **Validates: Requirements 22.8**
   - Generate random cached file storage scenarios
