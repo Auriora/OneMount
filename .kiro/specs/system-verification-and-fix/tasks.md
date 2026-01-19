@@ -1132,8 +1132,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write benchmark for concurrent operations
   - _Requirements: 10.2, 10.3_
 
-- [ ] 15.9 Implement concurrency property-based tests
-- [ ] 15.9.1 Implement Property 33: Safe Concurrent File Access
+- [x] 15.9 Implement concurrency property-based tests
+- [x] 15.9.1 Implement Property 33: Safe Concurrent File Access
   - **Property 33: Safe Concurrent File Access**
   - **Validates: Requirements 10.1**
   - Create `internal/fs/concurrency_property_test.go`
@@ -1142,7 +1142,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with race detector enabled
   - _Requirements: 10.1_
 
-- [ ] 15.9.2 Implement Property 34: Non-blocking Downloads
+- [x] 15.9.2 Implement Property 34: Non-blocking Downloads
   - **Property 34: Non-blocking Downloads**
   - **Validates: Requirements 10.2**
   - Generate random ongoing download scenarios
