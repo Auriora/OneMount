@@ -1893,7 +1893,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify worker deduplication during hydration
   - _Requirements: 21.3, 21.4, 21.5_
 
-- [ ] 30.4 Test modification and upload state transitions
+- [x] 30.4 Test modification and upload state transitions
   - Test HYDRATED → DIRTY_LOCAL transition on local modification
   - Test DIRTY_LOCAL → HYDRATED transition on successful upload
   - Test DIRTY_LOCAL → ERROR transition on upload failure

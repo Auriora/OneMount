@@ -1182,3 +1182,580 @@ func TestProperty41_WorkerDeduplication(t *testing.T) {
 		t.Errorf("Property check failed: %v", err)
 	}
 }
+
+// ModificationUploadScenario represents a test scenario for modification and upload state transitions
+type ModificationUploadScenario struct {
+	ItemName      string
+	Size          uint64
+	ETag          string
+	NewETag       string
+	SimulateError bool
+	ErrorMessage  string
+}
+
+// Generate implements quick.Generator for ModificationUploadScenario
+func (ModificationUploadScenario) Generate(rand *quick.Config) reflect.Value {
+	itemName := fmt.Sprintf("file-%d", rand.Rand.Intn(10000)+1)
+	simulateError := rand.Rand.Intn(4) == 0 // 25% chance of error
+	errorMsg := ""
+	if simulateError {
+		errors := []string{
+			"network timeout",
+			"connection refused",
+			"upload failed",
+			"disk full",
+			"permission denied",
+			"quota exceeded",
+		}
+		errorMsg = errors[rand.Rand.Intn(len(errors))]
+	}
+
+	scenario := ModificationUploadScenario{
+		ItemName:      itemName,
+		Size:          uint64(rand.Rand.Intn(10*1024*1024) + 1024), // 1KB to 10MB
+		ETag:          fmt.Sprintf("etag-%d", rand.Rand.Intn(10000)),
+		NewETag:       fmt.Sprintf("etag-%d", rand.Rand.Intn(10000)+10000),
+		SimulateError: simulateError,
+		ErrorMessage:  errorMsg,
+	}
+	return reflect.ValueOf(scenario)
+}
+
+// TestProperty42_HydratedToDirtyLocalTransition verifies that HYDRATED → DIRTY_LOCAL
+// transition occurs on local modification.
+// **Property 42: Local Modification State Transition (Part 1: HYDRATED → DIRTY_LOCAL)**
+// **Validates: Requirements 21.6**
+func TestProperty42_HydratedToDirtyLocalTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario ModificationUploadScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in HYDRATED state
+		lastHydrated := time.Now().UTC().Add(-1 * time.Hour)
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			ContentHash:   "hash-" + scenario.ItemName,
+			LastHydrated:  &lastHydrated,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate local modification by transitioning to DIRTY_LOCAL
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateDirtyLocal)
+		if err != nil {
+			t.Logf("Failed to transition to DIRTY_LOCAL: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in DIRTY_LOCAL state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateDirtyLocal {
+			t.Logf("Expected state DIRTY_LOCAL, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify metadata is preserved (size, ETag, content hash)
+		if retrieved.Size != scenario.Size {
+			t.Logf("Size should be preserved: expected %d, got %d", scenario.Size, retrieved.Size)
+			return false
+		}
+
+		if retrieved.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved: expected %s, got %s", scenario.ETag, retrieved.ETag)
+			return false
+		}
+
+		if retrieved.ContentHash != "hash-"+scenario.ItemName {
+			t.Logf("ContentHash should be preserved: expected %s, got %s", "hash-"+scenario.ItemName, retrieved.ContentHash)
+			return false
+		}
+
+		// Verify LastHydrated timestamp is preserved
+		if retrieved.LastHydrated == nil {
+			t.Logf("LastHydrated timestamp should be preserved")
+			return false
+		}
+
+		// Verify state persists until upload succeeds
+		// (this is implicit - the state is DIRTY_LOCAL and won't change without explicit transition)
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty42_DirtyLocalToHydratedTransition verifies that DIRTY_LOCAL → HYDRATED
+// transition occurs on successful upload.
+// **Property 42: Local Modification State Transition (Part 2: DIRTY_LOCAL → HYDRATED)**
+// **Validates: Requirements 21.6**
+func TestProperty42_DirtyLocalToHydratedTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario ModificationUploadScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.NewETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in DIRTY_LOCAL state
+		lastHydrated := time.Now().UTC().Add(-1 * time.Hour)
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateDirtyLocal,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag, // Old ETag before upload
+			ContentHash:   "hash-" + scenario.ItemName,
+			LastHydrated:  &lastHydrated,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate successful upload by transitioning to HYDRATED with new ETag
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrated,
+			metadata.WithUploadEvent(),
+			metadata.WithETag(scenario.NewETag))
+		if err != nil {
+			t.Logf("Failed to transition to HYDRATED: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in HYDRATED state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateHydrated {
+			t.Logf("Expected state HYDRATED, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify ETag is updated to new value from server response
+		if retrieved.ETag != scenario.NewETag {
+			t.Logf("Expected ETag %s, got %s", scenario.NewETag, retrieved.ETag)
+			return false
+		}
+
+		// Verify metadata is preserved (size, content hash)
+		if retrieved.Size != scenario.Size {
+			t.Logf("Size should be preserved: expected %d, got %d", scenario.Size, retrieved.Size)
+			return false
+		}
+
+		if retrieved.ContentHash != "hash-"+scenario.ItemName {
+			t.Logf("ContentHash should be preserved: expected %s, got %s", "hash-"+scenario.ItemName, retrieved.ContentHash)
+			return false
+		}
+
+		// Verify LastHydrated timestamp is preserved
+		if retrieved.LastHydrated == nil {
+			t.Logf("LastHydrated timestamp should be preserved")
+			return false
+		}
+
+		// Verify error fields are cleared
+		if retrieved.LastError != nil {
+			t.Logf("LastError should be nil after successful upload")
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty42_DirtyLocalToErrorTransition verifies that DIRTY_LOCAL → ERROR
+// transition occurs on upload failure.
+// **Property 42: Local Modification State Transition (Part 3: DIRTY_LOCAL → ERROR)**
+// **Validates: Requirements 21.6**
+func TestProperty42_DirtyLocalToErrorTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario ModificationUploadScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+		if !scenario.SimulateError || scenario.ErrorMessage == "" {
+			return true // Skip scenarios without errors
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in DIRTY_LOCAL state
+		lastHydrated := time.Now().UTC().Add(-1 * time.Hour)
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateDirtyLocal,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			ContentHash:   "hash-" + scenario.ItemName,
+			LastHydrated:  &lastHydrated,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate upload failure by transitioning to ERROR
+		uploadErr := fmt.Errorf("%s", scenario.ErrorMessage)
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateError,
+			metadata.WithUploadEvent(),
+			metadata.WithTransitionError(uploadErr, true))
+		if err != nil {
+			t.Logf("Failed to transition to ERROR: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in ERROR state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateError {
+			t.Logf("Expected state ERROR, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify error is recorded
+		if retrieved.LastError == nil {
+			t.Logf("LastError should be set after failed upload")
+			return false
+		}
+
+		if retrieved.LastError.Message != scenario.ErrorMessage {
+			t.Logf("Expected error message %s, got %s", scenario.ErrorMessage, retrieved.LastError.Message)
+			return false
+		}
+
+		// Verify error is marked as temporary
+		if !retrieved.LastError.Temporary {
+			t.Logf("Error should be marked as temporary")
+			return false
+		}
+
+		// Verify previous state metadata is preserved (size, ETag, content hash)
+		if retrieved.Size != scenario.Size {
+			t.Logf("Size should be preserved after error: expected %d, got %d", scenario.Size, retrieved.Size)
+			return false
+		}
+
+		if retrieved.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved after error: expected %s, got %s", scenario.ETag, retrieved.ETag)
+			return false
+		}
+
+		if retrieved.ContentHash != "hash-"+scenario.ItemName {
+			t.Logf("ContentHash should be preserved after error: expected %s, got %s", "hash-"+scenario.ItemName, retrieved.ContentHash)
+			return false
+		}
+
+		// Verify LastHydrated timestamp is preserved
+		if retrieved.LastHydrated == nil {
+			t.Logf("LastHydrated timestamp should be preserved after error")
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty42_ETagUpdateAfterUpload verifies that ETag is updated from
+// server response after successful upload.
+// **Property 42: ETag Update After Upload**
+// **Validates: Requirements 21.6**
+func TestProperty42_ETagUpdateAfterUpload(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario ModificationUploadScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.NewETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+		// Ensure ETags are different to test update
+		if scenario.ETag == scenario.NewETag {
+			return true // Skip if ETags are the same
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in DIRTY_LOCAL state with old ETag
+		lastHydrated := time.Now().UTC().Add(-1 * time.Hour)
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateDirtyLocal,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag, // Old ETag
+			ContentHash:   "hash-" + scenario.ItemName,
+			LastHydrated:  &lastHydrated,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Verify old ETag is stored
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry before upload: %v", err)
+			return false
+		}
+
+		if retrieved.ETag != scenario.ETag {
+			t.Logf("Expected old ETag %s before upload, got %s", scenario.ETag, retrieved.ETag)
+			return false
+		}
+
+		// Simulate successful upload with new ETag from server response
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrated,
+			metadata.WithUploadEvent(),
+			metadata.WithETag(scenario.NewETag))
+		if err != nil {
+			t.Logf("Failed to transition to HYDRATED with new ETag: %v", err)
+			return false
+		}
+
+		// Verify ETag is updated to new value
+		retrieved, err = fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry after upload: %v", err)
+			return false
+		}
+
+		if retrieved.ETag != scenario.NewETag {
+			t.Logf("Expected new ETag %s after upload, got %s", scenario.NewETag, retrieved.ETag)
+			return false
+		}
+
+		// Verify state is HYDRATED
+		if retrieved.State != metadata.ItemStateHydrated {
+			t.Logf("Expected state HYDRATED after upload, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify old ETag is no longer present
+		if retrieved.ETag == scenario.ETag {
+			t.Logf("ETag was not updated from %s to %s", scenario.ETag, scenario.NewETag)
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
