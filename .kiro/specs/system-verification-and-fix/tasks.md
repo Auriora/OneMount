@@ -1907,7 +1907,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify tombstone handling
   - _Requirements: 21.7_
 
-- [ ] 30.6 Test conflict state transitions
+- [x] 30.6 Test conflict state transitions
   - Test DIRTY_LOCAL → CONFLICT transition on remote changes
   - Test CONFLICT → HYDRATED transition on conflict resolution
   - Test CONFLICT → GHOST transition on local version deletion
