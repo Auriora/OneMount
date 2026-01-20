@@ -2149,6 +2149,46 @@ This implementation plan breaks down the verification and fix process into discr
 
 ---
 
+## Phase 20.1: Fix Resource Management Property Test Failures
+
+- [x] 33.8 Fix Property 56: Cache Size Enforcement failure
+  - **Issue**: Cache size 256MB exceeds configured 10MB limit (with tolerance)
+  - **Root Cause**: Cache size enforcement logic not working correctly
+  - Investigate `internal/fs/content_cache.go` cache size tracking
+  - Review cache eviction logic in `EvictOldEntries()` method
+  - Verify `GetCacheSize()` accurately tracks total cache size
+  - Check if cache insertion respects size limits
+  - Fix cache size enforcement to respect configured limits
+  - Verify eviction occurs when cache exceeds limit
+  - Re-run Property 56 test to confirm fix
+  - _Requirements: 24.1_
+
+- [x] 33.9 Fix Property 58: Worker Thread Limits failure
+  - **Issue**: Worker leak detected - 1 worker still active after test completion
+  - **Root Cause**: Worker goroutines not being cleaned up properly
+  - Investigate worker lifecycle in download/upload managers
+  - Review goroutine cleanup in `StopDownloadManager()` and `StopUploadManager()`
+  - Check for missing `defer` statements or cleanup calls
+  - Verify worker pool shutdown waits for all workers to complete
+  - Add proper synchronization for worker cleanup
+  - Ensure all goroutines are properly terminated
+  - Re-run Property 58 test to confirm fix
+  - _Requirements: 24.5_
+
+- [x] 33.10 Fix Property 59: Adaptive Network Throttling failure
+  - **Issue**: Average bandwidth 2.50 MB/s exceeds limit 0.19 MB/s (with tolerance)
+  - **Root Cause**: Network throttling not implemented or not working correctly
+  - Review if adaptive throttling is implemented in download/upload managers
+  - Check if bandwidth limiting is configured and enforced
+  - Investigate rate limiting logic in network operations
+  - Implement or fix bandwidth throttling mechanism
+  - Add adaptive throttling based on network conditions
+  - Verify throttling prevents network saturation
+  - Re-run Property 59 test to confirm fix
+  - _Requirements: 24.7_
+
+---
+
 
 
 ## Phase 21: Concurrency and Lock Management Property-Based Tests

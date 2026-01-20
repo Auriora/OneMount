@@ -35,6 +35,7 @@ type Config struct {
 	CacheExpiration      int                 `yaml:"cacheExpiration"`
 	CacheCleanupInterval int                 `yaml:"cacheCleanupInterval"` // Cache cleanup interval in hours
 	MaxCacheSize         int64               `yaml:"maxCacheSize"`         // Maximum cache size in bytes (0 = unlimited)
+	MaxBandwidthMbps     int                 `yaml:"maxBandwidthMbps"`     // Maximum bandwidth in Mbps (0 = unlimited)
 	MountTimeout         int                 `yaml:"mountTimeout"`
 	Realtime             RealtimeConfig      `yaml:"realtime"`
 	Overlay              OverlayConfig       `yaml:"overlay"`
@@ -112,6 +113,7 @@ func createDefaultConfig() Config {
 		CacheExpiration:      30,                               // Default to 30 days
 		CacheCleanupInterval: 24,                               // Default to 24 hours
 		MaxCacheSize:         0,                                // Default to unlimited (0 = no limit)
+		MaxBandwidthMbps:     0,                                // Default to unlimited (0 = no limit)
 		MountTimeout:         60,                               // Default to 60 seconds
 		Realtime: RealtimeConfig{
 			Enabled:          false,

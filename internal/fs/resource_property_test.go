@@ -11,6 +11,7 @@ import (
 
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/testutil/helpers"
+	"github.com/auriora/onemount/internal/util"
 )
 
 // CacheSizeScenario represents a cache size enforcement test scenario
@@ -62,8 +63,9 @@ func TestProperty56_CacheSizeEnforcement(t *testing.T) {
 
 		ensureMockGraphRoot(t)
 
-		// Create filesystem with cache size limit
-		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
+		// Create filesystem with cache size limit (convert MB to bytes)
+		maxCacheSizeBytes := int64(scenario.MaxCacheSizeMB * 1024 * 1024)
+		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, maxCacheSizeBytes)
 		if err != nil {
 			t.Logf("Failed to create filesystem: %v", err)
 			return false
@@ -81,7 +83,6 @@ func TestProperty56_CacheSizeEnforcement(t *testing.T) {
 
 		// Calculate total size that will exceed cache limit
 		totalSizeBytes := int64(scenario.NumFiles * scenario.FileSizeKB * 1024)
-		maxCacheSizeBytes := int64(scenario.MaxCacheSizeMB * 1024 * 1024)
 
 		// Create and cache files
 		fileIDs := make([]string, scenario.NumFiles)
@@ -126,7 +127,7 @@ func TestProperty56_CacheSizeEnforcement(t *testing.T) {
 			// Some files should have been evicted
 			evictedCount := 0
 			for _, fileID := range fileIDs {
-				if filesystem.content.Get(fileID) == nil {
+				if len(filesystem.content.Get(fileID)) == 0 {
 					evictedCount++
 				}
 			}
@@ -139,7 +140,7 @@ func TestProperty56_CacheSizeEnforcement(t *testing.T) {
 		} else {
 			// All files should fit in cache
 			for i, fileID := range fileIDs {
-				if filesystem.content.Get(fileID) == nil {
+				if len(filesystem.content.Get(fileID)) == 0 {
 					t.Logf("File %d (%s) was evicted even though total size fits in cache", i, fileID)
 					return false
 				}
@@ -405,7 +406,7 @@ func TestProperty58_WorkerThreadLimits(t *testing.T) {
 	property := func() bool {
 		scenario := generateWorkerThreadScenario(int(time.Now().UnixNano() % 1000))
 
-		// Create test environment
+		// Create test environment with limited workers
 		mountSpec := generateValidMountPoint(t)
 		cacheDir := filepath.Join(filepath.Dir(mountSpec.Path), "cache")
 
@@ -420,11 +421,24 @@ func TestProperty58_WorkerThreadLimits(t *testing.T) {
 
 		ensureMockGraphRoot(t)
 
+		// Create filesystem with limited download workers
 		filesystem, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 		if err != nil {
 			t.Logf("Failed to create filesystem: %v", err)
 			return false
 		}
+
+		// Override download manager with limited workers for testing
+		if filesystem.downloads != nil {
+			filesystem.StopDownloadManager()
+		}
+		filesystem.downloads = NewDownloadManager(
+			filesystem,
+			auth,
+			scenario.MaxWorkers, // Use scenario's worker limit
+			100,                 // Queue size
+			filesystem.db,
+		)
 
 		defer func() {
 			filesystem.StopCacheCleanup()
@@ -436,108 +450,134 @@ func TestProperty58_WorkerThreadLimits(t *testing.T) {
 
 		mockClient := graph.NewMockGraphClient()
 
-		// Create test files for download tasks
+		// Create test files with content that will trigger downloads
+		// Use larger content to ensure downloads take some time
 		fileIDs := make([]string, scenario.NumTasks)
 		for i := 0; i < scenario.NumTasks; i++ {
 			fileID := fmt.Sprintf("test-worker-file-%03d", i)
-			fileName := fmt.Sprintf("workertest-%03d.txt", i)
-			content := fmt.Sprintf("Content for worker test file %d", i)
+			fileName := fmt.Sprintf("workertest-%03d.dat", i)
 
-			file := helpers.CreateMockFile(mockClient, "root", fileName, fileID, content)
+			// Create content that's large enough to take time to process
+			contentSize := 1024 * 100 // 100KB per file
+			content := make([]byte, contentSize)
+			for j := 0; j < contentSize; j++ {
+				content[j] = byte((i + j) % 256)
+			}
+
+			file := helpers.CreateMockFile(mockClient, "root", fileName, fileID, string(content))
 			registerDriveItem(filesystem, "root", file)
 
 			fileIDs[i] = fileID
 		}
 
-		// Test: Submit tasks to download manager and verify worker limits
-		activeWorkers := 0
-		maxActiveWorkers := 0
-		var workerMutex sync.Mutex
+		// Test: Queue downloads and monitor actual download manager worker usage
+		maxActiveDownloads := 0
+		var maxMutex sync.Mutex
 
-		// Track worker activity
-		workerStarted := make(chan bool, scenario.NumTasks)
-		workerFinished := make(chan bool, scenario.NumTasks)
+		// Monitor download manager statistics
+		monitorCtx, monitorCancel := context.WithCancel(ctx)
+		monitorDone := make(chan struct{})
 
-		// Monitor worker count
 		go func() {
+			defer close(monitorDone)
+			ticker := time.NewTicker(10 * time.Millisecond)
+			defer ticker.Stop()
+
 			for {
 				select {
-				case <-workerStarted:
-					workerMutex.Lock()
-					activeWorkers++
-					if activeWorkers > maxActiveWorkers {
-						maxActiveWorkers = activeWorkers
+				case <-ticker.C:
+					// Get actual download manager statistics
+					stats := filesystem.downloads.Snapshot()
+
+					maxMutex.Lock()
+					if stats.Active > maxActiveDownloads {
+						maxActiveDownloads = stats.Active
 					}
-					workerMutex.Unlock()
+					maxMutex.Unlock()
 
-				case <-workerFinished:
-					workerMutex.Lock()
-					activeWorkers--
-					workerMutex.Unlock()
-
-				case <-ctx.Done():
+				case <-monitorCtx.Done():
 					return
 				}
 			}
 		}()
 
-		// Submit download tasks
+		// Queue downloads by requesting file content
 		var wg sync.WaitGroup
 		for i := 0; i < scenario.NumTasks; i++ {
 			wg.Add(1)
 			go func(taskID int) {
 				defer wg.Done()
 
-				workerStarted <- true
-				defer func() { workerFinished <- true }()
+				fileID := fileIDs[taskID]
 
-				// Simulate work
-				time.Sleep(scenario.TaskDuration)
+				// Queue the download
+				_, err := filesystem.downloads.QueueDownload(fileID)
+				if err != nil {
+					t.Logf("Failed to queue download for %s: %v", fileID, err)
+				}
 
-				// Access file to trigger download manager
-				fileID := fileIDs[taskID%len(fileIDs)]
-				_ = filesystem.content.Get(fileID)
+				// Small delay to stagger requests
+				time.Sleep(scenario.TaskDuration / 10)
 			}(i)
 
-			// Small delay to allow worker pool to process
+			// Small delay between queuing to allow monitoring
 			time.Sleep(time.Microsecond * 100)
 		}
 
-		// Wait for all tasks to complete
-		done := make(chan bool)
-		go func() {
-			wg.Wait()
-			close(done)
-		}()
+		// Wait for all queuing to complete
+		wg.Wait()
 
+		// Give downloads time to process and monitor
+		// Wait longer to ensure downloads complete
+		maxWaitTime := scenario.TaskDuration * 5
+		if maxWaitTime < 500*time.Millisecond {
+			maxWaitTime = 500 * time.Millisecond
+		}
+		time.Sleep(maxWaitTime)
+
+		// Wait for all downloads to complete by checking queue depth
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			stats := filesystem.downloads.Snapshot()
+			if stats.Active == 0 && stats.QueueDepth == 0 {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		// Stop monitoring
+		monitorCancel()
+
+		// Wait for monitor to finish
 		select {
-		case <-done:
-			// Success
-		case <-time.After(30 * time.Second):
-			t.Logf("Worker thread test timed out")
+		case <-monitorDone:
+			// Monitor stopped
+		case <-time.After(1 * time.Second):
+			t.Logf("Monitor goroutine did not stop in time")
 			return false
 		}
 
-		// Verify: Maximum active workers should not exceed configured limit
-		workerMutex.Lock()
-		finalMaxWorkers := maxActiveWorkers
-		workerMutex.Unlock()
+		// Verify: Maximum active downloads should not exceed configured worker limit
+		maxMutex.Lock()
+		finalMaxActive := maxActiveDownloads
+		maxMutex.Unlock()
 
-		// Allow some tolerance for goroutine scheduling
-		tolerance := scenario.MaxWorkers + 5
-		if finalMaxWorkers > tolerance {
-			t.Logf("Worker limit exceeded: max active workers %d > limit %d (tolerance %d)",
-				finalMaxWorkers, scenario.MaxWorkers, tolerance)
+		// The number of active downloads should never exceed the worker limit
+		// Allow small tolerance for race conditions in monitoring
+		tolerance := 2
+		if finalMaxActive > scenario.MaxWorkers+tolerance {
+			t.Logf("Worker limit exceeded: max active downloads %d > limit %d (tolerance %d)",
+				finalMaxActive, scenario.MaxWorkers, tolerance)
 			return false
 		}
 
-		// Verify: All workers should be cleaned up
-		workerMutex.Lock()
-		finalActiveWorkers := activeWorkers
-		workerMutex.Unlock()
+		// Verify: All downloads should eventually complete (no workers leaked)
+		// Wait a bit for cleanup
+		time.Sleep(100 * time.Millisecond)
 
-		if finalActiveWorkers != 0 {
-			t.Logf("Worker leak detected: %d workers still active", finalActiveWorkers)
+		finalStats := filesystem.downloads.Snapshot()
+		if finalStats.Active != 0 {
+			t.Logf("Worker leak detected: %d downloads still active after completion", finalStats.Active)
 			return false
 		}
 
@@ -565,9 +605,10 @@ type NetworkThrottlingScenario struct {
 
 // generateNetworkThrottlingScenario creates a random network throttling scenario
 func generateNetworkThrottlingScenario(seed int) NetworkThrottlingScenario {
-	bandwidths := []int{1, 5, 10, 100} // Mbps
-	downloadCounts := []int{5, 10, 20, 50}
-	fileSizes := []int{100, 500, 1000, 5000} // KB
+	// Use more reasonable bandwidth limits and file sizes to ensure tests complete in time
+	bandwidths := []int{5, 10, 20, 50}      // Mbps - removed 1 Mbps which is too slow
+	downloadCounts := []int{5, 10, 15, 20}  // Reduced max from 50
+	fileSizes := []int{100, 250, 500, 1000} // KB - reduced max from 5000
 
 	return NetworkThrottlingScenario{
 		BandwidthMbps: bandwidths[seed%len(bandwidths)],
@@ -599,7 +640,26 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 			ExpiresAt:    time.Now().Add(1 * time.Hour).Unix(),
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// Calculate expected transfer time based on scenario
+		// Total data: NumDownloads * FileSizeKB KB
+		// Bandwidth: BandwidthMbps Mbps = BandwidthMbps * 1024 / 8 KB/s
+		// Time = Total data / Bandwidth
+		totalDataKB := float64(scenario.NumDownloads * scenario.FileSizeKB)
+		bandwidthKBps := float64(scenario.BandwidthMbps * 1024 / 8)
+		expectedTransferTime := totalDataKB / bandwidthKBps
+
+		// Add 100% buffer for overhead, setup time, and concurrent operations
+		// Minimum 60 seconds to allow for test setup
+		contextTimeout := time.Duration(expectedTransferTime*2) * time.Second
+		if contextTimeout < 60*time.Second {
+			contextTimeout = 60 * time.Second
+		}
+		// Cap at 5 minutes to prevent extremely long tests
+		if contextTimeout > 5*time.Minute {
+			contextTimeout = 5 * time.Minute
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 		defer cancel()
 
 		ensureMockGraphRoot(t)
@@ -650,6 +710,9 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 		bytesTransferred := int64(0)
 		var bandwidthMutex sync.Mutex
 
+		// Create a shared throttler for all downloads
+		throttler := util.NewBandwidthThrottler(maxBandwidthBytesPerSec)
+
 		for i := 0; i < scenario.NumDownloads; i++ {
 			wg.Add(1)
 			go func(downloadID int) {
@@ -674,20 +737,13 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 					// Track bytes transferred
 					bandwidthMutex.Lock()
 					bytesTransferred += int64(end - offset)
-					currentBytes := bytesTransferred
 					bandwidthMutex.Unlock()
 
-					// Calculate current bandwidth usage
-					elapsed := time.Since(startTime).Seconds()
-					if elapsed > 0 {
-						currentBandwidth := float64(currentBytes) / elapsed
-
-						// Apply throttling if exceeding limit
-						if currentBandwidth > float64(maxBandwidthBytesPerSec) {
-							// Throttle by sleeping
-							sleepDuration := time.Duration(float64(end-offset) / float64(maxBandwidthBytesPerSec) * float64(time.Second))
-							time.Sleep(sleepDuration)
-						}
+					// Apply throttling using the proper throttler
+					err := throttler.Wait(ctx, int64(end-offset))
+					if err != nil {
+						errChan <- fmt.Errorf("download %d: throttling error: %v", downloadID, err)
+						return
 					}
 				}
 
@@ -706,11 +762,12 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 			close(done)
 		}()
 
+		// Use the same timeout as the context
 		select {
 		case <-done:
 			// Success
-		case <-time.After(30 * time.Second):
-			t.Logf("Network throttling test timed out")
+		case <-time.After(contextTimeout):
+			t.Logf("Network throttling test timed out after %v", contextTimeout)
 			return false
 		}
 

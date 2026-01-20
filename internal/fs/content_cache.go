@@ -145,8 +145,19 @@ func (l *LoopbackCache) Get(id string) []byte {
 func (l *LoopbackCache) Insert(id string, content []byte) error {
 	size := int64(len(content))
 
+	// Calculate the actual space needed (accounting for replacement)
+	l.entriesM.RLock()
+	existingSize := int64(0)
+	if entry, exists := l.entries[id]; exists {
+		existingSize = entry.size
+	}
+	l.entriesM.RUnlock()
+
+	// Calculate net new space needed
+	netNewSize := size - existingSize
+
 	// Evict old entries if necessary to make room
-	if err := l.evictIfNeeded(size); err != nil {
+	if err := l.evictIfNeeded(netNewSize); err != nil {
 		return err
 	}
 
