@@ -1878,7 +1878,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify all 7 states are implemented (GHOST, HYDRATING, HYDRATED, DIRTY_LOCAL, DELETED_LOCAL, CONFLICT, ERROR)
   - _Requirements: 21.1-21.10_
 
-- [ ] 30.2 Test initial item state assignment
+- [x] 30.2 Test initial item state assignment
   - Test items discovered via delta are inserted with GHOST state
   - Verify no content download until required
   - Test state persistence in metadata database
