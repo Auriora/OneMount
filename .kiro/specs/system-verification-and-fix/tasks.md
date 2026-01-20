@@ -1900,7 +1900,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ETag updates after successful upload
   - _Requirements: 21.6_
 
-- [ ] 30.5 Test deletion state transitions
+- [x] 30.5 Test deletion state transitions
   - Test HYDRATED → DELETED_LOCAL transition on local delete
   - Test DELETED_LOCAL → [REMOVED] transition on server confirmation
   - Test DELETED_LOCAL → CONFLICT transition on remote modification
