@@ -2089,8 +2089,8 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 20: Resource Management Property-Based Tests
 
-- [ ] 33. Implement resource management property-based tests
-- [ ] 33.1 Implement Property 56: Cache Size Enforcement
+- [x] 33. Implement resource management property-based tests
+- [x] 33.1 Implement Property 56: Cache Size Enforcement
   - **Property 56: Cache Size Enforcement**
   - **Validates: Requirements 24.1**
   - Create `internal/resources/resource_property_test.go`
@@ -2099,7 +2099,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test cache eviction and size management
   - _Requirements: 24.1_
 
-- [ ] 33.2 Implement Property 57: File Descriptor Limits
+- [x] 33.2 Implement Property 57: File Descriptor Limits
   - **Property 57: File Descriptor Limits**
   - **Validates: Requirements 24.4**
   - Generate random file descriptor usage scenarios
@@ -2107,7 +2107,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test resource cleanup and leak prevention
   - _Requirements: 24.4_
 
-- [ ] 33.3 Implement Property 58: Worker Thread Limits
+- [x] 33.3 Implement Property 58: Worker Thread Limits
   - **Property 58: Worker Thread Limits**
   - **Validates: Requirements 24.5**
   - Generate random worker thread spawning scenarios
@@ -2115,7 +2115,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test thread pool management and cleanup
   - _Requirements: 24.5_
 
-- [ ] 33.4 Implement Property 59: Adaptive Network Throttling
+- [x] 33.4 Implement Property 59: Adaptive Network Throttling
   - **Property 59: Adaptive Network Throttling**
   - **Validates: Requirements 24.7**
   - Generate random limited bandwidth scenarios
@@ -2123,7 +2123,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test throttling adjustment based on network conditions
   - _Requirements: 24.7_
 
-- [ ] 33.5 Implement Property 60: Memory Pressure Handling
+- [x] 33.5 Implement Property 60: Memory Pressure Handling
   - **Property 60: Memory Pressure Handling**
   - **Validates: Requirements 24.8**
   - Generate random system memory pressure scenarios
@@ -2131,7 +2131,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test memory usage adaptation under pressure
   - _Requirements: 24.8_
 
-- [ ] 33.6 Implement Property 61: CPU Usage Management
+- [x] 33.6 Implement Property 61: CPU Usage Management
   - **Property 61: CPU Usage Management**
   - **Validates: Requirements 24.9**
   - Generate random high CPU usage scenarios
@@ -2139,7 +2139,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test system responsiveness maintenance
   - _Requirements: 24.9_
 
-- [ ] 33.7 Implement Property 62: Graceful Resource Degradation
+- [x] 33.7 Implement Property 62: Graceful Resource Degradation
   - **Property 62: Graceful Resource Degradation**
   - **Validates: Requirements 24.10**
   - Generate random system resource pressure scenarios
