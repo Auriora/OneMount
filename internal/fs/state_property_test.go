@@ -472,3 +472,713 @@ func TestProperty40_NoContentDownloadUntilRequired(t *testing.T) {
 		t.Errorf("Property check failed: %v", err)
 	}
 }
+
+// HydrationTransitionScenario represents a test scenario for hydration state transitions
+type HydrationTransitionScenario struct {
+	ItemName      string
+	Size          uint64
+	ETag          string
+	SimulateError bool
+	ErrorMessage  string
+}
+
+// Generate implements quick.Generator for HydrationTransitionScenario
+func (HydrationTransitionScenario) Generate(rand *quick.Config) reflect.Value {
+	itemName := fmt.Sprintf("file-%d", rand.Rand.Intn(10000)+1)
+	simulateError := rand.Rand.Intn(4) == 0 // 25% chance of error
+	errorMsg := ""
+	if simulateError {
+		errors := []string{
+			"network timeout",
+			"connection refused",
+			"download failed",
+			"disk full",
+			"permission denied",
+		}
+		errorMsg = errors[rand.Rand.Intn(len(errors))]
+	}
+
+	scenario := HydrationTransitionScenario{
+		ItemName:      itemName,
+		Size:          uint64(rand.Rand.Intn(10*1024*1024) + 1024), // 1KB to 10MB
+		ETag:          fmt.Sprintf("etag-%d", rand.Rand.Intn(10000)),
+		SimulateError: simulateError,
+		ErrorMessage:  errorMsg,
+	}
+	return reflect.ValueOf(scenario)
+}
+
+// TestProperty41_GhostToHydratingTransition verifies that GHOST → HYDRATING
+// transition occurs on user access.
+// **Property 41: Successful Hydration State Transition (Part 1: GHOST → HYDRATING)**
+// **Validates: Requirements 21.3**
+func TestProperty41_GhostToHydratingTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario HydrationTransitionScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in GHOST state
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateGhost,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate user access by transitioning to HYDRATING
+		workerID := "worker-" + scenario.ItemName
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrating,
+			metadata.WithHydrationEvent(),
+			metadata.WithWorker(workerID))
+		if err != nil {
+			t.Logf("Failed to transition to HYDRATING: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in HYDRATING state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateHydrating {
+			t.Logf("Expected state HYDRATING, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify worker ID is recorded
+		if retrieved.Hydration.WorkerID != workerID {
+			t.Logf("Expected worker ID %s, got %s", workerID, retrieved.Hydration.WorkerID)
+			return false
+		}
+
+		// Verify hydration started timestamp is set
+		if retrieved.Hydration.StartedAt == nil {
+			t.Logf("Hydration StartedAt timestamp not set")
+			return false
+		}
+
+		// Verify hydration completed timestamp is not set yet
+		if retrieved.Hydration.CompletedAt != nil {
+			t.Logf("Hydration CompletedAt timestamp should not be set during HYDRATING")
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty41_HydratingToHydratedTransition verifies that HYDRATING → HYDRATED
+// transition occurs on successful download.
+// **Property 41: Successful Hydration State Transition (Part 2: HYDRATING → HYDRATED)**
+// **Validates: Requirements 21.4**
+func TestProperty41_HydratingToHydratedTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario HydrationTransitionScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in HYDRATING state
+		workerID := "worker-" + scenario.ItemName
+		startedAt := time.Now().UTC()
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateHydrating,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Hydration: metadata.HydrationState{
+				WorkerID:  workerID,
+				StartedAt: &startedAt,
+			},
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate successful download by transitioning to HYDRATED
+		contentHash := "hash-" + scenario.ItemName
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrated,
+			metadata.WithHydrationEvent(),
+			metadata.WithWorker(workerID),
+			metadata.WithContentHash(contentHash))
+		if err != nil {
+			t.Logf("Failed to transition to HYDRATED: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in HYDRATED state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateHydrated {
+			t.Logf("Expected state HYDRATED, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify content hash is recorded
+		if retrieved.ContentHash != contentHash {
+			t.Logf("Expected content hash %s, got %s", contentHash, retrieved.ContentHash)
+			return false
+		}
+
+		// Verify hydration completed timestamp is set
+		if retrieved.Hydration.CompletedAt == nil {
+			t.Logf("Hydration CompletedAt timestamp not set")
+			return false
+		}
+
+		// Verify LastHydrated timestamp is set
+		if retrieved.LastHydrated == nil {
+			t.Logf("LastHydrated timestamp not set")
+			return false
+		}
+
+		// Verify error fields are cleared
+		if retrieved.LastError != nil {
+			t.Logf("LastError should be nil after successful hydration")
+			return false
+		}
+
+		if retrieved.Hydration.Error != nil {
+			t.Logf("Hydration.Error should be nil after successful hydration")
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty41_HydratingToErrorTransition verifies that HYDRATING → ERROR
+// transition occurs on download failure.
+// **Property 41: Successful Hydration State Transition (Part 3: HYDRATING → ERROR)**
+// **Validates: Requirements 21.5**
+func TestProperty41_HydratingToErrorTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario HydrationTransitionScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+		if !scenario.SimulateError || scenario.ErrorMessage == "" {
+			return true // Skip scenarios without errors
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in HYDRATING state
+		workerID := "worker-" + scenario.ItemName
+		startedAt := time.Now().UTC()
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateHydrating,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Hydration: metadata.HydrationState{
+				WorkerID:  workerID,
+				StartedAt: &startedAt,
+			},
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate download failure by transitioning to ERROR
+		downloadErr := fmt.Errorf("%s", scenario.ErrorMessage)
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateError,
+			metadata.WithHydrationEvent(),
+			metadata.WithWorker(workerID),
+			metadata.WithTransitionError(downloadErr, true))
+		if err != nil {
+			t.Logf("Failed to transition to ERROR: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in ERROR state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateError {
+			t.Logf("Expected state ERROR, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify error is recorded
+		if retrieved.LastError == nil {
+			t.Logf("LastError should be set after failed hydration")
+			return false
+		}
+
+		if retrieved.LastError.Message != scenario.ErrorMessage {
+			t.Logf("Expected error message %s, got %s", scenario.ErrorMessage, retrieved.LastError.Message)
+			return false
+		}
+
+		// Verify error is marked as temporary
+		if !retrieved.LastError.Temporary {
+			t.Logf("Error should be marked as temporary")
+			return false
+		}
+
+		// Verify hydration error is recorded
+		if retrieved.Hydration.Error == nil {
+			t.Logf("Hydration.Error should be set after failed hydration")
+			return false
+		}
+
+		if retrieved.Hydration.Error.Message != scenario.ErrorMessage {
+			t.Logf("Expected hydration error message %s, got %s", scenario.ErrorMessage, retrieved.Hydration.Error.Message)
+			return false
+		}
+
+		// Verify hydration completed timestamp is set
+		if retrieved.Hydration.CompletedAt == nil {
+			t.Logf("Hydration CompletedAt timestamp should be set even on failure")
+			return false
+		}
+
+		// Verify previous state metadata is preserved (size, ETag)
+		if retrieved.Size != scenario.Size {
+			t.Logf("Size should be preserved after error: expected %d, got %d", scenario.Size, retrieved.Size)
+			return false
+		}
+
+		if retrieved.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved after error: expected %s, got %s", scenario.ETag, retrieved.ETag)
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty41_HydratingToGhostTransition verifies that HYDRATING → GHOST
+// transition occurs on cancellation (using force transition).
+// **Property 41: Successful Hydration State Transition (Part 4: HYDRATING → GHOST)**
+// **Validates: Requirements 21.3**
+func TestProperty41_HydratingToGhostTransition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario HydrationTransitionScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in HYDRATING state
+		workerID := "worker-" + scenario.ItemName
+		startedAt := time.Now().UTC()
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateHydrating,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Hydration: metadata.HydrationState{
+				WorkerID:  workerID,
+				StartedAt: &startedAt,
+			},
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Simulate cancellation by transitioning back to GHOST (requires force)
+		// Note: In practice, cancellation might transition to ERROR instead,
+		// but the requirement specifies GHOST as a valid cancellation target
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateGhost,
+			metadata.WithHydrationEvent(),
+			metadata.ForceTransition())
+		if err != nil {
+			t.Logf("Failed to transition to GHOST: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in GHOST state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateGhost {
+			t.Logf("Expected state GHOST, got %s", retrieved.State)
+			return false
+		}
+
+		// Note: Worker ID may or may not be cleared depending on implementation
+		// The important thing is that the state is GHOST and content is not available
+
+		// Verify metadata is preserved (size, ETag)
+		if retrieved.Size != scenario.Size {
+			t.Logf("Size should be preserved after cancellation: expected %d, got %d", scenario.Size, retrieved.Size)
+			return false
+		}
+
+		if retrieved.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved after cancellation: expected %s, got %s", scenario.ETag, retrieved.ETag)
+			return false
+		}
+
+		// Verify no content exists in cache
+		if fs.content != nil {
+			hasContent := fs.content.HasContent(itemID)
+			if hasContent {
+				t.Logf("Content should not exist in cache after cancellation")
+				return false
+			}
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty41_WorkerDeduplication verifies that duplicate hydration requests
+// for the same item are deduplicated by worker ID.
+// **Property 41: Worker Deduplication During Hydration**
+// **Validates: Requirements 21.3**
+func TestProperty41_WorkerDeduplication(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario HydrationTransitionScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in GHOST state
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateGhost,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// First worker starts hydration
+		worker1ID := "worker-1-" + scenario.ItemName
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrating,
+			metadata.WithHydrationEvent(),
+			metadata.WithWorker(worker1ID))
+		if err != nil {
+			t.Logf("Failed first transition to HYDRATING: %v", err)
+			return false
+		}
+
+		// Verify first worker is recorded
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.Hydration.WorkerID != worker1ID {
+			t.Logf("Expected worker ID %s, got %s", worker1ID, retrieved.Hydration.WorkerID)
+			return false
+		}
+
+		// Second worker attempts to start hydration (should be rejected or deduplicated)
+		worker2ID := "worker-2-" + scenario.ItemName
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrating,
+			metadata.WithHydrationEvent(),
+			metadata.WithWorker(worker2ID))
+
+		// The transition should either fail (item already hydrating) or succeed but keep the original worker
+		// Check the current state
+		retrieved, err = fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry after second transition: %v", err)
+			return false
+		}
+
+		// Verify the item is still in HYDRATING state
+		if retrieved.State != metadata.ItemStateHydrating {
+			t.Logf("Expected state HYDRATING after duplicate request, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify the original worker ID is preserved (deduplication)
+		if retrieved.Hydration.WorkerID != worker1ID {
+			t.Logf("Worker ID changed from %s to %s, deduplication failed", worker1ID, retrieved.Hydration.WorkerID)
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 50,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}

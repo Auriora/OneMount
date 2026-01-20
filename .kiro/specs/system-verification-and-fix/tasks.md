@@ -1885,7 +1885,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify virtual entries use correct state and flags
   - _Requirements: 21.2, 21.10_
 
-- [ ] 30.3 Test hydration state transitions
+- [x] 30.3 Test hydration state transitions
   - Test GHOST → HYDRATING transition on user access
   - Test HYDRATING → HYDRATED transition on successful download
   - Test HYDRATING → ERROR transition on download failure
