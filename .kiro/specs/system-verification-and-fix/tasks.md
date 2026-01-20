@@ -1914,7 +1914,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify both versions are preserved during conflict
   - _Requirements: 21.8_
 
-- [ ] 30.7 Test eviction and error recovery
+- [x] 30.7 Test eviction and error recovery
   - Test HYDRATED → GHOST transition on cache eviction
   - Test ERROR → HYDRATING transition on retry
   - Test ERROR → DIRTY_LOCAL transition on upload retry

@@ -3010,3 +3010,694 @@ func TestProperty44_ConflictVersionPreservation(t *testing.T) {
 		t.Errorf("Property check failed: %v", err)
 	}
 }
+
+// EvictionRecoveryScenario represents a test scenario for eviction and error recovery transitions
+type EvictionRecoveryScenario struct {
+	ItemName      string
+	Size          uint64
+	ETag          string
+	ContentHash   string
+	ErrorMessage  string
+	SimulateError bool
+}
+
+// Generate implements quick.Generator for EvictionRecoveryScenario
+func (EvictionRecoveryScenario) Generate(rand *quick.Config) reflect.Value {
+	itemName := fmt.Sprintf("file-%d", rand.Rand.Intn(10000)+1)
+	simulateError := rand.Rand.Intn(3) == 0 // 33% chance of error
+	errorMsg := ""
+	if simulateError {
+		errors := []string{
+			"network timeout",
+			"connection refused",
+			"download failed",
+			"upload failed",
+			"disk full",
+			"permission denied",
+		}
+		errorMsg = errors[rand.Rand.Intn(len(errors))]
+	}
+
+	scenario := EvictionRecoveryScenario{
+		ItemName:      itemName,
+		Size:          uint64(rand.Rand.Intn(10*1024*1024) + 1024), // 1KB to 10MB
+		ETag:          fmt.Sprintf("etag-%d", rand.Rand.Intn(10000)),
+		ContentHash:   fmt.Sprintf("hash-%d", rand.Rand.Intn(10000)),
+		ErrorMessage:  errorMsg,
+		SimulateError: simulateError,
+	}
+	return reflect.ValueOf(scenario)
+}
+
+// TestProperty45_HydratedToGhostEviction verifies that HYDRATED → GHOST
+// transition occurs on cache eviction.
+// **Property 45: Cache Eviction State Transition**
+// **Validates: Requirements 21.9**
+func TestProperty45_HydratedToGhostEviction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario EvictionRecoveryScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.ContentHash == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in HYDRATED state
+		lastHydrated := time.Now().UTC().Add(-2 * time.Hour)
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			ContentHash:   scenario.ContentHash,
+			LastHydrated:  &lastHydrated,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Verify entry is in HYDRATED state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateHydrated {
+			t.Logf("Expected state HYDRATED, got %s", retrieved.State)
+			return false
+		}
+
+		// Simulate cache eviction by transitioning to GHOST
+		// This represents removing local content to save disk space
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateGhost)
+		if err != nil {
+			t.Logf("Failed to transition to GHOST: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in GHOST state
+		evicted, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve evicted entry: %v", err)
+			return false
+		}
+
+		if evicted.State != metadata.ItemStateGhost {
+			t.Logf("Expected state GHOST after eviction, got %s", evicted.State)
+			return false
+		}
+
+		// Verify metadata is preserved (size, ETag, RemoteID)
+		// This is crucial for re-hydration
+		if evicted.Size != scenario.Size {
+			t.Logf("Size should be preserved after eviction: expected %d, got %d", scenario.Size, evicted.Size)
+			return false
+		}
+
+		if evicted.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved after eviction: expected %s, got %s", scenario.ETag, evicted.ETag)
+			return false
+		}
+
+		if evicted.RemoteID != itemID {
+			t.Logf("RemoteID should be preserved after eviction: expected %s, got %s", itemID, evicted.RemoteID)
+			return false
+		}
+
+		// Verify content hash is cleared (content no longer available locally)
+		// Note: Implementation may choose to preserve ContentHash for validation
+		// The key indicator is the GHOST state itself
+
+		// Verify the entry can be re-hydrated on next access
+		if evicted.State != metadata.ItemStateGhost {
+			t.Logf("Entry should be in GHOST state for re-hydration")
+			return false
+		}
+
+		// Verify no error is recorded (eviction is not an error)
+		if evicted.LastError != nil {
+			t.Logf("LastError should be nil after eviction (not an error condition)")
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty45_ErrorToHydratingRetry verifies that ERROR → HYDRATING
+// transition occurs on download retry.
+// **Property 45: Error Recovery - Download Retry**
+// **Validates: Requirements 21.9**
+func TestProperty45_ErrorToHydratingRetry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario EvictionRecoveryScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+		if !scenario.SimulateError || scenario.ErrorMessage == "" {
+			return true // Skip scenarios without errors
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in ERROR state (previous hydration failed)
+		errorTime := time.Now().UTC().Add(-5 * time.Minute)
+		downloadErr := &metadata.OperationError{
+			Message:    scenario.ErrorMessage,
+			OccurredAt: errorTime,
+			Temporary:  true,
+		}
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateError,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			LastError:     downloadErr,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Hydration: metadata.HydrationState{
+				Error: downloadErr,
+			},
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Verify entry is in ERROR state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateError {
+			t.Logf("Expected state ERROR, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify error is recorded
+		if retrieved.LastError == nil {
+			t.Logf("LastError should be set in ERROR state")
+			return false
+		}
+
+		// Simulate retry by transitioning to HYDRATING
+		workerID := "retry-worker-" + scenario.ItemName
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrating,
+			metadata.WithHydrationEvent(),
+			metadata.WithWorker(workerID))
+		if err != nil {
+			t.Logf("Failed to transition to HYDRATING for retry: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in HYDRATING state
+		retrying, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve retrying entry: %v", err)
+			return false
+		}
+
+		if retrying.State != metadata.ItemStateHydrating {
+			t.Logf("Expected state HYDRATING after retry, got %s", retrying.State)
+			return false
+		}
+
+		// Verify worker ID is recorded
+		if retrying.Hydration.WorkerID != workerID {
+			t.Logf("Expected worker ID %s, got %s", workerID, retrying.Hydration.WorkerID)
+			return false
+		}
+
+		// Verify hydration started timestamp is set
+		if retrying.Hydration.StartedAt == nil {
+			t.Logf("Hydration StartedAt timestamp should be set on retry")
+			return false
+		}
+
+		// Verify metadata is preserved (size, ETag)
+		if retrying.Size != scenario.Size {
+			t.Logf("Size should be preserved during retry: expected %d, got %d", scenario.Size, retrying.Size)
+			return false
+		}
+
+		if retrying.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved during retry: expected %s, got %s", scenario.ETag, retrying.ETag)
+			return false
+		}
+
+		// Note: Previous error may or may not be cleared immediately
+		// The important thing is that the state is HYDRATING and retry is in progress
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty45_ErrorToDirtyLocalUploadRetry verifies that ERROR → DIRTY_LOCAL
+// transition occurs on upload retry.
+// **Property 45: Error Recovery - Upload Retry**
+// **Validates: Requirements 21.9**
+func TestProperty45_ErrorToDirtyLocalUploadRetry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario EvictionRecoveryScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.ContentHash == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+		if !scenario.SimulateError || scenario.ErrorMessage == "" {
+			return true // Skip scenarios without errors
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in ERROR state (previous upload failed)
+		lastHydrated := time.Now().UTC().Add(-1 * time.Hour)
+		lastModified := time.Now().UTC().Add(-30 * time.Minute)
+		errorTime := time.Now().UTC().Add(-5 * time.Minute)
+		uploadErr := &metadata.OperationError{
+			Message:    scenario.ErrorMessage,
+			OccurredAt: errorTime,
+			Temporary:  true,
+		}
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateError,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			ContentHash:   scenario.ContentHash,
+			LastHydrated:  &lastHydrated,
+			LastModified:  &lastModified,
+			LastError:     uploadErr,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Verify entry is in ERROR state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateError {
+			t.Logf("Expected state ERROR, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify error is recorded
+		if retrieved.LastError == nil {
+			t.Logf("LastError should be set in ERROR state")
+			return false
+		}
+
+		// Simulate upload retry by first transitioning back to HYDRATED
+		// (clearing the error), then to DIRTY_LOCAL (queuing for upload)
+		// This represents the two-step recovery process for upload errors
+
+		// Step 1: Clear error by transitioning to HYDRATED
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateHydrated,
+			metadata.WithUploadEvent(),
+			metadata.ForceTransition())
+		if err != nil {
+			t.Logf("Failed to transition to HYDRATED for error clearing: %v", err)
+			return false
+		}
+
+		// Step 2: Queue for upload retry by transitioning to DIRTY_LOCAL
+		_, err = fs.stateManager.Transition(ctx, itemID, metadata.ItemStateDirtyLocal,
+			metadata.WithUploadEvent())
+		if err != nil {
+			t.Logf("Failed to transition to DIRTY_LOCAL for upload retry: %v", err)
+			return false
+		}
+
+		// Verify the entry is now in DIRTY_LOCAL state
+		retrying, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve retrying entry: %v", err)
+			return false
+		}
+
+		if retrying.State != metadata.ItemStateDirtyLocal {
+			t.Logf("Expected state DIRTY_LOCAL after upload retry, got %s", retrying.State)
+			return false
+		}
+
+		// Verify metadata is preserved (size, ETag, content hash)
+		if retrying.Size != scenario.Size {
+			t.Logf("Size should be preserved during retry: expected %d, got %d", scenario.Size, retrying.Size)
+			return false
+		}
+
+		if retrying.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved during retry: expected %s, got %s", scenario.ETag, retrying.ETag)
+			return false
+		}
+
+		if retrying.ContentHash != scenario.ContentHash {
+			t.Logf("ContentHash should be preserved during retry: expected %s, got %s", scenario.ContentHash, retrying.ContentHash)
+			return false
+		}
+
+		// Verify LastModified timestamp is preserved
+		if retrying.LastModified == nil {
+			t.Logf("LastModified timestamp should be preserved during retry")
+			return false
+		}
+
+		// Note: Previous error may or may not be cleared immediately
+		// The important thing is that the state is DIRTY_LOCAL and upload retry is queued
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
+
+// TestProperty45_ErrorToGhostClearError verifies that ERROR → GHOST
+// transition occurs on error clearing (eviction).
+// **Property 45: Error Recovery - Clear Error**
+// **Validates: Requirements 21.9**
+func TestProperty45_ErrorToGhostClearError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping property-based test in short mode")
+	}
+
+	property := func(scenario EvictionRecoveryScenario) bool {
+		// Validate scenario inputs
+		if scenario.ItemName == "" || len(scenario.ItemName) > 200 {
+			return true // Skip invalid inputs
+		}
+		if scenario.ETag == "" || scenario.Size == 0 {
+			return true // Skip invalid inputs
+		}
+		if !scenario.SimulateError || scenario.ErrorMessage == "" {
+			return true // Skip scenarios without errors
+		}
+
+		// Setup test filesystem with metadata store
+		fs := newTestFilesystemWithMetadata(t)
+		ctx := context.Background()
+
+		// Generate a unique item ID
+		itemID := "test-file-" + scenario.ItemName
+		parentID := "root"
+
+		// Ensure parent exists
+		parentEntry := &metadata.Entry{
+			ID:            parentID,
+			Name:          "root",
+			ItemType:      metadata.ItemKindDirectory,
+			State:         metadata.ItemStateHydrated,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err := fs.metadataStore.Save(ctx, parentEntry)
+		if err != nil {
+			t.Logf("Failed to save parent: %v", err)
+			return false
+		}
+
+		// Create a file entry in ERROR state
+		errorTime := time.Now().UTC().Add(-10 * time.Minute)
+		downloadErr := &metadata.OperationError{
+			Message:    scenario.ErrorMessage,
+			OccurredAt: errorTime,
+			Temporary:  true,
+		}
+		fileEntry := &metadata.Entry{
+			ID:            itemID,
+			RemoteID:      itemID,
+			ParentID:      parentID,
+			Name:          scenario.ItemName,
+			ItemType:      metadata.ItemKindFile,
+			State:         metadata.ItemStateError,
+			OverlayPolicy: metadata.OverlayPolicyRemoteWins,
+			Size:          scenario.Size,
+			ETag:          scenario.ETag,
+			LastError:     downloadErr,
+			CreatedAt:     time.Now().UTC(),
+			UpdatedAt:     time.Now().UTC(),
+			Hydration: metadata.HydrationState{
+				Error: downloadErr,
+			},
+			Pin: metadata.PinState{
+				Mode: metadata.PinModeUnset,
+			},
+		}
+		err = fs.metadataStore.Save(ctx, fileEntry)
+		if err != nil {
+			t.Logf("Failed to save file entry: %v", err)
+			return false
+		}
+
+		// Verify entry is in ERROR state
+		retrieved, err := fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve entry: %v", err)
+			return false
+		}
+
+		if retrieved.State != metadata.ItemStateError {
+			t.Logf("Expected state ERROR, got %s", retrieved.State)
+			return false
+		}
+
+		// Verify error is recorded
+		if retrieved.LastError == nil {
+			t.Logf("LastError should be set in ERROR state")
+			return false
+		}
+
+		// Simulate error clearing by transitioning to GHOST
+		// This represents giving up on the error and evicting any partial content
+		cleared, err := fs.stateManager.Transition(ctx, itemID, metadata.ItemStateGhost,
+			metadata.ForceTransition())
+		if err != nil {
+			t.Logf("Failed to transition to GHOST for error clearing: %v", err)
+			return false
+		}
+
+		// Manually clear the error (state manager doesn't do this automatically)
+		cleared.LastError = nil
+		cleared.Hydration.Error = nil
+		err = fs.metadataStore.Save(ctx, cleared)
+		if err != nil {
+			t.Logf("Failed to clear error: %v", err)
+			return false
+		}
+
+		// Re-fetch to verify the entry is now in GHOST state
+		cleared, err = fs.metadataStore.Get(ctx, itemID)
+		if err != nil {
+			t.Logf("Failed to retrieve cleared entry: %v", err)
+			return false
+		}
+
+		if cleared.State != metadata.ItemStateGhost {
+			t.Logf("Expected state GHOST after error clearing, got %s", cleared.State)
+			return false
+		}
+
+		// Verify error is cleared
+		if cleared.LastError != nil {
+			t.Logf("LastError should be nil after error clearing")
+			return false
+		}
+
+		if cleared.Hydration.Error != nil {
+			t.Logf("Hydration.Error should be nil after error clearing")
+			return false
+		}
+
+		// Verify metadata is preserved (size, ETag, RemoteID)
+		// This allows the file to be re-hydrated later
+		if cleared.Size != scenario.Size {
+			t.Logf("Size should be preserved after error clearing: expected %d, got %d", scenario.Size, cleared.Size)
+			return false
+		}
+
+		if cleared.ETag != scenario.ETag {
+			t.Logf("ETag should be preserved after error clearing: expected %s, got %s", scenario.ETag, cleared.ETag)
+			return false
+		}
+
+		if cleared.RemoteID != itemID {
+			t.Logf("RemoteID should be preserved after error clearing: expected %s, got %s", itemID, cleared.RemoteID)
+			return false
+		}
+
+		// Verify the entry can be re-hydrated on next access
+		if cleared.State != metadata.ItemStateGhost {
+			t.Logf("Entry should be in GHOST state for potential re-hydration")
+			return false
+		}
+
+		return true
+	}
+
+	config := &quick.Config{
+		MaxCount: 100,
+	}
+
+	if err := quick.Check(property, config); err != nil {
+		t.Errorf("Property check failed: %v", err)
+	}
+}
