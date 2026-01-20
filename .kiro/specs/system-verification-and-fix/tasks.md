@@ -2153,8 +2153,8 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 21: Concurrency and Lock Management Property-Based Tests
 
-- [ ] 34. Implement concurrency and lock management property-based tests
-- [ ] 34.1 Implement Property 63: Lock Ordering Compliance
+- [x] 34. Implement concurrency and lock management property-based tests
+- [x] 34.1 Implement Property 63: Lock Ordering Compliance
   - **Property 63: Lock Ordering Compliance**
   - **Validates: Concurrency Design Requirements**
   - Create `internal/concurrency/lock_property_test.go`
@@ -2163,7 +2163,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with various concurrent scenarios
   - _Requirements: Concurrency Design_
 
-- [ ] 34.2 Implement Property 64: Deadlock Prevention
+- [x] 34.2 Implement Property 64: Deadlock Prevention
   - **Property 64: Deadlock Prevention**
   - **Validates: Concurrency Design Requirements**
   - Generate random concurrent operation scenarios
@@ -2171,7 +2171,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with high concurrency and stress conditions
   - _Requirements: Concurrency Design_
 
-- [ ] 34.3 Implement Property 65: Lock Release Consistency
+- [x] 34.3 Implement Property 65: Lock Release Consistency
   - **Property 65: Lock Release Consistency**
   - **Validates: Concurrency Design Requirements**
   - Generate random lock acquisition scenarios with errors
@@ -2179,7 +2179,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test error handling and cleanup paths
   - _Requirements: Concurrency Design_
 
-- [ ] 34.4 Implement Property 66: Concurrent File Access Safety
+- [x] 34.4 Implement Property 66: Concurrent File Access Safety
   - **Property 66: Concurrent File Access Safety**
   - **Validates: Concurrency Design Requirements**
   - Generate random concurrent file operations on different inodes
@@ -2187,7 +2187,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test with race detector enabled
   - _Requirements: Concurrency Design_
 
-- [ ] 34.5 Implement Property 67: State Transition Atomicity
+- [x] 34.5 Implement Property 67: State Transition Atomicity
   - **Property 67: State Transition Atomicity**
   - **Validates: State Machine Design Requirements**
   - Generate random item state transition scenarios
