@@ -2271,7 +2271,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Check resource usage is reasonable
   - _Requirements: Performance requirements_
 
-- [ ] 38. Create verification report
+- [x] 38. Create verification report
   - Summarize all verification activities
   - List all issues found and fixed
   - Document Socket.IO realtime behavior
@@ -2555,3 +2555,385 @@ The specification now provides comprehensive coverage of all functional, securit
 5. **LOW**: Properties 49-62 (Performance, Resource Management) - Quality and system efficiency
 
 **✅ RESULT**: The spec is now **FULLY COMPLIANT** with the property-based testing workflow requirements.
+
+
+---
+
+## Phase 23: Fix Remaining Issues for v1.0.0 Release
+
+### Critical Path Issues (Must Fix Before Release)
+
+- [ ] 40. Fix offline detection false positives (Issue #OF-002)
+- [ ] 40.1 Review IsOffline() function in internal/graph/graph.go
+  - Analyze conservative default that treats unknown errors as offline
+  - Identify authentication/authorization error patterns (401, 403, "permission denied", "invalid token")
+  - Review current error pattern matching logic
+  - Document current behavior and false positive scenarios
+  - _Requirements: 6.1, 19.1-19.11_
+
+- [ ] 40.2 Fix IsOffline() to avoid false positives
+  - Remove or modify conservative default for unknown errors
+  - Add explicit checks for authentication/authorization errors
+  - Ensure non-network errors return false (online status)
+  - Update error pattern matching to be more precise
+  - Consider whitelist approach instead of blacklist
+  - _Requirements: 6.1, 19.1-19.11_
+
+- [ ] 40.3 Update and run Property 24 test
+  - Run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestProperty24_OfflineDetection ./internal/fs -timeout 30s`
+  - Verify all 100 iterations pass
+  - Verify 'permission denied' returns online=true
+  - Verify authentication errors return online=true
+  - Verify actual network errors return offline=true
+  - Document test results
+  - _Requirements: 6.1, 19.1-19.11_
+
+- [ ] 40.4 Update integration tests if needed
+  - Review integration tests for offline detection
+  - Update tests to match new behavior
+  - Ensure tests cover authentication error scenarios
+  - Run full offline mode test suite
+  - _Requirements: 6.1, 19.1-19.11_
+
+- [ ] 40.5 Document offline detection behavior
+  - Update design document with offline detection logic
+  - Document error patterns that trigger offline state
+  - Document error patterns that do NOT trigger offline state
+  - Add troubleshooting guide for offline detection
+  - _Requirements: 6.1, 19.1-19.11_
+
+### Desktop Integration Issues (Should Fix Before Release)
+
+- [ ] 41. Fix D-Bus GetFileStatus returns Unknown (Issue #FS-001)
+- [ ] 41.1 Analyze D-Bus GetFileStatus implementation
+  - Review current implementation in internal/fs/dbus.go
+  - Identify why status returns "Unknown"
+  - Determine if GetPath() method is needed
+  - Evaluate path-to-ID mapping approach
+  - _Requirements: 8.2_
+
+- [ ] 41.2 Implement solution for GetFileStatus
+  - Option 1: Add GetPath(id string) string method to FilesystemInterface
+  - Option 2: Implement path-to-ID mapping in D-Bus server
+  - Update GetFileStatus to return actual status
+  - Ensure status determination works correctly
+  - _Requirements: 8.2_
+
+- [ ] 41.3 Create integration tests for D-Bus methods
+  - Write test for GetFileStatus with valid paths
+  - Write test for GetFileStatus with invalid paths
+  - Write test for status changes via D-Bus
+  - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestDBus ./internal/fs`
+  - _Requirements: 8.2_
+
+- [ ] 41.4 Manual verification with Nemo extension
+  - Test GetFileStatus method calls from Nemo
+  - Verify status icons update correctly
+  - Test with various file states (synced, downloading, error)
+  - Document results in verification tracking
+  - _Requirements: 8.2, 8.3_
+
+- [ ] 42. Fix D-Bus service name discovery (Issue #FS-002)
+- [ ] 42.1 Analyze service name discovery problem
+  - Review current D-Bus service name generation
+  - Identify why Nemo extension cannot discover service
+  - Evaluate different discovery mechanisms
+  - Document current behavior and limitations
+  - _Requirements: 8.2, 8.3_
+
+- [ ] 42.2 Implement service discovery mechanism
+  - Option 1: Use well-known service name without unique suffix
+  - Option 2: Implement D-Bus introspection-based discovery
+  - Option 3: Write service name to known location (e.g., /tmp/onemount-dbus-name)
+  - Update Nemo extension to use discovery mechanism
+  - Test with multiple OneMount instances
+  - _Requirements: 8.2, 8.3_
+
+- [ ] 42.3 Create integration tests for service discovery
+  - Write test for service name registration
+  - Write test for service discovery from client
+  - Write test for multiple instances
+  - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestDBusDiscovery ./internal/fs`
+  - _Requirements: 8.2, 8.3_
+
+- [ ] 42.4 Manual verification with Nemo extension
+  - Test service discovery from Nemo
+  - Verify extension connects to correct service
+  - Test with multiple OneMount instances
+  - Document results in verification tracking
+  - _Requirements: 8.2, 8.3_
+
+- [ ] 43. Add error handling for extended attributes (Issue #FS-003)
+- [ ] 43.1 Review xattr operations in updateFileStatus()
+  - Identify all xattr operations in internal/fs/file_status.go
+  - Document current error handling (or lack thereof)
+  - Identify potential failure scenarios
+  - Determine appropriate error handling strategy
+  - _Requirements: 8.1, 8.4_
+
+- [ ] 43.2 Implement error handling for xattr operations
+  - Add error handling for all xattr operations
+  - Log warnings when xattr operations fail
+  - Track xattr support status per mount point
+  - Ensure graceful degradation when xattr not supported
+  - _Requirements: 8.1, 8.4_
+
+- [ ] 43.3 Document filesystem requirements
+  - Document xattr requirements for full functionality
+  - Document behavior when xattr not supported
+  - Add troubleshooting guide for xattr issues
+  - Consider adding xattr status to GetStats() output
+  - _Requirements: 8.1, 8.4_
+
+- [ ] 43.4 Test xattr error handling
+  - Test on filesystem without xattr support
+  - Test with xattr operations failing
+  - Verify graceful degradation
+  - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestXattr ./internal/fs`
+  - _Requirements: 8.1, 8.4_
+
+- [ ] 44. Optimize status determination performance (Issue #FS-004)
+- [ ] 44.1 Profile status determination performance
+  - Run performance profiling on determineFileStatus()
+  - Identify bottlenecks (database queries, hash calculation)
+  - Measure performance with various file counts
+  - Document current performance characteristics
+  - _Requirements: 8.1, 10.3_
+
+- [ ] 44.2 Implement status determination caching
+  - Add caching of determination results with TTL
+  - Implement cache invalidation on relevant events
+  - Batch database queries for multiple files
+  - Optimize hash calculation (only when needed)
+  - Consider lazy evaluation for non-visible files
+  - _Requirements: 8.1, 10.3_
+
+- [ ] 44.3 Benchmark status determination improvements
+  - Run benchmarks before and after optimization
+  - Measure performance with 1000, 10000, 100000 files
+  - Verify cache hit rates
+  - Document performance improvements
+  - _Requirements: 8.1, 10.3_
+
+- [ ] 44.4 Create performance tests
+  - Write benchmark for status determination
+  - Write test for cache behavior
+  - Write test for cache invalidation
+  - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -bench=BenchmarkStatusDetermination ./internal/fs`
+  - _Requirements: 8.1, 10.3_
+
+### Final Verification Tasks
+
+- [ ] 45. Complete Phase 11 manual testing
+- [ ] 45.1 Manual D-Bus integration testing
+  - Run `./tests/manual/test_dbus_integration.sh` outside Docker
+  - Verify D-Bus signals are emitted correctly
+  - Monitor signals with dbus-monitor
+  - Document results in verification tracking
+  - _Requirements: 8.2_
+
+- [ ] 45.2 Manual D-Bus fallback testing
+  - Run `./tests/manual/test_dbus_fallback.sh` outside Docker
+  - Verify system continues operating without D-Bus
+  - Verify extended attributes still work
+  - Document results in verification tracking
+  - _Requirements: 8.4_
+
+- [ ] 45.3 Manual Nemo extension testing
+  - Open Nemo file manager
+  - Navigate to mounted OneDrive
+  - Verify status icons appear on files
+  - Trigger file operations and watch icons update
+  - Document results in verification tracking
+  - _Requirements: 8.3_
+
+- [ ] 46. Run final comprehensive test suite
+- [ ] 46.1 Run all unit tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests`
+  - Verify all tests pass
+  - Document any failures
+  - _Requirements: All_
+
+- [ ] 46.2 Run all integration tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm integration-tests`
+  - Verify all tests pass
+  - Document any failures
+  - _Requirements: All_
+
+- [ ] 46.3 Run all property-based tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestProperty ./internal/fs`
+  - Verify all 67 properties pass
+  - Document any failures
+  - _Requirements: All_
+
+- [ ] 46.4 Run system tests with real OneDrive
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm system-tests`
+  - Verify all tests pass
+  - Document any failures
+  - _Requirements: All_
+
+- [ ] 46.5 Generate coverage report
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner coverage`
+  - Review coverage metrics
+  - Identify any coverage gaps
+  - Document coverage results
+  - _Requirements: All_
+
+- [ ] 47. Update release documentation
+- [ ] 47.1 Update CHANGELOG.md
+  - Add v1.0.0 release notes
+  - List all major features
+  - List all bug fixes
+  - List known issues
+  - _Requirements: All_
+
+- [ ] 47.2 Update README.md
+  - Verify installation instructions
+  - Verify usage examples
+  - Update feature list
+  - Update requirements
+  - _Requirements: All_
+
+- [ ] 47.3 Update user documentation
+  - Document Socket.IO realtime behavior
+  - Document ETag cache validation
+  - Document XDG compliance
+  - Update troubleshooting guide
+  - _Requirements: All_
+
+- [ ] 47.4 Create release notes
+  - Summarize major features
+  - Highlight Socket.IO realtime sync
+  - Highlight ETag-based cache validation
+  - Highlight XDG compliance
+  - List known issues and workarounds
+  - _Requirements: All_
+
+---
+
+## Phase 24: Deferred Issues for v1.0.1
+
+### Resource Management Property Test Failures
+
+- [ ] 48. Fix Property 56: Cache Size Enforcement
+- [ ] 48.1 Investigate cache size tracking
+  - Review LoopbackCache size tracking in internal/fs/content_cache.go
+  - Review cache eviction logic in EvictOldEntries()
+  - Verify GetCacheSize() accuracy
+  - Identify why 256MB exceeds 10MB limit
+  - _Requirements: 24.1_
+
+- [ ] 48.2 Implement LRU eviction with size limits
+  - Add cache size tracking to LoopbackCache
+  - Implement LRU eviction algorithm
+  - Add configuration for max cache size
+  - Update CleanupCache to enforce size limits
+  - Add cache size metrics to GetStats()
+  - _Requirements: 24.1_
+
+- [ ] 48.3 Test cache size enforcement
+  - Run Property 56 test: `go test -v -run TestProperty56_CacheSizeEnforcement ./internal/fs`
+  - Verify cache stays within configured limits
+  - Test with various cache size configurations
+  - Document test results
+  - _Requirements: 24.1_
+
+- [ ] 49. Fix Property 58: Worker Thread Limits
+- [ ] 49.1 Investigate worker lifecycle
+  - Review worker goroutine management in download/upload managers
+  - Review StopDownloadManager() and StopUploadManager()
+  - Identify why 1 worker remains active after test
+  - Check for missing defer statements or cleanup calls
+  - _Requirements: 24.5_
+
+- [ ] 49.2 Fix worker cleanup
+  - Add proper synchronization for worker cleanup
+  - Ensure worker pool shutdown waits for all workers
+  - Verify all goroutines are properly terminated
+  - Add defer statements where needed
+  - _Requirements: 24.5_
+
+- [ ] 49.3 Test worker thread limits
+  - Run Property 58 test: `go test -v -run TestProperty58_WorkerThreadLimits ./internal/fs`
+  - Verify no worker leaks detected
+  - Test with various worker pool configurations
+  - Document test results
+  - _Requirements: 24.5_
+
+- [ ] 50. Fix Property 59: Adaptive Network Throttling
+- [ ] 50.1 Review network throttling implementation
+  - Check if adaptive throttling is implemented
+  - Review bandwidth limiting in download/upload managers
+  - Identify why 2.50 MB/s exceeds 0.19 MB/s limit
+  - Investigate rate limiting logic
+  - _Requirements: 24.7_
+
+- [ ] 50.2 Implement adaptive network throttling
+  - Implement or fix bandwidth throttling mechanism
+  - Add adaptive throttling based on network conditions
+  - Verify throttling prevents network saturation
+  - Add configuration for bandwidth limits
+  - _Requirements: 24.7_
+
+- [ ] 50.3 Test adaptive network throttling
+  - Run Property 59 test: `go test -v -run TestProperty59_AdaptiveNetworkThrottling ./internal/fs`
+  - Verify bandwidth stays within configured limits
+  - Test with various bandwidth configurations
+  - Document test results
+  - _Requirements: 24.7_
+
+---
+
+## Phase 25: Release Preparation
+
+- [ ] 51. Tag release version
+  - Create git tag: `git tag -a v1.0.0 -m "Release v1.0.0"`
+  - Push tag: `git push origin v1.0.0`
+  - Verify tag on GitHub
+  - _Requirements: All_
+
+- [ ] 52. Build release packages
+  - Build Debian package
+  - Build RPM package
+  - Build Docker image
+  - Test installation on clean systems
+  - _Requirements: All_
+
+- [ ] 53. Create GitHub release
+  - Create release on GitHub
+  - Upload release packages
+  - Add release notes
+  - Mark as stable release
+  - _Requirements: All_
+
+- [ ] 54. Update project status
+  - Update project README with release status
+  - Update documentation with release information
+  - Update issue tracker with release milestone
+  - Close completed issues
+  - _Requirements: All_
+
+---
+
+## Summary
+
+### Phase 23: Fix Remaining Issues for v1.0.0 Release
+- **Tasks**: 40-47 (8 major tasks, 30+ subtasks)
+- **Priority**: Critical and High
+- **Estimated Effort**: 2-3 days
+- **Focus**: Offline detection, D-Bus integration, final verification
+
+### Phase 24: Deferred Issues for v1.0.1
+- **Tasks**: 48-50 (3 major tasks, 9 subtasks)
+- **Priority**: Medium
+- **Estimated Effort**: 1-2 days
+- **Focus**: Property-based test failures, resource management
+
+### Phase 25: Release Preparation
+- **Tasks**: 51-54 (4 tasks)
+- **Priority**: High
+- **Estimated Effort**: 1 day
+- **Focus**: Tagging, packaging, release
+
+**Total Remaining Work**: 4-6 days to v1.0.0 release
+
