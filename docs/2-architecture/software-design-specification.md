@@ -720,6 +720,88 @@ This architecture ensures reliable realtime notifications while maintaining back
 
 This design ensures the Engine.IO module can evolve independently while guaranteeing that every implementation conforms to the same observable behavior.
 
+### 4.6 ETag-Based Cache Validation
+
+OneMount uses ETags for cache validation through delta synchronization rather than HTTP conditional GET requests. This approach provides efficient cache management while working within the constraints of Microsoft Graph API's pre-authenticated download URLs.
+
+#### 4.6.1 Implementation Approach
+
+**Delta Sync Method**:
+OneMount implements ETag-based cache validation through the delta synchronization mechanism rather than HTTP conditional GET requests. This design choice is driven by the limitations of Microsoft Graph API's pre-authenticated download URLs.
+
+- **Proactive Metadata Fetching**: The delta sync loop periodically queries Microsoft Graph for metadata changes, including updated ETags
+- **Cache Invalidation**: When an ETag change is detected, the corresponding cache entry is invalidated
+- **On-Demand Download**: The next time a user accesses the file, the system detects the invalid cache and downloads the new version
+- **Batch Processing**: Delta sync provides batch updates of multiple file changes in a single API call
+
+**Why Not HTTP Conditional GET**:
+Microsoft Graph API's pre-authenticated download URLs (obtained from `@microsoft.graph.downloadUrl`) do not support HTTP conditional GET requests with `if-none-match` headers. These URLs are temporary, pre-authenticated direct download links that bypass the standard Graph API request flow.
+
+The delta sync approach provides equivalent or better behavior:
+- **Batch Updates**: Single delta query updates metadata for multiple files, reducing API calls
+- **Proactive Detection**: Changes are detected before users access files, improving responsiveness
+- **Pre-Invalidation**: Cache entries are invalidated before file access, preventing stale data
+- **No 304 Responses**: Eliminates the need for 304 Not Modified response handling
+- **Consistent Behavior**: Works uniformly across all file types and sizes
+
+#### 4.6.2 Cache Validation Flow
+
+The cache validation process follows these steps:
+
+1. **Background Delta Sync**: Delta sync loop periodically queries Microsoft Graph for changes
+2. **ETag Comparison**: Compare new ETags against cached ETags in metadata database
+3. **Cache Invalidation**: When ETag changes, mark cache entry as invalid and remove content
+4. **File Access Request**: User or application requests file content
+5. **Cache Hit (Valid)**: If ETags match, serve content directly from cache
+6. **Cache Miss (Invalid)**: If ETags differ or cache missing, download full file
+7. **Content Verification**: Calculate QuickXORHash and verify content integrity
+8. **Cache Update**: Store verified content and update metadata with new ETag
+
+#### 4.6.3 Requirements Satisfied
+
+This ETag-based cache validation implementation satisfies the following requirements:
+
+- **Requirement 3.4**: Cache validation using ETag comparison from delta sync metadata
+- **Requirement 3.5**: Cache hit serving when ETags match
+- **Requirement 3.6**: Cache invalidation and re-download when ETags differ
+
+**Note on Implementation**:
+The requirements originally specified HTTP conditional GET with `if-none-match` headers. However, the implementation uses delta sync for ETag validation because Microsoft Graph's pre-authenticated download URLs do not support conditional GET requests. This approach provides equivalent or better functionality while working within the API's constraints.
+
+#### 4.6.4 Conflict Detection with ETags
+
+ETags play a crucial role in conflict detection when files are modified both locally and remotely:
+
+**Conflict Scenario**:
+1. User modifies file locally (local ETag: `etag1`)
+2. File is modified remotely on OneDrive (remote ETag: `etag2`)
+3. Delta sync detects ETag mismatch
+4. System identifies conflict: local changes + remote changes
+
+**Conflict Resolution**:
+- Local version preserved with original name
+- Remote version downloaded as conflict copy
+- Both versions available to user
+- User chooses which version to keep
+
+#### 4.6.5 Performance Optimization
+
+**Cache Hit Rate**:
+- Delta sync runs every 30 minutes (with Socket.IO) or 5 minutes (polling-only)
+- Most file accesses hit cache between sync intervals
+- High cache hit rate reduces network traffic and improves responsiveness
+
+**Batch Invalidation**:
+- Delta sync processes multiple file changes in single query
+- Batch invalidation of multiple cache entries
+- Reduces overhead compared to per-file validation
+
+**Monitoring and Diagnostics**:
+- Cache hit rate (percentage of requests served from cache)
+- Cache miss rate (percentage of requests requiring download)
+- Invalidation rate (frequency of ETag changes)
+- Average cache age (time since last validation)
+
 ## 5. Data Model Definitions
 
 ### 5.1 Data Model Overview
