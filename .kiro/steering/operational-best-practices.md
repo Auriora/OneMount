@@ -22,6 +22,26 @@ inclusion: always
 - **Documentation Placement**: All comprehensive documentation must be placed in `docs/`. Source folders (`src/`) may only contain minimal README files (1-3 sentences) that point to detailed documentation in `docs/`. See `documentation-conventions.md` for full policy.
 - **Command Output Analysis**: Read command output thoroughly to the end before interpreting results. Avoid making premature assumptions about errors or success states. Always verify the exact location and nature of issues by analyzing the complete output rather than jumping to conclusions based on partial information.
 
+## Testing Protocol (OneMount Project)
+
+**CRITICAL**: When executing tests in the OneMount project, you MUST follow these mandatory rules:
+
+1. **ALWAYS use Docker containers** - Never run `go test` directly on the host system
+2. **ALWAYS use timeout wrapper for integration tests** - Use `./scripts/timeout-test-wrapper.sh "TestPattern" 60`
+3. **NEVER use the `cd` command** - The workspace root is already correct; use `cwd` parameter if needed
+4. **ALWAYS include auth override** - For integration/system tests: `-f docker/compose/docker-compose.auth.yml`
+
+**Before running ANY test, verify:**
+- [ ] Am I using Docker? (`docker compose -f ...`)
+- [ ] Am I using the timeout wrapper for integration tests?
+- [ ] Am I in the workspace root directory?
+- [ ] Have I included the auth override if needed?
+- [ ] Am I NOT using the `cd` command?
+
+**Violation of these rules will result in test failures and environment corruption.**
+
+See `.kiro/steering/testing-conventions.md` for complete details and examples.
+
 ## SRS and Design Alignment
 
 - All AI-generated code and documentation must align with the current Software Requirements Specification (SRS) in `docs/1-requirements/` and the design documentation in `docs/2-architecture/`.

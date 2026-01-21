@@ -8,6 +8,34 @@ inclusion: always
 **Scope**: tests/**, internal/**/*_test.go  
 **Description**: Standardized testing format and policy for all projects.
 
+---
+
+## 🚨 CRITICAL - READ THIS FIRST 🚨
+
+**ALL TESTS MUST BE RUN IN DOCKER CONTAINERS - NO EXCEPTIONS**
+
+**NEVER run tests directly on the host system with `go test`**
+
+**ALWAYS use the timeout wrapper script for integration tests**
+
+If you are an AI agent and you see yourself about to run `go test` directly, STOP and use Docker instead.
+
+---
+
+## AI Agent Test Execution Checklist
+
+Before running ANY test, verify ALL of these:
+
+- [ ] Am I using Docker? (`docker compose -f ...`)
+- [ ] Am I using the timeout wrapper for integration tests? (`./scripts/timeout-test-wrapper.sh`)
+- [ ] Am I in the correct working directory? (workspace root, not a subdirectory)
+- [ ] Have I included the auth override for integration/system tests? (`-f docker/compose/docker-compose.auth.yml`)
+- [ ] Am I NOT using the `cd` command? (it's forbidden - use `cwd` parameter instead)
+
+**If ANY checkbox is unchecked, you are doing it wrong!**
+
+---
+
 ## Testing Guidelines
 
 - **Test File Placement**: Always place tests next to the code they exercise when practical (e.g., `internal/module/module_test.go` for Go).
@@ -122,6 +150,42 @@ docker compose -f docker/compose/docker-compose.test.yml \
 - ❌ **Don't use specialized services for pass-through** - they have default commands that will conflict
 - ❌ **Don't use** `--entrypoint /bin/bash` workarounds - pass-through mode handles this
 
+### ❌ WRONG - DO NOT DO THIS
+
+```bash
+# WRONG: Running tests directly on host
+go test -v -run TestIT_FS ./internal/fs
+
+# WRONG: Using cd command
+cd OneMount && go test ...
+
+# WRONG: Not using timeout wrapper for integration tests
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  test-runner go test -run TestIT_FS_30_08 ./internal/fs
+
+# WRONG: Missing auth override for integration tests
+docker compose -f docker/compose/docker-compose.test.yml run --rm integration-tests
+```
+
+### ✅ CORRECT - DO THIS
+
+```bash
+# CORRECT: Using timeout wrapper for integration tests
+./scripts/timeout-test-wrapper.sh "TestIT_FS_30_08" 60
+
+# CORRECT: Using Docker directly with auth override
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
+  test-runner go test -v -run TestIT_FS_30_08 ./internal/fs
+
+# CORRECT: Unit tests in Docker
+docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests
+
+# CORRECT: Integration tests with auth
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm integration-tests
+```
+
 ### Test Environment Details
 
 - **Images**: 
@@ -223,6 +287,31 @@ If tests fail in Docker:
 # - Container cleanup
 # - Detailed logging to test-artifacts/debug/
 ```
+
+## Why These Rules Exist
+
+Understanding the rationale helps ensure compliance:
+
+### Docker Requirement
+
+- **FUSE Dependencies**: Tests require FUSE3 device access with specific capabilities that are only available in the Docker environment
+- **Isolation**: Prevents test artifacts from polluting the host system and interfering with other processes
+- **Reproducibility**: Ensures consistent environment across all developers and CI/CD pipelines
+- **Security**: Test credentials and OneDrive access are isolated in containers, preventing accidental exposure
+- **Dependencies**: Specific versions of Go (1.24.2), Python (3.12), and system libraries are pre-configured
+
+### Timeout Wrapper Requirement
+
+- **Prevents Hanging**: Some FUSE filesystem tests may hang indefinitely due to kernel-level interactions
+- **Resource Cleanup**: Ensures containers are properly cleaned up even on timeout or failure
+- **Debugging**: Provides detailed logs in `test-artifacts/debug/` for post-mortem analysis
+- **CI/CD Protection**: Prevents CI/CD pipelines from hanging indefinitely
+
+### No `cd` Command
+
+- **Shell Context**: The `cd` command doesn't work as expected in tool execution contexts
+- **Working Directory**: Use the `cwd` parameter for bash commands instead
+- **Consistency**: Ensures all operations start from the workspace root
 
 ### References
 
