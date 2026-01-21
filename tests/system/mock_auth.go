@@ -11,8 +11,7 @@ import (
 // MockAuthConfig represents configuration for mock authentication
 type MockAuthConfig struct {
 	EnableMockAuth bool   `json:"enable_mock_auth"`
-	MockUserID     string `json:"mock_user_id"`
-	MockTenantID   string `json:"mock_tenant_id"`
+	MockAccount    string `json:"mock_account"`
 }
 
 // CreateMockAuthTokens creates mock authentication tokens for headless testing
@@ -20,9 +19,8 @@ func CreateMockAuthTokens(authPath string) error {
 	mockAuth := &graph.Auth{
 		AccessToken:  "mock_access_token_for_testing",
 		RefreshToken: "mock_refresh_token_for_testing",
-		ExpiresAt:    time.Now().Add(24 * time.Hour), // Valid for 24 hours
-		UserID:       "mock_user_id_12345",
-		TenantID:     "mock_tenant_id_67890",
+		ExpiresAt:    time.Now().Add(24 * time.Hour).Unix(), // Valid for 24 hours (Unix timestamp)
+		Account:      "mock_user_id_12345",
 	}
 
 	data, err := json.MarshalIndent(mockAuth, "", "  ")
