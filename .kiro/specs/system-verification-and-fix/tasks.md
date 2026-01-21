@@ -1921,7 +1921,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Test ERROR → GHOST transition on error clearing
   - _Requirements: 21.9_
 
-- [ ] 30.8 Test virtual file state handling
+- [x] 30.8 Test virtual file state handling
   - Test virtual entries have item_state=HYDRATED
   - Test virtual entries have remote_id=NULL and is_virtual=TRUE
   - Verify virtual entries bypass sync/upload logic

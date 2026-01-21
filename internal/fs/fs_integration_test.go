@@ -1305,3 +1305,178 @@ func TestIT_FS_31_01_Filename_DisallowedCharacters_HandledCorrectly(t *testing.T
 		t.Skip("Test not implemented yet")
 	})
 }
+
+// TestIT_FS_30_08_VirtualFile_StateHandling_CorrectlyManaged tests virtual file state handling.
+//
+//	Test Case ID    IT-FS-30-08
+//	Title           Virtual File State Handling
+//	Description     Tests that virtual files have correct state, flags, and behavior
+//	Preconditions   None
+//	Steps           1. Create virtual file entries with different overlay policies
+//	                2. Verify virtual entries have item_state=HYDRATED
+//	                3. Verify virtual entries have remote_id=NULL and is_virtual=TRUE
+//	                4. Verify virtual entries bypass sync/upload logic
+//	                5. Verify virtual entries participate in directory listings
+//	Expected Result Virtual files are correctly managed with proper state and flags
+//	Requirements    21.10
+//	Notes: This test verifies that virtual files (like .xdg-volume-info) are correctly
+//	       managed with HYDRATED state, NULL remote_id, and bypass sync operations.
+func TestIT_FS_30_08_VirtualFile_StateHandling_CorrectlyManaged(t *testing.T) {
+	// Create a test fixture using the common setup
+	fixture := helpers.SetupFSTestFixture(t, "VirtualFileStateHandlingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Create the filesystem
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
+		if err != nil {
+			return nil, err
+		}
+		return fs, nil
+	})
+
+	// Use the fixture to run the test
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		// Create assertions helper
+		assert := framework.NewAssert(t)
+
+		// Get the test data
+		fsFixture := getFSTestFixture(t, fixture)
+
+		// Get the filesystem
+		fs := fsFixture.FS.(*Filesystem)
+		rootID := fsFixture.RootID
+
+		t.Log("=== Virtual File State Handling Test ===")
+
+		// Step 1: Create virtual file entries with different overlay policies
+		t.Log("Step 1: Creating virtual file entries...")
+
+		virtualFiles := []struct {
+			name          string
+			content       string
+			overlayPolicy string
+		}{
+			{".xdg-volume-info", "[Volume Info]\nName=Test Drive\nIcon=dk-onedrive\n", "LOCAL_WINS"},
+			{"virtual-config.txt", "Virtual configuration file", "LOCAL_WINS"},
+			{"virtual-readme.md", "# Virtual README\nThis is a local-only file", "REMOTE_WINS"},
+		}
+
+		for _, vf := range virtualFiles {
+			// Create virtual file inode
+			virtualInode := NewInode(vf.name, fuse.S_IFREG|0644, fs.GetID(rootID))
+			virtualInode.SetVirtualContent([]byte(vf.content))
+
+			// Generate local-only ID
+			virtualID := "local-" + vf.name
+
+			// Insert into filesystem
+			fs.InsertID(virtualID, virtualInode)
+			fs.InsertChild(rootID, virtualInode)
+
+			// Persist metadata entry
+			err := fs.SaveMetadataEntry(fs.metadataEntryFromInode(virtualID, virtualInode, time.Now().UTC()))
+			assert.NoError(err, "Failed to save virtual file metadata for %s", vf.name)
+
+			t.Logf("✓ Created virtual file: %s (ID: %s)", vf.name, virtualID)
+		}
+
+		// Step 2: Verify virtual entries have item_state=HYDRATED
+		t.Log("Step 2: Verifying virtual entries have item_state=HYDRATED...")
+
+		for _, vf := range virtualFiles {
+			virtualID := "local-" + vf.name
+			entry, err := fs.metadataStore.Get(fs.ctx, virtualID)
+			assert.NoError(err, "Failed to get metadata for %s", vf.name)
+			assert.NotNil(entry, "Metadata entry should exist for %s", vf.name)
+
+			// Verify state is HYDRATED
+			assert.Equal(string(entry.State), "HYDRATED", "Virtual file %s should have HYDRATED state, got %s", vf.name, entry.State)
+
+			t.Logf("✓ Virtual file %s has state: %s", vf.name, entry.State)
+		}
+
+		// Step 3: Verify virtual entries have remote_id=NULL and is_virtual=TRUE
+		t.Log("Step 3: Verifying virtual entries have remote_id=NULL and is_virtual=TRUE...")
+
+		for _, vf := range virtualFiles {
+			virtualID := "local-" + vf.name
+			entry, err := fs.metadataStore.Get(fs.ctx, virtualID)
+			assert.NoError(err, "Failed to get metadata for %s", vf.name)
+
+			// Verify RemoteID is empty (NULL)
+			assert.Equal(entry.RemoteID, "", "Virtual file %s should have empty RemoteID, got %s", vf.name, entry.RemoteID)
+
+			// Verify Virtual flag is true
+			assert.True(entry.Virtual, "Virtual file %s should have Virtual=true", vf.name)
+
+			t.Logf("✓ Virtual file %s: RemoteID=%q, Virtual=%v", vf.name, entry.RemoteID, entry.Virtual)
+		}
+
+		// Step 4: Verify virtual entries bypass sync/upload logic
+		t.Log("Step 4: Verifying virtual entries bypass sync/upload logic...")
+
+		for _, vf := range virtualFiles {
+			virtualID := "local-" + vf.name
+			virtualInode := fs.GetID(virtualID)
+			assert.NotNil(virtualInode, "Virtual inode should exist for %s", vf.name)
+
+			// Verify inode is marked as virtual
+			assert.True(virtualInode.IsVirtual(), "Inode for %s should be marked as virtual", vf.name)
+
+			// Verify virtual files don't have pending remote changes
+			entry, err := fs.metadataStore.Get(fs.ctx, virtualID)
+			assert.NoError(err, "Failed to get metadata for %s", vf.name)
+			assert.False(entry.PendingRemote, "Virtual file %s should not have PendingRemote flag", vf.name)
+
+			// Verify virtual files don't have upload state
+			assert.Equal(entry.Upload.SessionID, "", "Virtual file %s should not have upload session", vf.name)
+			assert.Nil(entry.Upload.StartedAt, "Virtual file %s should not have upload start time", vf.name)
+
+			t.Logf("✓ Virtual file %s bypasses sync/upload logic", vf.name)
+		}
+
+		// Step 5: Verify virtual entries participate in directory listings
+		t.Log("Step 5: Verifying virtual entries participate in directory listings...")
+
+		// Get root directory children
+		rootInode := fs.GetID(rootID)
+		assert.NotNil(rootInode, "Root inode should exist")
+
+		// Read directory entries
+		entries, err := fs.GetChildrenID(rootID, fsFixture.Auth)
+		assert.NoError(err, "Failed to get root directory children")
+		assert.NotNil(entries, "Directory entries should not be nil")
+
+		// Verify virtual files are included in directory listing
+		for _, vf := range virtualFiles {
+			found := false
+			for _, entry := range entries {
+				if entry.Name() == vf.name {
+					found = true
+					// Verify the entry is marked as virtual
+					assert.True(entry.IsVirtual(), "Directory entry for %s should be marked as virtual", vf.name)
+					t.Logf("✓ Virtual file %s found in directory listing", vf.name)
+					break
+				}
+			}
+			assert.True(found, "Virtual file %s should be in directory listing", vf.name)
+		}
+
+		// Step 6: Verify virtual files cannot transition to other states
+		t.Log("Step 6: Verifying virtual files cannot transition to other states...")
+
+		for _, vf := range virtualFiles {
+			virtualID := "local-" + vf.name
+
+			// Attempt to transition to GHOST (should fail)
+			_, err := fs.stateManager.Transition(fs.ctx, virtualID, "GHOST")
+			assert.Error(err, "Virtual file %s should not allow transition to GHOST", vf.name)
+
+			// Attempt to transition to DIRTY_LOCAL (should fail)
+			_, err = fs.stateManager.Transition(fs.ctx, virtualID, "DIRTY_LOCAL")
+			assert.Error(err, "Virtual file %s should not allow transition to DIRTY_LOCAL", vf.name)
+
+			t.Logf("✓ Virtual file %s correctly prevents invalid state transitions", vf.name)
+		}
+
+		t.Log("✓ Virtual file state handling test completed successfully")
+	})
+}
