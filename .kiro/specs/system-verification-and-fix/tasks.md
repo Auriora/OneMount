@@ -1869,7 +1869,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 ## Phase 17: State Management Verification
 
-- [ ] 30. Verify metadata state model implementation
+- [x] 30. Verify metadata state model implementation
 - [x] 30.1 Review state model implementation
   - Read and analyze `internal/fs/state_manager.go`
   - Review `internal/fs/hydration.go` state transitions
@@ -1942,8 +1942,8 @@ This implementation plan breaks down the verification and fix process into discr
   - Write test for concurrent state operations
   - _Requirements: 21.1-21.10_
 
-- [ ] 30.11 Implement metadata state model property-based tests
-- [ ] 30.11.1 Implement Property 40: Initial Item State
+- [x] 30.11 Implement metadata state model property-based tests
+- [x] 30.11.1 Implement Property 40: Initial Item State
   - **Property 40: Initial Item State**
   - **Validates: Requirements 21.2**
   - Create `internal/fs/state_property_test.go`
@@ -1952,7 +1952,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify no content download until required
   - _Requirements: 21.2_
 
-- [ ] 30.11.2 Implement Property 41: Successful Hydration State Transition
+- [x] 30.11.2 Implement Property 41: Successful Hydration State Transition
   - **Property 41: Successful Hydration State Transition**
   - **Validates: Requirements 21.4**
   - Generate random successful hydration scenarios
@@ -1961,7 +1961,7 @@ This implementation plan breaks down the verification and fix process into discr
   - Verify error field clearing
   - _Requirements: 21.4_
 
-- [ ] 30.11.3 Implement Property 42: Local Modification State Transition
+- [x] 30.11.3 Implement Property 42: Local Modification State Transition
   - **Property 42: Local Modification State Transition**
   - **Validates: Requirements 21.6**
   - Generate random locally modified hydrated file scenarios
