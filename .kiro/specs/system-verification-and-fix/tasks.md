@@ -2563,15 +2563,15 @@ The specification now provides comprehensive coverage of all functional, securit
 
 ### Critical Path Issues (Must Fix Before Release)
 
-- [ ] 40. Fix offline detection false positives (Issue #OF-002)
-- [ ] 40.1 Review IsOffline() function in internal/graph/graph.go
+- [x] 40. Fix offline detection false positives (Issue #OF-002)
+- [x] 40.1 Review IsOffline() function in internal/graph/graph.go
   - Analyze conservative default that treats unknown errors as offline
   - Identify authentication/authorization error patterns (401, 403, "permission denied", "invalid token")
   - Review current error pattern matching logic
   - Document current behavior and false positive scenarios
   - _Requirements: 6.1, 19.1-19.11_
 
-- [ ] 40.2 Fix IsOffline() to avoid false positives
+- [x] 40.2 Fix IsOffline() to avoid false positives
   - Remove or modify conservative default for unknown errors
   - Add explicit checks for authentication/authorization errors
   - Ensure non-network errors return false (online status)
@@ -2579,7 +2579,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - Consider whitelist approach instead of blacklist
   - _Requirements: 6.1, 19.1-19.11_
 
-- [ ] 40.3 Update and run Property 24 test
+- [x] 40.3 Update and run Property 24 test
   - Run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestProperty24_OfflineDetection ./internal/fs -timeout 30s`
   - Verify all 100 iterations pass
   - Verify 'permission denied' returns online=true
@@ -2588,14 +2588,14 @@ The specification now provides comprehensive coverage of all functional, securit
   - Document test results
   - _Requirements: 6.1, 19.1-19.11_
 
-- [ ] 40.4 Update integration tests if needed
+- [x] 40.4 Update integration tests if needed
   - Review integration tests for offline detection
   - Update tests to match new behavior
   - Ensure tests cover authentication error scenarios
   - Run full offline mode test suite
   - _Requirements: 6.1, 19.1-19.11_
 
-- [ ] 40.5 Document offline detection behavior
+- [x] 40.5 Document offline detection behavior
   - Update design document with offline detection logic
   - Document error patterns that trigger offline state
   - Document error patterns that do NOT trigger offline state
