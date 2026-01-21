@@ -8,8 +8,12 @@
 5. [File Operation Problems](#file-operation-problems)
    - [Filesystem Requirements and Extended Attributes](#filesystem-requirements-and-extended-attributes)
 6. [Performance Issues](#performance-issues)
-7. [Debugging and Logging](#debugging-and-logging)
-8. [Getting Help](#getting-help)
+7. [Socket.IO Realtime Notification Issues](#socketio-realtime-notification-issues)
+8. [Cache Management Issues](#cache-management-issues)
+9. [Upload and Download Issues](#upload-and-download-issues)
+10. [Offline Mode Issues](#offline-mode-issues)
+11. [Debugging and Logging](#debugging-and-logging)
+12. [Getting Help](#getting-help)
 
 ## Common Issues
 
@@ -426,7 +430,113 @@ onemount --stats /path/to/mount/point | grep -i xattr
    onemount --stats /path/to/mount/point
    ```
 
-## Realtime Notification Troubleshooting
+### Slow Directory Listings (Large Directories)
+
+**Symptoms:**
+- Listing directories with many files (>1000) takes more than 2 seconds
+- File manager becomes unresponsive when browsing large directories
+- High memory usage during directory operations
+
+**Causes:**
+- Large number of files in a single directory
+- Metadata cache not optimized for large datasets
+- Statistics collection overhead
+
+**Solutions:**
+1. **Check directory size:**
+   ```bash
+   # Count files in directory
+   ls -1 /path/to/mount/point/large_directory | wc -l
+   ```
+
+2. **Monitor performance:**
+   ```bash
+   # Time directory listing
+   time ls -la /path/to/mount/point/large_directory
+   ```
+
+3. **Optimize cache:**
+   ```bash
+   # Ensure cache is properly configured
+   onemount --stats /path/to/mount/point | grep -A 5 "Cache"
+   ```
+
+4. **Workaround for very large directories:**
+   - Organize files into subdirectories (recommended: <500 files per directory)
+   - Use command-line tools instead of GUI file managers for large directories
+   - Consider using `ls` with specific patterns instead of listing all files
+
+### High Memory Usage
+
+**Symptoms:**
+- OneMount uses more than 200 MB of memory during active sync
+- Memory usage grows over time
+- System becomes slow or unresponsive
+
+**Causes:**
+- Large file uploads/downloads in progress
+- Many concurrent operations
+- Cache size not limited
+- Memory leaks (rare)
+
+**Solutions:**
+1. **Check current memory usage:**
+   ```bash
+   # Monitor OneMount memory usage
+   ps aux | grep onemount | awk '{print $6/1024 " MB"}'
+   ```
+
+2. **Configure cache size limits:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   cache:
+     maxSizeMB: 5000  # Limit cache to 5 GB
+     expirationDays: 30
+   ```
+
+3. **Restart OneMount if memory usage is excessive:**
+   ```bash
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+4. **Monitor for memory leaks:**
+   ```bash
+   # Watch memory usage over time
+   watch -n 5 'ps aux | grep onemount'
+   ```
+
+### Slow Statistics Collection
+
+**Symptoms:**
+- `onemount --stats` command takes a long time to complete
+- High CPU usage when viewing statistics
+- File manager status queries are slow
+
+**Causes:**
+- Large number of files in filesystem (>100,000)
+- Statistics calculated on-demand without caching
+- Database queries not optimized
+
+**Solutions:**
+1. **Use basic stats only:**
+   ```bash
+   # Get quick overview without detailed statistics
+   onemount --stats /path/to/mount/point | head -20
+   ```
+
+2. **Avoid frequent stats queries:**
+   - Don't poll statistics continuously
+   - Use longer intervals between checks (>60 seconds)
+
+3. **Optimize database:**
+   ```bash
+   # Unmount and remount to rebuild indexes
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+## Socket.IO Realtime Notification Issues
 
 ### Understanding Realtime Modes
 
@@ -489,6 +599,466 @@ realtime:
   enabled: false
 ```
 
+### Socket.IO Connection Diagnostics
+
+**Check Socket.IO health:**
+```bash
+# View detailed Socket.IO status
+onemount --stats /path/to/mount/point | grep -A 20 "Realtime"
+
+# Expected output for healthy connection:
+# Mode: socketio
+# Status: healthy
+# Last heartbeat: <recent timestamp>
+# Reconnect attempts: 0
+```
+
+**Common Socket.IO error patterns:**
+
+1. **Connection refused:**
+   ```
+   Error: dial tcp: connection refused
+   ```
+   - **Cause**: Firewall blocking WebSocket connections
+   - **Solution**: Enable polling-only mode or configure firewall
+
+2. **Handshake timeout:**
+   ```
+   Error: Engine.IO handshake timeout
+   ```
+   - **Cause**: Network latency or proxy issues
+   - **Solution**: Check network connectivity, configure proxy settings
+
+3. **Heartbeat missed:**
+   ```
+   Warning: 2 consecutive heartbeats missed
+   ```
+   - **Cause**: Network instability or high latency
+   - **Solution**: System will automatically fall back to polling
+
+4. **Authentication failed:**
+   ```
+   Error: 401 Unauthorized
+   ```
+   - **Cause**: Token expired or invalid
+   - **Solution**: Re-authenticate with `onemount --auth-only`
+
+**Enable Socket.IO debug logging:**
+```bash
+# Set log level to debug for detailed Socket.IO logs
+ONEMOUNT_LOG_LEVEL=debug onemount /path/to/mount/point
+
+# Look for Socket.IO-specific log entries:
+# - "Engine.IO handshake completed"
+# - "Socket.IO ping/pong timing"
+# - "Reconnection attempt with backoff"
+```
+
+**Test WebSocket connectivity manually:**
+```bash
+# Test if WebSocket connections work to Microsoft Graph
+curl -I https://graph.microsoft.com/v1.0/subscriptions/socketIo
+
+# Expected: HTTP 200 or 401 (authentication required)
+# If connection fails, WebSocket may be blocked
+```
+
+## Cache Management Issues
+
+### Cache Not Invalidating on Remote Changes
+
+**Symptoms:**
+- Old file content served even after remote changes
+- File modifications in OneDrive web interface not reflected locally
+- Stale data persists after delta sync
+
+**Causes:**
+- Cache invalidation not triggered on ETag changes
+- Delta sync not detecting remote modifications
+- Cache cleanup not running
+
+**Solutions:**
+1. **Force cache invalidation:**
+   ```bash
+   # Unmount and remount to trigger full sync
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+2. **Check delta sync status:**
+   ```bash
+   # View last sync time and delta link
+   onemount --stats /path/to/mount/point | grep -A 5 "Delta Sync"
+   ```
+
+3. **Clear specific file from cache:**
+   ```bash
+   # Remove file to force re-download
+   rm /path/to/mount/point/file.txt
+   # Access file again to re-download
+   cat /path/to/mount/point/file.txt
+   ```
+
+4. **Enable explicit cache invalidation:**
+   - This is handled automatically by delta sync
+   - If issues persist, check logs for delta sync errors
+
+### Cache Growing Too Large
+
+**Symptoms:**
+- Cache directory consuming excessive disk space
+- Disk space warnings
+- Cache size exceeds configured limits
+
+**Causes:**
+- No cache size limit configured
+- Cache cleanup not running
+- Many large files downloaded
+
+**Solutions:**
+1. **Check current cache size:**
+   ```bash
+   # View cache statistics
+   onemount --stats /path/to/mount/point | grep -A 10 "Cache"
+   
+   # Check cache directory size
+   du -sh ~/.cache/onemount/
+   ```
+
+2. **Configure cache size limit:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   cache:
+     maxSizeMB: 5000  # 5 GB limit
+     expirationDays: 30
+     cleanupIntervalHours: 24
+   ```
+
+3. **Manually trigger cache cleanup:**
+   ```bash
+   # Unmount and remount to trigger cleanup
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+4. **Clear entire cache (last resort):**
+   ```bash
+   # WARNING: This will delete all cached files
+   rm -rf ~/.cache/onemount/*
+   ```
+
+### Cache Cleanup Not Running
+
+**Symptoms:**
+- Old files not being removed from cache
+- Cache size continues to grow
+- Expired files still present
+
+**Causes:**
+- Cache cleanup interval too long (default: 24 hours)
+- Cleanup disabled (expirationDays <= 0)
+- OneMount not running long enough for cleanup to trigger
+
+**Solutions:**
+1. **Check cleanup configuration:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   cache:
+     expirationDays: 30  # Must be > 0
+     cleanupIntervalHours: 24  # Adjust as needed
+   ```
+
+2. **Verify cleanup is enabled:**
+   ```bash
+   # Check logs for cleanup activity
+   journalctl --user -u onemount@* | grep -i "cache cleanup"
+   ```
+
+3. **Force immediate cleanup:**
+   ```bash
+   # Unmount and remount to trigger cleanup
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+4. **Configure more frequent cleanup:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   cache:
+     cleanupIntervalHours: 6  # Run every 6 hours
+   ```
+
+## Upload and Download Issues
+
+### Large File Upload Failures
+
+**Symptoms:**
+- Files larger than 250 MB fail to upload
+- Upload progress stops or hangs
+- "Upload failed" errors in logs
+
+**Causes:**
+- Network interruptions during chunked upload
+- Upload session timeout
+- Retry logic not working correctly
+
+**Solutions:**
+1. **Check upload status:**
+   ```bash
+   # View upload queue and status
+   onemount --stats /path/to/mount/point | grep -A 10 "Upload"
+   ```
+
+2. **Monitor upload progress:**
+   ```bash
+   # Enable debug logging to see upload details
+   ONEMOUNT_DEBUG=1 onemount /path/to/mount/point
+   ```
+
+3. **Verify network stability:**
+   ```bash
+   # Test sustained connection to Microsoft Graph
+   ping -c 100 graph.microsoft.com
+   ```
+
+4. **Retry failed upload:**
+   ```bash
+   # Unmount and remount to retry uploads
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+5. **Check upload retry configuration:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   upload:
+     maxRetries: 5  # Increase if needed
+     retryDelaySeconds: 2
+   ```
+
+### Upload Max Retries Exceeded
+
+**Symptoms:**
+- "Max retries exceeded" errors in logs
+- Files stuck in upload queue
+- Upload status shows "Error"
+
+**Causes:**
+- Persistent network issues
+- Server-side errors (500, 503)
+- File conflicts or permission issues
+
+**Solutions:**
+1. **Check error details:**
+   ```bash
+   # View detailed error messages
+   journalctl --user -u onemount@* | grep -i "upload.*error"
+   ```
+
+2. **Verify file permissions:**
+   - Check if file can be uploaded via OneDrive web interface
+   - Ensure account has write permissions
+
+3. **Clear upload queue:**
+   ```bash
+   # Remove file and re-add to reset upload state
+   mv /path/to/mount/point/file.txt /tmp/file.txt
+   # Wait a moment
+   mv /tmp/file.txt /path/to/mount/point/file.txt
+   ```
+
+4. **Increase retry limit:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   upload:
+     maxRetries: 10  # Increase for unreliable networks
+   ```
+
+### Download Manager Memory Usage
+
+**Symptoms:**
+- High memory usage during downloads
+- System slowdown when downloading large files
+- Out of memory errors
+
+**Causes:**
+- Large files loaded entirely into memory
+- Multiple concurrent downloads
+- No streaming for large files
+
+**Solutions:**
+1. **Limit concurrent downloads:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   download:
+     workerPoolSize: 2  # Reduce from default 3
+     queueSize: 100     # Reduce from default 500
+   ```
+
+2. **Monitor memory during downloads:**
+   ```bash
+   # Watch memory usage
+   watch -n 2 'ps aux | grep onemount | awk "{print \$6/1024 \" MB\"}"'
+   ```
+
+3. **Download large files one at a time:**
+   - Avoid opening multiple large files simultaneously
+   - Wait for one download to complete before starting another
+
+4. **Restart OneMount if memory usage is excessive:**
+   ```bash
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+## Offline Mode Issues
+
+### Offline Detection False Positives
+
+**Symptoms:**
+- OneMount switches to offline mode when network is available
+- "Network disconnected" notifications when online
+- Frequent offline/online transitions
+
+**Causes:**
+- Overly conservative offline detection
+- Authentication errors misinterpreted as network errors
+- Temporary network glitches
+
+**Solutions:**
+1. **Check actual network connectivity:**
+   ```bash
+   # Test Microsoft Graph API connectivity
+   curl -I https://graph.microsoft.com/v1.0/me
+   ```
+
+2. **Review offline detection logs:**
+   ```bash
+   # Check what triggered offline mode
+   journalctl --user -u onemount@* | grep -i "offline"
+   ```
+
+3. **Verify authentication is valid:**
+   ```bash
+   # Re-authenticate if needed
+   onemount --auth-only /path/to/mount/point
+   ```
+
+4. **Check for permission errors:**
+   ```bash
+   # Look for 401/403 errors that shouldn't trigger offline mode
+   journalctl --user -u onemount@* | grep -E "(401|403|permission)"
+   ```
+
+### Offline Mode Not Detected
+
+**Symptoms:**
+- Network disconnected but OneMount doesn't switch to offline mode
+- Operations hang instead of failing gracefully
+- No offline notifications
+
+**Causes:**
+- Offline detection not working
+- Network errors not matching known patterns
+- Connectivity check disabled
+
+**Solutions:**
+1. **Enable connectivity checks:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   offline:
+     connectivityCheckInterval: 15  # seconds
+     connectivityTimeout: 10        # seconds
+   ```
+
+2. **Test offline detection:**
+   ```bash
+   # Disconnect network and trigger an operation
+   # Should see offline mode activation in logs
+   journalctl --user -u onemount@* -f
+   ```
+
+3. **Check network error patterns:**
+   ```bash
+   # View errors that should trigger offline mode
+   journalctl --user -u onemount@* | grep -E "(no such host|network unreachable|connection refused)"
+   ```
+
+### Offline Changes Not Syncing
+
+**Symptoms:**
+- Changes made while offline don't upload when back online
+- Files modified offline show old content
+- Offline change queue not processing
+
+**Causes:**
+- Change tracking not working
+- Upload queue not processing
+- Conflicts preventing sync
+
+**Solutions:**
+1. **Check offline change queue:**
+   ```bash
+   # View pending offline changes
+   onemount --stats /path/to/mount/point | grep -A 10 "Offline"
+   ```
+
+2. **Force sync after coming online:**
+   ```bash
+   # Unmount and remount to trigger sync
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+3. **Check for conflicts:**
+   ```bash
+   # Look for conflict files
+   find /path/to/mount/point -name "*conflict*" -type f
+   ```
+
+4. **Review sync errors:**
+   ```bash
+   # Check for upload errors
+   journalctl --user -u onemount@* | grep -i "sync.*error"
+   ```
+
+### Offline Change Queue Limit Reached
+
+**Symptoms:**
+- "Maximum pending changes limit reached" errors
+- Cannot make more changes while offline
+- Some offline changes not tracked
+
+**Causes:**
+- Too many changes made while offline
+- Queue limit too low (default: 1000)
+- Changes not being processed
+
+**Solutions:**
+1. **Check queue status:**
+   ```bash
+   # View current queue size
+   onemount --stats /path/to/mount/point | grep -i "pending changes"
+   ```
+
+2. **Increase queue limit:**
+   ```yaml
+   # ~/.config/onemount/config.yml
+   offline:
+     maxPendingChanges: 5000  # Increase from default 1000
+   ```
+
+3. **Process changes immediately when online:**
+   ```bash
+   # Ensure network is available and trigger sync
+   fusermount3 -uz /path/to/mount/point
+   onemount /path/to/mount/point
+   ```
+
+4. **Prioritize important changes:**
+   - Sync smaller batches of changes
+   - Avoid making thousands of changes while offline
+
 ## Debugging and Logging
 
 ### Enable Debug Logging
@@ -531,6 +1101,68 @@ cat /proc/mounts | grep onemount
 # Network connectivity
 ping -c 3 graph.microsoft.com
 curl -I https://graph.microsoft.com/v1.0/me
+
+# Cache and statistics
+onemount --stats /path/to/mount/point
+
+# Recent logs
+journalctl --user -u onemount@* --since "1 hour ago" --no-pager
+
+# Check for errors
+journalctl --user -u onemount@* | grep -i error | tail -20
+
+# Check Socket.IO status
+journalctl --user -u onemount@* | grep -i "socket.io\|engine.io" | tail -20
+
+# Check offline mode transitions
+journalctl --user -u onemount@* | grep -i "offline\|online" | tail -20
+```
+
+### Common Diagnostic Commands
+
+**Check file status:**
+```bash
+# View extended attributes (file status)
+getfattr -d /path/to/mount/point/file.txt
+
+# Check if file is cached
+ls -la ~/.cache/onemount/content/
+```
+
+**Monitor real-time activity:**
+```bash
+# Watch OneMount logs in real-time
+journalctl --user -u onemount@* -f
+
+# Monitor D-Bus signals
+dbus-monitor --session "interface='com.github.jstaf.onedriver.FileStatus'"
+
+# Watch network activity
+sudo tcpdump -i any host graph.microsoft.com
+```
+
+**Check database state:**
+```bash
+# View metadata database location
+ls -lh ~/.config/onemount/*.db
+
+# Check database size
+du -sh ~/.config/onemount/
+```
+
+**Test specific operations:**
+```bash
+# Test file read
+time cat /path/to/mount/point/test.txt > /dev/null
+
+# Test file write
+echo "test" > /path/to/mount/point/test.txt
+
+# Test directory listing
+time ls -la /path/to/mount/point/
+
+# Test file metadata
+stat /path/to/mount/point/test.txt
 ```
 
 ## Getting Help
