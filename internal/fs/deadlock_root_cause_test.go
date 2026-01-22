@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -21,9 +22,10 @@ func TestDeadlockRootCauseAnalysis(t *testing.T) {
 	defer progress.Complete()
 
 	progress.Step("Phase 1: Testing authentication")
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		progress.Fail("Authentication not configured")
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	// Test 1: Can we load auth tokens?
@@ -31,7 +33,7 @@ func TestDeadlockRootCauseAnalysis(t *testing.T) {
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		progress.Fail("Cannot load auth tokens")
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 
 	// Test 2: Are tokens expired?

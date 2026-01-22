@@ -269,6 +269,24 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	if err != nil {
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to get absolute path for mountpoint")
 	}
+
+	// Create instance-specific cache directory using systemd unit name escaping.
+	// This ensures each mount point has its own isolated cache and token storage.
+	//
+	// Escaping Rules (systemd unit name escaping):
+	//   - Forward slashes (/) become dashes (-)
+	//   - Leading slash is removed
+	//   - Special characters are escaped
+	//
+	// Examples:
+	//   /home/user/OneDrive → home-user-OneDrive
+	//   /mnt/work → mnt-work
+	//   /media/shared → media-shared
+	//
+	// This isolation allows:
+	//   1. Multiple OneDrive accounts mounted simultaneously
+	//   2. Independent authentication tokens per mount
+	//   3. Separate cache and metadata per mount
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
 
 	// Configure D-Bus service name deterministically for this mountpoint before the filesystem starts
@@ -433,6 +451,9 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 		logging.Fatal().Msg("No mountpoint specified. Please provide a mountpoint.")
 	}
 	absMountPath, _ := filepath.Abs(mountpoint)
+
+	// Create instance-specific cache directory using systemd unit name escaping.
+	// See initializeFilesystem() for detailed explanation of the escaping logic.
 	cachePath := filepath.Join(config.CacheDir, unit.UnitNamePathEscape(absMountPath))
 
 	// Ensure deterministic D-Bus name for stats mode as well (even though the service won't be awaited).

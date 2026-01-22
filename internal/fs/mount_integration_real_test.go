@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -15,7 +16,7 @@ import (
 // This test requires:
 // - Real OneDrive authentication tokens
 // - FUSE device access
-// - Environment variable: ONEMOUNT_AUTH_PATH or auth tokens at test-artifacts/.auth_tokens.json
+// - Environment variable: ONEMOUNT_AUTH_PATH (set by setup-auth-reference.sh)
 //
 // Requirements: 2.1, 2.2, 2.4, 2.5
 func TestIT_FS_Mount(t *testing.T) {
@@ -25,14 +26,14 @@ func TestIT_FS_Mount(t *testing.T) {
 	}
 
 	// Load real authentication
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 
 	// Create temporary directories
@@ -195,14 +196,14 @@ func TestIT_FS_Mount_ValidationScenarios(t *testing.T) {
 	}
 
 	// Load real authentication
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 
 	tempDir := t.TempDir()

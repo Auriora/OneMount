@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -25,15 +26,16 @@ func TestMinimalHangReproduction(t *testing.T) {
 
 	// Step 1: Load authentication with timeout
 	progress.Step("Loading authentication tokens")
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		progress.Fail("Authentication not configured")
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		progress.Fail("Cannot load auth tokens")
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 	progress.Substep("✓ Auth tokens loaded")
 
@@ -190,15 +192,16 @@ func TestHangPointIsolation(t *testing.T) {
 
 	// Test 1: Authentication operations
 	progress.Step("Testing authentication operations in isolation")
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		progress.Fail("Authentication not configured")
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		progress.Fail("Cannot load auth tokens")
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 
 	// Test token validation with timeout
@@ -281,15 +284,16 @@ func TestConcurrentOperations(t *testing.T) {
 	progress.Step("Testing concurrent operations for deadlocks")
 
 	// Load auth
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		progress.Fail("Authentication not configured")
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		progress.Fail("Cannot load auth tokens")
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 
 	// Test concurrent auth operations

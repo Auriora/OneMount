@@ -23,59 +23,39 @@ validate_workspace() {
     return 0
 }
 
-# Standard auth token locations
-AUTH_TOKEN_LOCATIONS=(
-    "/workspace/test-artifacts/.auth_tokens.json"
-    "/workspace/test-artifacts/auth_tokens.json"
-    "/workspace/auth_tokens.json"
-    "$HOME/.onemount-tests/.auth_tokens.json"
-    "/opt/onemount-ci/auth_tokens.json"
-)
-
-# Find auth tokens in standard locations
-find_auth_tokens() {
-    for location in "${AUTH_TOKEN_LOCATIONS[@]}"; do
-        if [[ -f "$location" ]]; then
-            echo "$location"
-            return 0
-        fi
-    done
-    return 1
+# Get authentication token path from environment variable
+# This is the SINGLE source of truth - no fallback locations
+get_auth_token_path() {
+    if [[ -z "$ONEMOUNT_AUTH_PATH" ]]; then
+        print_error "ONEMOUNT_AUTH_PATH environment variable is not set"
+        echo ""
+        print_info "To fix this:"
+        print_info "1. Run: ./scripts/setup-auth-reference.sh"
+        print_info "2. This will configure Docker Compose to set ONEMOUNT_AUTH_PATH"
+        print_info "3. Run tests with: docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner"
+        return 1
+    fi
+    
+    if [[ ! -f "$ONEMOUNT_AUTH_PATH" ]]; then
+        print_error "Auth token file not found: $ONEMOUNT_AUTH_PATH"
+        echo ""
+        print_info "The ONEMOUNT_AUTH_PATH is set but the file doesn't exist."
+        print_info "Run: ./scripts/setup-auth-reference.sh"
+        return 1
+    fi
+    
+    echo "$ONEMOUNT_AUTH_PATH"
+    return 0
 }
 
-# Setup auth tokens from standard locations
-setup_auth_tokens() {
-    local target_dir="${1:-$HOME/.onemount-tests}"
-    local target_file="$target_dir/.auth_tokens.json"
-    
-    # Create target directory
-    mkdir -p "$target_dir"
-    
-    # Check if already in place
-    if [[ -f "$target_file" ]]; then
-        print_info "Auth tokens already configured at $target_file"
-        return 0
+# Validate authentication is configured
+validate_auth_configured() {
+    local auth_path
+    if ! auth_path=$(get_auth_token_path); then
+        return 1
     fi
     
-    # Find tokens
-    local source_file
-    if source_file=$(find_auth_tokens); then
-        print_info "Found auth tokens at $source_file"
-        cp "$source_file" "$target_file"
-        chmod 600 "$target_file"
-        print_success "Auth tokens configured"
-        return 0
-    fi
-    
-    # Check environment variable
-    if [[ -n "$ONEMOUNT_AUTH_TOKENS" ]]; then
-        print_info "Setting up auth tokens from environment variable"
-        echo "$ONEMOUNT_AUTH_TOKENS" > "$target_file"
-        chmod 600 "$target_file"
-        print_success "Auth tokens configured from environment"
-        return 0
-    fi
-    
-    print_warning "No auth tokens found - system tests will be skipped"
-    return 1
+    print_success "Authentication configured: $auth_path"
+    return 0
 }
+

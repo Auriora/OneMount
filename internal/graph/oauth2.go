@@ -18,16 +18,40 @@ import (
 	"github.com/imdario/mergo"
 )
 
-// AuthTokensFileName is the name of the file where authentication tokens are stored
+// AuthTokensFileName is the name of the file where authentication tokens are stored.
+// This constant ensures consistent naming across all token storage locations.
 const AuthTokensFileName = "auth_tokens.json"
 
-// GetAuthTokensPath returns the full path to the auth tokens file given a cache directory and instance name
+// GetAuthTokensPath returns the full path to the auth tokens file given a cache directory and instance name.
+//
+// Token Path Architecture:
+// OneMount uses instance-based token isolation to support multiple simultaneous mounts.
+// Each mount point gets its own token file in a separate instance directory.
+//
+// Path Formula: {cacheDir}/{instance}/auth_tokens.json
+//
+// Where:
+//   - cacheDir: XDG cache directory (typically ~/.cache/onemount)
+//   - instance: Escaped mount path using systemd unit name escaping
+//   - AuthTokensFileName: Constant "auth_tokens.json"
+//
+// Example:
+//
+//	Mount at /home/user/OneDrive → ~/.cache/onemount/home-user-OneDrive/auth_tokens.json
+//	Mount at /mnt/work → ~/.cache/onemount/mnt-work/auth_tokens.json
+//
+// This isolation ensures:
+//  1. Different OneDrive accounts can be mounted simultaneously
+//  2. Token refresh for one mount doesn't affect others
+//  3. Unmounting one instance doesn't invalidate tokens for others
 func GetAuthTokensPath(cacheDir, instance string) string {
 	return filepath.Join(cacheDir, instance, AuthTokensFileName)
 }
 
-// GetAuthTokensPathFromCacheDir returns the full path to the auth tokens file given just a cache directory
-// This is for backward compatibility with existing code that doesn't use instance names
+// GetAuthTokensPathFromCacheDir returns the full path to the auth tokens file given just a cache directory.
+// This is for backward compatibility with existing code that doesn't use instance names.
+//
+// Note: New code should prefer GetAuthTokensPath() with an explicit instance name for better isolation.
 func GetAuthTokensPathFromCacheDir(cacheDir string) string {
 	return filepath.Join(cacheDir, AuthTokensFileName)
 }

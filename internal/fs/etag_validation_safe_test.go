@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -22,15 +23,16 @@ func TestIT_FS_ETag_01_CacheValidationSafe(t *testing.T) {
 	defer progress.Complete()
 
 	progress.Step("Loading and validating authentication")
-	authPath := os.Getenv("ONEMOUNT_AUTH_PATH")
-	if authPath == "" {
-		authPath = "test-artifacts/.auth_tokens.json"
+	authPath, err := testutil.GetAuthTokenPath()
+	if err != nil {
+		progress.Fail("Authentication not configured")
+		t.Fatalf("Authentication not configured: %v", err)
 	}
 
 	auth, err := graph.LoadAuthTokens(authPath)
 	if err != nil {
 		progress.Fail("Cannot load auth tokens")
-		t.Skipf("Skipping test: cannot load auth tokens from %s: %v", authPath, err)
+		t.Fatalf("Cannot load auth tokens: %v", err)
 	}
 
 	// Create safe auth wrapper with timeouts
