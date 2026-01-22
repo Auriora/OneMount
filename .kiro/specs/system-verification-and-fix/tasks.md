@@ -2787,33 +2787,165 @@ The specification now provides comprehensive coverage of all functional, securit
   - Update script headers with token location requirements
   - _Requirements: 1.2, 15.7_
 
-- [ ] 46. Run final comprehensive test suite
-- [ ] 46.1 Run all unit tests
-  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests`
+- [ ] 46. Test infrastructure fixes and comprehensive test suite
+- [ ] 46.1 Fix test infrastructure and labeling
+- [ ] 46.1.1 Audit all test functions for correct naming conventions
+  - **Goal**: Ensure every test is correctly labeled according to its type
+  - **Naming Conventions**:
+    - `TestUT_*` - Unit tests (no external dependencies, use mocks only)
+    - `TestIT_*` - Integration tests (require auth, test real API interactions)
+    - `TestProperty*` - Property-based tests (generative testing)
+    - `TestSystemST_*` - System tests (end-to-end with real OneDrive)
+  - Scan all `*_test.go` files: `find . -name "*_test.go" -type f`
+  - List all test functions: `grep -r "^func Test" --include="*_test.go"`
+  - Identify mislabeled tests (e.g., tests labeled TestUT_ but requiring auth)
+  - Create a report of all tests with their current labels and required dependencies
+  - Document findings in `docs/testing/test-audit-report.md`
+  - _Requirements: 11.1, 11.2, 13.1_
+  - _Priority: CRITICAL - Blocking all test execution_
+
+- [ ] 46.1.2 Create separate test fixture helpers for each test type
+  - **Issue**: `SetupFSTestFixture` creates real filesystem requiring authentication
+  - **Goal**: Provide appropriate helpers for each test type
+  - **Tasks**:
+    - Create `SetupMockFSTestFixture` in `internal/testutil/helpers/fs_fixtures.go`
+      - Uses MockGraphProvider instead of real auth
+      - Creates filesystem with mock backend
+      - No authentication required
+      - For unit tests only
+    - Create `SetupIntegrationFSTestFixture` in `internal/testutil/helpers/fs_fixtures.go`
+      - Uses real auth tokens
+      - Creates filesystem with real OneDrive connection
+      - Requires auth tokens to be present
+      - For integration tests only
+    - Create `SetupSystemTestFixture` in `internal/testutil/helpers/system_fixtures.go`
+      - Full end-to-end setup with mounting
+      - Uses real auth and real OneDrive
+      - For system tests only
+    - Update existing `SetupFSTestFixture` to detect test type and delegate appropriately
+    - Document usage of each helper in `docs/testing/test-fixtures.md`
+  - _Requirements: 11.1, 11.2, 13.1, 13.2_
+  - _Priority: CRITICAL - Required for proper test isolation_
+
+- [ ] 46.1.3 Refactor unit tests to use mock fixtures
+  - **Goal**: Ensure all TestUT_* tests use mocks and don't require auth
+  - Review all tests in `internal/fs/*_test.go` with TestUT_ prefix
+  - Identify which tests are using `SetupFSTestFixture` (requires auth)
+  - Refactor to use `SetupMockFSTestFixture` instead
+  - Verify each test can run without auth tokens
+  - Test command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./internal/fs`
+  - Document any tests that cannot be converted (may need to be relabeled as integration tests)
+  - _Requirements: 11.1, 11.2, 13.1_
+  - _Priority: HIGH - Required for unit test isolation_
+
+- [ ] 46.1.4 Verify integration tests are correctly labeled and use auth
+  - **Goal**: Ensure all TestIT_* tests properly use real auth
+  - Review all tests with TestIT_ prefix
+  - Verify they use `SetupIntegrationFSTestFixture` or real auth
+  - Ensure they skip gracefully when auth tokens are not available
+  - Add skip logic: `if !authAvailable { t.Skip("Auth tokens required") }`
+  - Test command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
+  - Document any tests that should be unit tests instead
+  - _Requirements: 11.2, 13.2, 13.4_
+  - _Priority: HIGH - Required for integration test reliability_
+
+- [ ] 46.1.5 Verify system tests are correctly labeled and isolated
+  - **Goal**: Ensure all TestSystemST_* tests are properly isolated
+  - Review all tests in `tests/system/*_test.go`
+  - Verify they use `SetupSystemTestFixture` or appropriate system-level setup
+  - Ensure they skip gracefully when auth tokens are not available
+  - Verify they clean up resources properly (unmount, cleanup temp files)
+  - Test command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestSystemST_" ./tests/system`
+  - Document any cleanup issues or resource leaks
+  - _Requirements: 11.3, 13.2, 13.4, 13.5_
+  - _Priority: HIGH - Required for system test reliability_
+
+- [ ] 46.1.6 Verify property-based tests are correctly isolated
+  - **Goal**: Ensure all TestProperty* tests use appropriate fixtures
+  - Review all property-based tests in `internal/fs/*_property_test.go`
+  - Verify they use mock fixtures (should not require auth)
+  - Ensure they generate appropriate test data
+  - Test command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
+  - Document any tests requiring auth (may need separate property-based integration tests)
+  - _Requirements: 11.4, 13.1_
+  - _Priority: MEDIUM - Required for property test reliability_
+
+- [ ] 46.1.7 Create test execution documentation
+  - **Goal**: Document how to run each type of test correctly
+  - Create `docs/testing/running-tests.md` with:
+    - Overview of test types and naming conventions
+    - Commands for running each test type
+    - Requirements for each test type (auth, FUSE, etc.)
+    - Troubleshooting common test failures
+    - How to add new tests of each type
+  - Update `README.md` with link to testing documentation
+  - Update `.kiro/steering/testing-conventions.md` with correct test patterns
+  - _Requirements: 12.1, 13.1, 13.2_
+  - _Priority: MEDIUM - Required for developer onboarding_
+
+- [ ] 46.1.8 Run unit tests to verify fixes
+  - **Goal**: Verify all unit tests pass without auth tokens
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./...`
+  - Verify all tests pass
+  - Document any remaining failures
+  - Create issues for any tests that still fail
+  - _Requirements: 11.1, 13.1_
+  - _Priority: HIGH - Verification of fixes_
+
+- [ ] 46.1.9 Run integration tests to verify fixes
+  - **Goal**: Verify all integration tests pass with auth tokens
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
+  - Verify all tests pass
+  - Document any remaining failures
+  - Create issues for any tests that still fail
+  - _Requirements: 11.2, 13.2, 13.4_
+  - _Priority: HIGH - Verification of fixes_
+
+- [ ] 46.1.10 Run property-based tests to verify fixes
+  - **Goal**: Verify all property-based tests pass
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
+  - Verify all 67 properties pass
+  - Document any remaining failures
+  - Create issues for any tests that still fail
+  - _Requirements: 11.4, 13.1_
+  - _Priority: HIGH - Verification of fixes_
+
+- [ ] 46.1.11 Run system tests to verify fixes
+  - **Goal**: Verify all system tests pass with real OneDrive
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestSystemST_" ./tests/system`
+  - Verify all tests pass
+  - Document any remaining failures
+  - Create issues for any tests that still fail
+  - _Requirements: 11.3, 13.2, 13.4, 13.5_
+  - _Priority: HIGH - Verification of fixes_
+
+- [ ] 46.2 Run final comprehensive test suite (DEFERRED until task 46.1 complete)
+- [ ] 46.2.1 Run all unit tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./...`
   - Verify all tests pass
   - Document any failures
   - _Requirements: All_
 
-- [ ] 46.2 Run all integration tests
-  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm integration-tests`
+- [ ] 46.2.2 Run all integration tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass
   - Document any failures
   - _Requirements: All_
 
-- [ ] 46.3 Run all property-based tests
-  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestProperty ./internal/fs`
+- [ ] 46.2.3 Run all property-based tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
   - Verify all 67 properties pass
   - Document any failures
   - _Requirements: All_
 
-- [ ] 46.4 Run system tests with real OneDrive
-  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm system-tests`
+- [ ] 46.2.4 Run system tests with real OneDrive
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestSystemST_" ./tests/system`
   - Verify all tests pass
   - Document any failures
   - _Requirements: All_
 
-- [ ] 46.5 Generate coverage report
-  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner coverage`
+- [ ] 46.2.5 Generate coverage report
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner make coverage`
   - Review coverage metrics
   - Identify any coverage gaps
   - Document coverage results
