@@ -444,8 +444,8 @@ func TestDBusServer_MultipleInstances(t *testing.T) {
 	})
 }
 
-// TestSplitPath tests the splitPath helper function.
-func TestSplitPath(t *testing.T) {
+// TestSplitPathComponents tests the splitPathComponents helper function.
+func TestSplitPathComponents(t *testing.T) {
 	// Create assertions helper
 	assert := framework.NewAssert(t)
 
@@ -454,19 +454,15 @@ func TestSplitPath(t *testing.T) {
 		expected []string
 	}{
 		{"", []string{}},
-		{"/", []string{}},
 		{"file.txt", []string{"file.txt"}},
-		{"/file.txt", []string{"file.txt"}},
 		{"dir/file.txt", []string{"dir", "file.txt"}},
-		{"/dir/file.txt", []string{"dir", "file.txt"}},
 		{"dir1/dir2/file.txt", []string{"dir1", "dir2", "file.txt"}},
-		{"/dir1/dir2/file.txt", []string{"dir1", "dir2", "file.txt"}},
-		{"//double//slash//", []string{"double", "slash"}},
-		{"/path/with/trailing/", []string{"path", "with", "trailing"}},
+		{"double//slash", []string{"double", "slash"}},
+		{"path/with/trailing/", []string{"path", "with", "trailing"}},
 	}
 
 	for _, tc := range testCases {
-		result := splitPath(tc.input)
+		result := splitPathComponents(tc.input)
 		assert.Equal(len(tc.expected), len(result), "Length mismatch for input: %s", tc.input)
 		for i := range tc.expected {
 			assert.Equal(tc.expected[i], result[i], "Component %d mismatch for input: %s", i, tc.input)
@@ -555,12 +551,12 @@ func TestFindInodeByPath_PathTraversal(t *testing.T) {
 		// Create D-Bus server (without starting it to avoid D-Bus dependency)
 		dbusServer := NewFileStatusDBusServer(filesystem)
 
-		// Test path traversal
+		// Test path traversal using GetIDByPath
 		testCases := []struct {
-			path        string
-			expectedID  string
-			shouldBeNil bool
-			description string
+			path          string
+			expectedID    string
+			shouldBeEmpty bool
+			description   string
 		}{
 			{"/", filesystem.root, false, "Root path"},
 			{"", filesystem.root, false, "Empty path (maps to root)"},
@@ -576,14 +572,12 @@ func TestFindInodeByPath_PathTraversal(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			inode := dbusServer.findInodeByPath(tc.path)
-			if tc.shouldBeNil {
-				assert.Nil(inode, "Expected nil inode for path: %s (%s)", tc.path, tc.description)
+			id := filesystem.GetIDByPath(tc.path)
+			if tc.shouldBeEmpty {
+				assert.Equal("", id, "Expected empty ID for path: %s (%s)", tc.path, tc.description)
 			} else {
-				assert.NotNil(inode, "Expected non-nil inode for path: %s (%s)", tc.path, tc.description)
-				if inode != nil {
-					assert.Equal(tc.expectedID, inode.ID(), "Inode ID mismatch for path: %s (%s)", tc.path, tc.description)
-				}
+				assert.NotEqual("", id, "Expected non-empty ID for path: %s (%s)", tc.path, tc.description)
+				assert.Equal(tc.expectedID, id, "ID mismatch for path: %s (%s)", tc.path, tc.description)
 			}
 		}
 

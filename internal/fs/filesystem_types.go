@@ -34,6 +34,7 @@ type FilesystemInterface interface {
 
 	// GetID Inode management methods
 	GetID(id string) *Inode
+	GetIDByPath(path string) string
 	MoveID(oldID string, newID string) error
 	GetInodeContent(inode *Inode) *[]byte
 	GetInodeContentPath(inode *Inode) string

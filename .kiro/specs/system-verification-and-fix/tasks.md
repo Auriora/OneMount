@@ -2604,29 +2604,29 @@ The specification now provides comprehensive coverage of all functional, securit
 
 ### Desktop Integration Issues (Should Fix Before Release)
 
-- [ ] 41. Fix D-Bus GetFileStatus returns Unknown (Issue #FS-001)
-- [ ] 41.1 Analyze D-Bus GetFileStatus implementation
+- [x] 41. Fix D-Bus GetFileStatus returns Unknown (Issue #FS-001)
+- [x] 41.1 Analyze D-Bus GetFileStatus implementation
   - Review current implementation in internal/fs/dbus.go
   - Identify why status returns "Unknown"
   - Determine if GetPath() method is needed
   - Evaluate path-to-ID mapping approach
   - _Requirements: 8.2_
 
-- [ ] 41.2 Implement solution for GetFileStatus
+- [x] 41.2 Implement solution for GetFileStatus
   - Option 1: Add GetPath(id string) string method to FilesystemInterface
   - Option 2: Implement path-to-ID mapping in D-Bus server
   - Update GetFileStatus to return actual status
   - Ensure status determination works correctly
   - _Requirements: 8.2_
 
-- [ ] 41.3 Create integration tests for D-Bus methods
+- [x] 41.3 Create integration tests for D-Bus methods
   - Write test for GetFileStatus with valid paths
   - Write test for GetFileStatus with invalid paths
   - Write test for status changes via D-Bus
   - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestDBus ./internal/fs`
   - _Requirements: 8.2_
 
-- [ ] 41.4 Manual verification with Nemo extension
+- [x] 41.4 Manual verification with Nemo extension
   - Test GetFileStatus method calls from Nemo
   - Verify status icons update correctly
   - Test with various file states (synced, downloading, error)

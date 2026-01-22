@@ -265,6 +265,7 @@ func (m *mockFilesystemInterface) MarkFileConflict(id string, message string) {}
 func (m *mockFilesystemInterface) UpdateFileStatus(inode *Inode)              {}
 func (m *mockFilesystemInterface) InodePath(inode *Inode) string              { return "" }
 func (m *mockFilesystemInterface) GetID(id string) *Inode                     { return nil }
+func (m *mockFilesystemInterface) GetIDByPath(path string) string             { return "" }
 func (m *mockFilesystemInterface) MoveID(oldID string, newID string) error    { return nil }
 func (m *mockFilesystemInterface) GetInodeContent(inode *Inode) *[]byte       { return nil }
 func (m *mockFilesystemInterface) GetInodeContentPath(inode *Inode) string    { return "" }
