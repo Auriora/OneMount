@@ -2633,15 +2633,15 @@ The specification now provides comprehensive coverage of all functional, securit
   - Document results in verification tracking
   - _Requirements: 8.2, 8.3_
 
-- [ ] 42. Fix D-Bus service name discovery (Issue #FS-002)
-- [ ] 42.1 Analyze service name discovery problem
+- [x] 42. Fix D-Bus service name discovery (Issue #FS-002)
+- [x] 42.1 Analyze service name discovery problem
   - Review current D-Bus service name generation
   - Identify why Nemo extension cannot discover service
   - Evaluate different discovery mechanisms
   - Document current behavior and limitations
   - _Requirements: 8.2, 8.3_
 
-- [ ] 42.2 Implement service discovery mechanism
+- [x] 42.2 Implement service discovery mechanism
   - Option 1: Use well-known service name without unique suffix
   - Option 2: Implement D-Bus introspection-based discovery
   - Option 3: Write service name to known location (e.g., /tmp/onemount-dbus-name)
@@ -2649,14 +2649,14 @@ The specification now provides comprehensive coverage of all functional, securit
   - Test with multiple OneMount instances
   - _Requirements: 8.2, 8.3_
 
-- [ ] 42.3 Create integration tests for service discovery
+- [x] 42.3 Create integration tests for service discovery
   - Write test for service name registration
   - Write test for service discovery from client
   - Write test for multiple instances
   - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestDBusDiscovery ./internal/fs`
   - _Requirements: 8.2, 8.3_
 
-- [ ] 42.4 Manual verification with Nemo extension
+- [x] 42.4 Manual verification with Nemo extension
   - Test service discovery from Nemo
   - Verify extension connects to correct service
   - Test with multiple OneMount instances
