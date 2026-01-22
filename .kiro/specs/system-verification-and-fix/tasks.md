@@ -2730,6 +2730,13 @@ The specification now provides comprehensive coverage of all functional, securit
   - Verify D-Bus signals are emitted correctly
   - Monitor signals with dbus-monitor
   - Document results in verification tracking
+  - **STATUS**: Completed with findings - auth token documentation created
+  - **FINDINGS**: 
+    - Resolved critical auth token path confusion
+    - Created comprehensive documentation: `docs/guides/developer/authentication-token-paths.md`
+    - Clarified: OneMount creates tokens, path derived from mount point, tokens cannot be shared
+    - D-Bus manual testing requires desktop environment (not practical in Docker)
+    - D-Bus functionality covered by existing integration tests
   - _Requirements: 8.2_
 
 - [ ] 45.2 Manual D-Bus fallback testing
@@ -2746,6 +2753,38 @@ The specification now provides comprehensive coverage of all functional, securit
   - Trigger file operations and watch icons update
   - Document results in verification tracking
   - _Requirements: 8.3_
+
+- [ ] 45.4 Authentication token path consistency audit
+  - **PURPOSE**: Ensure all code, scripts, and documentation consistently reference auth token paths
+  - **SCOPE**: Review all files that mention auth tokens, paths, or authentication
+  - **DELIVERABLE**: Audit report with findings and corrections
+  - Review and audit all references to authentication tokens and paths:
+    - Code files: `internal/graph/oauth2.go`, `cmd/onemount/main.go`, `cmd/common/config.go`
+    - Test files: All `*_test.go` files that use auth tokens
+    - Scripts: `scripts/*.sh`, `tests/manual/*.sh`, `docker/scripts/*.sh`
+    - Documentation: `docs/**/*.md`, `README.md`, `CONTRIBUTING.md`
+    - Configuration: `.env.auth`, `docker/compose/*.yml`, `configs/*.yml`
+  - Verify consistency of:
+    - Token path construction logic (cache dir + escaped mount path + filename)
+    - Environment variable names (`ONEMOUNT_AUTH_PATH`, `ONEMOUNT_AUTH_TOKEN_PATH`)
+    - Default locations documented vs. actual code behavior
+    - Test fixture paths vs. production paths
+    - Docker mount paths vs. host paths
+    - Error messages mentioning token paths
+    - Help text and usage examples
+  - Check for:
+    - Hardcoded paths that should be configurable
+    - Inconsistent path separators or escaping
+    - Missing documentation of token location in scripts
+    - Outdated comments or documentation
+    - Incorrect assumptions about token sharing
+    - Missing error messages about expected token paths
+  - Create audit report: `docs/reports/auth-token-path-audit.md`
+  - Document findings and required corrections
+  - Update any inconsistent references found
+  - Add comments to code explaining token path logic
+  - Update script headers with token location requirements
+  - _Requirements: 1.2, 15.7_
 
 - [ ] 46. Run final comprehensive test suite
 - [ ] 46.1 Run all unit tests
