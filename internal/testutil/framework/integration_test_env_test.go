@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIntegrationTestEnvironment_Setup(t *testing.T) {
+func TestUT_Framework_IntegrationTestEnvironment_Setup(t *testing.T) {
 	// Create a test logger
 	logger := testutil.NewCustomLogger("integration-test")
 
@@ -61,7 +61,7 @@ func TestIntegrationTestEnvironment_Setup(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
+func TestUT_Framework_IntegrationTestEnvironment_TestDataManager(t *testing.T) {
 	// Create a temporary directory for test data
 	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "test-data-manager")
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestIntegrationTestEnvironment_TestDataManager(t *testing.T) {
 	assert.Nil(t, data)
 }
 
-func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
+func TestUT_Framework_IntegrationTestEnvironment_RunScenario(t *testing.T) {
 	// Create a test logger
 	logger := testutil.NewCustomLogger("integration-test")
 
@@ -171,7 +171,7 @@ func TestIntegrationTestEnvironment_RunScenario(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
+func TestUT_Framework_IntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 	// Create a test logger
 	logger := testutil.NewCustomLogger("integration-test")
 
@@ -226,7 +226,7 @@ func TestIntegrationTestEnvironment_NetworkSimulation(t *testing.T) {
 	assert.Equal(t, 1000, conditions.Bandwidth)
 }
 
-func TestIntegrationTestEnvironment_ComponentIsolation(t *testing.T) {
+func TestUT_Framework_IntegrationTestEnvironment_ComponentIsolation(t *testing.T) {
 	// Create a test logger
 	logger := testutil.NewCustomLogger("integration-test")
 

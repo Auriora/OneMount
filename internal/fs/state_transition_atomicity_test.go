@@ -17,7 +17,7 @@ import (
 // TestStateTransitionAtomicity verifies that state transitions are atomic
 // and no intermediate inconsistent states are visible.
 // Validates: Requirements 21.1-21.10
-func TestStateTransitionAtomicity(t *testing.T) {
+func TestUT_FS_State_TransitionAtomicity(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 
@@ -63,7 +63,7 @@ func TestStateTransitionAtomicity(t *testing.T) {
 // TestNoIntermediateInconsistentStates verifies that during state transitions,
 // no intermediate inconsistent states are visible to concurrent readers.
 // Validates: Requirements 21.1-21.10
-func TestNoIntermediateInconsistentStates(t *testing.T) {
+func TestUT_FS_State_NoIntermediateInconsistentStates(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 
@@ -164,7 +164,7 @@ func TestNoIntermediateInconsistentStates(t *testing.T) {
 // TestStatePersistenceAcrossRestarts verifies that state transitions
 // are persisted correctly and survive filesystem restarts.
 // Validates: Requirements 21.1-21.10
-func TestStatePersistenceAcrossRestarts(t *testing.T) {
+func TestUT_FS_State_PersistenceAcrossRestarts(t *testing.T) {
 	tmp := t.TempDir()
 	dbPath := filepath.Join(tmp, "meta.db")
 
@@ -247,7 +247,7 @@ func TestStatePersistenceAcrossRestarts(t *testing.T) {
 // TestConcurrentStateTransitionSafety verifies that concurrent state transitions
 // on different files are safe and don't interfere with each other.
 // Validates: Requirements 21.1-21.10
-func TestConcurrentStateTransitionSafety(t *testing.T) {
+func TestUT_FS_State_ConcurrentStateTransitionSafety(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 
@@ -325,7 +325,7 @@ func TestConcurrentStateTransitionSafety(t *testing.T) {
 // TestConcurrentStateTransitionOnSameFile verifies that concurrent transitions
 // on the same file are handled safely without corruption.
 // Validates: Requirements 21.1-21.10
-func TestConcurrentStateTransitionOnSameFile(t *testing.T) {
+func TestUT_FS_State_ConcurrentStateTransitionOnSameFile(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 
@@ -372,7 +372,7 @@ func TestConcurrentStateTransitionOnSameFile(t *testing.T) {
 // TestStateTransitionWithError verifies that error transitions
 // preserve state consistency and error information.
 // Validates: Requirements 21.1-21.10
-func TestStateTransitionWithError(t *testing.T) {
+func TestUT_FS_State_TransitionWithError(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 
@@ -415,7 +415,7 @@ func TestStateTransitionWithError(t *testing.T) {
 // TestVirtualFileStateImmutability verifies that virtual files
 // remain in HYDRATED state and cannot transition to other states.
 // Validates: Requirements 21.10
-func TestVirtualFileStateImmutability(t *testing.T) {
+func TestUT_FS_State_VirtualFileStateImmutability(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 
@@ -453,7 +453,7 @@ func TestVirtualFileStateImmutability(t *testing.T) {
 // TestCompleteStateLifecycle verifies a complete state lifecycle
 // from GHOST through various states and back.
 // Validates: Requirements 21.1-21.10
-func TestCompleteStateLifecycle(t *testing.T) {
+func TestUT_FS_State_CompleteStateLifecycle(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 

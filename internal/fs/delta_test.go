@@ -42,7 +42,7 @@ func seedDeltaTestFile(t *testing.T, filesystem *Filesystem, rootID, fileID, nam
 	return item
 }
 
-func TestApplyDeltaPersistsMetadataOnMetadataOnlyChange(t *testing.T) {
+func TestIT_FS_Delta_ApplyDeltaPersistsMetadataOnMetadataOnlyChange(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "DeltaMetadataPersistenceFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -74,7 +74,7 @@ func TestApplyDeltaPersistsMetadataOnMetadataOnlyChange(t *testing.T) {
 	})
 }
 
-func TestApplyDeltaRemoteInvalidationTransitionsMetadata(t *testing.T) {
+func TestIT_FS_Delta_ApplyDeltaRemoteInvalidationTransitionsMetadata(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "DeltaInvalidationPersistenceFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -112,7 +112,7 @@ func TestApplyDeltaRemoteInvalidationTransitionsMetadata(t *testing.T) {
 	})
 }
 
-func TestApplyDeltaMoveUpdatesMetadataEntry(t *testing.T) {
+func TestIT_FS_Delta_ApplyDeltaMoveUpdatesMetadataEntry(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "DeltaMoveMetadataFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -153,7 +153,7 @@ func TestApplyDeltaMoveUpdatesMetadataEntry(t *testing.T) {
 	})
 }
 
-func TestApplyDeltaPinnedFileQueuesHydration(t *testing.T) {
+func TestIT_FS_Delta_ApplyDeltaPinnedFileQueuesHydration(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "DeltaPinnedAutoHydrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -553,7 +553,7 @@ func TestIT_FS_10_01_Delta_MissingHash_HandledCorrectly(t *testing.T) {
 	})
 }
 
-func TestDesiredDeltaIntervalUsesActiveWindow(t *testing.T) {
+func TestIT_FS_Delta_DesiredDeltaIntervalUsesActiveWindow(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureDeltaTuning(DeltaTuning{
 		ActiveInterval: time.Minute,
@@ -567,7 +567,7 @@ func TestDesiredDeltaIntervalUsesActiveWindow(t *testing.T) {
 	}
 }
 
-func TestDesiredDeltaIntervalFallsBackAfterWindow(t *testing.T) {
+func TestIT_FS_Delta_DesiredDeltaIntervalFallsBackAfterWindow(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureDeltaTuning(DeltaTuning{
 		ActiveInterval: 30 * time.Second,
@@ -632,7 +632,7 @@ func (s *fakeMetadataStore) Update(ctx context.Context, id string, fn func(*meta
 	return current, nil
 }
 
-func TestDesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
+func TestIT_FS_Delta_DesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureRealtime(RealtimeOptions{Enabled: true, FallbackInterval: 45 * time.Minute})
 	fs.subscriptionManager = &fakeDeltaNotifier{
@@ -646,7 +646,7 @@ func TestDesiredDeltaIntervalUsesNotifierHealthHealthy(t *testing.T) {
 	}
 }
 
-func TestDesiredDeltaIntervalUsesNotifierHealthDegraded(t *testing.T) {
+func TestIT_FS_Delta_DesiredDeltaIntervalUsesNotifierHealthDegraded(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureRealtime(RealtimeOptions{Enabled: true})
 	fs.subscriptionManager = &fakeDeltaNotifier{
@@ -659,7 +659,7 @@ func TestDesiredDeltaIntervalUsesNotifierHealthDegraded(t *testing.T) {
 	}
 }
 
-func TestDesiredDeltaIntervalUsesNotifierHealthFailedRecovery(t *testing.T) {
+func TestIT_FS_Delta_DesiredDeltaIntervalUsesNotifierHealthFailedRecovery(t *testing.T) {
 	fs := &Filesystem{}
 	fs.ConfigureRealtime(RealtimeOptions{Enabled: true})
 	fs.subscriptionManager = &fakeNotifier{
@@ -672,7 +672,7 @@ func TestDesiredDeltaIntervalUsesNotifierHealthFailedRecovery(t *testing.T) {
 	}
 }
 
-func TestApplyDeltaTransitionsStateOnRemoteInvalidation(t *testing.T) {
+func TestIT_FS_Delta_ApplyDeltaTransitionsStateOnRemoteInvalidation(t *testing.T) {
 	store := newFakeMetadataStore()
 	manager, err := metadata.NewStateManager(store)
 	require.NoError(t, err)

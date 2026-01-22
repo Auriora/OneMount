@@ -6,7 +6,7 @@ import (
 	"github.com/auriora/onemount/internal/socketio"
 )
 
-func TestDeltaIntervalRespectsNotifierHealth(t *testing.T) {
+func TestUT_FS_Notifier_DeltaIntervalRespectsNotifierHealth(t *testing.T) {
 	fs := &Filesystem{realtimeOptions: &RealtimeOptions{Enabled: true, FallbackInterval: defaultRealtimeFallbackInterval}}
 	fs.notifierLastStatus.Store(socketio.StatusHealthy)
 

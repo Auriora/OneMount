@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNetworkSimulator_SetConditions(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_SetConditions(t *testing.T) {
 	simulator := NewNetworkSimulator()
 
 	// Test valid conditions
@@ -36,7 +36,7 @@ func TestNetworkSimulator_SetConditions(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestNetworkSimulator_ApplyPreset(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_ApplyPreset(t *testing.T) {
 	simulator := NewNetworkSimulator()
 
 	// Test applying presets
@@ -62,7 +62,7 @@ func TestNetworkSimulator_ApplyPreset(t *testing.T) {
 	assert.Equal(t, IntermittentConnection.Bandwidth, conditions.Bandwidth)
 }
 
-func TestNetworkSimulator_DisconnectReconnect(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_DisconnectReconnect(t *testing.T) {
 	simulator := NewNetworkSimulator()
 
 	// Test initial state
@@ -87,7 +87,7 @@ func TestNetworkSimulator_DisconnectReconnect(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestNetworkSimulator_SimulateNetworkDelay(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_SimulateNetworkDelay(t *testing.T) {
 	simulator := NewNetworkSimulator()
 
 	// Set a small latency for testing
@@ -103,7 +103,7 @@ func TestNetworkSimulator_SimulateNetworkDelay(t *testing.T) {
 	assert.GreaterOrEqual(t, elapsed, 10*time.Millisecond)
 }
 
-func TestNetworkSimulator_SimulatePacketLoss(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_SimulatePacketLoss(t *testing.T) {
 	simulator := NewNetworkSimulator()
 
 	// Set 100% packet loss for testing
@@ -121,7 +121,7 @@ func TestNetworkSimulator_SimulatePacketLoss(t *testing.T) {
 	assert.False(t, simulator.SimulatePacketLoss())
 }
 
-func TestNetworkSimulator_SimulateNetworkError(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_SimulateNetworkError(t *testing.T) {
 	simulator := NewNetworkSimulator()
 
 	// Test with connected network and no packet loss
@@ -149,7 +149,7 @@ func TestNetworkSimulator_SimulateNetworkError(t *testing.T) {
 	assert.Equal(t, "packet lost due to network conditions", err.Error())
 }
 
-func TestNetworkSimulator_RegisterProvider(t *testing.T) {
+func TestUT_Framework_NetworkSimulator_RegisterProvider(t *testing.T) {
 	simulator := NewNetworkSimulator()
 	mockProvider := mock.NewMockGraphProvider()
 
@@ -201,7 +201,7 @@ func ExampleNetworkSimulator() {
 }
 
 // Example of using NetworkSimulator in a test
-func TestWithNetworkSimulator(t *testing.T) {
+func TestUT_Framework_WithNetworkSimulator(t *testing.T) {
 	// Create a test framework
 	framework := NewTestFramework(TestConfig{}, nil)
 

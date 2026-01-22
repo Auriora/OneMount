@@ -62,7 +62,7 @@ func seedEntry(t *testing.T, fs *Filesystem, entry *metadata.Entry) {
 	require.NoError(t, fs.metadataStore.Save(context.Background(), entry))
 }
 
-func TestHydrationErrorPersistsLastErrorSnapshot(t *testing.T) {
+func TestUT_FS_DeltaState_HydrationErrorPersistsLastErrorSnapshot(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 	entry := &metadata.Entry{
@@ -94,7 +94,7 @@ func TestHydrationErrorPersistsLastErrorSnapshot(t *testing.T) {
 	require.NotNil(t, updated.Hydration.CompletedAt)
 }
 
-func TestUploadErrorPersistsSnapshot(t *testing.T) {
+func TestUT_FS_DeltaState_UploadErrorPersistsSnapshot(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 	entry := &metadata.Entry{
@@ -123,7 +123,7 @@ func TestUploadErrorPersistsSnapshot(t *testing.T) {
 	require.NotNil(t, updated.Upload.CompletedAt)
 }
 
-func TestApplyDeltaPinnedItemRequeuesHydration(t *testing.T) {
+func TestUT_FS_DeltaState_ApplyDeltaPinnedItemRequeuesHydration(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 	parent := &metadata.Entry{
@@ -178,7 +178,7 @@ func TestApplyDeltaPinnedItemRequeuesHydration(t *testing.T) {
 	require.Equal(t, metadata.PinModeAlways, updated.Pin.Mode)
 }
 
-func TestApplyDeltaSetsGhostOnRemoteChange(t *testing.T) {
+func TestUT_FS_DeltaState_ApplyDeltaSetsGhostOnRemoteChange(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 	parent := &metadata.Entry{
@@ -225,7 +225,7 @@ func TestApplyDeltaSetsGhostOnRemoteChange(t *testing.T) {
 	require.False(t, fs.content.HasContent(child.ID))
 }
 
-func TestApplyDeltaHydratesWhenMetadataMatches(t *testing.T) {
+func TestUT_FS_DeltaState_ApplyDeltaHydratesWhenMetadataMatches(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 	parent := &metadata.Entry{
@@ -270,7 +270,7 @@ func TestApplyDeltaHydratesWhenMetadataMatches(t *testing.T) {
 	require.Nil(t, updated.LastError)
 }
 
-func TestApplyDeltaMarksDeletedAndScrubsParent(t *testing.T) {
+func TestUT_FS_DeltaState_ApplyDeltaMarksDeletedAndScrubsParent(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	now := time.Now().UTC()
 	parent := &metadata.Entry{

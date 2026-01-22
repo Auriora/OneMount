@@ -6,7 +6,7 @@ import (
 	"github.com/auriora/onemount/cmd/common"
 )
 
-func TestToRealtimeOptionsCopiesPollingOnly(t *testing.T) {
+func TestUT_CMD_Main_ToRealtimeOptionsCopiesPollingOnly(t *testing.T) {
 	cfg := common.RealtimeConfig{
 		Enabled:     true,
 		PollingOnly: true,

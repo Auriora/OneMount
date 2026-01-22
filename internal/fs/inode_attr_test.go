@@ -6,7 +6,7 @@ import (
 	"github.com/auriora/onemount/internal/graph"
 )
 
-func TestInodeMakeAttrReportsBlocksUsingMetadata(t *testing.T) {
+func TestUT_FS_InodeAttr_MakeAttrReportsBlocksUsingMetadata(t *testing.T) {
 	t.Run("regular file", func(t *testing.T) {
 		inode := NewInodeDriveItem(&graph.DriveItem{
 			ID:   "file-id",

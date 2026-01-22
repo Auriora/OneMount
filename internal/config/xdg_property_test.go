@@ -283,7 +283,7 @@ func TestProperty39_CacheStorageLocation(t *testing.T) {
 
 // TestXDGConfigHomeRespected tests that XDG_CONFIG_HOME is respected when set
 // This is an additional test to verify Requirement 15.2
-func TestXDGConfigHomeRespected(t *testing.T) {
+func TestUT_Config_XDGConfigHomeRespected(t *testing.T) {
 	// Save original environment
 	originalXDG := os.Getenv("XDG_CONFIG_HOME")
 	defer func() {
@@ -319,7 +319,7 @@ func TestXDGConfigHomeRespected(t *testing.T) {
 
 // TestXDGCacheHomeRespected tests that XDG_CACHE_HOME is respected when set
 // This is an additional test to verify Requirement 15.5
-func TestXDGCacheHomeRespected(t *testing.T) {
+func TestUT_Config_XDGCacheHomeRespected(t *testing.T) {
 	// Save original environment
 	originalXDG := os.Getenv("XDG_CACHE_HOME")
 	defer func() {

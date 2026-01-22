@@ -203,7 +203,7 @@ func TestUT_FS_FileOps_02_FileReadWrite_BasicOperations(t *testing.T) {
 	})
 }
 
-func TestFileCreationMarksMetadataDirty(t *testing.T) {
+func TestIT_FS_FileOps_FileCreationMarksMetadataDirty(t *testing.T) {
 	if err := helpers.EnsureTestDirectories(); err != nil {
 		t.Fatalf("EnsureTestDirectories: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestFileCreationMarksMetadataDirty(t *testing.T) {
 	})
 }
 
-func TestMkdirStateReflectsConnectivity(t *testing.T) {
+func TestIT_FS_FileOps_MkdirStateReflectsConnectivity(t *testing.T) {
 	if err := helpers.EnsureTestDirectories(); err != nil {
 		t.Fatalf("EnsureTestDirectories: %v", err)
 	}

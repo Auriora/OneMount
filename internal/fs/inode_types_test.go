@@ -6,7 +6,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
-func TestVirtualInodeContentHelpers(t *testing.T) {
+func TestUT_FS_InodeTypes_VirtualInodeContentHelpers(t *testing.T) {
 	inode := NewInode(".xdg-volume-info", fuse.S_IFREG|0644, nil)
 	inode.SetVirtualContent([]byte("initial"))
 

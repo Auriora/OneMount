@@ -198,7 +198,7 @@ func TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
 }
 
 // TestGetChildrenIDUsesMetadataStoreWhenOffline ensures cached metadata can satisfy directory listings without Graph access.
-func TestGetChildrenIDUsesMetadataStoreWhenOffline(t *testing.T) {
+func TestIT_FS_Cache_GetChildrenIDUsesMetadataStoreWhenOffline(t *testing.T) {
 	tempSandbox := filepath.Join(os.TempDir(), "onemount-tests")
 	originalSandbox := testutil.TestSandboxDir
 	originalTmp := testutil.TestSandboxTmpDir
@@ -301,7 +301,7 @@ func TestGetChildrenIDUsesMetadataStoreWhenOffline(t *testing.T) {
 	})
 }
 
-func TestGetPathUsesMetadataStoreWhenOffline(t *testing.T) {
+func TestIT_FS_Cache_GetPathUsesMetadataStoreWhenOffline(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "MetadataPathRecoveryFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -359,7 +359,7 @@ func TestGetPathUsesMetadataStoreWhenOffline(t *testing.T) {
 	})
 }
 
-func TestGetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
+func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "MetadataAsyncRefreshFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -400,7 +400,7 @@ func TestGetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 	})
 }
 
-func TestGetChildrenIDDoesNotCallGraphWhenMetadataPresent(t *testing.T) {
+func TestIT_FS_Cache_GetChildrenIDDoesNotCallGraphWhenMetadataPresent(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "MetadataLocalOnlyFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 			return NewFilesystem(auth, mountPoint, cacheTTL)
@@ -455,7 +455,7 @@ func TestGetChildrenIDDoesNotCallGraphWhenMetadataPresent(t *testing.T) {
 	})
 }
 
-func TestFallbackRootFromMetadata(t *testing.T) {
+func TestIT_FS_Cache_FallbackRootFromMetadata(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "meta.db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
 	if err != nil {

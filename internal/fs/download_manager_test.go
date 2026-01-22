@@ -11,7 +11,7 @@ import (
 
 // TestRestoreDownloadSessionsRequeues ensures sessions restored from disk are re-enqueued
 // so WaitForDownload callers do not hang on queued-but-unprocessed sessions.
-func TestRestoreDownloadSessionsRequeues(t *testing.T) {
+func TestUT_FS_DownloadManager_RestoreDownloadSessionsRequeues(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "onemount.db")
 	db, err := bolt.Open(dbPath, 0600, nil)

@@ -9,7 +9,7 @@ import (
 	"github.com/auriora/onemount/internal/graph/mock"
 )
 
-func TestLoadTestScenarios(t *testing.T) {
+func TestUT_Framework_LoadTestScenarios(t *testing.T) {
 	// Skip this test in short mode
 	if testing.Short() {
 		t.Skip("Skipping load test scenarios in short mode")

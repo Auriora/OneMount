@@ -27,7 +27,7 @@ import (
 //	                2. Launch multiple goroutines to access files concurrently
 //	                3. Verify no data corruption or race conditions
 //	Expected Result All operations complete successfully without corruption
-func TestConcurrentFileAccess(t *testing.T) {
+func TestIT_FS_Concurrency_ConcurrentFileAccess(t *testing.T) {
 	// Create a test fixture
 	fixture := helpers.SetupFSTestFixture(t, "ConcurrentFileAccessFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -149,7 +149,7 @@ func TestConcurrentFileAccess(t *testing.T) {
 //	                2. Launch concurrent cache operations
 //	                3. Verify cache consistency
 //	Expected Result Cache remains consistent under concurrent access
-func TestConcurrentCacheOperations(t *testing.T) {
+func TestIT_FS_Concurrency_ConcurrentCacheOperations(t *testing.T) {
 	// Create a test fixture
 	fixture := helpers.SetupFSTestFixture(t, "ConcurrentCacheFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -290,7 +290,7 @@ func TestConcurrentCacheOperations(t *testing.T) {
 //	                2. Execute operations with timeouts
 //	                3. Verify no deadlocks occur
 //	Expected Result All operations complete within timeout, no deadlocks
-func TestDeadlockPrevention(t *testing.T) {
+func TestIT_FS_Concurrency_DeadlockPrevention(t *testing.T) {
 	// Create a test fixture
 	fixture := helpers.SetupFSTestFixture(t, "DeadlockPreventionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -476,7 +476,7 @@ func TestDeadlockPrevention(t *testing.T) {
 // repeatedly enumerating a directory while concurrent goroutines rewrite the
 // cached child list using cacheChildrenFromMap. This mirrors the cat/ls hang
 // scenario and ensures the fix remains stable.
-func TestDirectoryEnumerationWhileRefreshing(t *testing.T) {
+func TestIT_FS_Concurrency_DirectoryEnumerationWhileRefreshing(t *testing.T) {
 	const (
 		numChildren    = 128
 		numEnumerators = 4
@@ -614,7 +614,7 @@ func TestDirectoryEnumerationWhileRefreshing(t *testing.T) {
 //	                2. Monitor system resources and performance
 //	                3. Verify system stability under load
 //	Expected Result System remains stable and responsive under high load
-func TestHighConcurrencyStress(t *testing.T) {
+func TestIT_FS_Concurrency_HighConcurrencyStress(t *testing.T) {
 	// Skip this test in short mode as it's resource intensive
 	if testing.Short() {
 		t.Skip("Skipping high-concurrency stress test in short mode")
@@ -875,7 +875,7 @@ func TestHighConcurrencyStress(t *testing.T) {
 //	                2. Verify directory structure integrity
 //	                3. Test concurrent file operations within directories
 //	Expected Result Directory operations complete successfully without corruption
-func TestConcurrentDirectoryOperations(t *testing.T) {
+func TestIT_FS_Concurrency_ConcurrentDirectoryOperations(t *testing.T) {
 	// Create a test fixture
 	fixture := helpers.SetupFSTestFixture(t, "ConcurrentDirectoryFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

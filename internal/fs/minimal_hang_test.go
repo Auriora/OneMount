@@ -16,7 +16,7 @@ import (
 
 // TestMinimalHangReproduction creates the absolute minimal test to reproduce the hanging behavior
 // This test isolates each step to identify exactly where the hang occurs
-func TestMinimalHangReproduction(t *testing.T) {
+func TestUT_FS_MinimalHang_Reproduction(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -182,7 +182,7 @@ func TestMinimalHangReproduction(t *testing.T) {
 }
 
 // TestHangPointIsolation tests each operation individually to isolate the exact hang point
-func TestHangPointIsolation(t *testing.T) {
+func TestUT_FS_MinimalHang_PointIsolation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -273,7 +273,7 @@ func TestHangPointIsolation(t *testing.T) {
 }
 
 // TestConcurrentOperations tests if concurrent operations cause deadlocks
-func TestConcurrentOperations(t *testing.T) {
+func TestUT_FS_MinimalHang_ConcurrentOperations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}

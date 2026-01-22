@@ -11,7 +11,7 @@ import (
 // TestMain is a special function recognized by the Go testing package.
 // It's called before any tests in the package are run and is responsible for
 // setting up the test environment and cleaning up after all tests have completed.
-func TestMain(m *testing.M) {
+func TestUT_CMD_Setup_Main(m *testing.M) {
 	// Ensure test directories exist
 	if err := helpers.EnsureTestDirectories(); err != nil {
 		logging.Error().Err(err).Msg("Failed to ensure test directories exist")

@@ -31,7 +31,7 @@ func (s *stubSocketNotifier) HealthSnapshot() socketio.HealthState {
 	return s.health
 }
 
-func TestChangeNotifierDisabled(t *testing.T) {
+func TestUT_FS_ChangeNotifier_Disabled(t *testing.T) {
 	notifier := NewChangeNotifier(RealtimeOptions{Enabled: false}, nil)
 	if err := notifier.Start(context.Background()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -44,7 +44,7 @@ func TestChangeNotifierDisabled(t *testing.T) {
 	}
 }
 
-func TestChangeNotifierPollingOnly(t *testing.T) {
+func TestUT_FS_ChangeNotifier_PollingOnly(t *testing.T) {
 	notifier := NewChangeNotifier(RealtimeOptions{Enabled: true, PollingOnly: true}, nil)
 	if err := notifier.Start(context.Background()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -57,7 +57,7 @@ func TestChangeNotifierPollingOnly(t *testing.T) {
 	}
 }
 
-func TestChangeNotifierDelegatesToSocketManager(t *testing.T) {
+func TestUT_FS_ChangeNotifier_DelegatesToSocketManager(t *testing.T) {
 	state := socketio.HealthState{Status: socketio.StatusHealthy, LastHeartbeat: time.Unix(123, 0)}
 	stub := &stubSocketNotifier{active: true, health: state}
 	notifier := newChangeNotifierWithFactory(RealtimeOptions{Enabled: true}, nil, func(RealtimeOptions, *graph.Auth) socketNotifier {

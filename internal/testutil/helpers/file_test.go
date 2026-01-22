@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestFileTestHelper_CreateTestFile(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_CreateTestFile(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a test file
@@ -35,7 +35,7 @@ func TestFileTestHelper_CreateTestFile(t *testing.T) {
 	}
 }
 
-func TestFileTestHelper_CreateTestDir(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_CreateTestDir(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a test directory
@@ -57,7 +57,7 @@ func TestFileTestHelper_CreateTestDir(t *testing.T) {
 	}
 }
 
-func TestFileTestHelper_CreateTempDir(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_CreateTempDir(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a temporary directory
@@ -82,7 +82,7 @@ func TestFileTestHelper_CreateTempDir(t *testing.T) {
 	}
 }
 
-func TestFileTestHelper_CreateTempFile(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_CreateTempFile(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a temporary file
@@ -113,7 +113,7 @@ func TestFileTestHelper_CreateTempFile(t *testing.T) {
 	}
 }
 
-func TestFileTestHelper_FileExists(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_FileExists(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Test with non-existent file
@@ -134,7 +134,7 @@ func TestFileTestHelper_FileExists(t *testing.T) {
 	}
 }
 
-func TestFileTestHelper_FileContains(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_FileContains(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a test file
@@ -167,7 +167,7 @@ func TestFileTestHelper_FileContains(t *testing.T) {
 	}
 }
 
-func TestFileTestHelper_AssertFileExists(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_AssertFileExists(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a test file
@@ -181,7 +181,7 @@ func TestFileTestHelper_AssertFileExists(t *testing.T) {
 	helper.AssertFileExists(testPath)
 }
 
-func TestFileTestHelper_AssertFileNotExists(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_AssertFileNotExists(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Test with non-existent file
@@ -191,7 +191,7 @@ func TestFileTestHelper_AssertFileNotExists(t *testing.T) {
 	helper.AssertFileNotExists(nonExistentPath)
 }
 
-func TestFileTestHelper_AssertFileContains(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_AssertFileContains(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a test file
@@ -207,7 +207,7 @@ func TestFileTestHelper_AssertFileContains(t *testing.T) {
 	helper.AssertFileContains(testPath, "specific text")
 }
 
-func TestFileTestHelper_AssertFileContent(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_AssertFileContent(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a test file
@@ -223,7 +223,7 @@ func TestFileTestHelper_AssertFileContent(t *testing.T) {
 	helper.AssertFileContent(testPath, testContent)
 }
 
-func TestFileTestHelper_CaptureFileSystemState(t *testing.T) {
+func TestUT_Helpers_FileTestHelper_CaptureFileSystemState(t *testing.T) {
 	helper := NewFileTestHelper(t)
 
 	// Create a temporary directory structure
@@ -276,7 +276,7 @@ func TestFileTestHelper_CaptureFileSystemState(t *testing.T) {
 	}
 }
 
-func TestConvenienceFunctions(t *testing.T) {
+func TestUT_Helpers_ConvenienceFunctions(t *testing.T) {
 	// Test CreateTempFile convenience function
 	tempFile, err := CreateTempFile(t, "convenience_test_", "test content")
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 )
 
 // TestDebug is a simple test to help diagnose test setup issues
-func TestDebug(t *testing.T) {
+func TestUT_Graph_Debug_Debug(t *testing.T) {
 	fmt.Println("=== DEBUG TEST STARTED ===")
 
 	// Print environment information

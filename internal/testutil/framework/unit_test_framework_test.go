@@ -6,7 +6,7 @@ import (
 )
 
 // TestUnitTestFixture tests the UnitTestFixture functionality
-func TestUnitTestFixture(t *testing.T) {
+func TestUT_Framework_UnitTestFixture(t *testing.T) {
 	// Create a fixture
 	fixture := NewUnitTestFixture("test-fixture")
 
@@ -47,7 +47,7 @@ func TestUnitTestFixture(t *testing.T) {
 }
 
 // TestMock tests the Mock functionality
-func TestMock(t *testing.T) {
+func TestUT_Framework_Mock(t *testing.T) {
 	// Create a mock
 	mock := NewMock(t, "test-mock")
 
@@ -81,7 +81,7 @@ func TestMock(t *testing.T) {
 }
 
 // TestTableTests tests the table-driven test functionality
-func TestTableTests(t *testing.T) {
+func TestUT_Framework_TableTests(t *testing.T) {
 	// Define test cases
 	tests := []TableTest{
 		{
@@ -127,7 +127,7 @@ func TestTableTests(t *testing.T) {
 }
 
 // TestAssert tests the assertion utilities
-func TestAssert(t *testing.T) {
+func TestUT_Framework_Assert(t *testing.T) {
 	// Create a mock testing.T to capture errors
 	mockT := &mockTestingT{}
 	assert := NewAssert(mockT)
@@ -276,7 +276,7 @@ func TestAssert(t *testing.T) {
 }
 
 // TestEdgeCaseGenerator tests the edge case generation utilities
-func TestEdgeCaseGenerator(t *testing.T) {
+func TestUT_Framework_EdgeCaseGenerator(t *testing.T) {
 	generator := NewEdgeCaseGenerator()
 
 	// Test StringEdgeCases
@@ -323,7 +323,7 @@ func TestEdgeCaseGenerator(t *testing.T) {
 }
 
 // TestErrorConditions tests the error condition utilities
-func TestErrorConditions(t *testing.T) {
+func TestUT_Framework_ErrorConditions(t *testing.T) {
 	// Create error conditions
 	conditions := []*ErrorCondition{
 		NewErrorCondition("No error").

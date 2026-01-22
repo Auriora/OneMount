@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestStateManagerHydrationLifecycle(t *testing.T) {
+func TestUT_Metadata_StateManagerHydrationLifecycle(t *testing.T) {
 	store := newMemoryStore()
 	entry := &Entry{
 		ID:    "id-1",
@@ -75,7 +75,7 @@ func TestStateManagerHydrationLifecycle(t *testing.T) {
 	}
 }
 
-func TestStateManagerRejectsInvalidTransition(t *testing.T) {
+func TestUT_Metadata_StateManagerRejectsInvalidTransition(t *testing.T) {
 	store := newMemoryStore()
 	entry := &Entry{
 		ID:    "id-2",
@@ -94,7 +94,7 @@ func TestStateManagerRejectsInvalidTransition(t *testing.T) {
 	}
 }
 
-func TestStateManagerErrorTransition(t *testing.T) {
+func TestUT_Metadata_StateManagerErrorTransition(t *testing.T) {
 	store := newMemoryStore()
 	entry := &Entry{
 		ID:    "id-3",
@@ -123,7 +123,7 @@ func TestStateManagerErrorTransition(t *testing.T) {
 	}
 }
 
-func TestStateManagerTransitionTable(t *testing.T) {
+func TestUT_Metadata_StateManagerTransitionTable(t *testing.T) {
 	type step struct {
 		from    ItemState
 		to      ItemState

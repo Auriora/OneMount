@@ -13,7 +13,7 @@ import (
 )
 
 // TestDeadlockRootCauseAnalysis systematically tests each component that could cause the hang
-func TestDeadlockRootCauseAnalysis(t *testing.T) {
+func TestUT_FS_Deadlock_RootCauseAnalysis(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}

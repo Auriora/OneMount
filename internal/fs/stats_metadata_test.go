@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStatsReportsMetadataStates(t *testing.T) {
+func TestUT_FS_Stats_ReportsMetadataStates(t *testing.T) {
 	fs := setupEvictionTestFS(t, 10)
 
 	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)

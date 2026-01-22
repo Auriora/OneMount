@@ -2,7 +2,7 @@ package graph
 
 import "testing"
 
-func TestBuildSocketSubscriptionPath(t *testing.T) {
+func TestUT_Graph_Socket_BuildSubscriptionPath(t *testing.T) {
 	tests := []struct {
 		name     string
 		resource string

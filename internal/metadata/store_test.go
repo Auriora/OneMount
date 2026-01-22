@@ -9,7 +9,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func TestBoltStoreSaveAndGet(t *testing.T) {
+func TestUT_Metadata_BoltStoreSaveAndGet(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "metadata.db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
@@ -51,7 +51,7 @@ func TestBoltStoreSaveAndGet(t *testing.T) {
 	}
 }
 
-func TestBoltStoreUpdate(t *testing.T) {
+func TestUT_Metadata_BoltStoreUpdate(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "metadata.db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})

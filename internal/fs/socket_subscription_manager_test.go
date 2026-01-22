@@ -9,7 +9,7 @@ import (
 	"github.com/auriora/onemount/internal/socketio"
 )
 
-func TestSocketSubscriptionManagerTriggersNotifications(t *testing.T) {
+func TestUT_FS_SocketSubscription_ManagerTriggersNotifications(t *testing.T) {
 	t.Parallel()
 
 	fake := socketio.NewFakeTransport()

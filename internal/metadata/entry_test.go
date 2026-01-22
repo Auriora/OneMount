@@ -2,7 +2,7 @@ package metadata
 
 import "testing"
 
-func TestEntryValidateDefaults(t *testing.T) {
+func TestUT_Metadata_EntryValidateDefaults(t *testing.T) {
 	nowEntry := &Entry{
 		ID:    "123",
 		Name:  "file.txt",
@@ -25,7 +25,7 @@ func TestEntryValidateDefaults(t *testing.T) {
 	}
 }
 
-func TestEntryValidateRejectsBadState(t *testing.T) {
+func TestUT_Metadata_EntryValidateRejectsBadState(t *testing.T) {
 	entry := &Entry{
 		ID:    "123",
 		Name:  "file.txt",
@@ -36,7 +36,7 @@ func TestEntryValidateRejectsBadState(t *testing.T) {
 	}
 }
 
-func TestEntryValidateRejectsOverlayPolicy(t *testing.T) {
+func TestUT_Metadata_EntryValidateRejectsOverlayPolicy(t *testing.T) {
 	entry := &Entry{
 		ID:            "123",
 		Name:          "file.txt",

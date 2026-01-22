@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestToEngineIOURL(t *testing.T) {
+func TestUT_SocketIO_ToEngineIOURL(t *testing.T) {
 	t.Parallel()
 
 	raw := "https://graph.microsoft.com/me/drive/root"
@@ -26,7 +26,7 @@ func TestToEngineIOURL(t *testing.T) {
 	}
 }
 
-func TestToEngineIOURLStripsCallback(t *testing.T) {
+func TestUT_SocketIO_ToEngineIOURLStripsCallback(t *testing.T) {
 	t.Parallel()
 
 	raw := "https://f3hb0mpua.svc.ms/zbaehwg/callback?sn=token"
@@ -45,7 +45,7 @@ func TestToEngineIOURLStripsCallback(t *testing.T) {
 	}
 }
 
-func TestEngineTransportBackoffRespectsCap(t *testing.T) {
+func TestUT_SocketIO_EngineTransportBackoffRespectsCap(t *testing.T) {
 	t.Parallel()
 
 	tr := NewEngineTransport(EngineTransportOptions{

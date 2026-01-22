@@ -10,7 +10,7 @@ import (
 )
 
 // TestLargeFileHandling tests the large file handling performance test
-func TestLargeFileHandling(t *testing.T) {
+func TestUT_Framework_PerformanceLoad_LargeFileHandling(t *testing.T) {
 	// Skip this test in short mode as it's resource intensive
 	if testing.Short() {
 		t.Skip("Skipping large file handling test in short mode")
@@ -57,7 +57,7 @@ func TestLargeFileHandling(t *testing.T) {
 }
 
 // TestHighFileCountDirectory tests the high file count directory performance test
-func TestHighFileCountDirectory(t *testing.T) {
+func TestUT_Framework_PerformanceLoad_HighFileCountDirectory(t *testing.T) {
 	// Skip this test in short mode as it's resource intensive
 	if testing.Short() {
 		t.Skip("Skipping high file count directory test in short mode")
@@ -104,7 +104,7 @@ func TestHighFileCountDirectory(t *testing.T) {
 }
 
 // TestSustainedOperation tests the sustained operation performance test
-func TestSustainedOperation(t *testing.T) {
+func TestUT_Framework_PerformanceLoad_SustainedOperation(t *testing.T) {
 	// Skip this test in short mode as it's time intensive
 	if testing.Short() {
 		t.Skip("Skipping sustained operation test in short mode")
@@ -151,7 +151,7 @@ func TestSustainedOperation(t *testing.T) {
 }
 
 // TestMemoryLeakDetection tests the memory leak detection performance test
-func TestMemoryLeakDetection(t *testing.T) {
+func TestUT_Framework_PerformanceLoad_MemoryLeakDetection(t *testing.T) {
 	// Skip this test in short mode as it's time intensive
 	if testing.Short() {
 		t.Skip("Skipping memory leak detection test in short mode")
@@ -199,7 +199,7 @@ func TestMemoryLeakDetection(t *testing.T) {
 }
 
 // TestMemoryTracker tests the memory tracker functionality
-func TestMemoryTracker(t *testing.T) {
+func TestUT_Framework_PerformanceLoad_MemoryTracker(t *testing.T) {
 	tracker := NewMemoryTracker()
 
 	// Take initial sample
@@ -223,7 +223,7 @@ func TestMemoryTracker(t *testing.T) {
 }
 
 // TestDefaultConfigurations tests that default configurations are reasonable
-func TestDefaultConfigurations(t *testing.T) {
+func TestUT_Framework_PerformanceLoad_DefaultConfigurations(t *testing.T) {
 	t.Run("LargeFileTestConfig", func(t *testing.T) {
 		config := DefaultLargeFileTestConfig()
 		assert.Greater(t, config.FileSize, int64(1024*1024*1024), "Should be > 1GB")

@@ -224,7 +224,7 @@ func TestUT_FS_Metadata_02_Setattr_FileAttributes(t *testing.T) {
 	})
 }
 
-func TestRenameRecordsOfflineChange(t *testing.T) {
+func TestIT_FS_Metadata_RenameRecordsOfflineChange(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "RenameOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		return NewFilesystem(auth, mountPoint, cacheTTL)
 	})

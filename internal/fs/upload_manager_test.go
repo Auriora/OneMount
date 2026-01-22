@@ -316,7 +316,7 @@ func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	})
 }
 
-func TestUploadManagerQueuesDirtyStateInMetadata(t *testing.T) {
+func TestIT_FS_Upload_ManagerQueuesDirtyStateInMetadata(t *testing.T) {
 	fs, um, db := newUploadManagerTestEnv(t)
 	defer db.Close()
 
@@ -347,7 +347,7 @@ func TestUploadManagerQueuesDirtyStateInMetadata(t *testing.T) {
 	}
 }
 
-func TestUploadManagerHydratesMetadataOnCompletion(t *testing.T) {
+func TestIT_FS_Upload_ManagerHydratesMetadataOnCompletion(t *testing.T) {
 	fs, um, db := newUploadManagerTestEnv(t)
 	defer db.Close()
 
@@ -385,7 +385,7 @@ func TestUploadManagerHydratesMetadataOnCompletion(t *testing.T) {
 	}
 }
 
-func TestUploadManagerSetsErrorStateOnFailure(t *testing.T) {
+func TestIT_FS_Upload_ManagerSetsErrorStateOnFailure(t *testing.T) {
 	fs, um, db := newUploadManagerTestEnv(t)
 	defer db.Close()
 

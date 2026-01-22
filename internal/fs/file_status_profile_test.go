@@ -17,7 +17,7 @@ import (
 
 // TestDocumentPerformanceCharacteristics documents current performance characteristics
 // Task 44.1: Profile status determination performance
-func TestDocumentPerformanceCharacteristics(t *testing.T) {
+func TestIT_FS_FileStatus_DocumentPerformanceCharacteristics(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance documentation test in short mode")
 	}
@@ -113,7 +113,7 @@ func TestDocumentPerformanceCharacteristics(t *testing.T) {
 
 // TestIdentifyBottlenecks runs targeted tests to identify specific bottlenecks
 // Task 44.1: Identify bottlenecks (database queries, hash calculation)
-func TestIdentifyBottlenecks(t *testing.T) {
+func TestIT_FS_FileStatus_IdentifyBottlenecks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping bottleneck identification test in short mode")
 	}
@@ -204,7 +204,7 @@ func TestIdentifyBottlenecks(t *testing.T) {
 
 // TestProfileMemoryUsage profiles memory usage during status determination
 // Task 44.1: Measure performance with various file counts
-func TestProfileMemoryUsage(t *testing.T) {
+func TestIT_FS_FileStatus_ProfileMemoryUsage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping profiling test in short mode")
 	}

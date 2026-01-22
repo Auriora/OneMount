@@ -8,7 +8,7 @@ import (
 )
 
 // TestDBusServiceNameFileCreation tests that the service name file is created when the D-Bus server starts
-func TestDBusServiceNameFileCreation(t *testing.T) {
+func TestUT_FS_DBus_ServiceNameFileCreation(t *testing.T) {
 	// Skip if D-Bus is not available
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		t.Skip("D-Bus session bus not available")
@@ -62,7 +62,7 @@ func TestDBusServiceNameFileCreation(t *testing.T) {
 }
 
 // TestDBusServiceNameFileCleanup tests that the service name file is removed when the D-Bus server stops
-func TestDBusServiceNameFileCleanup(t *testing.T) {
+func TestUT_FS_DBus_ServiceNameFileCleanup(t *testing.T) {
 	// Skip if D-Bus is not available
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		t.Skip("D-Bus session bus not available")
@@ -107,7 +107,7 @@ func TestDBusServiceNameFileCleanup(t *testing.T) {
 }
 
 // TestDBusServiceNameFileMultipleInstances tests that multiple instances don't interfere with each other
-func TestDBusServiceNameFileMultipleInstances(t *testing.T) {
+func TestUT_FS_DBus_ServiceNameFileMultipleInstances(t *testing.T) {
 	// Skip if D-Bus is not available
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		t.Skip("D-Bus session bus not available")

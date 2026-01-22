@@ -12,7 +12,7 @@ import (
 )
 
 // TestMountIntegration_SuccessfulMount tests the complete mount flow
-func TestMountIntegration_SuccessfulMount(t *testing.T) {
+func TestUT_FS_Mount_Integration_SuccessfulMount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -74,7 +74,7 @@ func TestMountIntegration_SuccessfulMount(t *testing.T) {
 }
 
 // TestMountIntegration_MountFailureScenarios tests various mount failure cases
-func TestMountIntegration_MountFailureScenarios(t *testing.T) {
+func TestUT_FS_Mount_Integration_MountFailureScenarios(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -177,7 +177,7 @@ func TestMountIntegration_MountFailureScenarios(t *testing.T) {
 }
 
 // TestMountIntegration_GracefulUnmount tests the unmount process
-func TestMountIntegration_GracefulUnmount(t *testing.T) {
+func TestUT_FS_Mount_Integration_GracefulUnmount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -230,7 +230,7 @@ func TestMountIntegration_GracefulUnmount(t *testing.T) {
 }
 
 // TestMountIntegration_WithMockGraphAPI tests mounting with a mock Graph API
-func TestMountIntegration_WithMockGraphAPI(t *testing.T) {
+func TestUT_FS_Mount_Integration_WithMockGraphAPI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}

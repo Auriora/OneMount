@@ -6,7 +6,7 @@ import (
 )
 
 // TestCachedStatsExpiration verifies that cached stats expire correctly
-func TestCachedStatsExpiration(t *testing.T) {
+func TestUT_FS_Stats_CachedStatsExpiration(t *testing.T) {
 	cached := &CachedStats{}
 
 	// Create test stats
@@ -43,7 +43,7 @@ func TestCachedStatsExpiration(t *testing.T) {
 }
 
 // TestDefaultStatsConfig verifies default configuration values
-func TestDefaultStatsConfig(t *testing.T) {
+func TestUT_FS_Stats_DefaultStatsConfig(t *testing.T) {
 	config := DefaultStatsConfig()
 
 	if config.CacheTTL != 5*time.Minute {
@@ -64,7 +64,7 @@ func TestDefaultStatsConfig(t *testing.T) {
 }
 
 // TestStatsIsSampled verifies the IsSampled flag
-func TestStatsIsSampled(t *testing.T) {
+func TestUT_FS_Stats_StatsIsSampled(t *testing.T) {
 	stats := &Stats{
 		IsSampled: true,
 		CachedAt:  time.Now(),
@@ -85,7 +85,7 @@ func TestStatsIsSampled(t *testing.T) {
 }
 
 // TestFormatSize verifies size formatting
-func TestFormatSize(t *testing.T) {
+func TestUT_FS_Stats_FormatSize(t *testing.T) {
 	tests := []struct {
 		size     int64
 		expected string

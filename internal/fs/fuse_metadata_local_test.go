@@ -13,7 +13,7 @@ import (
 
 // Test that GetChildrenID serves from structured metadata without issuing Graph calls when
 // in-memory child cache is cold. This verifies the local-first contract for FUSE readdir.
-func TestGetChildrenIDUsesMetadataStoreWhenCold(t *testing.T) {
+func TestUT_FS_FUSEMetadata_GetChildrenIDUsesMetadataStoreWhenCold(t *testing.T) {
 	now := time.Now().UTC()
 
 	// Build a filesystem with an initialized metadata store/state manager.
@@ -87,7 +87,7 @@ func TestGetChildrenIDUsesMetadataStoreWhenCold(t *testing.T) {
 }
 
 // Lookup-by-name should be satisfied from metadata_v2 without Graph calls when child exists.
-func TestGetChildUsesMetadataStoreWhenCold(t *testing.T) {
+func TestUT_FS_FUSEMetadata_GetChildUsesMetadataStoreWhenCold(t *testing.T) {
 	now := time.Now().UTC()
 	fs := newTestFilesystemWithMetadata(t)
 
@@ -139,7 +139,7 @@ func TestGetChildUsesMetadataStoreWhenCold(t *testing.T) {
 }
 
 // Negative lookup should not hit Graph when parent metadata is present but empty.
-func TestGetChildMissingDoesNotHitGraph(t *testing.T) {
+func TestUT_FS_FUSEMetadata_GetChildMissingDoesNotHitGraph(t *testing.T) {
 	now := time.Now().UTC()
 	fs := newTestFilesystemWithMetadata(t)
 
@@ -177,7 +177,7 @@ func TestGetChildMissingDoesNotHitGraph(t *testing.T) {
 }
 
 // OpenDir should succeed offline when metadata exists, rebuilding children from metadata_v2.
-func TestOpenDirUsesMetadataOffline(t *testing.T) {
+func TestUT_FS_FUSEMetadata_OpenDirUsesMetadataOffline(t *testing.T) {
 	now := time.Now().UTC()
 	fs := newTestFilesystemWithMetadata(t)
 	fs.opendirs = make(map[uint64][]*Inode)
@@ -232,7 +232,7 @@ func TestOpenDirUsesMetadataOffline(t *testing.T) {
 }
 
 // Lookup should be satisfied from metadata without triggering Graph when offline.
-func TestLookupUsesMetadataOffline(t *testing.T) {
+func TestUT_FS_FUSEMetadata_LookupUsesMetadataOffline(t *testing.T) {
 	now := time.Now().UTC()
 	fs := newTestFilesystemWithMetadata(t)
 	fs.auth = &graph.Auth{}

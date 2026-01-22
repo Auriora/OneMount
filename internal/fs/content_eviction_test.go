@@ -57,7 +57,7 @@ func registerHydratedEntry(t *testing.T, fs *Filesystem, inode *Inode) {
 	fs.transitionItemState(inode.ID(), metadata.ItemStateHydrated)
 }
 
-func TestContentEvictionTransitionsMetadata(t *testing.T) {
+func TestUT_FS_ContentEviction_TransitionsMetadata(t *testing.T) {
 	fs := setupEvictionTestFS(t, 10)
 
 	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)
@@ -81,7 +81,7 @@ func TestContentEvictionTransitionsMetadata(t *testing.T) {
 	require.Equal(t, metadata.ItemStateGhost, entry.State, "evicted content should transition to GHOST")
 }
 
-func TestPinnedContentNotEvicted(t *testing.T) {
+func TestUT_FS_ContentEviction_PinnedContentNotEvicted(t *testing.T) {
 	fs := setupEvictionTestFS(t, 8)
 
 	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)
@@ -114,7 +114,7 @@ func TestPinnedContentNotEvicted(t *testing.T) {
 	require.Equal(t, metadata.ItemStateHydrated, entry.State, "pinned file should remain hydrated")
 }
 
-func TestPinnedContentAutoHydratesAfterEviction(t *testing.T) {
+func TestUT_FS_ContentEviction_PinnedContentAutoHydratesAfterEviction(t *testing.T) {
 	fs := setupEvictionTestFS(t, 10)
 
 	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)
@@ -146,7 +146,7 @@ func TestPinnedContentAutoHydratesAfterEviction(t *testing.T) {
 	require.Equal(t, int32(1), atomic.LoadInt32(&autoHydrateCount), "pinned item should trigger auto hydration")
 }
 
-func TestContentEvictionTransitionsToGhost(t *testing.T) {
+func TestUT_FS_ContentEviction_TransitionsToGhost(t *testing.T) {
 	fs := setupEvictionTestFS(t, 10)
 	parent := NewInode("parent", fuse.S_IFDIR|0755, nil)
 	parent.DriveItem.ID = "parent"

@@ -10,7 +10,7 @@ import (
 	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
-func TestDirectoryPendingRemoteVisibilitySurvivesRefresh(t *testing.T) {
+func TestIT_FS_DirPending_RemoteVisibilitySurvivesRefresh(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "PendingRemoteDirectoryFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		return NewFilesystem(auth, mountPoint, cacheTTL)
 	})

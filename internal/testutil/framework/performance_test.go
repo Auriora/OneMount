@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPerformanceBenchmark(t *testing.T) {
+func TestUT_Framework_Performance_Benchmark(t *testing.T) {
 	// Create a temporary directory for test artifacts
 	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "performance-test-")
 	if err != nil {
@@ -79,7 +79,7 @@ func TestPerformanceBenchmark(t *testing.T) {
 	assert.NoError(t, err, "JSON report should exist")
 }
 
-func TestLoadTest(t *testing.T) {
+func TestUT_Framework_Performance_LoadTest(t *testing.T) {
 	// Create a temporary directory for test artifacts
 	tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "load-test-")
 	if err != nil {
@@ -138,7 +138,7 @@ func TestLoadTest(t *testing.T) {
 	assert.NoError(t, err, "JSON report should exist")
 }
 
-func TestBenchmarkScenarios(t *testing.T) {
+func TestUT_Framework_Performance_BenchmarkScenarios(t *testing.T) {
 	// Skip this test in short mode
 	if testing.Short() {
 		t.Skip("Skipping benchmark scenarios test in short mode")

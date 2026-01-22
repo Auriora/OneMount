@@ -11,7 +11,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func TestMetadataEntryFromInodeStateInference(t *testing.T) {
+func TestUT_FS_MetadataStore_EntryFromInodeStateInference(t *testing.T) {
 	cacheDir := t.TempDir()
 	fs := &Filesystem{
 		content: NewLoopbackCacheWithSize(filepath.Join(cacheDir, "content"), 0),
@@ -37,7 +37,7 @@ func TestMetadataEntryFromInodeStateInference(t *testing.T) {
 	}
 }
 
-func TestBootstrapMetadataStoreMigratesLegacyEntries(t *testing.T) {
+func TestUT_FS_MetadataStore_BootstrapMigratesLegacyEntries(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "metadata.db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
@@ -85,7 +85,7 @@ func TestBootstrapMetadataStoreMigratesLegacyEntries(t *testing.T) {
 	}
 }
 
-func TestInodeFromMetadataEntry(t *testing.T) {
+func TestUT_FS_MetadataStore_InodeFromMetadataEntry(t *testing.T) {
 	fs := &Filesystem{}
 	lastModified := time.Date(2025, time.November, 19, 12, 0, 0, 0, time.UTC)
 	entry := &metadata.Entry{
@@ -120,7 +120,7 @@ func TestInodeFromMetadataEntry(t *testing.T) {
 	}
 }
 
-func TestPendingRemoteMetadataUpdates(t *testing.T) {
+func TestUT_FS_MetadataStore_PendingRemoteMetadataUpdates(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "meta.db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})
@@ -174,7 +174,7 @@ func TestPendingRemoteMetadataUpdates(t *testing.T) {
 	}
 }
 
-func TestGetIDLoadsFromMetadataStore(t *testing.T) {
+func TestUT_FS_MetadataStore_GetIDLoadsFromMetadataStore(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "meta.db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: time.Second})

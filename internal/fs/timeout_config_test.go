@@ -6,7 +6,7 @@ import (
 )
 
 // TestDefaultTimeoutConfig verifies that default timeout configuration is valid
-func TestDefaultTimeoutConfig(t *testing.T) {
+func TestUT_FS_Timeout_DefaultTimeoutConfig(t *testing.T) {
 	config := DefaultTimeoutConfig()
 
 	// Verify all timeouts are positive
@@ -56,7 +56,7 @@ func TestDefaultTimeoutConfig(t *testing.T) {
 }
 
 // TestTimeoutConfigValidation verifies that timeout validation works correctly
-func TestTimeoutConfigValidation(t *testing.T) {
+func TestUT_FS_Timeout_ConfigValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *TimeoutConfig
@@ -148,7 +148,7 @@ func TestTimeoutConfigValidation(t *testing.T) {
 }
 
 // TestTimeoutConfigInFilesystem verifies that filesystem uses timeout configuration
-func TestTimeoutConfigInFilesystem(t *testing.T) {
+func TestUT_FS_Timeout_ConfigInFilesystem(t *testing.T) {
 	// This test verifies that the filesystem is initialized with a timeout configuration
 	// We can't easily test the full filesystem initialization here, but we can verify
 	// that the default configuration is created correctly
@@ -165,7 +165,7 @@ func TestTimeoutConfigInFilesystem(t *testing.T) {
 }
 
 // TestInvalidConfigError verifies that InvalidConfigError formats correctly
-func TestInvalidConfigError(t *testing.T) {
+func TestUT_FS_Timeout_InvalidConfigError(t *testing.T) {
 	err := &InvalidConfigError{
 		Field:  "TestField",
 		Reason: "test reason",

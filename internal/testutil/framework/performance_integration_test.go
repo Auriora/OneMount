@@ -16,7 +16,7 @@ import (
 // Description: Verify that the system can handle large files (>1GB) efficiently
 // Expected Result: Large file operations complete within acceptable time limits
 // Notes: This test validates the performance requirements from the release action plan
-func TestPerformanceIntegration_LargeFileHandling(t *testing.T) {
+func TestUT_Framework_PerformanceIntegration_LargeFileHandling(t *testing.T) {
 	// Skip unless explicitly enabled; these are heavy perf scenarios.
 	if testing.Short() {
 		t.Skip("Skipping large file performance test in short mode")
@@ -71,7 +71,7 @@ func TestPerformanceIntegration_LargeFileHandling(t *testing.T) {
 // Description: Verify that the system can handle directories with >10k files efficiently
 // Expected Result: Directory operations complete within acceptable time limits
 // Notes: This test validates the performance requirements from the release action plan
-func TestPerformanceIntegration_HighFileCount(t *testing.T) {
+func TestUT_Framework_PerformanceIntegration_HighFileCount(t *testing.T) {
 	// Skip unless explicitly enabled; these are heavy perf scenarios.
 	if testing.Short() {
 		t.Skip("Skipping high file count performance test in short mode")
@@ -126,7 +126,7 @@ func TestPerformanceIntegration_HighFileCount(t *testing.T) {
 // Description: Verify that the system can sustain operations over extended periods
 // Expected Result: System remains stable and performant during sustained operations
 // Notes: This test validates the performance requirements from the release action plan
-func TestPerformanceIntegration_SustainedOperation(t *testing.T) {
+func TestUT_Framework_PerformanceIntegration_SustainedOperation(t *testing.T) {
 	// Skip this test in short mode
 	if testing.Short() {
 		t.Skip("Skipping sustained operation performance test in short mode")
@@ -193,7 +193,7 @@ func TestPerformanceIntegration_SustainedOperation(t *testing.T) {
 // Description: Verify that the system does not have memory leaks during extended operation
 // Expected Result: Memory usage remains stable without excessive growth
 // Notes: This test validates the performance requirements from the release action plan
-func TestPerformanceIntegration_MemoryLeakDetection(t *testing.T) {
+func TestUT_Framework_PerformanceIntegration_MemoryLeakDetection(t *testing.T) {
 	// Skip this test in short mode
 	if testing.Short() {
 		t.Skip("Skipping memory leak detection performance test in short mode")
@@ -257,7 +257,7 @@ func TestPerformanceIntegration_MemoryLeakDetection(t *testing.T) {
 // Description: Run all performance tests to validate overall system performance
 // Expected Result: All performance tests pass within acceptable limits
 // Notes: This is a comprehensive test that validates all performance requirements
-func TestPerformanceIntegration_AllTests(t *testing.T) {
+func TestUT_Framework_PerformanceIntegration_AllTests(t *testing.T) {
 	// Skip this test in short mode as it's very resource intensive
 	if testing.Short() {
 		t.Skip("Skipping comprehensive performance test suite in short mode")

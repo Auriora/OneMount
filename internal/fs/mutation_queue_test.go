@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestQueueRemoteDeleteTransitionsToDeleted(t *testing.T) {
+func TestUT_FS_MutationQueue_QueueRemoteDeleteTransitionsToDeleted(t *testing.T) {
 	fs := setupEvictionTestFS(t, 10)
 
 	// Seed metadata entry
@@ -32,7 +32,7 @@ func TestQueueRemoteDeleteTransitionsToDeleted(t *testing.T) {
 	require.Equal(t, metadata.ItemStateDeleted, entry.State)
 }
 
-func TestMutationQueueReturnsImmediatelyAndProcessesWork(t *testing.T) {
+func TestUT_FS_MutationQueue_ReturnsImmediatelyAndProcessesWork(t *testing.T) {
 	fs := newTestFilesystemWithMetadata(t)
 	fs.ctx = context.Background()
 	fs.startMutationQueue()

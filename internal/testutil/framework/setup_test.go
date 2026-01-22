@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestMain(m *testing.M) {
+func TestUT_Framework_Main(m *testing.M) {
 	// Setup code
 	fmt.Println("Setting up tests...")
 

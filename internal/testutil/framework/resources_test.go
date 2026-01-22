@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestFileSystemResource_Basic(t *testing.T) {
+func TestUT_Framework_Resources_FileSystemResource_Basic(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "filesystem-resource-test-*")
 	if err != nil {
@@ -53,7 +53,7 @@ func TestFileSystemResource_Basic(t *testing.T) {
 	}
 }
 
-func TestFileSystemResource_WithTestFramework(t *testing.T) {
+func TestUT_Framework_Resources_FileSystemResource_WithTestFramework(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "filesystem-resource-test-*")
 	if err != nil {
@@ -97,7 +97,7 @@ func TestFileSystemResource_WithTestFramework(t *testing.T) {
 
 // TestFileSystemResource_MountUnmount tests the mounting and unmounting functionality
 // by directly manipulating the Mounted flag without executing system commands.
-func TestFileSystemResource_MountUnmount(t *testing.T) {
+func TestUT_Framework_Resources_FileSystemResource_MountUnmount(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "filesystem-resource-test-*")
 	if err != nil {

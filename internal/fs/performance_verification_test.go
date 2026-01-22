@@ -20,7 +20,7 @@ import (
 // - Compare polling frequency impact
 // - Verify response times meet expectations
 // - Check resource usage is reasonable
-func TestPerformanceVerification(t *testing.T) {
+func TestUT_FS_Performance_Verification(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance verification in short mode")
 	}

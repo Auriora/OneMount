@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestBandwidthThrottler_Disabled(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_Disabled(t *testing.T) {
 	// Throttler with 0 limit should be disabled
 	throttler := NewBandwidthThrottler(0)
 
@@ -29,7 +29,7 @@ func TestBandwidthThrottler_Disabled(t *testing.T) {
 	}
 }
 
-func TestBandwidthThrottler_BasicThrottling(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_BasicThrottling(t *testing.T) {
 	// Set limit to 1MB/s
 	throttler := NewBandwidthThrottler(1024 * 1024)
 
@@ -59,7 +59,7 @@ func TestBandwidthThrottler_BasicThrottling(t *testing.T) {
 	}
 }
 
-func TestBandwidthThrottler_ContextCancellation(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_ContextCancellation(t *testing.T) {
 	// Set limit to 100KB/s
 	throttler := NewBandwidthThrottler(100 * 1024)
 
@@ -78,7 +78,7 @@ func TestBandwidthThrottler_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestBandwidthThrottler_Reset(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_Reset(t *testing.T) {
 	throttler := NewBandwidthThrottler(1024 * 1024) // 1MB/s
 
 	ctx := context.Background()
@@ -100,7 +100,7 @@ func TestBandwidthThrottler_Reset(t *testing.T) {
 	}
 }
 
-func TestBandwidthThrottler_SetLimit(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_SetLimit(t *testing.T) {
 	throttler := NewBandwidthThrottler(1024 * 1024) // 1MB/s
 
 	if !throttler.IsEnabled() {
@@ -122,7 +122,7 @@ func TestBandwidthThrottler_SetLimit(t *testing.T) {
 	}
 }
 
-func TestBandwidthThrottler_ConcurrentAccess(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_ConcurrentAccess(t *testing.T) {
 	throttler := NewBandwidthThrottler(1024 * 1024) // 1MB/s
 
 	ctx := context.Background()
@@ -150,7 +150,7 @@ func TestBandwidthThrottler_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestBandwidthThrottler_SmallTransfers(t *testing.T) {
+func TestUT_Util_BandwidthThrottler_SmallTransfers(t *testing.T) {
 	throttler := NewBandwidthThrottler(1024 * 1024) // 1MB/s
 
 	ctx := context.Background()

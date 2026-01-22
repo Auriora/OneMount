@@ -193,7 +193,7 @@ func TestUT_CMD_05_01_Config_ValidSettings_WritesSuccessfully(t *testing.T) {
 	})
 }
 
-func TestDefaultDeltaIntervalIsFiveMinutes(t *testing.T) {
+func TestUT_CMD_Config_DefaultDeltaIntervalIsFiveMinutes(t *testing.T) {
 	cfg := createDefaultConfig()
 	expected := int((5 * time.Minute).Seconds())
 	if cfg.DeltaInterval != expected {
@@ -201,7 +201,7 @@ func TestDefaultDeltaIntervalIsFiveMinutes(t *testing.T) {
 	}
 }
 
-func TestValidateConfigOverlayPolicy(t *testing.T) {
+func TestUT_CMD_Config_ValidateConfigOverlayPolicy(t *testing.T) {
 	cfg := createDefaultConfig()
 	cfg.Overlay.DefaultPolicy = "local_wins"
 	if err := validateConfig(&cfg); err != nil {
@@ -217,7 +217,7 @@ func TestValidateConfigOverlayPolicy(t *testing.T) {
 	}
 }
 
-func TestValidateRealtimeConfigDefaults(t *testing.T) {
+func TestUT_CMD_Config_ValidateRealtimeConfigDefaults(t *testing.T) {
 	cfg := &RealtimeConfig{
 		Enabled:          true,
 		Resource:         "",
@@ -237,7 +237,7 @@ func TestValidateRealtimeConfigDefaults(t *testing.T) {
 	}
 }
 
-func TestDefaultActiveDeltaTuning(t *testing.T) {
+func TestUT_CMD_Config_DefaultActiveDeltaTuning(t *testing.T) {
 	cfg := createDefaultConfig()
 	if cfg.ActiveDeltaInterval != 60 {
 		t.Fatalf("expected default active delta interval 60 seconds, got %d", cfg.ActiveDeltaInterval)
@@ -247,7 +247,7 @@ func TestDefaultActiveDeltaTuning(t *testing.T) {
 	}
 }
 
-func TestValidateConfigResetsInvalidActiveDeltaTuning(t *testing.T) {
+func TestUT_CMD_Config_ValidateConfigResetsInvalidActiveDeltaTuning(t *testing.T) {
 	cfg := createDefaultConfig()
 	cfg.ActiveDeltaInterval = -5
 	cfg.ActiveDeltaWindow = 0
@@ -262,7 +262,7 @@ func TestValidateConfigResetsInvalidActiveDeltaTuning(t *testing.T) {
 	}
 }
 
-func TestHydrationConfigDefaultsAndValidation(t *testing.T) {
+func TestUT_CMD_Config_HydrationConfigDefaultsAndValidation(t *testing.T) {
 	cfg := createDefaultConfig()
 	if err := validateConfig(&cfg); err != nil {
 		t.Fatalf("validateConfig returned error: %v", err)
@@ -278,7 +278,7 @@ func TestHydrationConfigDefaultsAndValidation(t *testing.T) {
 	}
 }
 
-func TestMetadataQueueDefaultsAndValidation(t *testing.T) {
+func TestUT_CMD_Config_MetadataQueueDefaultsAndValidation(t *testing.T) {
 	cfg := createDefaultConfig()
 	cfg.MetadataQueue.Workers = -1
 	cfg.MetadataQueue.HighPrioritySize = 0
@@ -288,7 +288,7 @@ func TestMetadataQueueDefaultsAndValidation(t *testing.T) {
 	}
 }
 
-func TestRealtimeFallbackValidationBounds(t *testing.T) {
+func TestUT_CMD_Config_RealtimeFallbackValidationBounds(t *testing.T) {
 	cfg := createDefaultConfig()
 	cfg.Realtime.FallbackInterval = 10
 	if err := validateConfig(&cfg); err == nil {

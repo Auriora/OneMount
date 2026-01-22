@@ -15,7 +15,7 @@ import (
 
 // Use the existing logger implementation in the testutil package
 
-func TestSystemTestEnvironment_Setup(t *testing.T) {
+func TestUT_Framework_SystemTestEnvironment_Setup(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("system-test")
 
@@ -86,7 +86,7 @@ func TestSystemTestEnvironment_Setup(t *testing.T) {
 	}()
 }
 
-func TestSystemTestEnvironment_DataGenerator(t *testing.T) {
+func TestUT_Framework_SystemTestEnvironment_DataGenerator(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("system-test")
 
@@ -134,7 +134,7 @@ func TestSystemTestEnvironment_DataGenerator(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestSystemTestEnvironment_ConfigManager(t *testing.T) {
+func TestUT_Framework_SystemTestEnvironment_ConfigManager(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("system-test")
 
@@ -178,7 +178,7 @@ func TestSystemTestEnvironment_ConfigManager(t *testing.T) {
 	assert.Equal(t, 1024, value)
 }
 
-func TestSystemTestEnvironment_Verifier(t *testing.T) {
+func TestUT_Framework_SystemTestEnvironment_Verifier(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("system-test")
 
@@ -236,7 +236,7 @@ func TestSystemTestEnvironment_Verifier(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSystemTestEnvironment_Scenarios(t *testing.T) {
+func TestUT_Framework_SystemTestEnvironment_Scenarios(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("system-test")
 
@@ -313,7 +313,7 @@ func TestSystemTestEnvironment_Scenarios(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestCommonSystemScenarios(t *testing.T) {
+func TestUT_Framework_CommonSystemScenarios(t *testing.T) {
 	// Skip this test in automated test runs as it requires more setup
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test in CI environment")
@@ -362,7 +362,7 @@ func TestCommonSystemScenarios(t *testing.T) {
 }
 
 // TestSystemTestEnvironment_SignalHandling tests the interaction between SystemTestEnvironment and signal handling
-func TestSystemTestEnvironment_SignalHandling(t *testing.T) {
+func TestUT_Framework_SystemTestEnvironment_SignalHandling(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("system-test")
 

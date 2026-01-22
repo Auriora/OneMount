@@ -29,7 +29,7 @@ func generateTestName() string {
 }
 
 // TestStatsCaching verifies that statistics are cached and reused
-func TestStatsCaching(t *testing.T) {
+func TestUT_FS_Stats_Caching(t *testing.T) {
 	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
@@ -99,7 +99,7 @@ func TestStatsCaching(t *testing.T) {
 }
 
 // TestStatsSampling verifies that sampling works correctly for large datasets
-func TestStatsSampling(t *testing.T) {
+func TestUT_FS_Stats_Sampling(t *testing.T) {
 	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
@@ -160,7 +160,7 @@ func TestStatsSampling(t *testing.T) {
 }
 
 // TestQuickStats verifies that quick stats are fast and contain basic information
-func TestQuickStats(t *testing.T) {
+func TestUT_FS_Stats_QuickStats(t *testing.T) {
 	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
@@ -202,7 +202,7 @@ func TestQuickStats(t *testing.T) {
 }
 
 // TestStatsPagination verifies that pagination works correctly
-func TestStatsPagination(t *testing.T) {
+func TestUT_FS_Stats_Pagination(t *testing.T) {
 	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)
@@ -258,7 +258,7 @@ func TestStatsPagination(t *testing.T) {
 }
 
 // TestBackgroundStatsUpdater verifies background statistics updates
-func TestBackgroundStatsUpdater(t *testing.T) {
+func TestUT_FS_Stats_BackgroundStatsUpdater(t *testing.T) {
 	ensureMockGraphRoot(t)
 	auth := createMockAuth()
 	fs, err := NewFilesystem(auth, t.TempDir(), 14)

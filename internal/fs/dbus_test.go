@@ -155,7 +155,7 @@ func TestIT_FS_11_01_DBusServer_StartStop_OperatesCorrectly(t *testing.T) {
 }
 
 // TestDBusServer_GetFileStatus tests the GetFileStatus D-Bus method.
-func TestDBusServer_GetFileStatus(t *testing.T) {
+func TestIT_FS_DBus_GetFileStatus(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -217,7 +217,7 @@ func TestDBusServer_GetFileStatus(t *testing.T) {
 }
 
 // TestDBusServer_GetFileStatus_WithRealFiles tests GetFileStatus with actual files in the filesystem.
-func TestDBusServer_GetFileStatus_WithRealFiles(t *testing.T) {
+func TestIT_FS_DBus_GetFileStatus_WithRealFiles(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusRealFilesFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -286,7 +286,7 @@ func TestDBusServer_GetFileStatus_WithRealFiles(t *testing.T) {
 }
 
 // TestDBusServer_SendFileStatusUpdate tests the SendFileStatusUpdate signal emission.
-func TestDBusServer_SendFileStatusUpdate(t *testing.T) {
+func TestIT_FS_DBus_SendFileStatusUpdate(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusSendSignalFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -347,7 +347,7 @@ func TestDBusServer_SendFileStatusUpdate(t *testing.T) {
 }
 
 // TestDBusServiceNameGeneration tests D-Bus service name generation and uniqueness.
-func TestDBusServiceNameGeneration(t *testing.T) {
+func TestIT_FS_DBus_ServiceNameGeneration(t *testing.T) {
 	// Create assertions helper
 	assert := framework.NewAssert(t)
 
@@ -377,7 +377,7 @@ func TestDBusServiceNameGeneration(t *testing.T) {
 	assert.True(strings.HasPrefix(DBusServiceName, DBusServiceNameBase), "Generated name should start with base")
 }
 
-func TestSetDBusServiceNameForMount(t *testing.T) {
+func TestIT_FS_DBus_SetServiceNameForMount(t *testing.T) {
 	assert := framework.NewAssert(t)
 	original := DBusServiceName
 	defer func() { DBusServiceName = original }()
@@ -390,7 +390,7 @@ func TestSetDBusServiceNameForMount(t *testing.T) {
 }
 
 // TestDBusServer_MultipleInstances tests running multiple D-Bus server instances.
-func TestDBusServer_MultipleInstances(t *testing.T) {
+func TestIT_FS_DBus_MultipleInstances(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusMultipleInstancesFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -445,7 +445,7 @@ func TestDBusServer_MultipleInstances(t *testing.T) {
 }
 
 // TestSplitPathComponents tests the splitPathComponents helper function.
-func TestSplitPathComponents(t *testing.T) {
+func TestIT_FS_DBus_SplitPathComponents(t *testing.T) {
 	// Create assertions helper
 	assert := framework.NewAssert(t)
 
@@ -471,7 +471,7 @@ func TestSplitPathComponents(t *testing.T) {
 }
 
 // TestFindInodeByPath_PathTraversal tests the path traversal logic without D-Bus.
-func TestFindInodeByPath_PathTraversal(t *testing.T) {
+func TestIT_FS_DBus_FindInodeByPath_PathTraversal(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "PathTraversalFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

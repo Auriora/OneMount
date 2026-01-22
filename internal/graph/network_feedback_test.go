@@ -8,7 +8,7 @@ import (
 )
 
 // TestNetworkFeedbackManager_WaitGroupTracking tests that callback goroutines are tracked
-func TestNetworkFeedbackManager_WaitGroupTracking(t *testing.T) {
+func TestUT_Graph_NetworkFeedback_WaitGroupTracking(t *testing.T) {
 	manager := NewNetworkFeedbackManager()
 
 	var callbackCount atomic.Int32
@@ -59,7 +59,7 @@ func TestNetworkFeedbackManager_WaitGroupTracking(t *testing.T) {
 }
 
 // TestNetworkFeedbackManager_ShutdownTimeout tests shutdown with active callbacks
-func TestNetworkFeedbackManager_ShutdownTimeout(t *testing.T) {
+func TestUT_Graph_NetworkFeedback_ShutdownTimeout(t *testing.T) {
 	manager := NewNetworkFeedbackManager()
 
 	// Create a handler that blocks for a long time
@@ -91,7 +91,7 @@ func TestNetworkFeedbackManager_ShutdownTimeout(t *testing.T) {
 }
 
 // TestNetworkFeedbackManager_ShutdownWithMultipleCallbacks tests shutdown with multiple active callbacks
-func TestNetworkFeedbackManager_ShutdownWithMultipleCallbacks(t *testing.T) {
+func TestUT_Graph_NetworkFeedback_ShutdownWithMultipleCallbacks(t *testing.T) {
 	manager := NewNetworkFeedbackManager()
 
 	var completedCount atomic.Int32
@@ -135,7 +135,7 @@ func TestNetworkFeedbackManager_ShutdownWithMultipleCallbacks(t *testing.T) {
 }
 
 // TestNetworkFeedbackManager_PanicRecovery tests that panicking handlers don't affect wait group
-func TestNetworkFeedbackManager_PanicRecovery(t *testing.T) {
+func TestUT_Graph_NetworkFeedback_PanicRecovery(t *testing.T) {
 	manager := NewNetworkFeedbackManager()
 
 	var normalCallbackCalled atomic.Bool
@@ -172,7 +172,7 @@ func TestNetworkFeedbackManager_PanicRecovery(t *testing.T) {
 }
 
 // TestNetworkFeedbackManager_ConcurrentNotifications tests concurrent notifications
-func TestNetworkFeedbackManager_ConcurrentNotifications(t *testing.T) {
+func TestUT_Graph_NetworkFeedback_ConcurrentNotifications(t *testing.T) {
 	manager := NewNetworkFeedbackManager()
 
 	var callbackCount atomic.Int32

@@ -11,7 +11,7 @@ import (
 )
 
 // TestSecurityTestFramework tests the basic functionality of the SecurityTestFramework.
-func TestSecurityTestFramework(t *testing.T) {
+func TestUT_Framework_Security_TestFramework(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("security-test")
 
@@ -39,7 +39,7 @@ func TestSecurityTestFramework(t *testing.T) {
 }
 
 // TestSecurityTestScenarios tests the creation of security test scenarios.
-func TestSecurityTestScenarios(t *testing.T) {
+func TestUT_Framework_Security_TestScenarios(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -117,7 +117,7 @@ func TestSecurityTestScenarios(t *testing.T) {
 }
 
 // TestSecurityScannerRegistration tests the registration and retrieval of security scanners.
-func TestSecurityScannerRegistration(t *testing.T) {
+func TestUT_Framework_Security_ScannerRegistration(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -141,7 +141,7 @@ func TestSecurityScannerRegistration(t *testing.T) {
 }
 
 // TestSecurityAttackSimulatorRegistration tests the registration and retrieval of security attack simulators.
-func TestSecurityAttackSimulatorRegistration(t *testing.T) {
+func TestUT_Framework_Security_AttackSimulatorRegistration(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -165,7 +165,7 @@ func TestSecurityAttackSimulatorRegistration(t *testing.T) {
 }
 
 // TestSecurityControlVerifierRegistration tests the registration and retrieval of security control verifiers.
-func TestSecurityControlVerifierRegistration(t *testing.T) {
+func TestUT_Framework_Security_ControlVerifierRegistration(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -189,7 +189,7 @@ func TestSecurityControlVerifierRegistration(t *testing.T) {
 }
 
 // TestAuthenticationTesterRegistration tests the registration and retrieval of authentication testers.
-func TestAuthenticationTesterRegistration(t *testing.T) {
+func TestUT_Framework_Security_AuthenticationTesterRegistration(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -213,7 +213,7 @@ func TestAuthenticationTesterRegistration(t *testing.T) {
 }
 
 // TestAuthorizationTesterRegistration tests the registration and retrieval of authorization testers.
-func TestAuthorizationTesterRegistration(t *testing.T) {
+func TestUT_Framework_Security_AuthorizationTesterRegistration(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -237,7 +237,7 @@ func TestAuthorizationTesterRegistration(t *testing.T) {
 }
 
 // TestDataProtectionTesterRegistration tests the registration and retrieval of data protection testers.
-func TestDataProtectionTesterRegistration(t *testing.T) {
+func TestUT_Framework_Security_DataProtectionTesterRegistration(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 
@@ -261,7 +261,7 @@ func TestDataProtectionTesterRegistration(t *testing.T) {
 }
 
 // TestRunSecurityScan tests the RunSecurityScan method.
-func TestRunSecurityScan(t *testing.T) {
+func TestUT_Framework_Security_RunSecurityScan(t *testing.T) {
 	// Create a logger
 	logger := testutil.NewCustomLogger("")
 

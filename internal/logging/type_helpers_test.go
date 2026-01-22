@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetTypeLogger(t *testing.T) {
+func TestUT_Logging_GetTypeLogger(t *testing.T) {
 	tests := []struct {
 		name         string
 		value        interface{}
@@ -46,7 +46,7 @@ func TestGetTypeLogger(t *testing.T) {
 	}
 }
 
-func TestFuseStatusLogger(t *testing.T) {
+func TestUT_Logging_FuseStatusLogger(t *testing.T) {
 	tests := []struct {
 		name   string
 		status fuse.Status
@@ -72,7 +72,7 @@ func TestFuseStatusLogger(t *testing.T) {
 	}
 }
 
-func TestLogValueWithTypeLogger_FuseStatus(t *testing.T) {
+func TestUT_Logging_LogValueWithTypeLogger_FuseStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		status fuse.Status
@@ -96,7 +96,7 @@ func TestLogValueWithTypeLogger_FuseStatus(t *testing.T) {
 	}
 }
 
-func TestLogReturn_FuseStatus(t *testing.T) {
+func TestUT_Logging_LogReturn_FuseStatus(t *testing.T) {
 	// This should not panic - this was the original issue
 	require.NotPanics(t, func() {
 		event := Debug()
@@ -104,7 +104,7 @@ func TestLogReturn_FuseStatus(t *testing.T) {
 	})
 }
 
-func TestLogParam_FuseStatus(t *testing.T) {
+func TestUT_Logging_LogParam_FuseStatus(t *testing.T) {
 	// This should not panic
 	require.NotPanics(t, func() {
 		event := Debug()
@@ -113,7 +113,7 @@ func TestLogParam_FuseStatus(t *testing.T) {
 }
 
 // TestTypeLoggerPanicRegression tests that we don't get panics for type conversion issues
-func TestTypeLoggerPanicRegression(t *testing.T) {
+func TestUT_Logging_TypeLoggerPanicRegression(t *testing.T) {
 	// This test specifically addresses the original panic:
 	// "panic: interface conversion: interface {} is fuse.Status, not int32"
 

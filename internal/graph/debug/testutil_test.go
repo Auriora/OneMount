@@ -9,7 +9,7 @@ import (
 )
 
 // TestTestUtilPaths tests that we can access the test directory paths from the testutil package
-func TestTestUtilPaths(t *testing.T) {
+func TestUT_Graph_Debug_TestUtilPaths(t *testing.T) {
 	fmt.Println("=== TESTUTIL PATHS TEST STARTED ===")
 
 	// Print the test directory paths

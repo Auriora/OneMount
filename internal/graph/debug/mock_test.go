@@ -8,7 +8,7 @@ import (
 )
 
 // TestMockPackage tests that we can access the mock package
-func TestMockPackage(t *testing.T) {
+func TestUT_Graph_Debug_MockPackage(t *testing.T) {
 	fmt.Println("=== MOCK PACKAGE TEST STARTED ===")
 
 	// Create a mock graph provider

@@ -18,7 +18,7 @@ import (
 // Requirements: 8.2
 // Expected Result: GetFileStatus returns correct status for valid paths
 // Notes: This test verifies the fix for Issue #FS-001
-func TestDBusServer_GetFileStatus_ValidPaths(t *testing.T) {
+func TestIT_FS_DBus_GetFileStatus_ValidPaths(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusValidPathsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -104,7 +104,7 @@ func TestDBusServer_GetFileStatus_ValidPaths(t *testing.T) {
 // Requirements: 8.2
 // Expected Result: GetFileStatus returns Unknown for invalid paths
 // Notes: This test verifies the fix for Issue #FS-001
-func TestDBusServer_GetFileStatus_InvalidPaths(t *testing.T) {
+func TestIT_FS_DBus_GetFileStatus_InvalidPaths(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusInvalidPathsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -171,7 +171,7 @@ func TestDBusServer_GetFileStatus_InvalidPaths(t *testing.T) {
 // Requirements: 8.2
 // Expected Result: GetFileStatus returns updated status after status changes
 // Notes: This test verifies the fix for Issue #FS-001
-func TestDBusServer_GetFileStatus_StatusChanges(t *testing.T) {
+func TestIT_FS_DBus_GetFileStatus_StatusChanges(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusChangesFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -255,7 +255,7 @@ func TestDBusServer_GetFileStatus_StatusChanges(t *testing.T) {
 // Requirements: 8.2
 // Expected Result: GetFileStatus handles special characters correctly
 // Notes: This test verifies the fix for Issue #FS-001
-func TestDBusServer_GetFileStatus_SpecialCharacters(t *testing.T) {
+func TestIT_FS_DBus_GetFileStatus_SpecialCharacters(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DBusGetFileStatusSpecialCharsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

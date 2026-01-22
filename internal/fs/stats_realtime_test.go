@@ -26,7 +26,7 @@ func (s *stubRealtimeManager) Notifications() <-chan struct{} {
 }
 func (s *stubRealtimeManager) IsActive() bool { return true }
 
-func TestFilesystemAugmentRealtimeStatsFromManager(t *testing.T) {
+func TestUT_FS_Stats_FilesystemAugmentRealtimeStatsFromManager(t *testing.T) {
 	f := &Filesystem{
 		realtimeOptions: &RealtimeOptions{Enabled: true},
 	}
@@ -59,7 +59,7 @@ func TestFilesystemAugmentRealtimeStatsFromManager(t *testing.T) {
 	}
 }
 
-func TestFilesystemAugmentRealtimeStatsPollingOnly(t *testing.T) {
+func TestUT_FS_Stats_FilesystemAugmentRealtimeStatsPollingOnly(t *testing.T) {
 	f := &Filesystem{
 		realtimeOptions: &RealtimeOptions{Enabled: true, PollingOnly: true},
 	}
