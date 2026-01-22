@@ -2692,15 +2692,15 @@ The specification now provides comprehensive coverage of all functional, securit
   - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run TestXattr ./internal/fs`
   - _Requirements: 8.1, 8.4_
 
-- [ ] 44. Optimize status determination performance (Issue #FS-004)
-- [ ] 44.1 Profile status determination performance
+- [x] 44. Optimize status determination performance (Issue #FS-004)
+- [x] 44.1 Profile status determination performance
   - Run performance profiling on determineFileStatus()
   - Identify bottlenecks (database queries, hash calculation)
   - Measure performance with various file counts
   - Document current performance characteristics
   - _Requirements: 8.1, 10.3_
 
-- [ ] 44.2 Implement status determination caching
+- [x] 44.2 Implement status determination caching
   - Add caching of determination results with TTL
   - Implement cache invalidation on relevant events
   - Batch database queries for multiple files
@@ -2708,14 +2708,14 @@ The specification now provides comprehensive coverage of all functional, securit
   - Consider lazy evaluation for non-visible files
   - _Requirements: 8.1, 10.3_
 
-- [ ] 44.3 Benchmark status determination improvements
+- [x] 44.3 Benchmark status determination improvements
   - Run benchmarks before and after optimization
   - Measure performance with 1000, 10000, 100000 files
   - Verify cache hit rates
   - Document performance improvements
   - _Requirements: 8.1, 10.3_
 
-- [ ] 44.4 Create performance tests
+- [x] 44.4 Create performance tests
   - Write benchmark for status determination
   - Write test for cache behavior
   - Write test for cache invalidation
