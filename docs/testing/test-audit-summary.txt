@@ -1,0 +1,94 @@
+=== TEST AUDIT SUMMARY STATISTICS ===
+Generated: January 22, 2026
+
+Total Tests: 752
+
+=== Tests by Current Label ===
+TestUT_: 288 (38.3%)
+TestIT_: 138 (18.4%)
+TestProperty: 94 (12.5%)
+TestSystemST_: 6 (0.8%)
+NONE (Unlabeled): 226 (30.0%)
+
+=== Tests by Recommendation ===
+OK (Correctly labeled): 460 (61.2%)
+MISLABELED (Critical): 66 (8.8%)
+ADD label needed: 59 (7.8%)
+REVIEW needed: 167 (22.2%)
+
+=== Critical Issues ===
+
+1. MISLABELED TESTS (66 tests)
+   - Tests labeled as TestUT_ but requiring authentication
+   - These will fail when run as unit tests without auth tokens
+   - Must be either relabeled as TestIT_ or refactored to use mocks
+
+2. UNLABELED TESTS (226 tests)
+   - 30% of all tests have no type label
+   - Cannot determine which tests require auth
+   - Cannot run specific test types in isolation
+   - Blocks proper CI/CD configuration
+
+3. UNCLEAR AUTH REQUIREMENTS (167 tests)
+   - Need manual review to determine if auth is required
+   - May be using indirect auth dependencies
+   - Should be reviewed and properly labeled
+
+=== Action Items ===
+
+Priority 1 (CRITICAL):
+- Fix 66 mislabeled TestUT_ tests that require auth
+- Label 59 tests that clearly need labels
+
+Priority 2 (HIGH):
+- Review 167 tests with unclear auth requirements
+- Create separate test fixtures (Task 46.1.2)
+- Refactor unit tests to use mocks (Task 46.1.3)
+
+Priority 3 (MEDIUM):
+- Add skip logic to integration tests (Task 46.1.4)
+- Verify system tests (Task 46.1.5)
+- Update documentation
+
+=== Files with Most Issues ===
+
+Top files with mislabeled tests:
+- internal/fs/advanced_mounting_test.go (4 mislabeled)
+- internal/fs/cache_management_test.go (5 mislabeled)
+- internal/fs/dir_operations_test.go (4 mislabeled)
+- internal/fs/file_operations_test.go (3 mislabeled)
+- internal/fs/file_read_verification_test.go (2 mislabeled)
+- internal/fs/file_write_verification_test.go (2 mislabeled)
+
+Top files with unlabeled tests:
+- internal/fs/cache_test.go (5 unlabeled)
+- internal/fs/concurrency_test.go (6 unlabeled)
+- internal/fs/dbus_test.go (8 unlabeled)
+- internal/fs/delta_test.go (10 unlabeled)
+- internal/testutil/framework/*_test.go (many unlabeled)
+
+=== Impact ===
+
+Current State:
+- Unit test runs fail when auth tokens are missing
+- Cannot run fast unit tests in isolation
+- CI/CD pipelines waste resources on failing tests
+- Test execution time is unpredictable
+
+After Remediation:
+- Unit tests run independently without auth
+- Integration tests skip gracefully when auth unavailable
+- CI/CD pipelines are efficient
+- Developers can run fast feedback loops
+
+=== Next Steps ===
+
+1. Review detailed CSV: docs/testing/test-audit-detailed.csv
+2. Fix mislabeled tests (Priority 1)
+3. Label unlabeled tests (Priority 1)
+4. Create test fixtures (Task 46.1.2)
+5. Refactor unit tests (Task 46.1.3)
+6. Add skip logic (Task 46.1.4)
+7. Verify system tests (Task 46.1.5)
+
+See docs/testing/test-audit-report.md for complete analysis.

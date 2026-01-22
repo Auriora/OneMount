@@ -2829,7 +2829,7 @@ The specification now provides comprehensive coverage of all functional, securit
 
 - [ ] 46. Test infrastructure fixes and comprehensive test suite
 - [ ] 46.1 Fix test infrastructure and labeling
-- [ ] 46.1.1 Audit all test functions for correct naming conventions
+- [x] 46.1.1 Audit all test functions for correct naming conventions
   - **Goal**: Ensure every test is correctly labeled according to its type
   - **Naming Conventions**:
     - `TestUT_*` - Unit tests (no external dependencies, use mocks only)
@@ -2844,7 +2844,27 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1_
   - _Priority: CRITICAL - Blocking all test execution_
 
-- [ ] 46.1.2 Create separate test fixture helpers for each test type
+- [ ] 46.1.2 Label all unlabeled tests
+  - **Issue**: 226 tests (30%) have no type prefix
+  - **Goal**: Add appropriate prefix to all unlabeled tests
+  - **Process**:
+    - Review `docs/testing/test-audit-detailed.csv` for tests with "NONE" label
+    - For each unlabeled test:
+      - Examine the test code to determine auth requirements
+      - Check if it uses `SetupFSTestFixture` (requires auth) or mocks
+      - Add appropriate prefix: `TestUT_`, `TestIT_`, or `TestSystemST_`
+    - Priority files (most unlabeled tests):
+      - `internal/fs/cache_test.go` (5 tests)
+      - `internal/fs/concurrency_test.go` (6 tests)
+      - `internal/fs/dbus_test.go` (8 tests)
+      - `internal/fs/delta_test.go` (10 tests)
+      - `internal/testutil/framework/*_test.go` (many tests)
+    - Update test function names with correct prefix
+    - Verify renamed tests still compile and run
+  - _Requirements: 11.1, 11.2, 13.1_
+  - _Priority: CRITICAL - Blocking proper test categorization_
+
+- [ ] 46.1.3 Create separate test fixture helpers for each test type
   - **Issue**: `SetupFSTestFixture` creates real filesystem requiring authentication
   - **Goal**: Provide appropriate helpers for each test type
   - **Tasks**:
@@ -2867,10 +2887,28 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1, 13.2_
   - _Priority: CRITICAL - Required for proper test isolation_
 
-- [ ] 46.1.3 Refactor unit tests to use mock fixtures
-  - **Goal**: Ensure all TestUT_* tests use mocks and don't require auth
-  - Review all tests in `internal/fs/*_test.go` with TestUT_ prefix
-  - Identify which tests are using `SetupFSTestFixture` (requires auth)
+- [ ] 46.1.4 Refactor mislabeled unit tests
+  - **Issue**: 66 tests labeled as TestUT_ but requiring authentication
+  - **Goal**: Fix all mislabeled unit tests
+  - **Process**:
+    - Review `docs/testing/test-audit-detailed.csv` for "MISLABELED" tests
+    - For each mislabeled test, choose one option:
+      - **Option A**: Refactor to use `SetupMockFSTestFixture` (keep as TestUT_)
+      - **Option B**: Relabel as `TestIT_*` (change to integration test)
+    - Priority files (most mislabeled tests):
+      - `internal/fs/advanced_mounting_test.go` (4 tests)
+      - `internal/fs/cache_management_test.go` (5 tests)
+      - `internal/fs/dir_operations_test.go` (4 tests)
+      - `internal/fs/file_operations_test.go` (3 tests)
+    - Verify each fixed test can run without auth tokens (if TestUT_)
+    - Test command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./internal/fs`
+  - _Requirements: 11.1, 11.2, 13.1_
+  - _Priority: CRITICAL - Tests currently fail without auth_
+
+- [ ] 46.1.5 Refactor unit tests to use mock fixtures
+  - **Goal**: Ensure all remaining TestUT_* tests use mocks and don't require auth
+  - Review all tests in `internal/fs/*_test.go` with TestUT_ prefix (after 46.1.4)
+  - Identify which tests are still using `SetupFSTestFixture` (requires auth)
   - Refactor to use `SetupMockFSTestFixture` instead
   - Verify each test can run without auth tokens
   - Test command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./internal/fs`
@@ -2878,7 +2916,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1_
   - _Priority: HIGH - Required for unit test isolation_
 
-- [ ] 46.1.4 Verify integration tests are correctly labeled and use auth
+- [ ] 46.1.6 Verify integration tests are correctly labeled and use auth
   - **Goal**: Ensure all TestIT_* tests properly use real auth
   - Review all tests with TestIT_ prefix
   - Verify they use `SetupIntegrationFSTestFixture` or real auth
@@ -2889,7 +2927,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.2, 13.2, 13.4_
   - _Priority: HIGH - Required for integration test reliability_
 
-- [ ] 46.1.5 Verify system tests are correctly labeled and isolated
+- [ ] 46.1.7 Verify system tests are correctly labeled and isolated
   - **Goal**: Ensure all TestSystemST_* tests are properly isolated
   - Review all tests in `tests/system/*_test.go`
   - Verify they use `SetupSystemTestFixture` or appropriate system-level setup
@@ -2900,7 +2938,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.3, 13.2, 13.4, 13.5_
   - _Priority: HIGH - Required for system test reliability_
 
-- [ ] 46.1.6 Verify property-based tests are correctly isolated
+- [ ] 46.1.8 Verify property-based tests are correctly isolated
   - **Goal**: Ensure all TestProperty* tests use appropriate fixtures
   - Review all property-based tests in `internal/fs/*_property_test.go`
   - Verify they use mock fixtures (should not require auth)
@@ -2910,7 +2948,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.4, 13.1_
   - _Priority: MEDIUM - Required for property test reliability_
 
-- [ ] 46.1.7 Create test execution documentation
+- [ ] 46.1.9 Create test execution documentation
   - **Goal**: Document how to run each type of test correctly
   - Create `docs/testing/running-tests.md` with:
     - Overview of test types and naming conventions
@@ -2923,7 +2961,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 12.1, 13.1, 13.2_
   - _Priority: MEDIUM - Required for developer onboarding_
 
-- [ ] 46.1.8 Run unit tests to verify fixes
+- [ ] 46.1.10 Run unit tests to verify fixes
   - **Goal**: Verify all unit tests pass without auth tokens
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./...`
   - Verify all tests pass
@@ -2932,7 +2970,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 13.1_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.1.9 Run integration tests to verify fixes
+- [ ] 46.1.11 Run integration tests to verify fixes
   - **Goal**: Verify all integration tests pass with auth tokens
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass
@@ -2941,7 +2979,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.2, 13.2, 13.4_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.1.10 Run property-based tests to verify fixes
+- [ ] 46.1.12 Run property-based tests to verify fixes
   - **Goal**: Verify all property-based tests pass
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
   - Verify all 67 properties pass
@@ -2950,13 +2988,12 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.4, 13.1_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.1.11 Run system tests to verify fixes
-  - **Goal**: Verify all system tests pass with real OneDrive
-  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestSystemST_" ./tests/system`
+- [ ] 46.1.13 Run system tests to verify fixes
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass
   - Document any remaining failures
   - Create issues for any tests that still fail
-  - _Requirements: 11.3, 13.2, 13.4, 13.5_
+  - _Requirements: 11.2, 13.2, 13.4_
   - _Priority: HIGH - Verification of fixes_
 
 - [ ] 46.2 Run final comprehensive test suite (DEFERRED until task 46.1 complete)
