@@ -2864,7 +2864,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1_
   - _Priority: CRITICAL - Blocking proper test categorization_
 
-- [ ] 46.1.3 Create separate test fixture helpers for each test type
+- [x] 46.1.3 Create separate test fixture helpers for each test type
   - **Issue**: `SetupFSTestFixture` creates real filesystem requiring authentication
   - **Goal**: Provide appropriate helpers for each test type
   - **Tasks**:

@@ -7,7 +7,7 @@ import (
 
 // TestMain is the entry point for all tests in this package.
 // It configures logging before running tests.
-func TestUT_FS_Main(m *testing.M) {
+func TestMain(m *testing.M) {
 	// Configure test logging based on environment variables
 	ConfigureTestLogging()
 

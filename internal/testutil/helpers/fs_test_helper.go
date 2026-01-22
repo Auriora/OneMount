@@ -296,27 +296,48 @@ func NewOfflineFilesystem(auth *graph.Auth, mountPoint string, cacheTTL int) (in
 }
 
 // SetupFSTestFixture creates a UnitTestFixture with common filesystem test setup and teardown.
+// This function automatically detects the test type based on the test name prefix and delegates
+// to the appropriate fixture helper:
+//
+//   - TestUT_* → SetupMockFSTestFixture (unit tests with mock backend)
+//   - TestIT_* → SetupIntegrationFSTestFixture (integration tests with real OneDrive)
+//   - TestST_* or TestE2E_* → SetupSystemTestFixture (system tests with mounting)
+//
+// For explicit control, use the specific fixture helpers directly:
+//   - SetupMockFSTestFixture for unit tests
+//   - SetupIntegrationFSTestFixture for integration tests
+//   - SetupSystemTestFixture for system tests
+//
+// Usage:
+//
+//	fixture := helpers.SetupFSTestFixture(t, "MyTest", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+//	    return fs.NewFilesystem(auth, mountPoint, cacheTTL)
+//	})
+//	defer fixture.Teardown(t)
 func SetupFSTestFixture(t *testing.T, fixtureName string, newFilesystem func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error)) *framework.UnitTestFixture {
-	fixture := framework.NewUnitTestFixture(fixtureName)
+	// Detect test type from test name
+	testName := t.Name()
 
-	// Set up the fixture
-	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
-		// Ensure we're in online mode for test setup
-		graph.SetOperationalOffline(false)
+	// Check for unit test prefix
+	if len(testName) >= 6 && testName[:6] == "TestUT" {
+		t.Logf("Detected unit test (TestUT_*), using mock fixture")
+		return SetupMockFSTestFixture(t, fixtureName, newFilesystem)
+	}
 
-		fsFixture, err := SetupFSTest(t, fixtureName, newFilesystem)
-		if err != nil {
-			return nil, err
-		}
-		return fsFixture, nil
-	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
-		fsFixture := fixture.(*FSTestFixture)
+	// Check for integration test prefix
+	if len(testName) >= 6 && testName[:6] == "TestIT" {
+		t.Logf("Detected integration test (TestIT_*), using integration fixture")
+		return SetupIntegrationFSTestFixture(t, fixtureName, newFilesystem)
+	}
 
-		// Ensure we reset to online mode after the test
-		graph.SetOperationalOffline(false)
+	// Check for system test prefixes
+	if (len(testName) >= 6 && testName[:6] == "TestST") ||
+		(len(testName) >= 7 && testName[:7] == "TestE2E") {
+		t.Logf("Detected system test (TestST_* or TestE2E_*), using system fixture")
+		return SetupSystemTestFixture(t, fixtureName, newFilesystem)
+	}
 
-		return CleanupFSTest(t, fsFixture)
-	})
-
-	return fixture
+	// Default to integration fixture for backward compatibility
+	t.Logf("Test name doesn't match standard prefixes, defaulting to integration fixture")
+	return SetupIntegrationFSTestFixture(t, fixtureName, newFilesystem)
 }
