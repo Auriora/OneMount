@@ -86,6 +86,9 @@ type Stats struct {
 	IsSampled bool      // Whether statistics were calculated using sampling
 
 	// Extended attributes support
+	// Note: This is always true for OneMount because xattrs are stored in-memory only.
+	// No filesystem xattr support is required. The flag indicates that the xattr
+	// infrastructure is initialized and working.
 	XAttrSupported bool // Whether extended attributes are supported on this filesystem
 
 	// Realtime transport insights

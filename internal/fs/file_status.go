@@ -11,6 +11,30 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+// File Status Management
+//
+// This package manages file status tracking for the OneMount filesystem.
+// File status information is used to display sync status in file managers
+// and to track the state of files (synced, downloading, modified, etc.).
+//
+// Extended Attributes (xattrs):
+// - All xattrs are stored IN-MEMORY ONLY in the inode.xattrs map
+// - Xattrs are NOT persisted to the underlying filesystem
+// - This design ensures compatibility with all filesystem types (tmpfs, network filesystems, etc.)
+// - Xattrs are accessible via FUSE xattr operations (getfattr, setfattr, etc.)
+// - No filesystem xattr support is required
+// - Xattrs are lost on unmount (by design)
+//
+// Status Determination:
+// - Status is determined dynamically based on file state
+// - Results are cached with TTL to improve performance
+// - Cache is invalidated when file state changes
+//
+// D-Bus Integration:
+// - Status updates are sent via D-Bus signals when available
+// - Falls back to xattr-only mode if D-Bus is unavailable
+// - D-Bus failures are handled gracefully by the D-Bus server
+
 // statusCacheEntry represents a cached status determination result
 type statusCacheEntry struct {
 	status    FileStatusInfo
@@ -279,9 +303,20 @@ func (f *Filesystem) InodePath(inode *Inode) string {
 }
 
 // updateFileStatus sets the extended attribute for file status and sends a D-Bus signal
+// Note: Extended attributes are stored in-memory only (in inode.xattrs map) and are not
+// persisted to the underlying filesystem. This design ensures compatibility with all
+// filesystem types (including tmpfs, network filesystems, etc.) and eliminates the need
+// for error handling of filesystem xattr operations.
 func (f *Filesystem) updateFileStatus(inode *Inode) {
+	// Defensive nil check
+	if inode == nil {
+		logging.DefaultLogger.Warn().Msg("updateFileStatus called with nil inode")
+		return
+	}
+
 	path := f.InodePath(inode)
 	if path == "" {
+		logging.DefaultLogger.Debug().Msg("updateFileStatus: empty path, skipping")
 		return
 	}
 
@@ -305,14 +340,14 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 	// Initialize the xattrs map if it's nil
 	if inode.xattrs == nil {
 		inode.xattrs = make(map[string][]byte)
+		logging.DefaultLogger.Debug().
+			Str("path", pathCopy).
+			Str("id", id).
+			Msg("Initialized in-memory xattrs map")
 	}
 
-	// Attempt to set the status xattr
-	// Note: xattr operations may fail on filesystems that don't support extended attributes
-	// (e.g., tmpfs, some network filesystems). We log warnings but continue operation.
-	xattrSuccess := true
-
-	// Set the status xattr
+	// Set the status xattr (in-memory operation, cannot fail)
+	// Note: These xattrs are stored in-memory only and are accessible via FUSE xattr operations
 	inode.xattrs["user.onemount.status"] = []byte(statusStr)
 
 	// If there's an error message, set it too
@@ -323,20 +358,29 @@ func (f *Filesystem) updateFileStatus(inode *Inode) {
 		delete(inode.xattrs, "user.onemount.error")
 	}
 
-	// Track xattr support status if this is the first time we're setting xattrs
-	if !f.xattrSupported && xattrSuccess {
+	// Track xattr support status (always true since xattrs are in-memory)
+	// This flag indicates that the xattr infrastructure is initialized and working
+	if !f.xattrSupported {
 		f.xattrSupportedM.Lock()
 		f.xattrSupported = true
 		f.xattrSupportedM.Unlock()
 		logging.DefaultLogger.Info().
 			Str("path", pathCopy).
-			Msg("Extended attributes are supported on this filesystem")
+			Msg("In-memory extended attributes initialized (no filesystem xattr support required)")
 	}
+
+	logging.DefaultLogger.Debug().
+		Str("path", pathCopy).
+		Str("id", id).
+		Str("status", statusStr).
+		Str("errorMsg", status.ErrorMsg).
+		Msg("Updated file status xattrs")
 
 	// Unlock the inode before sending D-Bus signal to avoid potential deadlocks
 	inode.mu.Unlock()
 
 	// Send D-Bus signal if server is available
+	// Note: D-Bus signal failures are handled by the D-Bus server itself
 	if f.dbusServer != nil {
 		f.dbusServer.SendFileStatusUpdate(pathCopy, statusStrCopy)
 	}

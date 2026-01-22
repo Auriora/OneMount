@@ -8,6 +8,27 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
+// Extended Attribute Operations
+//
+// This file implements FUSE extended attribute operations for the OneMount filesystem.
+//
+// IMPORTANT: All extended attributes are stored IN-MEMORY ONLY in the inode.xattrs map.
+// They are NOT written to the underlying filesystem. This design choice:
+//
+// Advantages:
+// - Works on all filesystem types (tmpfs, network filesystems, etc.)
+// - No dependency on underlying filesystem xattr support
+// - No syscall overhead or error handling complexity
+// - Consistent behavior across all mount points
+//
+// Limitations:
+// - Xattrs are not persisted to disk
+// - Xattrs are lost on unmount
+// - Cannot be queried by external tools outside the mount point
+//
+// The FUSE layer provides xattr operations that read from/write to the in-memory map,
+// allowing file managers and tools to query file status via standard xattr interfaces.
+
 // GetXAttr retrieves the value of an extended attribute.
 func (f *Filesystem) GetXAttr(_ <-chan struct{}, header *fuse.InHeader, name string, buf []byte) (uint32, fuse.Status) {
 	methodName, startTime := logging.LogMethodEntry("GetXAttr", header.NodeId, name, len(buf))
