@@ -16,7 +16,7 @@ import (
 
 // TestUT_FS_Metadata_01_Getattr_FileAttributes tests file attribute retrieval.
 //
-//	Test Case ID    UT-FS-Metadata-01
+//	Test Case ID    IT-FS-Metadata-01
 //	Title           File Attribute Retrieval
 //	Description     Tests getting file attributes (stat, mode, size, timestamps)
 //	Preconditions   None
@@ -25,7 +25,7 @@ import (
 //	                3. Verify all attributes match expected values
 //	Expected Result File attributes are correctly retrieved
 //	Notes: This test verifies that file metadata operations work correctly.
-func TestUT_FS_Metadata_01_Getattr_FileAttributes(t *testing.T) {
+func TestIT_FS_Metadata_01_Getattr_FileAttributes(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "MetadataOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -121,7 +121,7 @@ func TestUT_FS_Metadata_01_Getattr_FileAttributes(t *testing.T) {
 
 // TestUT_FS_Metadata_02_Setattr_FileAttributes tests file attribute modification.
 //
-//	Test Case ID    UT-FS-Metadata-02
+//	Test Case ID    IT-FS-Metadata-02
 //	Title           File Attribute Modification
 //	Description     Tests setting file attributes (mode, timestamps)
 //	Preconditions   File exists
@@ -130,7 +130,7 @@ func TestUT_FS_Metadata_01_Getattr_FileAttributes(t *testing.T) {
 //	                3. Verify attributes were updated
 //	Expected Result File attributes are correctly modified
 //	Notes: This test verifies that file metadata can be modified.
-func TestUT_FS_Metadata_02_Setattr_FileAttributes(t *testing.T) {
+func TestIT_FS_Metadata_02_Setattr_FileAttributes(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "SetattrOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -297,7 +297,7 @@ func readOfflineChanges(t *testing.T, fs *Filesystem) []*OfflineChange {
 
 // TestUT_FS_Metadata_03_DirectoryAttributes tests directory attribute operations.
 //
-//	Test Case ID    UT-FS-Metadata-03
+//	Test Case ID    IT-FS-Metadata-03
 //	Title           Directory Attribute Operations
 //	Description     Tests getting and setting directory attributes
 //	Preconditions   None
@@ -306,7 +306,7 @@ func readOfflineChanges(t *testing.T, fs *Filesystem) []*OfflineChange {
 //	                3. Verify directory-specific attributes
 //	Expected Result Directory attributes are correctly handled
 //	Notes: This test verifies that directory metadata operations work correctly.
-func TestUT_FS_Metadata_03_DirectoryAttributes(t *testing.T) {
+func TestIT_FS_Metadata_03_DirectoryAttributes(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryMetadataFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -380,7 +380,7 @@ func TestUT_FS_Metadata_03_DirectoryAttributes(t *testing.T) {
 
 // TestUT_FS_Metadata_04_StatFs_FilesystemStats tests filesystem statistics.
 //
-//	Test Case ID    UT-FS-Metadata-04
+//	Test Case ID    IT-FS-Metadata-04
 //	Title           Filesystem Statistics
 //	Description     Tests getting filesystem statistics (StatFs)
 //	Preconditions   None
@@ -388,7 +388,7 @@ func TestUT_FS_Metadata_03_DirectoryAttributes(t *testing.T) {
 //	                2. Verify statistics are reasonable
 //	Expected Result Filesystem statistics are correctly returned
 //	Notes: This test verifies that filesystem statistics work correctly.
-func TestUT_FS_Metadata_04_StatFs_FilesystemStats(t *testing.T) {
+func TestIT_FS_Metadata_04_StatFs_FilesystemStats(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "StatFsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -436,7 +436,7 @@ func TestUT_FS_Metadata_04_StatFs_FilesystemStats(t *testing.T) {
 
 // TestUT_FS_Metadata_05_FileMetadata_Comprehensive tests comprehensive file metadata operations.
 //
-//	Test Case ID    UT-FS-Metadata-05
+//	Test Case ID    IT-FS-Metadata-05
 //	Title           Comprehensive File Metadata Operations
 //	Description     Tests various file metadata operations including timestamps, permissions
 //	Preconditions   None
@@ -445,7 +445,7 @@ func TestUT_FS_Metadata_04_StatFs_FilesystemStats(t *testing.T) {
 //	                3. Verify metadata consistency
 //	Expected Result All file metadata operations work correctly
 //	Notes: This test provides comprehensive coverage of file metadata operations.
-func TestUT_FS_Metadata_05_FileMetadata_Comprehensive(t *testing.T) {
+func TestIT_FS_Metadata_05_FileMetadata_Comprehensive(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ComprehensiveMetadataFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -580,7 +580,7 @@ func TestUT_FS_Metadata_05_FileMetadata_Comprehensive(t *testing.T) {
 
 // TestUT_FS_Metadata_06_StatFs_PersonalOneDrive_WarningThrottling tests StatFs warning throttling for Personal OneDrive.
 //
-//	Test Case ID    UT-FS-Metadata-06
+//	Test Case ID    IT-FS-Metadata-06
 //	Title           StatFs Warning Throttling for Personal OneDrive
 //	Description     Tests that StatFs warnings are throttled and file count estimation works
 //	Preconditions   None
@@ -589,7 +589,7 @@ func TestUT_FS_Metadata_05_FileMetadata_Comprehensive(t *testing.T) {
 //	                3. Verify warning throttling and file count estimation
 //	Expected Result Warnings are throttled and file counts are estimated from cache
 //	Notes: This test verifies the improved StatFs implementation.
-func TestUT_FS_Metadata_06_StatFs_PersonalOneDrive_WarningThrottling(t *testing.T) {
+func TestIT_FS_Metadata_06_StatFs_PersonalOneDrive_WarningThrottling(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "StatFsThrottlingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

@@ -2887,7 +2887,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1, 13.2_
   - _Priority: CRITICAL - Required for proper test isolation_
 
-- [ ] 46.1.4 Refactor mislabeled unit tests
+- [x] 46.1.4 Refactor mislabeled unit tests
   - **Issue**: 66 tests labeled as TestUT_ but requiring authentication
   - **Goal**: Fix all mislabeled unit tests
   - **Process**:

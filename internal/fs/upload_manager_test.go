@@ -20,7 +20,7 @@ import (
 // TestUT_FS_05_RepeatedUploads_OnlineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
 // with different content when network connection is available.
 //
-//	Test Case ID    UT-FS-05-02
+//	Test Case ID    IT-FS-05-02
 //	Title           Repeated File Upload (Online)
 //	Description     Verify that the same file can be uploaded multiple times with different content
 //	Preconditions   1. User is authenticated with valid credentials
@@ -32,7 +32,7 @@ import (
 //	                5. Repeat steps 3-4 multiple times
 //	Expected Result Each version of the file is successfully uploaded with the correct content
 //	Notes: Directly tests uploading the same file multiple times with different content in online mode.
-func TestUT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
+func TestIT_FS_05_02_RepeatedUploads_OnlineMode_SuccessfulUpload(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "RepeatedUploadsOnlineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -469,7 +469,7 @@ func newUploadManagerTestEnv(t *testing.T) (*Filesystem, *UploadManager, *bolt.D
 // TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload verifies that the same file can be uploaded multiple times
 // with different content when in offline mode.
 //
-//	Test Case ID    UT-FS-05-01
+//	Test Case ID    IT-FS-05-01
 //	Title           Repeated File Upload (Offline)
 //	Description     Verify that the same file can be uploaded multiple times with different content in offline mode
 //	Preconditions   1. User is authenticated with valid credentials
@@ -482,7 +482,7 @@ func newUploadManagerTestEnv(t *testing.T) (*Filesystem, *UploadManager, *bolt.D
 //	                6. Verify uploads are properly queued for when connectivity is restored
 //	Expected Result Each version of the file is properly queued for upload when connectivity is restored
 //	Notes: Directly tests uploading the same file multiple times with different content in offline mode.
-func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) {
+func TestIT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "RepeatedUploadsOfflineFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -777,7 +777,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 // TestUT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload verifies that large files can be uploaded correctly
 // and that the upload session is properly serialized to disk.
 //
-//	Test Case ID    UT-FS-06
+//	Test Case ID    IT-FS-06
 //	Title           Upload Disk Serialization (Large File)
 //	Description     Verify that large files can be uploaded correctly and that the upload session is properly serialized to disk
 //	Preconditions   1. User is authenticated with valid credentials
@@ -789,7 +789,7 @@ func TestUT_FS_05_03_RepeatedUploads_OfflineMode_SuccessfulUpload(t *testing.T) 
 //	                5. Verify that the upload session is removed from disk
 //	Expected Result The file is successfully uploaded and the upload session is properly serialized to and removed from disk
 //	Notes: Directly tests the serialization of upload sessions to disk for large files.
-func TestUT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload(t *testing.T) {
+func TestIT_FS_06_UploadDiskSerialization_LargeFile_SuccessfulUpload(t *testing.T) {
 	// Skip this test for now as it's not fully implemented
 	t.Skip("Test not fully implemented yet")
 
@@ -975,7 +975,7 @@ func TestIT_FS_36_01_Upload_RepeatedUploads_HandledCorrectly(t *testing.T) {
 
 // TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile verifies that large files are uploaded using chunk-based operations
 //
-//	Test Case ID    UT-FS-07
+//	Test Case ID    IT-FS-07
 //	Title           Upload Manager - Chunk-based Upload (Large File)
 //	Description     Verify that large files are uploaded correctly using chunk-based operations
 //	Preconditions   1. User is authenticated with valid credentials
@@ -987,7 +987,7 @@ func TestIT_FS_36_01_Upload_RepeatedUploads_HandledCorrectly(t *testing.T) {
 //	                5. Wait for the upload to complete
 //	Expected Result The file is successfully uploaded using chunk-based operations with proper progress tracking
 //	Notes: Tests chunk-based upload operations for large files.
-func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
+func TestIT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 	// Mark the test for parallel execution
 	t.Parallel()
 
@@ -1129,7 +1129,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 
 // TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting verifies that upload progress is tracked and reported accurately
 //
-//	Test Case ID    UT-FS-08
+//	Test Case ID    IT-FS-08
 //	Title           Upload Manager - Progress Tracking and Reporting
 //	Description     Verify that upload progress is tracked and reported accurately during file uploads
 //	Preconditions   1. User is authenticated with valid credentials
@@ -1142,7 +1142,7 @@ func TestUT_FS_07_UploadManager_ChunkBasedUpload_LargeFile(t *testing.T) {
 //	Expected Result Upload progress is tracked accurately and persisted correctly
 //	Notes: Tests progress tracking and reporting functionality.
 //	       This test does not run in parallel due to shared mock HTTP client state.
-func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T) {
+func TestIT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T) {
 	// Note: t.Parallel() removed due to race conditions with mock HTTP client cleanup
 
 	// Create a test fixture using the common setup
@@ -1267,7 +1267,7 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 
 // TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup verifies that upload cancellation works correctly
 //
-//	Test Case ID    UT-FS-09
+//	Test Case ID    IT-FS-09
 //	Title           Upload Manager - Transfer Cancellation and Cleanup
 //	Description     Verify that upload transfers can be cancelled and cleaned up properly
 //	Preconditions   1. User is authenticated with valid credentials
@@ -1280,7 +1280,7 @@ func TestUT_FS_08_UploadManager_ProgressTracking_AccurateReporting(t *testing.T)
 //	Expected Result Upload cancellation works correctly with proper cleanup
 //	Notes: Tests transfer cancellation and cleanup functionality.
 //	       This test does not run in parallel due to shared mock HTTP client state.
-func TestUT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T) {
+func TestIT_FS_09_UploadManager_TransferCancellation_ProperCleanup(t *testing.T) {
 	// Note: t.Parallel() removed due to race conditions with mock HTTP client cleanup
 
 	// Create a test fixture using the common setup

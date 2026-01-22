@@ -9,7 +9,7 @@ import (
 
 // TestUT_FS_01_01_Inode_Creation_HasCorrectProperties tests that inodes are created with the correct properties.
 //
-//	Test Case ID    UT-FS-01-01
+//	Test Case ID    IT-FS-01-01
 //	Title           Inode Creation Properties
 //	Description     Tests that inodes are created with the correct properties
 //	Preconditions   None
@@ -17,7 +17,7 @@ import (
 //	                2. Verify the properties of each inode
 //	Expected Result Inodes have the correct properties (ID, name, mode, directory status)
 //	Notes: This test verifies that inodes are created with the correct properties.
-func TestUT_FS_01_01_Inode_Creation_HasCorrectProperties(t *testing.T) {
+func TestIT_FS_01_01_Inode_Creation_HasCorrectProperties(t *testing.T) {
 	// Create a test fixture
 	fixture := framework.NewUnitTestFixture("InodeCreationFixture")
 
@@ -32,7 +32,7 @@ func TestUT_FS_01_01_Inode_Creation_HasCorrectProperties(t *testing.T) {
 
 // TestUT_FS_02_01_Inode_Properties_ModeAndDirectoryDetection tests various properties of inodes, including mode and directory detection.
 //
-//	Test Case ID    UT-FS-02-01
+//	Test Case ID    IT-FS-02-01
 //	Title           Inode Properties
 //	Description     Tests various properties of inodes, including mode and directory detection
 //	Preconditions   None
@@ -42,7 +42,7 @@ func TestUT_FS_01_01_Inode_Creation_HasCorrectProperties(t *testing.T) {
 //	                4. Test the mode and IsDir methods
 //	Expected Result Inodes have the correct mode and directory status
 //	Notes: This test verifies that inodes correctly report their mode and directory status.
-func TestUT_FS_02_01_Inode_Properties_ModeAndDirectoryDetection(t *testing.T) {
+func TestIT_FS_02_01_Inode_Properties_ModeAndDirectoryDetection(t *testing.T) {
 	// Create a test fixture
 	fixture := framework.NewUnitTestFixture("InodePropertiesFixture")
 
@@ -66,7 +66,7 @@ func TestUT_FS_02_01_Inode_Properties_ModeAndDirectoryDetection(t *testing.T) {
 
 // TestUT_FS_03_01_Filename_SpecialCharacters_ProperlyEscaped tests that filenames with special characters are properly escaped.
 //
-//	Test Case ID    UT-FS-03-01
+//	Test Case ID    IT-FS-03-01
 //	Title           Filename Special Characters
 //	Description     Tests that filenames with special characters are properly escaped
 //	Preconditions   1. User is authenticated with valid credentials
@@ -77,7 +77,7 @@ func TestUT_FS_02_01_Inode_Properties_ModeAndDirectoryDetection(t *testing.T) {
 //	                4. Verify the file content matches what was written
 //	Expected Result Files with special characters in their names are properly handled
 //	Notes: This test verifies that filenames with special characters are properly escaped.
-func TestUT_FS_03_01_Filename_SpecialCharacters_ProperlyEscaped(t *testing.T) {
+func TestIT_FS_03_01_Filename_SpecialCharacters_ProperlyEscaped(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FilenameEscapingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -101,7 +101,7 @@ func TestUT_FS_03_01_Filename_SpecialCharacters_ProperlyEscaped(t *testing.T) {
 
 // TestUT_FS_04_01_FileCreation_VariousScenarios_BehavesCorrectly tests various behaviors when creating files.
 //
-//	Test Case ID    UT-FS-04-01
+//	Test Case ID    IT-FS-04-01
 //	Title           File Creation Behavior
 //	Description     Tests various behaviors when creating files
 //	Preconditions   1. User is authenticated with valid credentials
@@ -112,7 +112,7 @@ func TestUT_FS_03_01_Filename_SpecialCharacters_ProperlyEscaped(t *testing.T) {
 //	                4. Test with different modes and after writing content
 //	Expected Result File creation behavior is correct, including truncation and returning the same inode
 //	Notes: This test verifies that file creation behaves correctly in various scenarios.
-func TestUT_FS_04_01_FileCreation_VariousScenarios_BehavesCorrectly(t *testing.T) {
+func TestIT_FS_04_01_FileCreation_VariousScenarios_BehavesCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileCreationBehaviorFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

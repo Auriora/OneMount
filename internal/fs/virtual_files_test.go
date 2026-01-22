@@ -14,7 +14,7 @@ import (
 // TestUT_FS_VirtualFiles_01_XDGVolumeInfoAvailability tests that .xdg-volume-info
 // is immediately available on mount without Graph API lookups.
 //
-//	Test Case ID    UT-FS-VirtualFiles-01
+//	Test Case ID    IT-FS-VirtualFiles-01
 //	Title           .xdg-volume-info Immediate Availability
 //	Description     Tests that .xdg-volume-info is available immediately on mount
 //	Preconditions   Fresh filesystem mount
@@ -24,7 +24,7 @@ import (
 //	                4. Verify no Graph API calls needed
 //	Expected Result .xdg-volume-info available immediately
 //	Requirements    2B.1
-func TestUT_FS_VirtualFiles_01_XDGVolumeInfoAvailability(t *testing.T) {
+func TestIT_FS_VirtualFiles_01_XDGVolumeInfoAvailability(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "XDGVolumeInfoAvailabilityFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -116,7 +116,7 @@ func TestUT_FS_VirtualFiles_01_XDGVolumeInfoAvailability(t *testing.T) {
 // TestUT_FS_VirtualFiles_02_LocalIdentifierPersistence tests that virtual files
 // persist with local-* identifiers and are excluded from sync operations.
 //
-//	Test Case ID    UT-FS-VirtualFiles-02
+//	Test Case ID    IT-FS-VirtualFiles-02
 //	Title           Virtual File Persistence with local-* Identifiers
 //	Description     Tests that virtual files persist with local-* IDs and sync exclusion
 //	Preconditions   Virtual file created
@@ -126,7 +126,7 @@ func TestUT_FS_VirtualFiles_01_XDGVolumeInfoAvailability(t *testing.T) {
 //	                4. Test filesystem restart persistence
 //	Expected Result Virtual files persist correctly with local-* IDs
 //	Requirements    2B.2
-func TestUT_FS_VirtualFiles_02_LocalIdentifierPersistence(t *testing.T) {
+func TestIT_FS_VirtualFiles_02_LocalIdentifierPersistence(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "LocalIdentifierPersistenceFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -257,7 +257,7 @@ func TestUT_FS_VirtualFiles_02_LocalIdentifierPersistence(t *testing.T) {
 // TestUT_FS_VirtualFiles_03_OverlayPolicyResolution tests that overlay policies
 // correctly resolve conflicts between virtual and remote files.
 //
-//	Test Case ID    UT-FS-VirtualFiles-03
+//	Test Case ID    IT-FS-VirtualFiles-03
 //	Title           Overlay Policy Resolution
 //	Description     Tests that virtual files with overlay policies resolve conflicts correctly
 //	Preconditions   Virtual and remote files with same name
@@ -267,7 +267,7 @@ func TestUT_FS_VirtualFiles_02_LocalIdentifierPersistence(t *testing.T) {
 //	                4. Test directory listing shows only virtual file
 //	Expected Result Overlay policy correctly resolves conflicts
 //	Requirements    2B.2 (overlay policy aspect)
-func TestUT_FS_VirtualFiles_03_OverlayPolicyResolution(t *testing.T) {
+func TestIT_FS_VirtualFiles_03_OverlayPolicyResolution(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "OverlayPolicyResolutionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

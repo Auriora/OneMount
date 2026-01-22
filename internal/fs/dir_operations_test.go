@@ -10,9 +10,9 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
-// TestUT_FS_DirOps_01_DirectoryCreation_BasicOperations tests basic directory creation operations.
+// TestIT_FS_DirOps_01_DirectoryCreation_BasicOperations tests basic directory creation operations.
 //
-//	Test Case ID    UT-FS-DirOps-01
+//	Test Case ID    IT-FS-DirOps-01
 //	Title           Basic Directory Creation Operations
 //	Description     Tests creating directories using Mkdir operation
 //	Preconditions   None
@@ -22,7 +22,7 @@ import (
 //	                4. Test error conditions (duplicate directories, invalid names)
 //	Expected Result Directories are created successfully with correct attributes
 //	Notes: This test verifies that directory creation works correctly.
-func TestUT_FS_DirOps_01_DirectoryCreation_BasicOperations(t *testing.T) {
+func TestIT_FS_DirOps_01_DirectoryCreation_BasicOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryCreationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -109,9 +109,9 @@ func TestUT_FS_DirOps_01_DirectoryCreation_BasicOperations(t *testing.T) {
 	})
 }
 
-// TestUT_FS_DirOps_02_DirectoryListing_BasicOperations tests basic directory listing operations.
+// TestIT_FS_DirOps_02_DirectoryListing_BasicOperations tests basic directory listing operations.
 //
-//	Test Case ID    UT-FS-DirOps-02
+//	Test Case ID    IT-FS-DirOps-02
 //	Title           Basic Directory Listing Operations
 //	Description     Tests listing directory contents using OpenDir, ReadDir, ReadDirPlus
 //	Preconditions   Directory with files and subdirectories exists
@@ -122,7 +122,7 @@ func TestUT_FS_DirOps_01_DirectoryCreation_BasicOperations(t *testing.T) {
 //	                5. Verify all entries are returned correctly
 //	Expected Result Directory contents are listed correctly
 //	Notes: This test verifies that directory listing works correctly.
-func TestUT_FS_DirOps_02_DirectoryListing_BasicOperations(t *testing.T) {
+func TestIT_FS_DirOps_02_DirectoryListing_BasicOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryListingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -214,9 +214,9 @@ func TestUT_FS_DirOps_02_DirectoryListing_BasicOperations(t *testing.T) {
 	})
 }
 
-// TestUT_FS_DirOps_03_DirectoryDeletion_BasicOperations tests basic directory deletion operations.
+// TestIT_FS_DirOps_03_DirectoryDeletion_BasicOperations tests basic directory deletion operations.
 //
-//	Test Case ID    UT-FS-DirOps-03
+//	Test Case ID    IT-FS-DirOps-03
 //	Title           Basic Directory Deletion Operations
 //	Description     Tests deleting directories using Rmdir operation
 //	Preconditions   Directory exists
@@ -226,7 +226,7 @@ func TestUT_FS_DirOps_02_DirectoryListing_BasicOperations(t *testing.T) {
 //	                4. Test error conditions (non-empty directories, non-existent directories)
 //	Expected Result Directories are deleted successfully when empty
 //	Notes: This test verifies that directory deletion works correctly.
-func TestUT_FS_DirOps_03_DirectoryDeletion_BasicOperations(t *testing.T) {
+func TestIT_FS_DirOps_03_DirectoryDeletion_BasicOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryDeletionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -295,9 +295,9 @@ func TestUT_FS_DirOps_03_DirectoryDeletion_BasicOperations(t *testing.T) {
 	})
 }
 
-// TestUT_FS_DirOps_04_DirectoryDeletion_NonEmptyDirectory tests deletion of non-empty directories.
+// TestIT_FS_DirOps_04_DirectoryDeletion_NonEmptyDirectory tests deletion of non-empty directories.
 //
-//	Test Case ID    UT-FS-DirOps-04
+//	Test Case ID    IT-FS-DirOps-04
 //	Title           Non-Empty Directory Deletion
 //	Description     Tests that Rmdir correctly rejects deletion of non-empty directories
 //	Preconditions   Directory with files exists
@@ -311,7 +311,7 @@ func TestUT_FS_DirOps_03_DirectoryDeletion_BasicOperations(t *testing.T) {
 //	Notes: This test verifies that Rmdir enforces the empty directory requirement.
 //	       KNOWN LIMITATION: Directory deletion in mock environment requires server sync support.
 //	       See ACTION REQUIRED in docs/verification-phase4-file-write-operations.md
-func TestUT_FS_DirOps_04_DirectoryDeletion_NonEmptyDirectory(t *testing.T) {
+func TestIT_FS_DirOps_04_DirectoryDeletion_NonEmptyDirectory(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "NonEmptyDirectoryDeletionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

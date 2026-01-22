@@ -15,7 +15,7 @@ import (
 
 // TestUT_FS_FileRead_01_UncachedFile tests reading a file that hasn't been cached yet.
 //
-//	Test Case ID    UT-FS-FileRead-01
+//	Test Case ID    IT-FS-FileRead-01
 //	Title           Read Uncached File
 //	Description     Tests reading a file that hasn't been accessed before
 //	Preconditions   File exists on OneDrive but not in local cache
@@ -28,7 +28,7 @@ import (
 //	Expected Result File downloads from OneDrive and content is correct
 //	Requirements    3.2 - On-demand file download
 //	Notes: This test verifies that uncached files are downloaded on first access.
-func TestUT_FS_FileRead_01_UncachedFile(t *testing.T) {
+func TestIT_FS_FileRead_01_UncachedFile(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "UncachedFileReadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -128,7 +128,7 @@ func TestUT_FS_FileRead_01_UncachedFile(t *testing.T) {
 
 // TestUT_FS_FileRead_02_CachedFile tests reading a file that is already cached.
 //
-//	Test Case ID    UT-FS-FileRead-02
+//	Test Case ID    IT-FS-FileRead-02
 //	Title           Read Cached File
 //	Description     Tests reading a file that has been previously accessed
 //	Preconditions   File exists in local cache with valid checksum
@@ -139,7 +139,7 @@ func TestUT_FS_FileRead_01_UncachedFile(t *testing.T) {
 //	Expected Result File is served from cache without network access
 //	Requirements    3.3 - Serve cached files
 //	Notes: This test verifies that cached files are served without network requests.
-func TestUT_FS_FileRead_02_CachedFile(t *testing.T) {
+func TestIT_FS_FileRead_02_CachedFile(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "CachedFileReadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -247,7 +247,7 @@ func TestUT_FS_FileRead_02_CachedFile(t *testing.T) {
 
 // TestUT_FS_FileRead_03_DirectoryListing tests listing a directory without downloading file content.
 //
-//	Test Case ID    UT-FS-FileRead-03
+//	Test Case ID    IT-FS-FileRead-03
 //	Title           Directory Listing Without Content Download
 //	Description     Tests listing a directory with many files
 //	Preconditions   Directory exists with multiple files
@@ -259,7 +259,7 @@ func TestUT_FS_FileRead_02_CachedFile(t *testing.T) {
 //	Expected Result Directory listing shows all files without downloading content
 //	Requirements    3.1 - Display files using cached metadata
 //	Notes: This test verifies that directory listing doesn't trigger content downloads.
-func TestUT_FS_FileRead_03_DirectoryListing(t *testing.T) {
+func TestIT_FS_FileRead_03_DirectoryListing(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryListingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -387,7 +387,7 @@ func TestUT_FS_FileRead_03_DirectoryListing(t *testing.T) {
 
 // TestUT_FS_FileRead_04_FileMetadata tests file metadata operations.
 //
-//	Test Case ID    UT-FS-FileRead-04
+//	Test Case ID    IT-FS-FileRead-04
 //	Title           File Metadata Operations
 //	Description     Tests retrieving file metadata without downloading content
 //	Preconditions   File exists on OneDrive
@@ -399,7 +399,7 @@ func TestUT_FS_FileRead_03_DirectoryListing(t *testing.T) {
 //	Expected Result File metadata is correct without downloading content
 //	Requirements    3.1 - Display files using cached metadata
 //	Notes: This test verifies that metadata operations don't trigger content downloads.
-func TestUT_FS_FileRead_04_FileMetadata(t *testing.T) {
+func TestIT_FS_FileRead_04_FileMetadata(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileMetadataFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

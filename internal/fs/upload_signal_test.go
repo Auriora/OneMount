@@ -17,7 +17,7 @@ import (
 // TestUT_FS_Signal_01_UploadManager_GracefulShutdown tests that the upload manager
 // handles signals gracefully and persists upload progress
 // Note: This test does not run in parallel due to shared mock HTTP client state.
-func TestUT_FS_Signal_01_UploadManager_GracefulShutdown(t *testing.T) {
+func TestIT_FS_Signal_01_UploadManager_GracefulShutdown(t *testing.T) {
 	// Note: t.Parallel() removed due to race conditions with mock HTTP client cleanup
 
 	// Create a test fixture using the common setup
@@ -138,7 +138,7 @@ func TestUT_FS_Signal_01_UploadManager_GracefulShutdown(t *testing.T) {
 // TestUT_FS_Signal_02_UploadSession_ContextCancellation tests that upload sessions
 // handle context cancellation properly
 // Note: This test does not run in parallel due to shared mock HTTP client state.
-func TestUT_FS_Signal_02_UploadSession_ContextCancellation(t *testing.T) {
+func TestIT_FS_Signal_02_UploadSession_ContextCancellation(t *testing.T) {
 	// Note: t.Parallel() removed due to race conditions with mock HTTP client cleanup
 
 	// Create a test fixture using the common setup
@@ -196,7 +196,7 @@ func TestUT_FS_Signal_02_UploadSession_ContextCancellation(t *testing.T) {
 // TestUT_FS_Signal_02b_UploadSession_ContextCancellation_LargeFile tests that large file upload sessions
 // handle context cancellation properly
 // Note: This test does not run in parallel due to shared mock HTTP client state.
-func TestUT_FS_Signal_02b_UploadSession_ContextCancellation_LargeFile(t *testing.T) {
+func TestIT_FS_Signal_02b_UploadSession_ContextCancellation_LargeFile(t *testing.T) {
 	// Note: t.Parallel() removed due to race conditions with mock HTTP client cleanup
 
 	// Create a test fixture using the common setup
@@ -257,7 +257,7 @@ func TestUT_FS_Signal_02b_UploadSession_ContextCancellation_LargeFile(t *testing
 // TestUT_FS_Signal_03_UploadSession_ProgressPersistence tests that upload progress
 // is persisted correctly during interruptions
 // Note: This test does not run in parallel due to shared mock HTTP client state.
-func TestUT_FS_Signal_03_UploadSession_ProgressPersistence(t *testing.T) {
+func TestIT_FS_Signal_03_UploadSession_ProgressPersistence(t *testing.T) {
 	// Note: t.Parallel() removed due to race conditions with mock HTTP client cleanup
 
 	// Create a test fixture using the common setup

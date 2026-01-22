@@ -10,9 +10,9 @@ import (
 	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
-// TestUT_FS_Cache_01_CacheInvalidation_WorksCorrectly tests cache invalidation mechanisms.
+// TestIT_FS_Cache_01_CacheInvalidation_WorksCorrectly tests cache invalidation mechanisms.
 //
-//	Test Case ID    UT-FS-Cache-01
+//	Test Case ID    IT-FS-Cache-01
 //	Title           Cache Invalidation
 //	Description     Tests cache invalidation and cleanup mechanisms
 //	Preconditions   None
@@ -22,7 +22,7 @@ import (
 //	                4. Verify cache state after operations
 //	Expected Result Cache invalidation works correctly
 //	Notes: This test verifies that cache management operations work correctly.
-func TestUT_FS_Cache_01_CacheInvalidation_WorksCorrectly(t *testing.T) {
+func TestIT_FS_Cache_01_CacheInvalidation_WorksCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "CacheInvalidationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem with a short cache TTL for testing
@@ -140,9 +140,9 @@ func TestUT_FS_Cache_01_CacheInvalidation_WorksCorrectly(t *testing.T) {
 	})
 }
 
-// TestUT_FS_Cache_04_CacheInvalidation_Comprehensive tests comprehensive cache invalidation scenarios.
+// TestIT_FS_Cache_04_CacheInvalidation_Comprehensive tests comprehensive cache invalidation scenarios.
 //
-//	Test Case ID    UT-FS-Cache-04
+//	Test Case ID    IT-FS-Cache-04
 //	Title           Comprehensive Cache Invalidation
 //	Description     Tests various cache invalidation scenarios including file modifications, deletions
 //	Preconditions   None
@@ -152,7 +152,7 @@ func TestUT_FS_Cache_01_CacheInvalidation_WorksCorrectly(t *testing.T) {
 //	                4. Test cache consistency after operations
 //	Expected Result Cache is properly invalidated and cleaned up
 //	Notes: This test provides comprehensive coverage of cache invalidation.
-func TestUT_FS_Cache_04_CacheInvalidation_Comprehensive(t *testing.T) {
+func TestIT_FS_Cache_04_CacheInvalidation_Comprehensive(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ComprehensiveCacheInvalidationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -268,9 +268,9 @@ func TestUT_FS_Cache_04_CacheInvalidation_Comprehensive(t *testing.T) {
 	})
 }
 
-// TestUT_FS_Cache_05_CachePerformance_Operations tests cache performance characteristics.
+// TestIT_FS_Cache_05_CachePerformance_Operations tests cache performance characteristics.
 //
-//	Test Case ID    UT-FS-Cache-05
+//	Test Case ID    IT-FS-Cache-05
 //	Title           Cache Performance Operations
 //	Description     Tests cache performance with multiple operations
 //	Preconditions   None
@@ -280,7 +280,7 @@ func TestUT_FS_Cache_04_CacheInvalidation_Comprehensive(t *testing.T) {
 //	                4. Test cache cleanup efficiency
 //	Expected Result Cache operations perform efficiently
 //	Notes: This test verifies cache performance characteristics.
-func TestUT_FS_Cache_05_CachePerformance_Operations(t *testing.T) {
+func TestIT_FS_Cache_05_CachePerformance_Operations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "CachePerformanceFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -380,9 +380,9 @@ func TestUT_FS_Cache_05_CachePerformance_Operations(t *testing.T) {
 	})
 }
 
-// TestUT_FS_Cache_02_ContentCache_Operations tests content cache operations.
+// TestIT_FS_Cache_02_ContentCache_Operations tests content cache operations.
 //
-//	Test Case ID    UT-FS-Cache-02
+//	Test Case ID    IT-FS-Cache-02
 //	Title           Content Cache Operations
 //	Description     Tests content cache insertion, retrieval, and deletion
 //	Preconditions   None
@@ -392,7 +392,7 @@ func TestUT_FS_Cache_05_CachePerformance_Operations(t *testing.T) {
 //	                4. Verify cache consistency
 //	Expected Result Content cache operations work correctly
 //	Notes: This test verifies that content caching works correctly.
-func TestUT_FS_Cache_02_ContentCache_Operations(t *testing.T) {
+func TestIT_FS_Cache_02_ContentCache_Operations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "ContentCacheFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -510,9 +510,9 @@ func TestUT_FS_Cache_02_ContentCache_Operations(t *testing.T) {
 	})
 }
 
-// TestUT_FS_Cache_03_CacheConsistency_MultipleOperations tests cache consistency across multiple operations.
+// TestIT_FS_Cache_03_CacheConsistency_MultipleOperations tests cache consistency across multiple operations.
 //
-//	Test Case ID    UT-FS-Cache-03
+//	Test Case ID    IT-FS-Cache-03
 //	Title           Cache Consistency
 //	Description     Tests cache consistency across multiple concurrent operations
 //	Preconditions   None
@@ -521,7 +521,7 @@ func TestUT_FS_Cache_02_ContentCache_Operations(t *testing.T) {
 //	                3. Verify no cache corruption
 //	Expected Result Cache remains consistent across operations
 //	Notes: This test verifies that cache consistency is maintained.
-func TestUT_FS_Cache_03_CacheConsistency_MultipleOperations(t *testing.T) {
+func TestIT_FS_Cache_03_CacheConsistency_MultipleOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "CacheConsistencyFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

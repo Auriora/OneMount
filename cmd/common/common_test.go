@@ -14,7 +14,7 @@ import (
 // TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior verifies that
 // CreateXDGVolumeInfo replaces an existing cloud copy with a local-only virtual
 // file and refreshes the cached content.
-func TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
+func TestIT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "XDGVolumeInfoVirtualFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		return fs.NewFilesystem(auth, mountPoint, cacheTTL)
 	})

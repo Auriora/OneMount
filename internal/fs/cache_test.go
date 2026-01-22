@@ -143,7 +143,7 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 // TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer verifies that remote
 // .xdg-volume-info entries returned by the Graph API are ignored so the local
 // virtual file can be used instead.
-func TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
+func TestIT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "SkipXDGVolumeInfoFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		return NewFilesystem(auth, mountPoint, cacheTTL)
 	})

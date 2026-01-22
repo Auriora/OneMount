@@ -10,7 +10,7 @@ import (
 )
 
 // TestUT_FS_FileWrite_01_FileCreation tests file creation and upload marking.
-func TestUT_FS_FileWrite_01_FileCreation(t *testing.T) {
+func TestIT_FS_FileWrite_01_FileCreation(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "FileCreationUploadFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -65,7 +65,7 @@ func TestUT_FS_FileWrite_01_FileCreation(t *testing.T) {
 }
 
 // TestUT_FS_FileWrite_02_FileModification tests file modification and upload queuing.
-func TestUT_FS_FileWrite_02_FileModification(t *testing.T) {
+func TestIT_FS_FileWrite_02_FileModification(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "FileModificationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -124,7 +124,7 @@ func TestUT_FS_FileWrite_02_FileModification(t *testing.T) {
 }
 
 // TestUT_FS_FileWrite_03_FileDeletion tests file deletion and sync verification.
-func TestUT_FS_FileWrite_03_FileDeletion(t *testing.T) {
+func TestIT_FS_FileWrite_03_FileDeletion(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "FileDeletionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -183,7 +183,7 @@ func TestUT_FS_FileWrite_03_FileDeletion(t *testing.T) {
 }
 
 // TestUT_FS_FileWrite_04_DirectoryOperations tests directory creation, file operations within, and deletion.
-func TestUT_FS_FileWrite_04_DirectoryOperations(t *testing.T) {
+func TestIT_FS_FileWrite_04_DirectoryOperations(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "DirectoryOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {

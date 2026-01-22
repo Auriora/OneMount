@@ -16,7 +16,7 @@ import (
 
 // TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload verifies that a file can be successfully uploaded to OneDrive.
 //
-//	Test Case ID    UT-FS-02
+//	Test Case ID    IT-FS-02
 //	Title           File Upload Synchronization
 //	Description     Verify that a file can be successfully uploaded to OneDrive
 //	Preconditions   1. User is authenticated with valid credentials
@@ -27,7 +27,7 @@ import (
 //	                4. Verify the file exists on OneDrive with correct content
 //	Expected Result File is successfully uploaded to OneDrive with the correct content
 //	Notes: Tests basic file creation and writing, which triggers uploads.
-func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
+func TestIT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 	// Mark the test for parallel execution
 
 	// Create a test fixture using the common setup
@@ -189,7 +189,7 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 
 // TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload verifies that a file can be successfully downloaded from OneDrive.
 //
-//	Test Case ID    UT-FS-03
+//	Test Case ID    IT-FS-03
 //	Title           File Download Synchronization
 //	Description     Verify that a file can be successfully downloaded from OneDrive
 //	Preconditions   1. User is authenticated with valid credentials
@@ -200,7 +200,7 @@ func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 //	                3. Verify the content matches what's on OneDrive
 //	Expected Result File is successfully downloaded from OneDrive with the correct content
 //	Notes: Tests reading files, which triggers downloads if not in cache.
-func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *testing.T) {
+func TestIT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *testing.T) {
 	// Mark the test for parallel execution
 
 	// Create a test fixture using the FSTestFixture helper
@@ -312,7 +312,7 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 // TestUT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval verifies that the filesystem can retrieve the root item from the database
 // when in offline mode, even if the root ID is not "root".
 //
-//	Test Case ID    UT-FS-04
+//	Test Case ID    IT-FS-04
 //	Title           Root Item Retrieval in Offline Mode
 //	Description     Verify that the filesystem can retrieve the root item from the database when in offline mode
 //	Preconditions   1. User is authenticated with valid credentials
@@ -323,7 +323,7 @@ func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 //	                4. Verify the root item has the correct properties
 //	Expected Result Root item is successfully retrieved from the database with the correct properties
 //	Notes: Tests the ability to retrieve the root item from the database in offline mode.
-func TestUT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
+func TestIT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
 	// Create a test fixture
 	fixture := framework.NewUnitTestFixture("RootRetrievalFixture")
 

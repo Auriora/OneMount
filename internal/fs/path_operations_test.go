@@ -13,7 +13,7 @@ import (
 
 // TestUT_FS_Path_01_PathResolution_BasicPaths tests basic path resolution.
 //
-//	Test Case ID    UT-FS-Path-01
+//	Test Case ID    IT-FS-Path-01
 //	Title           Basic Path Resolution
 //	Description     Tests resolving paths to IDs and vice versa
 //	Preconditions   None
@@ -23,7 +23,7 @@ import (
 //	                4. Verify path consistency
 //	Expected Result Paths are correctly resolved in both directions
 //	Notes: This test verifies that path resolution works correctly.
-func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
+func TestIT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "PathResolutionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -186,7 +186,7 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 
 // TestUT_FS_Path_02_PathValidation_InvalidPaths tests path validation and error handling.
 //
-//	Test Case ID    UT-FS-Path-02
+//	Test Case ID    IT-FS-Path-02
 //	Title           Path Validation and Error Handling
 //	Description     Tests handling of invalid paths and edge cases
 //	Preconditions   None
@@ -196,7 +196,7 @@ func TestUT_FS_Path_01_PathResolution_BasicPaths(t *testing.T) {
 //	                4. Verify appropriate error responses
 //	Expected Result Invalid paths are properly rejected
 //	Notes: This test verifies that path validation works correctly.
-func TestUT_FS_Path_02_PathValidation_InvalidPaths(t *testing.T) {
+func TestIT_FS_Path_02_PathValidation_InvalidPaths(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "PathValidationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -296,7 +296,7 @@ func TestUT_FS_Path_02_PathValidation_InvalidPaths(t *testing.T) {
 
 // TestUT_FS_Path_03_PathMovement_Operations tests path movement and renaming operations.
 //
-//	Test Case ID    UT-FS-Path-03
+//	Test Case ID    IT-FS-Path-03
 //	Title           Path Movement Operations
 //	Description     Tests moving files and updating paths
 //	Preconditions   Files and directories exist
@@ -306,7 +306,7 @@ func TestUT_FS_Path_02_PathValidation_InvalidPaths(t *testing.T) {
 //	                4. Verify paths are updated correctly
 //	Expected Result Path movements are handled correctly
 //	Notes: This test verifies that path movement operations work correctly.
-func TestUT_FS_Path_03_PathMovement_Operations(t *testing.T) {
+func TestIT_FS_Path_03_PathMovement_Operations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "PathMovementFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

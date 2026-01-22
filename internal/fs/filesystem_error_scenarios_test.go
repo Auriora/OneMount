@@ -12,7 +12,7 @@ import (
 
 // TestUT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly tests disk space exhaustion during write operations
 //
-//	Test Case ID    UT-FS-ERR-01-01
+//	Test Case ID    IT-FS-ERR-01-01
 //	Title           Disk Space Exhaustion During Write Operation
 //	Description     Tests that disk space exhaustion errors are handled correctly during write operations
 //	Preconditions   None
@@ -21,7 +21,7 @@ import (
 //	                3. Verify proper error handling and status
 //	Expected Result Write operation fails with appropriate error code (ENOSPC)
 //	Notes: This test verifies that disk space exhaustion is properly detected and reported.
-func TestUT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly(t *testing.T) {
+func TestIT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DiskSpaceExhaustionWriteFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -92,7 +92,7 @@ func TestUT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly(t *
 
 // TestUT_FS_ERR_01_02_DiskSpaceExhaustion_FileCreation_HandledCorrectly tests disk space exhaustion during file creation
 //
-//	Test Case ID    UT-FS-ERR-01-02
+//	Test Case ID    IT-FS-ERR-01-02
 //	Title           Disk Space Exhaustion During File Creation
 //	Description     Tests that disk space exhaustion errors are handled correctly during file creation
 //	Preconditions   None
@@ -101,7 +101,7 @@ func TestUT_FS_ERR_01_01_DiskSpaceExhaustion_WriteOperation_HandledCorrectly(t *
 //	                3. Verify proper error handling and status
 //	Expected Result File creation fails with appropriate error code (ENOSPC)
 //	Notes: This test verifies that disk space exhaustion is properly detected during file creation.
-func TestUT_FS_ERR_01_02_DiskSpaceExhaustion_FileCreation_HandledCorrectly(t *testing.T) {
+func TestIT_FS_ERR_01_02_DiskSpaceExhaustion_FileCreation_HandledCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "DiskSpaceExhaustionCreateFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -163,7 +163,7 @@ func TestUT_FS_ERR_01_02_DiskSpaceExhaustion_FileCreation_HandledCorrectly(t *te
 
 // TestUT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly tests permission denied errors during file access
 //
-//	Test Case ID    UT-FS-ERR-02-01
+//	Test Case ID    IT-FS-ERR-02-01
 //	Title           Permission Denied During File Access
 //	Description     Tests that permission denied errors are handled correctly during file access operations
 //	Preconditions   None
@@ -172,7 +172,7 @@ func TestUT_FS_ERR_01_02_DiskSpaceExhaustion_FileCreation_HandledCorrectly(t *te
 //	                3. Verify proper error handling and status
 //	Expected Result File access fails with permission denied error (EACCES)
 //	Notes: This test verifies that permission denied errors are properly detected and reported.
-func TestUT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly(t *testing.T) {
+func TestIT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "PermissionDeniedAccessFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -239,7 +239,7 @@ func TestUT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly(t *testing
 
 // TestUT_FS_ERR_02_02_PermissionDenied_WriteOperation_HandledCorrectly tests permission denied errors during write operations
 //
-//	Test Case ID    UT-FS-ERR-02-02
+//	Test Case ID    IT-FS-ERR-02-02
 //	Title           Permission Denied During Write Operation
 //	Description     Tests that permission denied errors are handled correctly during write operations
 //	Preconditions   None
@@ -248,7 +248,7 @@ func TestUT_FS_ERR_02_01_PermissionDenied_FileAccess_HandledCorrectly(t *testing
 //	                3. Verify proper error handling and status
 //	Expected Result Write operation fails with permission denied error (EACCES)
 //	Notes: This test verifies that permission denied errors are properly detected during write operations.
-func TestUT_FS_ERR_02_02_PermissionDenied_WriteOperation_HandledCorrectly(t *testing.T) {
+func TestIT_FS_ERR_02_02_PermissionDenied_WriteOperation_HandledCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "PermissionDeniedWriteFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

@@ -12,10 +12,10 @@ import (
 	"github.com/auriora/onemount/internal/testutil/helpers"
 )
 
-// TestUT_FS_AdvancedMounting_01_MountTimeoutConfiguration tests that mount timeout
+// TestIT_FS_AdvancedMounting_01_MountTimeoutConfiguration tests that mount timeout
 // is configurable and enforced correctly.
 //
-//	Test Case ID    UT-FS-AdvancedMounting-01
+//	Test Case ID    IT-FS-AdvancedMounting-01
 //	Title           Mount Timeout Configuration
 //	Description     Tests that mount timeout can be configured and is enforced
 //	Preconditions   None
@@ -25,7 +25,7 @@ import (
 //	                4. Test timeout error handling
 //	Expected Result Mount timeout is configurable and enforced
 //	Requirements    2C.2, 2C.3
-func TestUT_FS_AdvancedMounting_01_MountTimeoutConfiguration(t *testing.T) {
+func TestIT_FS_AdvancedMounting_01_MountTimeoutConfiguration(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "MountTimeoutConfigurationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -110,10 +110,10 @@ func TestUT_FS_AdvancedMounting_01_MountTimeoutConfiguration(t *testing.T) {
 	})
 }
 
-// TestUT_FS_AdvancedMounting_02_StaleLockDetection tests that stale lock files
+// TestIT_FS_AdvancedMounting_02_StaleLockDetection tests that stale lock files
 // are detected and cleaned up correctly.
 //
-//	Test Case ID    UT-FS-AdvancedMounting-02
+//	Test Case ID    IT-FS-AdvancedMounting-02
 //	Title           Stale Lock File Detection and Cleanup
 //	Description     Tests that stale lock files older than 5 minutes are detected and removed
 //	Preconditions   None
@@ -123,7 +123,7 @@ func TestUT_FS_AdvancedMounting_01_MountTimeoutConfiguration(t *testing.T) {
 //	                4. Verify database opens successfully
 //	Expected Result Stale locks are detected and cleaned up
 //	Requirements    2C.4
-func TestUT_FS_AdvancedMounting_02_StaleLockDetection(t *testing.T) {
+func TestIT_FS_AdvancedMounting_02_StaleLockDetection(t *testing.T) {
 	t.Log("=== Stale Lock Detection Test ===")
 
 	// Create a temporary directory for testing
@@ -244,10 +244,10 @@ func TestUT_FS_AdvancedMounting_02_StaleLockDetection(t *testing.T) {
 	t.Log("✓ Stale lock detection and cleanup verified")
 }
 
-// TestUT_FS_AdvancedMounting_03_DatabaseRetryLogic tests that database opening
+// TestIT_FS_AdvancedMounting_03_DatabaseRetryLogic tests that database opening
 // uses exponential backoff and retry logic correctly.
 //
-//	Test Case ID    UT-FS-AdvancedMounting-03
+//	Test Case ID    IT-FS-AdvancedMounting-03
 //	Title           Database Retry Logic with Exponential Backoff
 //	Description     Tests that database opening retries with exponential backoff up to 10 attempts
 //	Preconditions   None
@@ -257,7 +257,7 @@ func TestUT_FS_AdvancedMounting_02_StaleLockDetection(t *testing.T) {
 //	                4. Test backoff progression
 //	Expected Result Database retry logic works correctly with exponential backoff
 //	Requirements    2C.5
-func TestUT_FS_AdvancedMounting_03_DatabaseRetryLogic(t *testing.T) {
+func TestIT_FS_AdvancedMounting_03_DatabaseRetryLogic(t *testing.T) {
 	t.Log("=== Database Retry Logic Test ===")
 
 	// Create assertions helper
@@ -359,10 +359,10 @@ func TestUT_FS_AdvancedMounting_03_DatabaseRetryLogic(t *testing.T) {
 	t.Log("✓ Database retry logic verified")
 }
 
-// TestUT_FS_AdvancedMounting_04_ConfigurationValidation tests that advanced mounting
+// TestIT_FS_AdvancedMounting_04_ConfigurationValidation tests that advanced mounting
 // configuration parameters are validated correctly.
 //
-//	Test Case ID    UT-FS-AdvancedMounting-04
+//	Test Case ID    IT-FS-AdvancedMounting-04
 //	Title           Configuration Parameter Validation
 //	Description     Tests that advanced mounting configuration parameters are validated
 //	Preconditions   None
@@ -372,7 +372,7 @@ func TestUT_FS_AdvancedMounting_03_DatabaseRetryLogic(t *testing.T) {
 //	                4. Test configuration error messages
 //	Expected Result Configuration validation works correctly
 //	Requirements    2C.1-2C.5 (validation aspects)
-func TestUT_FS_AdvancedMounting_04_ConfigurationValidation(t *testing.T) {
+func TestIT_FS_AdvancedMounting_04_ConfigurationValidation(t *testing.T) {
 	t.Log("=== Configuration Validation Test ===")
 
 	// Create assertions helper

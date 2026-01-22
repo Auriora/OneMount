@@ -14,7 +14,7 @@ import (
 
 // TestUT_FS_Metadata_07_PrioritySystem tests the metadata request priority system.
 //
-//	Test Case ID    UT-FS-Metadata-07
+//	Test Case ID    IT-FS-Metadata-07
 //	Title           Metadata Request Priority System
 //	Description     Tests that foreground requests are prioritized over background requests
 //	Preconditions   None
@@ -23,7 +23,7 @@ import (
 //	                3. Verify foreground requests are processed first
 //	Expected Result Foreground requests complete before background requests
 //	Notes: This test verifies the metadata request prioritization system.
-func TestUT_FS_Metadata_07_PrioritySystem(t *testing.T) {
+func TestIT_FS_Metadata_07_PrioritySystem(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "MetadataPriorityFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -125,7 +125,7 @@ func TestUT_FS_Metadata_07_PrioritySystem(t *testing.T) {
 
 // TestUT_FS_Metadata_08_SyncProgress tests the sync progress tracking.
 //
-//	Test Case ID    UT-FS-Metadata-08
+//	Test Case ID    IT-FS-Metadata-08
 //	Title           Sync Progress Tracking
 //	Description     Tests that sync progress is tracked correctly during tree synchronization
 //	Preconditions   None
@@ -134,7 +134,7 @@ func TestUT_FS_Metadata_07_PrioritySystem(t *testing.T) {
 //	                3. Verify progress completion
 //	Expected Result Progress is tracked and reported correctly
 //	Notes: This test verifies the sync progress tracking system.
-func TestUT_FS_Metadata_08_SyncProgress(t *testing.T) {
+func TestIT_FS_Metadata_08_SyncProgress(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "SyncProgressFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -224,7 +224,7 @@ func TestUT_FS_Metadata_08_SyncProgress(t *testing.T) {
 
 // TestUT_FS_Metadata_09_QueueStats tests the queue statistics functionality.
 //
-//	Test Case ID    UT-FS-Metadata-09
+//	Test Case ID    IT-FS-Metadata-09
 //	Title           Queue Statistics
 //	Description     Tests that queue statistics are reported correctly
 //	Preconditions   None
@@ -233,7 +233,7 @@ func TestUT_FS_Metadata_08_SyncProgress(t *testing.T) {
 //	                3. Verify counts are accurate
 //	Expected Result Queue statistics reflect actual queue state
 //	Notes: This test verifies the queue statistics functionality.
-func TestUT_FS_Metadata_09_QueueStats(t *testing.T) {
+func TestIT_FS_Metadata_09_QueueStats(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "QueueStatsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

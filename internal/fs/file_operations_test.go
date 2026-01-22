@@ -11,9 +11,9 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
-// TestUT_FS_FileOps_01_FileCreation_BasicOperations tests basic file creation operations.
+// TestIT_FS_FileOps_01_FileCreation_BasicOperations tests basic file creation operations.
 //
-//	Test Case ID    UT-FS-FileOps-01
+//	Test Case ID    IT-FS-FileOps-01
 //	Title           Basic File Creation Operations
 //	Description     Tests creating files using Mknod and Create operations
 //	Preconditions   None
@@ -23,7 +23,7 @@ import (
 //	                4. Test error conditions (duplicate files, invalid names)
 //	Expected Result Files are created successfully with correct attributes
 //	Notes: This test verifies that file creation works correctly.
-func TestUT_FS_FileOps_01_FileCreation_BasicOperations(t *testing.T) {
+func TestIT_FS_FileOps_01_FileCreation_BasicOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileCreationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -113,9 +113,9 @@ func TestUT_FS_FileOps_01_FileCreation_BasicOperations(t *testing.T) {
 	})
 }
 
-// TestUT_FS_FileOps_02_FileReadWrite_BasicOperations tests basic file read/write operations.
+// TestIT_FS_FileOps_02_FileReadWrite_BasicOperations tests basic file read/write operations.
 //
-//	Test Case ID    UT-FS-FileOps-02
+//	Test Case ID    IT-FS-FileOps-02
 //	Title           Basic File Read/Write Operations
 //	Description     Tests reading from and writing to files
 //	Preconditions   File exists
@@ -126,7 +126,7 @@ func TestUT_FS_FileOps_01_FileCreation_BasicOperations(t *testing.T) {
 //	                5. Verify data integrity
 //	Expected Result Data is written and read correctly
 //	Notes: This test verifies that file I/O operations work correctly.
-func TestUT_FS_FileOps_02_FileReadWrite_BasicOperations(t *testing.T) {
+func TestIT_FS_FileOps_02_FileReadWrite_BasicOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileReadWriteFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -296,9 +296,9 @@ func TestIT_FS_FileOps_MkdirStateReflectsConnectivity(t *testing.T) {
 	})
 }
 
-// TestUT_FS_FileOps_03_FileDeletion_BasicOperations tests basic file deletion operations.
+// TestIT_FS_FileOps_03_FileDeletion_BasicOperations tests basic file deletion operations.
 //
-//	Test Case ID    UT-FS-FileOps-03
+//	Test Case ID    IT-FS-FileOps-03
 //	Title           Basic File Deletion Operations
 //	Description     Tests deleting files using Unlink operation
 //	Preconditions   File exists
@@ -309,7 +309,7 @@ func TestIT_FS_FileOps_MkdirStateReflectsConnectivity(t *testing.T) {
 //	                5. Test error conditions (non-existent files)
 //	Expected Result Files are deleted successfully
 //	Notes: This test verifies that file deletion works correctly.
-func TestUT_FS_FileOps_03_FileDeletion_BasicOperations(t *testing.T) {
+func TestIT_FS_FileOps_03_FileDeletion_BasicOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileDeletionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem

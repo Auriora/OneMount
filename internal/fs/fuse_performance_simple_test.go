@@ -12,7 +12,7 @@ import (
 // TestUT_FS_FUSEPerformance_Simple_MetadataOperations tests that FUSE operations
 // are served from local metadata/cache only without blocking on Graph API calls.
 //
-//	Test Case ID    UT-FS-FUSEPerformance-Simple
+//	Test Case ID    IT-FS-FUSEPerformance-Simple
 //	Title           FUSE Operations Performance Test
 //	Description     Tests that FUSE operations are fast and served from local cache
 //	Preconditions   Filesystem with cached metadata
@@ -22,7 +22,7 @@ import (
 //	                4. Verify performance requirements
 //	Expected Result FUSE operations meet performance requirements
 //	Requirements    2D.1
-func TestUT_FS_FUSEPerformance_Simple_MetadataOperations(t *testing.T) {
+func TestIT_FS_FUSEPerformance_Simple_MetadataOperations(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FUSEPerformanceSimpleFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
