@@ -2725,34 +2725,74 @@ The specification now provides comprehensive coverage of all functional, securit
 ### Final Verification Tasks
 
 - [ ] 45. Complete Phase 11 manual testing
-- [x] 45.1 Manual D-Bus integration testing
-  - Run `./tests/manual/test_dbus_integration.sh` outside Docker
-  - Verify D-Bus signals are emitted correctly
-  - Monitor signals with dbus-monitor
-  - Document results in verification tracking
-  - **STATUS**: ✅ Completed - Docker testing completed with limitations documented
-  - **FINDINGS**: 
-    - Fixed critical systemd path escaping issue for authentication tokens
-    - Mount and file operations work correctly in Docker
-    - D-Bus signal monitoring requires dbus-launch (not in Docker image)
-    - D-Bus functionality fully verified in host environment (Task 13.3)
-    - Created comprehensive test script: `tests/manual/test_dbus_integration_docker.sh`
-    - Updated verification tracking with Docker test results
+- [ ] 45.1 Create comprehensive D-Bus integration manual testing guide
+  - **PURPOSE**: Create step-by-step manual testing guide for D-Bus integration that cannot be automated
+  - **DELIVERABLE**: `docs/testing/manual-dbus-integration-guide.md`
+  - Create comprehensive testing guide covering:
+    - **Prerequisites**: Required system setup, D-Bus tools installation, environment configuration
+    - **Test Environment Setup**: How to prepare host system for D-Bus testing (not Docker)
+    - **Test Procedures**: Step-by-step instructions for each test scenario:
+      - D-Bus signal emission verification (mount, unmount, file operations)
+      - Signal monitoring with dbus-monitor (exact commands and expected output)
+      - Signal content validation (parameters, data types, values)
+      - Signal timing and ordering verification
+      - Multiple client subscription testing
+    - **Expected Results**: Detailed description of what tester should observe for each step
+    - **Troubleshooting**: Common issues and how to resolve them
+    - **Results Documentation**: Template for recording test results
+    - **Pass/Fail Criteria**: Clear criteria for determining test success
+  - Include screenshots or example output where helpful
+  - Provide exact commands to run with explanations
+  - Document known limitations and edge cases
   - _Requirements: 8.2_
 
-- [ ] 45.2 Manual D-Bus fallback testing
-  - Run `./tests/manual/test_dbus_fallback.sh` outside Docker
-  - Verify system continues operating without D-Bus
-  - Verify extended attributes still work
-  - Document results in verification tracking
+- [ ] 45.2 Create comprehensive D-Bus fallback manual testing guide
+  - **PURPOSE**: Create step-by-step manual testing guide for D-Bus fallback behavior
+  - **DELIVERABLE**: `docs/testing/manual-dbus-fallback-guide.md`
+  - Create comprehensive testing guide covering:
+    - **Prerequisites**: System setup without D-Bus or with D-Bus disabled
+    - **Test Environment Setup**: How to disable D-Bus for testing
+    - **Test Procedures**: Step-by-step instructions for:
+      - Mounting filesystem without D-Bus available
+      - Verifying all core operations work (read, write, list, delete)
+      - Checking extended attributes still function
+      - Confirming graceful degradation (no crashes or errors)
+      - Testing status reporting via alternative methods
+      - Verifying log messages indicate D-Bus unavailability
+    - **Expected Results**: What tester should observe when D-Bus is unavailable
+    - **Comparison Testing**: Side-by-side comparison with D-Bus enabled vs disabled
+    - **Troubleshooting**: How to verify D-Bus is actually disabled
+    - **Results Documentation**: Template for recording observations
+    - **Pass/Fail Criteria**: System must function fully without D-Bus
+  - Include commands to disable/enable D-Bus for testing
+  - Document performance or functionality differences
   - _Requirements: 8.4_
 
-- [ ] 45.3 Manual Nemo extension testing
-  - Open Nemo file manager
-  - Navigate to mounted OneDrive
-  - Verify status icons appear on files
-  - Trigger file operations and watch icons update
-  - Document results in verification tracking
+- [ ] 45.3 Create comprehensive Nemo extension manual testing guide
+  - **PURPOSE**: Create step-by-step manual testing guide for Nemo file manager extension
+  - **DELIVERABLE**: `docs/testing/manual-nemo-extension-guide.md`
+  - Create comprehensive testing guide covering:
+    - **Prerequisites**: Nemo installation, extension installation, system requirements
+    - **Extension Installation**: Step-by-step installation and configuration
+    - **Test Environment Setup**: How to prepare Nemo for testing
+    - **Test Procedures**: Step-by-step instructions for:
+      - Opening Nemo and navigating to mounted OneDrive
+      - Verifying status icons appear on files and folders
+      - Testing icon updates during file operations (download, upload, sync)
+      - Checking context menu items (if any)
+      - Testing with different file states (cached, uncached, modified, syncing)
+      - Verifying icon refresh on external changes
+      - Testing with multiple windows/tabs
+      - Performance testing with large directories
+    - **Expected Results**: Visual examples of each icon state and when they appear
+    - **Icon Reference**: Complete list of icons with meanings and trigger conditions
+    - **Troubleshooting**: Common issues (icons not appearing, not updating, wrong icons)
+    - **Results Documentation**: Checklist for each icon state and scenario
+    - **Pass/Fail Criteria**: All icons must display correctly and update in real-time
+  - Include screenshots of expected icon states
+  - Provide debugging commands to check extension status
+  - Document how to verify D-Bus communication from Nemo
+  - Include performance expectations (icon update latency)
   - _Requirements: 8.3_
 
 - [x] 45.4 Authentication token path consistency audit
