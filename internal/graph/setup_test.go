@@ -2,16 +2,17 @@ package graph
 
 import (
 	"fmt"
-	"github.com/auriora/onemount/internal/logging"
-	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"testing"
+
+	"github.com/auriora/onemount/internal/logging"
+	"github.com/auriora/onemount/internal/testutil"
 )
 
 // TestMain is a special function recognized by the Go testing package.
 // It's called before any tests in the package are run and is responsible for
 // setting up the test environment and cleaning up after all tests have completed.
-func TestUT_Graph_Main(m *testing.M) {
+func TestMain(m *testing.M) {
 	fmt.Println("Setting up graph package tests...")
 
 	// Print the test directory paths for debugging

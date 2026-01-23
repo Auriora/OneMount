@@ -307,37 +307,61 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 	if err := os.MkdirAll(cachePath, 0700); err != nil {
 		return nil, nil, nil, "", "", errors.Wrap(err, "failed to create cache directory")
 	}
-	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
+
+	// Extract instance name from cache path for account-based token storage
+	instance := unit.UnitNamePathEscape(absMountPath)
 
 	// Apply runtime tunables before filesystem construction
 	fs.SetHydrationDefaults(config.Hydration.Workers, config.Hydration.QueueSize)
 	fs.SetMetadataQueueDefaults(config.MetadataQueue.Workers, config.MetadataQueue.HighPrioritySize, config.MetadataQueue.LowPrioritySize)
 
 	if authOnly {
+		// For auth-only mode, we need to remove existing tokens and re-authenticate
+		// Try to remove tokens from all possible locations
+		authPath := graph.GetAuthTokensPathFromCacheDir(config.CacheDir)
 		if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
-			logging.LogError(err, "Failed to remove auth tokens file",
+			logging.LogError(err, "Failed to remove legacy auth tokens file",
 				logging.FieldOperation, "initializeFilesystem",
 				logging.FieldPath, authPath)
 		}
-		_, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
+
+		instancePath := graph.GetAuthTokensPath(config.CacheDir, instance)
+		if err := os.Remove(instancePath); err != nil && !os.IsNotExist(err) {
+			logging.LogError(err, "Failed to remove instance-based auth tokens file",
+				logging.FieldOperation, "initializeFilesystem",
+				logging.FieldPath, instancePath)
+		}
+
+		// Use account-based storage for new authentication
+		auth, err := graph.AuthenticateWithAccountStorage(context.Background(), config.AuthConfig, config.CacheDir, instance, headless)
 		if err != nil {
 			logging.LogError(err, "Authentication failed",
-				logging.FieldOperation, "initializeFilesystem",
-				logging.FieldPath, authPath)
+				logging.FieldOperation, "initializeFilesystem")
 			return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 		}
+
+		logging.Info().
+			Str("account", auth.Account).
+			Str("tokenPath", auth.Path).
+			Msg("Authentication successful")
 		os.Exit(0)
 	}
 
 	// create the filesystem
 	logging.Info().Msgf("onemount %s", common.Version())
-	auth, err := graph.Authenticate(context.Background(), config.AuthConfig, authPath, headless)
+
+	// Use account-based storage for authentication
+	auth, err := graph.AuthenticateWithAccountStorage(context.Background(), config.AuthConfig, config.CacheDir, instance, headless)
 	if err != nil {
 		logging.LogError(err, "Authentication failed",
-			logging.FieldOperation, "initializeFilesystem",
-			logging.FieldPath, authPath)
+			logging.FieldOperation, "initializeFilesystem")
 		return nil, nil, nil, "", "", errors.Wrap(err, "authentication failed")
 	}
+
+	logging.Info().
+		Str("account", auth.Account).
+		Str("tokenPath", auth.Path).
+		Msg("Authentication successful")
 
 	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval, config.MaxCacheSize)
 	if err != nil {
@@ -459,13 +483,20 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 	// Ensure deterministic D-Bus name for stats mode as well (even though the service won't be awaited).
 	fs.SetDBusServiceNameForMount(absMountPath)
 
-	// Authenticate to get access to the filesystem
-	authPath := graph.GetAuthTokensPathFromCacheDir(cachePath)
-	auth, err := graph.Authenticate(ctx, config.AuthConfig, authPath, true)
+	// Extract instance name for account-based token storage
+	instance := unit.UnitNamePathEscape(absMountPath)
+
+	// Authenticate using account-based storage
+	auth, err := graph.AuthenticateWithAccountStorage(ctx, config.AuthConfig, config.CacheDir, instance, true)
 	if err != nil {
 		logging.Error().Err(err).Msg("Authentication failed")
 		os.Exit(1)
 	}
+
+	logging.Info().
+		Str("account", auth.Account).
+		Str("tokenPath", auth.Path).
+		Msg("Authentication successful for stats display")
 
 	// Initialize the filesystem without mounting
 	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval, config.MaxCacheSize)
