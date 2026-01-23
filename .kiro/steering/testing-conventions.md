@@ -315,6 +315,8 @@ Understanding the rationale helps ensure compliance:
 
 ### References
 
+- **Running Tests Guide**: `docs/testing/running-tests.md` - Complete guide to running and writing tests
+- **Test Fixtures Guide**: `docs/testing/test-fixtures.md` - Detailed fixture usage and examples
 - **Setup Guide**: `docs/TEST_SETUP.md` - Comprehensive test environment setup
 - **Docker Guide**: `docs/testing/docker-test-environment.md` - Docker-specific details
 - **Task Summary**: `docs/TASK_1_SUMMARY.md` - Docker environment validation results

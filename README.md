@@ -408,6 +408,7 @@ For more information about OneMount:
 * [Development Guidelines](docs/guides/developer/DEVELOPMENT.md) - Information about the project structure, tech stack, and best practices
 * [Debugging Guide](docs/guides/developer/debugging.md) - Developer-focused procedures for logs, tracing, and quick diagnostics
 * [Solo Developer AI Process](docs/guides/ai-agent/Solo-Developer-AI-Process.md) - Project-agnostic development methodology
+* [Running Tests](docs/testing/running-tests.md) - Complete guide to running and writing tests
 * [Testing Documentation](docs/4-testing/) - Comprehensive testing guides and framework documentation
 
 ### Project Resources

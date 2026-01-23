@@ -2891,7 +2891,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 1.2, 15.7_
 
 - [ ] 46. Test infrastructure fixes and comprehensive test suite
-- [ ] 46.1 Fix test infrastructure and labeling
+- [-] 46.1 Fix test infrastructure and labeling
 - [x] 46.1.1 Audit all test functions for correct naming conventions
   - **Goal**: Ensure every test is correctly labeled according to its type
   - **Naming Conventions**:
@@ -3011,7 +3011,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.4, 13.1_
   - _Priority: MEDIUM - Required for property test reliability_
 
-- [ ] 46.1.9 Create test execution documentation
+- [x] 46.1.9 Create test execution documentation
   - **Goal**: Document how to run each type of test correctly
   - Create `docs/testing/running-tests.md` with:
     - Overview of test types and naming conventions
@@ -3024,7 +3024,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 12.1, 13.1, 13.2_
   - _Priority: MEDIUM - Required for developer onboarding_
 
-- [ ] 46.1.10 Run unit tests to verify fixes
+- [x] 46.1.10 Run unit tests to verify fixes
   - **Goal**: Verify all unit tests pass without auth tokens
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./...`
   - Verify all tests pass
