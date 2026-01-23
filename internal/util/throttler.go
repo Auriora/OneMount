@@ -37,7 +37,6 @@ func (bt *BandwidthThrottler) Wait(ctx context.Context, bytes int64) error {
 	}
 
 	bt.mutex.Lock()
-	defer bt.mutex.Unlock()
 
 	// Update bytes transferred
 	bt.bytesTransferred += bytes
@@ -45,6 +44,7 @@ func (bt *BandwidthThrottler) Wait(ctx context.Context, bytes int64) error {
 	// Calculate elapsed time
 	elapsed := time.Since(bt.startTime).Seconds()
 	if elapsed <= 0 {
+		bt.mutex.Unlock()
 		return nil
 	}
 
@@ -63,6 +63,7 @@ func (bt *BandwidthThrottler) Wait(ctx context.Context, bytes int64) error {
 			// Check context before sleeping
 			select {
 			case <-ctx.Done():
+				bt.mutex.Unlock()
 				return ctx.Err()
 			default:
 			}
@@ -78,15 +79,14 @@ func (bt *BandwidthThrottler) Wait(ctx context.Context, bytes int64) error {
 			select {
 			case <-timer.C:
 				// Sleep completed normally
+				return nil
 			case <-ctx.Done():
-				bt.mutex.Lock()
 				return ctx.Err()
 			}
-
-			bt.mutex.Lock()
 		}
 	}
 
+	bt.mutex.Unlock()
 	return nil
 }
 

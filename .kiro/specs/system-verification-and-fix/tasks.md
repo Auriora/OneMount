@@ -3042,7 +3042,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.2, 13.2, 13.4_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.1.12 Run property-based tests to verify fixes
+- [x] 46.1.12 Run property-based tests to verify fixes
   - **Goal**: Verify all property-based tests pass
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
   - Verify all 67 properties pass
