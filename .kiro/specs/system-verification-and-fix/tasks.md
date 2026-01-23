@@ -2973,7 +2973,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.2, 13.2, 13.4_
   - _Priority: HIGH - Required for integration test reliability_
 
-- [ ] 46.1.7 Verify system tests are correctly labeled and isolated
+- [x] 46.1.7 Verify system tests are correctly labeled and isolated
   - **Goal**: Ensure all TestSystemST_* tests are properly isolated
   - Review all tests in `tests/system/*_test.go`
   - Verify they use `SetupSystemTestFixture` or appropriate system-level setup

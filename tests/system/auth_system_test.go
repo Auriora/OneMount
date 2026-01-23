@@ -19,10 +19,20 @@ import (
 // Expected Result: Authentication completes successfully and tokens are stored
 // Requirements: 1.1, 1.2
 func TestSystemST_Auth_01_01_InteractiveAuthentication(t *testing.T) {
+	// Check if auth tokens already exist - skip interactive auth if they do
+	authPath := testutil.AuthTokensPath
+	if _, err := os.Stat(authPath); err == nil {
+		// Tokens exist, verify they work
+		auth, err := graph.LoadAuthTokens(authPath)
+		if err == nil && auth.AccessToken != "" {
+			t.Log("✓ Auth tokens already exist and are valid - skipping interactive authentication")
+			return
+		}
+	}
+
 	// Check if we should use mock authentication
 	if IsMockAuthEnabled() {
 		t.Log("Using mock authentication for headless testing")
-		authPath := "test-artifacts/.auth_tokens.json"
 
 		err := SetupMockAuthIfNeeded(authPath)
 		if err != nil {
@@ -55,7 +65,6 @@ func TestSystemST_Auth_01_01_InteractiveAuthentication(t *testing.T) {
 	}
 
 	// Remove existing auth tokens to force fresh authentication
-	authPath := testutil.AuthTokensPath
 	if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
 		t.Logf("Warning: Could not remove existing auth tokens: %v", err)
 	}

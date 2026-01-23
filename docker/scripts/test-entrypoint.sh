@@ -283,10 +283,12 @@ setup_auth_tokens() {
     fi
 
     if [[ -n "$auth_tokens_file" ]]; then
-        # Create symlink to canonical location instead of copying
-        print_info "Creating symlink to canonical location: $CANONICAL_AUTH_FILE"
-        ln -sf "$auth_tokens_file" "$CANONICAL_AUTH_FILE"
-        print_info "Symlinked auth tokens to canonical location"
+        # Copy tokens to writable canonical location (not symlink)
+        # This allows tests to refresh tokens without permission errors
+        print_info "Copying auth tokens to writable location: $CANONICAL_AUTH_FILE"
+        cp "$auth_tokens_file" "$CANONICAL_AUTH_FILE"
+        chmod 600 "$CANONICAL_AUTH_FILE"
+        print_info "Copied auth tokens to canonical location"
 
         # Verify the tokens file is valid JSON
         if command -v jq >/dev/null 2>&1; then
