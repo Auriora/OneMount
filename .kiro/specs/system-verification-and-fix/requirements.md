@@ -40,6 +40,7 @@ This specification defines the requirements for systematically verifying and fix
 3. WHEN authentication tokens expire, THE OneMount System SHALL automatically refresh them using the refresh token
 4. IF token refresh fails, THEN THE OneMount System SHALL prompt the user to re-authenticate
 5. WHERE the system is running in headless mode, THE OneMount System SHALL use device code flow for authentication
+6. WHEN storing authentication tokens, THE OneMount System SHALL use account-based storage paths derived from account identity (email hash) rather than mount point location, ensuring tokens are accessible regardless of mount point changes and preventing token duplication across multiple mounts of the same account
 
 ### Requirement 2: Basic Filesystem Mounting
 

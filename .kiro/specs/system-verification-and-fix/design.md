@@ -402,6 +402,10 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 *For any* system running in headless mode, the authentication process should use device code flow
 **Validates: Requirements 1.5**
 
+**Property 4.1: Account-Based Token Storage**
+*For any* authentication token storage operation, the system should store tokens using account-based paths (account email hash) rather than mount-point-based paths, ensuring tokens are accessible regardless of mount point location and preventing duplication
+**Validates: Requirements 1.6**
+
 ### Filesystem Mounting Properties
 
 **Property 5: FUSE Mount Success**
@@ -823,7 +827,100 @@ defer filesystem.mutex.Unlock()
 - Token refresh works automatically before expiration (Requirements 1.3)
 - Failed authentication provides clear error messages (Requirements 1.4)
 - Headless mode uses device code flow correctly (Requirements 1.5)
+- Tokens are stored using account-based paths for reliability and multi-account support (Requirements 1.6)
 - Tests run in isolated Docker containers without affecting host system (Requirements 16.1-16.7)
+
+#### Account-Based Token Storage Architecture
+
+**Problem**: The original implementation stored tokens at `{cacheDir}/{instance}/auth_tokens.json` where `instance` is derived from the mount point location. This caused:
+- Docker test reliability issues (different mount points = different token paths)
+- Token duplication (same account at different mount points = duplicate tokens)
+- Token loss on remount (changing mount point = can't find existing tokens)
+- Test environment confusion (tests can't find production tokens)
+
+**Solution**: Store tokens at `{cacheDir}/accounts/{account-hash}/auth_tokens.json` where:
+- `cacheDir`: XDG cache directory (typically `~/.cache/onemount`)
+- `account-hash`: SHA256 hash of account email (first 16 characters)
+- Example: `user@example.com` → `~/.cache/onemount/accounts/a1b2c3d4e5f6g7h8/auth_tokens.json`
+
+**Benefits**:
+- **Mount Point Independence**: Same tokens regardless of where you mount
+- **No Token Duplication**: One account = one token file
+- **Reliable Docker Testing**: Tests find tokens regardless of mount point
+- **Account Isolation**: Different accounts have separate token files
+- **Multi-Account Support**: Multiple accounts can be mounted simultaneously
+
+**Implementation**:
+
+```go
+// GetAuthTokensPathByAccount returns token path based on account identity
+func GetAuthTokensPathByAccount(cacheDir, accountEmail string) string {
+    accountHash := hashAccount(accountEmail)
+    return filepath.Join(cacheDir, "accounts", accountHash, AuthTokensFileName)
+}
+
+// hashAccount creates a stable hash of account email
+func hashAccount(email string) string {
+    normalized := strings.ToLower(strings.TrimSpace(email))
+    hash := sha256.Sum256([]byte(normalized))
+    return hex.EncodeToString(hash[:])[:16]
+}
+
+// FindAuthTokens searches for tokens with fallback and migration
+func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
+    // 1. Try account-based location (new)
+    if accountEmail != "" {
+        accountPath := GetAuthTokensPathByAccount(cacheDir, accountEmail)
+        if fileExists(accountPath) {
+            return accountPath, nil
+        }
+    }
+    
+    // 2. Try instance-based location (old, for migration)
+    instancePath := GetAuthTokensPath(cacheDir, instance)
+    if fileExists(instancePath) {
+        // Auto-migrate if we have account email
+        if accountEmail != "" {
+            migrateTokens(instancePath, GetAuthTokensPathByAccount(cacheDir, accountEmail))
+        }
+        return instancePath, nil
+    }
+    
+    // 3. Try legacy location (oldest)
+    legacyPath := GetAuthTokensPathFromCacheDir(cacheDir)
+    if fileExists(legacyPath) {
+        if accountEmail != "" {
+            migrateTokens(legacyPath, GetAuthTokensPathByAccount(cacheDir, accountEmail))
+        }
+        return legacyPath, nil
+    }
+    
+    // 4. Return new account-based path for creation
+    if accountEmail != "" {
+        return GetAuthTokensPathByAccount(cacheDir, accountEmail), nil
+    }
+    
+    return legacyPath, nil
+}
+```
+
+**Migration Strategy**:
+- Automatic migration on first use (copy tokens from old to new location)
+- Keep old tokens as backup (don't delete immediately)
+- Backward compatibility maintained (old locations still work)
+- Gradual deprecation timeline (log warnings → eventual removal)
+
+**Security Considerations**:
+- Token file permissions remain `0600` (owner read/write only)
+- SHA256 hash is cryptographically secure and collision-resistant
+- Account email not visible in filesystem (privacy-preserving)
+- Hash length (16 chars = 64 bits) provides sufficient uniqueness
+
+**Testing Requirements**:
+- Unit tests for hash generation and path generation
+- Integration tests for token migration from old locations
+- System tests for Docker environment token access
+- Multi-account tests for token isolation
 
 ### 2. Basic Filesystem Mounting Component
 

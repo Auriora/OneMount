@@ -159,6 +159,52 @@ This implementation plan breaks down the verification and fix process into discr
   - Update architecture docs if implementation differs
   - _Requirements: 12.1, 12.4_
 
+- [ ] 4.9 Refactor auth token storage to use account-based paths
+  - **Goal**: Fix token storage architecture to use account identity instead of mount point
+  - **Issue**: Current implementation stores tokens at `{cacheDir}/{instance}/auth_tokens.json` where instance is derived from mount point, causing Docker test reliability issues and token duplication
+  - **Solution**: Store tokens at `{cacheDir}/accounts/{account-hash}/auth_tokens.json` where account-hash is SHA256 hash of account email
+  - **Analysis**: `docs/reports/2026-01-23-063800-auth-token-storage-architecture-analysis.md`
+  - **Plan**: `docs/plans/auth-token-storage-refactoring-plan.md`
+  - _Requirements: 1.2, 1.6 (new), 13.2, 13.4_
+  - _Priority: HIGH - Required for Docker test reliability and multi-account support_
+
+- [ ] 4.9.1 Phase 1: Investigation & Prototyping (1-2 days)
+  - Analyze current token storage usage across codebase
+  - Prototype account-based storage functions in `internal/graph/oauth2.go`
+  - Test hash generation and collision resistance
+  - Verify Docker environment behavior with new approach
+  - Document findings and edge cases
+  - _Requirements: 1.6_
+
+- [ ] 4.9.2 Phase 2: Core Implementation (2-3 days)
+  - Add `GetAuthTokensPathByAccount()` function to `internal/graph/oauth2.go`
+  - Add `hashAccount()` helper function
+  - Implement `FindAuthTokens()` with fallback logic and auto-migration
+  - Add automatic token migration from old locations
+  - Update `SaveAuthTokens()` to use account-based path
+  - Update `LoadAuthTokens()` to search multiple locations
+  - Add unit tests for new functions
+  - Add migration logic tests
+  - _Requirements: 1.6_
+
+- [ ] 4.9.3 Phase 3: Integration & Testing (2-3 days)
+  - Update `cmd/onemount/main.go` to use account-based paths
+  - Update test fixtures in `internal/testutil/helpers/` to use account-based paths
+  - Update Docker auth setup scripts
+  - Add integration tests for token migration
+  - Test Docker environment token access with new paths
+  - Test multiple account scenarios
+  - Verify backward compatibility with old token locations
+  - _Requirements: 1.6, 13.2, 13.4_
+
+- [ ] 4.9.4 Phase 4: Documentation & Cleanup (1 day)
+  - Update `docs/2-architecture/authentication.md` with new token storage architecture
+  - Add migration guide in `docs/guides/user/`
+  - Update test documentation in `docs/4-testing/`
+  - Add deprecation warnings for old token paths in logs
+  - Update CHANGELOG with migration notes
+  - _Requirements: 1.6, 12.1_
+
 ---
 
 ## Phase 4: Filesystem Mounting Verification
@@ -2916,7 +2962,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1_
   - _Priority: HIGH - Required for unit test isolation_
 
-- [ ] 46.1.6 Verify integration tests are correctly labeled and use auth
+- [x] 46.1.6 Verify integration tests are correctly labeled and use auth
   - **Goal**: Ensure all TestIT_* tests properly use real auth
   - Review all tests with TestIT_ prefix
   - Verify they use `SetupIntegrationFSTestFixture` or real auth
