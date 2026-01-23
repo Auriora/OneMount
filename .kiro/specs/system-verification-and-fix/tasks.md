@@ -2233,6 +2233,23 @@ This implementation plan breaks down the verification and fix process into discr
   - Re-run Property 59 test to confirm fix
   - _Requirements: 24.7_
 
+- [x] 33.11 Fix Property 59: Goroutine Cleanup in Throttler
+  - **Issue**: TestProperty59_AdaptiveNetworkThrottling times out after 600 seconds due to goroutine leak
+  - **Root Cause**: Goroutines in `BandwidthThrottler.Wait()` not properly cleaned up when test completes
+  - **Analysis**: The `Wait()` method uses `time.After()` in a select statement which can leak goroutines if context is cancelled before timer expires
+  - **Tasks**:
+    - Review `internal/util/throttler.go` for goroutine cleanup issues
+    - Replace `time.After()` with `time.NewTimer()` to allow proper cleanup
+    - Add `defer timer.Stop()` to ensure timer resources are released
+    - Add context cancellation checks before sleeping
+    - Ensure all goroutines are tracked with wait groups if needed
+    - Add timeout protection to throttler operations
+    - Test with race detector: `go test -race -run TestProperty59`
+    - Re-run Property 59 test to confirm fix: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty59" ./internal/fs`
+  - **Estimated Effort**: 2-3 hours
+  - **Priority**: HIGH - Blocking property-based test suite completion
+  - _Requirements: 24.7, 10.5_
+
 ---
 
 
@@ -2984,7 +3001,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.3, 13.2, 13.4, 13.5_
   - _Priority: HIGH - Required for system test reliability_
 
-- [ ] 46.1.8 Verify property-based tests are correctly isolated
+- [x] 46.1.8 Verify property-based tests are correctly isolated
   - **Goal**: Ensure all TestProperty* tests use appropriate fixtures
   - Review all property-based tests in `internal/fs/*_property_test.go`
   - Verify they use mock fixtures (should not require auth)

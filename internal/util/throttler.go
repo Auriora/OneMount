@@ -60,12 +60,23 @@ func (bt *BandwidthThrottler) Wait(ctx context.Context, bytes int64) error {
 		sleepDuration := time.Duration((expectedDuration - elapsed) * float64(time.Second))
 
 		if sleepDuration > 0 {
+			// Check context before sleeping
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			// Release the lock while sleeping to allow other goroutines to check
 			bt.mutex.Unlock()
 
+			// Create a timer that can be stopped to prevent goroutine leaks
+			timer := time.NewTimer(sleepDuration)
+			defer timer.Stop()
+
 			// Sleep with context cancellation support
 			select {
-			case <-time.After(sleepDuration):
+			case <-timer.C:
 				// Sleep completed normally
 			case <-ctx.Done():
 				bt.mutex.Lock()
