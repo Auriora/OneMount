@@ -3,15 +3,15 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/auriora/onemount/internal/testutil/framework"
-	"github.com/auriora/onemount/internal/testutil/helpers"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/auriora/onemount/internal/testutil/framework"
+	"github.com/auriora/onemount/internal/testutil/helpers"
+
 	"github.com/auriora/onemount/internal/graph"
-	"github.com/auriora/onemount/internal/testutil"
 )
 
 // TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload verifies that a file can be successfully uploaded to OneDrive.
@@ -27,56 +27,17 @@ import (
 //	                4. Verify the file exists on OneDrive with correct content
 //	Expected Result File is successfully uploaded to OneDrive with the correct content
 //	Notes: Tests basic file creation and writing, which triggers uploads.
-func TestIT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
+func TestUT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 	// Mark the test for parallel execution
 
-	// Create a test fixture using the common setup
-	fixture := helpers.SetupFSTestFixture(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (this is a unit test with mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create filesystem: %w", err)
 		}
 		return fs, nil
-	})
-
-	// Set up the fixture with additional test-specific setup
-	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
-		// Get the base fixture setup
-		fsFixture, err := helpers.SetupFSTest(t, "FileOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
-			// Create the filesystem
-			fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create filesystem: %w", err)
-			}
-			return fs, nil
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// Set the root ID in the filesystem
-		fs := fsFixture.FS.(*Filesystem)
-		fs.root = fsFixture.RootID
-
-		// Update the root folder
-		rootItem := &graph.DriveItem{
-			ID:   fsFixture.RootID,
-			Name: "root",
-			Folder: &graph.Folder{
-				ChildCount: 0,
-			},
-		}
-		fsFixture.MockClient.AddMockItem("/me/drive/root", rootItem)
-
-		// Manually set up the root item
-		rootInode := NewInodeDriveItem(rootItem)
-		fs.InsertID(fsFixture.RootID, rootInode)
-
-		// Insert the root item into the database to avoid the "offline and could not fetch the filesystem root item from disk" error
-		fs.InsertNodeID(rootInode)
-
-		return fsFixture, nil
 	})
 
 	// Use the fixture to run the test
@@ -200,11 +161,11 @@ func TestIT_FS_02_FileOperations_FileUpload_SuccessfulUpload(t *testing.T) {
 //	                3. Verify the content matches what's on OneDrive
 //	Expected Result File is successfully downloaded from OneDrive with the correct content
 //	Notes: Tests reading files, which triggers downloads if not in cache.
-func TestIT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *testing.T) {
+func TestUT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *testing.T) {
 	// Mark the test for parallel execution
 
-	// Create a test fixture using the FSTestFixture helper
-	fixture := helpers.SetupFSTestFixture(t, "BasicFileSystemOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (this is a unit test with mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "BasicFileSystemOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -323,69 +284,15 @@ func TestIT_FS_03_BasicFileSystemOperations_FileDownload_SuccessfulDownload(t *t
 //	                4. Verify the root item has the correct properties
 //	Expected Result Root item is successfully retrieved from the database with the correct properties
 //	Notes: Tests the ability to retrieve the root item from the database in offline mode.
-func TestIT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
-	// Create a test fixture
-	fixture := framework.NewUnitTestFixture("RootRetrievalFixture")
-
-	// Set up the fixture
-	fixture.WithSetup(func(t *testing.T) (interface{}, error) {
-		// Create a temporary directory for the test
-		tempDir, err := os.MkdirTemp(testutil.TestSandboxTmpDir, "onemount-test-*")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create temporary directory: %w", err)
-		}
-
-		// Create a mock graph client
-		mockClient := graph.NewMockGraphClient()
-
-		// Set up the mock directory structure with a custom root ID
-		rootID := "custom-root-id"
-		rootItem := &graph.DriveItem{
-			ID:   rootID,
-			Name: "root",
-			Folder: &graph.Folder{
-				ChildCount: 1,
-			},
-		}
-
-		// Add the root item to the mock client
-		mockClient.AddMockItem("/me/drive/root", rootItem)
-
-		// Get auth tokens, either from existing file or create mock
-		auth := helpers.GetTestAuth()
-
+func TestUT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
+	// Create a test fixture using the mock setup (this is a unit test with mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "RootRetrievalFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
-		fs, err := NewFilesystem(auth, tempDir, 30)
+		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create filesystem: %w", err)
 		}
-
-		// Set the root ID
-		fs.root = rootID
-
-		// Manually set up the root item
-		rootInode := NewInodeDriveItem(rootItem)
-		fs.InsertID(rootID, rootInode)
-
-		// Insert the root item into the database
-		fs.InsertNodeID(rootInode)
-
-		// Return the test data
-		return map[string]interface{}{
-			"tempDir":    tempDir,
-			"mockClient": mockClient,
-			"rootID":     rootID,
-			"auth":       auth,
-			"fs":         fs,
-		}, nil
-	}).WithTeardown(func(t *testing.T, fixture interface{}) error {
-		// Clean up the temporary directory
-		data := fixture.(map[string]interface{})
-		tempDir := data["tempDir"].(string)
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, err)
-		}
-		return nil
+		return fs, nil
 	})
 
 	// Use the fixture to run the test
@@ -395,10 +302,10 @@ func TestIT_FS_04_RootRetrieval_OfflineMode_SuccessfulRetrieval(t *testing.T) {
 		if !ok {
 			t.Fatalf("Expected fixture to be of type *testutil.UnitTestFixture, but got %T", fixture)
 		}
-		data := unitTestFixture.SetupData.(map[string]interface{})
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 
-		rootID := data["rootID"].(string)
-		fs := data["fs"].(*Filesystem)
+		rootID := fsFixture.RootID
+		fs := fsFixture.FS.(*Filesystem)
 
 		// Verify that the root item is correctly stored in the database
 		// This simulates what would happen in offline mode when the root item is retrieved from the database
