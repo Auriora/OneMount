@@ -2787,8 +2787,8 @@ The specification now provides comprehensive coverage of all functional, securit
 
 ### Final Verification Tasks
 
-- [ ] 45. Complete Phase 11 manual testing
-- [ ] 45.1 Create comprehensive D-Bus integration manual testing guide
+- [x] 45. Complete Phase 11 manual testing
+- [x] 45.1 Create comprehensive D-Bus integration manual testing guide
   - **PURPOSE**: Create step-by-step manual testing guide for D-Bus integration that cannot be automated
   - **DELIVERABLE**: `docs/testing/manual-dbus-integration-guide.md`
   - Create comprehensive testing guide covering:
@@ -2809,7 +2809,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - Document known limitations and edge cases
   - _Requirements: 8.2_
 
-- [ ] 45.2 Create comprehensive D-Bus fallback manual testing guide
+- [x] 45.2 Create comprehensive D-Bus fallback manual testing guide
   - **PURPOSE**: Create step-by-step manual testing guide for D-Bus fallback behavior
   - **DELIVERABLE**: `docs/testing/manual-dbus-fallback-guide.md`
   - Create comprehensive testing guide covering:
@@ -2831,7 +2831,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - Document performance or functionality differences
   - _Requirements: 8.4_
 
-- [ ] 45.3 Create comprehensive Nemo extension manual testing guide
+- [x] 45.3 Create comprehensive Nemo extension manual testing guide
   - **PURPOSE**: Create step-by-step manual testing guide for Nemo file manager extension
   - **DELIVERABLE**: `docs/testing/manual-nemo-extension-guide.md`
   - Create comprehensive testing guide covering:
