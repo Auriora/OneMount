@@ -2,12 +2,13 @@ package framework
 
 import (
 	"fmt"
-	"github.com/auriora/onemount/internal/testutil"
 	"os"
 	"testing"
+
+	"github.com/auriora/onemount/internal/testutil"
 )
 
-func TestUT_Framework_Main(m *testing.M) {
+func TestMain(m *testing.M) {
 	// Setup code
 	fmt.Println("Setting up tests...")
 

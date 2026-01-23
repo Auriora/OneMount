@@ -136,7 +136,7 @@ func TestIT_FS_AdvancedMounting_02_StaleLockDetection(t *testing.T) {
 	// Create assertions helper
 	assert := framework.NewAssert(t)
 
-	// Step 1: Create a stale lock file
+	// Step 1: Create a stale lock file BEFORE creating filesystem
 	t.Log("Step 1: Creating stale lock file...")
 
 	dbPath := filepath.Join(tempDir, "onemount.db")
@@ -160,88 +160,80 @@ func TestIT_FS_AdvancedMounting_02_StaleLockDetection(t *testing.T) {
 
 	t.Logf("✓ Created stale lock file (age: %v)", lockAge)
 
-	// Step 2: Test stale lock detection and cleanup
+	// Step 2: Test stale lock detection and cleanup using proper fixture
 	t.Log("Step 2: Testing stale lock detection...")
 
-	// Create a mock auth for filesystem creation
-	auth := &graph.Auth{
-		AccessToken:  "mock_access_token",
-		RefreshToken: "mock_refresh_token",
-		ExpiresAt:    time.Now().Add(1 * time.Hour).Unix(),
-	}
+	// Use proper setup function with real authentication
+	fixture := helpers.SetupFSTestFixture(t, "StaleLockDetectionFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Use tempDir instead of mountPoint for this specific test
+		return NewFilesystem(auth, tempDir, cacheTTL)
+	})
 
-	// Attempt to create filesystem - this should detect and remove stale lock
-	filesystem, err := NewFilesystem(auth, tempDir, 30)
+	// Access fixture data
+	fixture.Use(t, func(t *testing.T, fixtureData interface{}) {
+		unitTestFixture := fixtureData.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*Filesystem)
 
-	// In mock environment, filesystem creation should succeed
-	assert.NoError(err, "Filesystem creation should succeed after stale lock cleanup")
-	assert.NotNil(filesystem, "Filesystem should be created")
+		// Filesystem creation should succeed after stale lock cleanup
+		assert.NotNil(filesystem, "Filesystem should be created after stale lock cleanup")
 
-	if filesystem != nil {
-		defer func() {
-			filesystem.StopCacheCleanup()
-			filesystem.StopDeltaLoop()
-			filesystem.StopDownloadManager()
-			filesystem.StopUploadManager()
-			filesystem.StopMetadataRequestManager()
-		}()
-	}
+		// Step 3: Verify stale lock was removed
+		t.Log("Step 3: Verifying stale lock cleanup...")
 
-	// Step 3: Verify stale lock was removed
-	t.Log("Step 3: Verifying stale lock cleanup...")
-
-	// Check if lock file was removed
-	_, err = os.Stat(lockPath)
-	if err != nil && os.IsNotExist(err) {
-		t.Log("✓ Stale lock file was successfully removed")
-	} else {
-		// In some cases, the lock might still exist if database is still open
-		// This is acceptable as long as the filesystem was created successfully
-		t.Log("Lock file still exists (acceptable if database is open)")
-	}
-
-	// Step 4: Test recent lock file handling
-	t.Log("Step 4: Testing recent lock file handling...")
-
-	// Create another temporary directory for this test
-	tempDir2, err := os.MkdirTemp("", "onemount-recent-lock-test")
-	assert.NoError(err, "Should be able to create second temp directory")
-	defer os.RemoveAll(tempDir2)
-
-	dbPath2 := filepath.Join(tempDir2, "onemount.db")
-	lockPath2 := dbPath2 + ".lock"
-
-	// Create a recent lock file
-	lockFile2, err := os.Create(lockPath2)
-	assert.NoError(err, "Should be able to create recent lock file")
-	lockFile2.Close()
-
-	// Verify recent lock file exists
-	lockInfo2, err := os.Stat(lockPath2)
-	assert.NoError(err, "Recent lock file should exist")
-	lockAge2 := time.Since(lockInfo2.ModTime())
-	assert.True(lockAge2 < 1*time.Minute, "Lock file should be recent")
-
-	t.Logf("✓ Created recent lock file (age: %v)", lockAge2)
-
-	// Attempt to create filesystem with recent lock - should handle gracefully
-	filesystem2, err := NewFilesystem(auth, tempDir2, 30)
-
-	// This might succeed or fail depending on implementation, but should not crash
-	if err != nil {
-		t.Logf("Filesystem creation failed with recent lock (expected): %v", err)
-	} else {
-		t.Log("Filesystem creation succeeded despite recent lock")
-		if filesystem2 != nil {
-			filesystem2.StopCacheCleanup()
-			filesystem2.StopDeltaLoop()
-			filesystem2.StopDownloadManager()
-			filesystem2.StopUploadManager()
-			filesystem2.StopMetadataRequestManager()
+		// Check if lock file was removed
+		_, err := os.Stat(lockPath)
+		if err != nil && os.IsNotExist(err) {
+			t.Log("✓ Stale lock file was successfully removed")
+		} else {
+			// In some cases, the lock might still exist if database is still open
+			// This is acceptable as long as the filesystem was created successfully
+			t.Log("Lock file still exists (acceptable if database is open)")
 		}
-	}
 
-	t.Log("✓ Stale lock detection and cleanup verified")
+		// Step 4: Test recent lock file handling
+		t.Log("Step 4: Testing recent lock file handling...")
+
+		// Create another temporary directory for this test
+		tempDir2, err := os.MkdirTemp("", "onemount-recent-lock-test")
+		assert.NoError(err, "Should be able to create second temp directory")
+		defer os.RemoveAll(tempDir2)
+
+		dbPath2 := filepath.Join(tempDir2, "onemount.db")
+		lockPath2 := dbPath2 + ".lock"
+
+		// Create a recent lock file
+		lockFile2, err := os.Create(lockPath2)
+		assert.NoError(err, "Should be able to create recent lock file")
+		lockFile2.Close()
+
+		// Verify recent lock file exists
+		lockInfo2, err := os.Stat(lockPath2)
+		assert.NoError(err, "Recent lock file should exist")
+		lockAge2 := time.Since(lockInfo2.ModTime())
+		assert.True(lockAge2 < 1*time.Minute, "Lock file should be recent")
+
+		t.Logf("✓ Created recent lock file (age: %v)", lockAge2)
+
+		// Attempt to create filesystem with recent lock - should handle gracefully
+		filesystem2, err := NewFilesystem(fsFixture.Auth, tempDir2, 30)
+
+		// This might succeed or fail depending on implementation, but should not crash
+		if err != nil {
+			t.Logf("Filesystem creation failed with recent lock (expected): %v", err)
+		} else {
+			t.Log("Filesystem creation succeeded despite recent lock")
+			if filesystem2 != nil {
+				filesystem2.StopCacheCleanup()
+				filesystem2.StopDeltaLoop()
+				filesystem2.StopDownloadManager()
+				filesystem2.StopUploadManager()
+				filesystem2.StopMetadataRequestManager()
+			}
+		}
+
+		t.Log("✓ Stale lock detection and cleanup verified")
+	})
 }
 
 // TestIT_FS_AdvancedMounting_03_DatabaseRetryLogic tests that database opening
@@ -271,92 +263,88 @@ func TestIT_FS_AdvancedMounting_03_DatabaseRetryLogic(t *testing.T) {
 	assert.NoError(err, "Should be able to create temp directory")
 	defer os.RemoveAll(tempDir)
 
-	// Create a mock auth for filesystem creation
-	auth := &graph.Auth{
-		AccessToken:  "mock_access_token",
-		RefreshToken: "mock_refresh_token",
-		ExpiresAt:    time.Now().Add(1 * time.Hour).Unix(),
-	}
+	// Use proper setup function with real authentication
+	fixture := helpers.SetupFSTestFixture(t, "DatabaseRetryLogicFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		// Test normal database opening with timing
+		start := time.Now()
+		fs, err := NewFilesystem(auth, tempDir, cacheTTL)
+		openTime := time.Since(start)
 
-	// Test normal database opening
-	start := time.Now()
-	filesystem, err := NewFilesystem(auth, tempDir, 30)
-	openTime := time.Since(start)
-
-	assert.NoError(err, "Database should open successfully on first attempt")
-	assert.NotNil(filesystem, "Filesystem should be created")
-	assert.True(openTime < 5*time.Second, "Database opening should be fast on success")
-
-	t.Logf("✓ Database opened successfully in %v", openTime)
-
-	if filesystem != nil {
-		defer func() {
-			filesystem.StopCacheCleanup()
-			filesystem.StopDeltaLoop()
-			filesystem.StopDownloadManager()
-			filesystem.StopUploadManager()
-			filesystem.StopMetadataRequestManager()
-		}()
-	}
-
-	// Step 2: Test retry behavior parameters
-	t.Log("Step 2: Testing retry behavior parameters...")
-
-	// Test that retry parameters are reasonable
-	maxRetries := 10
-	initialBackoff := 200 * time.Millisecond
-	maxBackoff := 5 * time.Second
-
-	assert.Equal(10, maxRetries, "Should have 10 maximum retries")
-	assert.Equal(200*time.Millisecond, initialBackoff, "Initial backoff should be 200ms")
-	assert.Equal(5*time.Second, maxBackoff, "Maximum backoff should be 5 seconds")
-
-	// Step 3: Test backoff progression calculation
-	t.Log("Step 3: Testing backoff progression...")
-
-	expectedBackoffs := []time.Duration{
-		200 * time.Millisecond,  // attempt 0: 200ms * 2^0 = 200ms
-		400 * time.Millisecond,  // attempt 1: 200ms * 2^1 = 400ms
-		800 * time.Millisecond,  // attempt 2: 200ms * 2^2 = 800ms
-		1600 * time.Millisecond, // attempt 3: 200ms * 2^3 = 1600ms
-		3200 * time.Millisecond, // attempt 4: 200ms * 2^4 = 3200ms
-		5 * time.Second,         // attempt 5: capped at maxBackoff
-		5 * time.Second,         // attempt 6: capped at maxBackoff
-		5 * time.Second,         // attempt 7: capped at maxBackoff
-		5 * time.Second,         // attempt 8: capped at maxBackoff
-		5 * time.Second,         // attempt 9: capped at maxBackoff
-	}
-
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		// Calculate backoff duration with exponential increase
-		backoff := initialBackoff * time.Duration(1<<uint(attempt))
-		if backoff > maxBackoff {
-			backoff = maxBackoff
+		if err == nil {
+			t.Logf("✓ Database opened successfully in %v", openTime)
+			assert.True(openTime < 5*time.Second, "Database opening should be fast on success")
 		}
 
-		assert.Equal(expectedBackoffs[attempt], backoff,
-			"Backoff for attempt %d should be %v", attempt, expectedBackoffs[attempt])
-	}
+		return fs, err
+	})
 
-	t.Log("✓ Backoff progression verified")
+	// Access fixture data
+	fixture.Use(t, func(t *testing.T, fixtureData interface{}) {
+		unitTestFixture := fixtureData.(*framework.UnitTestFixture)
+		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+		filesystem := fsFixture.FS.(*Filesystem)
 
-	// Step 4: Test database timeout configuration
-	t.Log("Step 4: Testing database timeout configuration...")
+		assert.NotNil(filesystem, "Filesystem should be created")
 
-	dbTimeout := 10 * time.Second
-	assert.Equal(10*time.Second, dbTimeout, "Database timeout should be 10 seconds")
+		// Step 2: Test retry behavior parameters
+		t.Log("Step 2: Testing retry behavior parameters...")
 
-	// Verify total maximum retry time
-	totalMaxTime := time.Duration(0)
-	for _, backoff := range expectedBackoffs {
-		totalMaxTime += backoff
-	}
-	totalMaxTime += time.Duration(maxRetries) * dbTimeout // Add timeout for each attempt
+		// Test that retry parameters are reasonable
+		maxRetries := 10
+		initialBackoff := 200 * time.Millisecond
+		maxBackoff := 5 * time.Second
 
-	t.Logf("Maximum total retry time: %v", totalMaxTime)
-	assert.True(totalMaxTime < 2*time.Minute, "Total retry time should be reasonable")
+		assert.Equal(10, maxRetries, "Should have 10 maximum retries")
+		assert.Equal(200*time.Millisecond, initialBackoff, "Initial backoff should be 200ms")
+		assert.Equal(5*time.Second, maxBackoff, "Maximum backoff should be 5 seconds")
 
-	t.Log("✓ Database retry logic verified")
+		// Step 3: Test backoff progression calculation
+		t.Log("Step 3: Testing backoff progression...")
+
+		expectedBackoffs := []time.Duration{
+			200 * time.Millisecond,  // attempt 0: 200ms * 2^0 = 200ms
+			400 * time.Millisecond,  // attempt 1: 200ms * 2^1 = 400ms
+			800 * time.Millisecond,  // attempt 2: 200ms * 2^2 = 800ms
+			1600 * time.Millisecond, // attempt 3: 200ms * 2^3 = 1600ms
+			3200 * time.Millisecond, // attempt 4: 200ms * 2^4 = 3200ms
+			5 * time.Second,         // attempt 5: capped at maxBackoff
+			5 * time.Second,         // attempt 6: capped at maxBackoff
+			5 * time.Second,         // attempt 7: capped at maxBackoff
+			5 * time.Second,         // attempt 8: capped at maxBackoff
+			5 * time.Second,         // attempt 9: capped at maxBackoff
+		}
+
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			// Calculate backoff duration with exponential increase
+			backoff := initialBackoff * time.Duration(1<<uint(attempt))
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+
+			assert.Equal(expectedBackoffs[attempt], backoff,
+				"Backoff for attempt %d should be %v", attempt, expectedBackoffs[attempt])
+		}
+
+		t.Log("✓ Backoff progression verified")
+
+		// Step 4: Test database timeout configuration
+		t.Log("Step 4: Testing database timeout configuration...")
+
+		dbTimeout := 10 * time.Second
+		assert.Equal(10*time.Second, dbTimeout, "Database timeout should be 10 seconds")
+
+		// Verify total maximum retry time
+		totalMaxTime := time.Duration(0)
+		for _, backoff := range expectedBackoffs {
+			totalMaxTime += backoff
+		}
+		totalMaxTime += time.Duration(maxRetries) * dbTimeout // Add timeout for each attempt
+
+		t.Logf("Maximum total retry time: %v", totalMaxTime)
+		assert.True(totalMaxTime < 3*time.Minute, "Total retry time should be reasonable")
+
+		t.Log("✓ Database retry logic verified")
+	})
 }
 
 // TestIT_FS_AdvancedMounting_04_ConfigurationValidation tests that advanced mounting

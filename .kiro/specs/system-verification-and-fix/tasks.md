@@ -3033,7 +3033,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 13.1_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.1.11 Run integration tests to verify fixes
+- [x] 46.1.11 Run integration tests to verify fixes
   - **Goal**: Verify all integration tests pass with auth tokens
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass
