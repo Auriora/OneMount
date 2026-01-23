@@ -7,8 +7,9 @@ import (
 	"time"
 )
 
-// TestDBusServiceNameFileCreation tests that the service name file is created when the D-Bus server starts
-func TestUT_FS_DBus_ServiceNameFileCreation(t *testing.T) {
+// TestIT_FS_DBus_ServiceNameFileCreation tests that the service name file is created when the D-Bus server starts
+// This is an integration test because it requires D-Bus session bus to be available
+func TestIT_FS_DBus_ServiceNameFileCreation(t *testing.T) {
 	// Skip if D-Bus is not available
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		t.Skip("D-Bus session bus not available")
@@ -61,8 +62,9 @@ func TestUT_FS_DBus_ServiceNameFileCreation(t *testing.T) {
 	}
 }
 
-// TestDBusServiceNameFileCleanup tests that the service name file is removed when the D-Bus server stops
-func TestUT_FS_DBus_ServiceNameFileCleanup(t *testing.T) {
+// TestIT_FS_DBus_ServiceNameFileCleanup tests that the service name file is removed when the D-Bus server stops
+// This is an integration test because it requires D-Bus session bus to be available
+func TestIT_FS_DBus_ServiceNameFileCleanup(t *testing.T) {
 	// Skip if D-Bus is not available
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		t.Skip("D-Bus session bus not available")
@@ -106,8 +108,9 @@ func TestUT_FS_DBus_ServiceNameFileCleanup(t *testing.T) {
 	}
 }
 
-// TestDBusServiceNameFileMultipleInstances tests that multiple instances don't interfere with each other
-func TestUT_FS_DBus_ServiceNameFileMultipleInstances(t *testing.T) {
+// TestIT_FS_DBus_ServiceNameFileMultipleInstances tests that multiple instances don't interfere with each other
+// This is an integration test because it requires D-Bus session bus to be available
+func TestIT_FS_DBus_ServiceNameFileMultipleInstances(t *testing.T) {
 	// Skip if D-Bus is not available
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		t.Skip("D-Bus session bus not available")

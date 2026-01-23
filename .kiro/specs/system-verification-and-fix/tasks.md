@@ -2905,7 +2905,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.1, 11.2, 13.1_
   - _Priority: CRITICAL - Tests currently fail without auth_
 
-- [ ] 46.1.5 Refactor unit tests to use mock fixtures
+- [x] 46.1.5 Refactor unit tests to use mock fixtures
   - **Goal**: Ensure all remaining TestUT_* tests use mocks and don't require auth
   - Review all tests in `internal/fs/*_test.go` with TestUT_ prefix (after 46.1.4)
   - Identify which tests are still using `SetupFSTestFixture` (requires auth)

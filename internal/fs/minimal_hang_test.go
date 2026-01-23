@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/internal/graph"
-	"github.com/auriora/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -24,30 +22,14 @@ func TestUT_FS_MinimalHang_Reproduction(t *testing.T) {
 	progress := NewTestProgressIndicator()
 	defer progress.Complete()
 
-	// Step 1: Load authentication with timeout
-	progress.Step("Loading authentication tokens")
-	authPath, err := testutil.GetAuthTokenPath()
-	if err != nil {
-		progress.Fail("Authentication not configured")
-		t.Fatalf("Authentication not configured: %v", err)
-	}
+	// Step 1: Create mock authentication
+	progress.Step("Creating mock authentication")
+	auth := createMockAuth()
+	progress.Substep("✓ Mock auth created")
 
-	auth, err := graph.LoadAuthTokens(authPath)
-	if err != nil {
-		progress.Fail("Cannot load auth tokens")
-		t.Fatalf("Cannot load auth tokens: %v", err)
-	}
-	progress.Substep("✓ Auth tokens loaded")
-
-	// Step 2: Check token expiration
+	// Step 2: Mock token validation (always valid for unit tests)
 	progress.Step("Checking token validity")
-	safeAuth := NewSafeAuthWrapper(auth, DefaultAuthTimeoutConfig())
-	if safeAuth.IsTokenExpired() {
-		progress.Substep("⚠️ Token is expired - this may cause hangs")
-		t.Logf("Token is expired, this is likely the cause of hangs")
-	} else {
-		progress.Substep("✓ Token is valid")
-	}
+	progress.Substep("✓ Token is valid (mocked)")
 
 	// Step 3: Create filesystem with minimal timeout
 	progress.Step("Creating filesystem instance")
@@ -59,6 +41,9 @@ func TestUT_FS_MinimalHang_Reproduction(t *testing.T) {
 		progress.Fail("Failed to create mount point")
 		t.Fatalf("Failed to create mount point: %v", err)
 	}
+
+	// Use mock graph root for unit tests
+	ensureMockGraphRoot(t)
 
 	// Use very short timeout to fail fast
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -190,46 +175,22 @@ func TestUT_FS_MinimalHang_PointIsolation(t *testing.T) {
 	progress := NewTestProgressIndicator()
 	defer progress.Complete()
 
-	// Test 1: Authentication operations
+	// Test 1: Authentication operations (mocked for unit tests)
 	progress.Step("Testing authentication operations in isolation")
-	authPath, err := testutil.GetAuthTokenPath()
-	if err != nil {
-		progress.Fail("Authentication not configured")
-		t.Fatalf("Authentication not configured: %v", err)
-	}
+	auth := createMockAuth()
+	progress.Substep("✓ Mock auth created")
 
-	auth, err := graph.LoadAuthTokens(authPath)
-	if err != nil {
-		progress.Fail("Cannot load auth tokens")
-		t.Fatalf("Cannot load auth tokens: %v", err)
-	}
-
-	// Test token validation with timeout
+	// Test token validation with mock (always succeeds)
 	progress.Substep("Testing token validation...")
-	safeAuth := NewSafeAuthWrapper(auth, DefaultAuthTimeoutConfig())
-
-	validationDone := make(chan error, 1)
-	go func() {
-		validationDone <- safeAuth.ValidateConnection()
-	}()
-
-	select {
-	case err := <-validationDone:
-		if err != nil {
-			progress.Substep("⚠️ Token validation failed - this will cause hangs")
-			t.Logf("Token validation failed: %v", err)
-		} else {
-			progress.Substep("✓ Token validation successful")
-		}
-	case <-time.After(15 * time.Second):
-		progress.Substep("❌ Token validation timed out")
-		t.Log("Token validation timed out - authentication is the hang point")
-	}
+	progress.Substep("✓ Token validation successful (mocked)")
 
 	// Test 2: Filesystem creation
 	progress.Step("Testing filesystem creation in isolation")
 	tempDir := t.TempDir()
 	cacheDir := filepath.Join(tempDir, "cache")
+
+	// Use mock graph root for unit tests
+	ensureMockGraphRoot(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -283,33 +244,33 @@ func TestUT_FS_MinimalHang_ConcurrentOperations(t *testing.T) {
 
 	progress.Step("Testing concurrent operations for deadlocks")
 
-	// Load auth
-	authPath, err := testutil.GetAuthTokenPath()
-	if err != nil {
-		progress.Fail("Authentication not configured")
-		t.Fatalf("Authentication not configured: %v", err)
-	}
+	// Use mock auth for unit tests
+	auth := createMockAuth()
+	progress.Substep("✓ Mock auth created")
 
-	auth, err := graph.LoadAuthTokens(authPath)
-	if err != nil {
-		progress.Fail("Cannot load auth tokens")
-		t.Fatalf("Cannot load auth tokens: %v", err)
-	}
+	// Test concurrent filesystem operations (no real API calls)
+	progress.Substep("Testing concurrent filesystem operations...")
 
-	// Test concurrent auth operations
-	progress.Substep("Testing concurrent authentication operations...")
-	safeAuth := NewSafeAuthWrapper(auth, DefaultAuthTimeoutConfig())
+	// Use mock graph root for unit tests
+	ensureMockGraphRoot(t)
 
 	var wg sync.WaitGroup
 	results := make(chan error, 5)
 
-	// Start 5 concurrent auth operations
+	// Start 5 concurrent filesystem creation operations
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			progress.Heartbeat(fmt.Sprintf("Concurrent auth operation %d", id))
-			err := safeAuth.ValidateConnection()
+			progress.Heartbeat(fmt.Sprintf("Concurrent operation %d", id))
+
+			tempDir := t.TempDir()
+			cacheDir := filepath.Join(tempDir, fmt.Sprintf("cache-%d", id))
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			_, err := NewFilesystemWithContext(ctx, auth, cacheDir, 30, 24, 0)
 			results <- err
 		}(i)
 	}
@@ -323,18 +284,18 @@ func TestUT_FS_MinimalHang_ConcurrentOperations(t *testing.T) {
 
 	select {
 	case <-done:
-		progress.Substep("✓ All concurrent auth operations completed")
+		progress.Substep("✓ All concurrent operations completed")
 
 		// Check results
 		close(results)
 		for err := range results {
 			if err != nil {
-				t.Logf("Concurrent auth operation failed: %v", err)
+				t.Logf("Concurrent operation failed: %v", err)
 			}
 		}
 	case <-time.After(30 * time.Second):
 		progress.Fail("Concurrent operations timed out")
-		t.Fatal("Concurrent auth operations timed out - deadlock detected")
+		t.Fatal("Concurrent operations timed out - deadlock detected")
 	}
 
 	progress.Step("Concurrent operations test completed")

@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auriora/onemount/internal/graph"
-	"github.com/auriora/onemount/internal/testutil"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
@@ -22,53 +20,25 @@ func TestUT_FS_Deadlock_RootCauseAnalysis(t *testing.T) {
 	defer progress.Complete()
 
 	progress.Step("Phase 1: Testing authentication")
-	authPath, err := testutil.GetAuthTokenPath()
-	if err != nil {
-		progress.Fail("Authentication not configured")
-		t.Fatalf("Authentication not configured: %v", err)
-	}
 
-	// Test 1: Can we load auth tokens?
-	progress.Substep("Loading auth tokens...")
-	auth, err := graph.LoadAuthTokens(authPath)
-	if err != nil {
-		progress.Fail("Cannot load auth tokens")
-		t.Fatalf("Cannot load auth tokens: %v", err)
-	}
+	// Use mock auth for unit tests
+	auth := createMockAuth()
+	progress.Substep("✓ Mock auth created")
 
-	// Test 2: Are tokens expired?
+	// Test 2: Mock token validation (always valid)
 	progress.Substep("Checking token expiration...")
-	expiresAt := time.Unix(auth.ExpiresAt, 0)
-	if time.Now().After(expiresAt) {
-		progress.Substep("⚠️ Tokens are EXPIRED - this could cause hangs!")
-		t.Logf("Token expired at: %v, current time: %v", expiresAt, time.Now())
-	} else {
-		progress.Substep("✓ Tokens are valid")
-	}
+	progress.Substep("✓ Tokens are valid (mocked)")
 
-	// Test 3: Can we make a simple API call?
+	// Test 3: Mock API connectivity (no real API calls in unit tests)
 	progress.Substep("Testing basic API connectivity...")
-	apiTestDone := make(chan error, 1)
-	go func() {
-		_, err := graph.Get("/me", auth)
-		apiTestDone <- err
-	}()
-
-	select {
-	case err := <-apiTestDone:
-		if err != nil {
-			progress.Substep(fmt.Sprintf("⚠️ API call failed: %v - this could cause hangs!", err))
-		} else {
-			progress.Substep("✓ API connectivity working")
-		}
-	case <-time.After(15 * time.Second):
-		progress.Substep("❌ API call timed out - THIS IS LIKELY THE ROOT CAUSE!")
-		t.Log("API calls are timing out - this will cause filesystem operations to hang")
-	}
+	progress.Substep("✓ API connectivity working (mocked)")
 
 	progress.Step("Phase 2: Testing filesystem creation")
 	tempDir := t.TempDir()
 	cacheDir := filepath.Join(tempDir, "cache")
+
+	// Use mock graph root for unit tests
+	ensureMockGraphRoot(t)
 
 	progress.Substep("Creating filesystem instance...")
 	filesystem, err := NewFilesystem(auth, cacheDir, 30)
