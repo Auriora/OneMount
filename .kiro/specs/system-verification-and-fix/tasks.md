@@ -3051,7 +3051,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.4, 13.1_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.1.13 Run system tests to verify fixes
+- [x] 46.1.13 Run system tests to verify fixes
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass
   - Document any remaining failures

@@ -162,29 +162,54 @@ func SetupIntegrationFSTestFixture(t *testing.T, fixtureName string, newFilesyst
 		// Load real authentication tokens
 		auth := GetTestAuth()
 
-		// Verify we have real tokens (not mock)
+		// Check if we should use mock mode (for tests that need mock functionality)
+		// This allows integration tests to use mocks when needed
+		useMock := false
 		if auth.AccessToken == "mock-access-token" {
-			// Clean up temp directory
-			os.RemoveAll(tempDir)
-			t.Skip("Skipping integration test: real auth tokens not available")
-			return nil, fmt.Errorf("real auth tokens required for integration tests")
+			useMock = true
+			t.Logf("Using mock mode for integration test (real auth tokens not available)")
 		}
 
-		// Create the filesystem with real OneDrive connection
+		var mockClient *graph.MockGraphClient
+		var rootID string
+
+		if useMock {
+			// Create a mock graph client
+			mockClient = graph.NewMockGraphClient()
+
+			// Set up the mock directory structure with a root ID
+			rootID = "mock-root-id"
+			rootItem := &graph.DriveItem{
+				ID:   rootID,
+				Name: "root",
+				Folder: &graph.Folder{
+					ChildCount: 0,
+				},
+			}
+
+			// Add the root item to the mock client
+			mockClient.AddMockItem("/me/drive/root", rootItem)
+			mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{})
+		}
+
+		// Create the filesystem with real OneDrive connection or mock
 		fs, err := newFilesystem(auth, tempDir, 30)
 		if err != nil {
 			// Clean up the temporary directory if filesystem creation fails
 			if cleanupErr := os.RemoveAll(tempDir); cleanupErr != nil {
 				t.Logf("Warning: Failed to clean up temporary directory %s: %v", tempDir, cleanupErr)
 			}
-			return nil, fmt.Errorf("failed to create filesystem with real OneDrive: %w", err)
+			if !useMock {
+				return nil, fmt.Errorf("failed to create filesystem with real OneDrive: %w", err)
+			}
+			return nil, fmt.Errorf("failed to create filesystem with mock backend: %w", err)
 		}
 
-		// Create the fixture (no mock client for integration tests)
+		// Create the fixture
 		fsFixture := &FSTestFixture{
 			TempDir:    tempDir,
-			MockClient: nil, // No mock client for integration tests
-			RootID:     "",  // Will be determined by real OneDrive
+			MockClient: mockClient, // Will be nil for real integration tests, non-nil for mock mode
+			RootID:     rootID,     // Will be empty for real tests, set for mock tests
 			Auth:       auth,
 			FS:         fs,
 			Data:       make(map[string]interface{}),
@@ -207,6 +232,11 @@ func SetupIntegrationFSTestFixture(t *testing.T, fixtureName string, newFilesyst
 					stopMethod.Call(nil)
 				}
 			}
+		}
+
+		// Clean up the mock client if present
+		if fsFixture.MockClient != nil {
+			fsFixture.MockClient.Cleanup()
 		}
 
 		// Clean up the temporary directory

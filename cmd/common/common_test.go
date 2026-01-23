@@ -14,7 +14,7 @@ import (
 // TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior verifies that
 // CreateXDGVolumeInfo replaces an existing cloud copy with a local-only virtual
 // file and refreshes the cached content.
-func TestIT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
+func TestUT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "XDGVolumeInfoVirtualFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		return fs.NewFilesystem(auth, mountPoint, cacheTTL)
 	})
@@ -30,6 +30,12 @@ func TestIT_CMD_01_01_XDGVolumeInfo_VirtualFileBehavior(t *testing.T) {
 		filesystem := fsFixture.FS.(*fs.Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
+
+		// Skip test if mock client is not available (should not happen for unit tests)
+		if mockClient == nil {
+			t.Fatal("Mock client is nil - unit test fixture not properly initialized")
+			return
+		}
 
 		remoteID := "remote-xdg-id"
 		remoteItem := &graph.DriveItem{

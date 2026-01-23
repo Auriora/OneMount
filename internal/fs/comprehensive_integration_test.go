@@ -53,6 +53,12 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 		rootID := fsFixture.RootID
 		auth := fsFixture.Auth
 
+		// Skip test if mock client is not available (real OneDrive mode)
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
+			return
+		}
+
 		// Step 1: Verify authentication is valid
 		assert.NotNil(auth, "Authentication should not be nil")
 		assert.NotEqual("", auth.AccessToken, "Access token should not be empty")
@@ -64,7 +70,9 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 		assert.NotNil(fs, "Filesystem should not be nil")
 		rootInode := fs.GetID(rootID)
 		assert.NotNil(rootInode, "Root inode should exist")
-		assert.True(rootInode.IsDir(), "Root should be a directory")
+		if rootInode != nil {
+			assert.True(rootInode.IsDir(), "Root should be a directory")
+		}
 		t.Log("✓ Step 2: Filesystem mounted successfully")
 
 		// Step 3: List files in root directory

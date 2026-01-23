@@ -19,9 +19,9 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-// TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly tests various cache operations.
+// TestUT_FS_01_01_Cache_BasicOperations_WorkCorrectly tests various cache operations.
 //
-//	Test Case ID    IT-FS-01-01
+//	Test Case ID    UT-FS-01-01
 //	Title           Cache Operations
 //	Description     Tests various cache operations
 //	Preconditions   None
@@ -30,7 +30,7 @@ import (
 //	                3. Verify the results of each operation
 //	Expected Result Cache operations work correctly
 //	Notes: This test verifies that the cache operations work correctly.
-func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
+func TestUT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "CacheOperationsFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
@@ -53,7 +53,13 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		}
 		fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
+
+		// Ensure root is properly set up in mock mode
+		if rootID == "" {
+			t.Fatal("Root ID is empty - mock fixture not properly initialized")
+		}
 
 		// Step 1: Test basic cache operations
 
@@ -61,12 +67,16 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		rootInodeByPath, err := fs.GetPath("/", fs.auth)
 		assert.NoError(err, "GetPath should not return error")
 		assert.NotNil(rootInodeByPath, "Root inode should exist")
-		assert.Equal("/", rootInodeByPath.Path(), "Root path should be /")
+		if rootInodeByPath != nil {
+			assert.Equal("/", rootInodeByPath.Path(), "Root path should be /")
+		}
 
 		// Test GetID operation
 		rootInode := fs.GetID(rootID)
 		assert.NotNil(rootInode, "Root inode should exist")
-		assert.Equal(rootID, rootInode.ID(), "Root inode ID should match")
+		if rootInode != nil {
+			assert.Equal(rootID, rootInode.ID(), "Root inode ID should match")
+		}
 
 		// Step 2: Test cache insertion and retrieval
 
@@ -87,6 +97,9 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 			},
 		}
 
+		// Add mock response for the file
+		mockClient.AddMockItem("/me/drive/items/"+testFileID, fileItem)
+
 		// Insert the file into the cache
 		fileInode := NewInodeDriveItem(fileItem)
 		fs.InsertNodeID(fileInode)
@@ -99,28 +112,41 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		// Test retrieval by ID
 		retrievedInode := fs.GetID(testFileID)
 		assert.NotNil(retrievedInode, "File should be retrievable by ID")
-		assert.Equal(testFileID, retrievedInode.ID(), "Retrieved inode ID should match")
-		assert.Equal(testFileName, retrievedInode.Name(), "Retrieved inode name should match")
+		if retrievedInode != nil {
+			assert.Equal(testFileID, retrievedInode.ID(), "Retrieved inode ID should match")
+			assert.Equal(testFileName, retrievedInode.Name(), "Retrieved inode name should match")
+		}
 
 		// Test retrieval by NodeID
 		retrievedByNodeID := fs.GetNodeID(nodeID)
 		assert.NotNil(retrievedByNodeID, "File should be retrievable by NodeID")
-		assert.Equal(testFileID, retrievedByNodeID.ID(), "Retrieved inode ID should match")
+		if retrievedByNodeID != nil {
+			assert.Equal(testFileID, retrievedByNodeID.ID(), "Retrieved inode ID should match")
+		}
 
 		// Step 3: Test GetChild operation
 		childInode, err := fs.GetChild(rootID, testFileName, fs.auth)
 		assert.NoError(err, "GetChild should not return error")
 		assert.NotNil(childInode, "Child should be found")
-		assert.Equal(testFileID, childInode.ID(), "Child ID should match")
+		if childInode != nil {
+			assert.Equal(testFileID, childInode.ID(), "Child ID should match")
+		}
 
 		// Step 4: Test GetChildrenID operation
+		// Add mock response for children listing
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{fileItem})
+
 		children, err := fs.GetChildrenID(rootID, fs.auth)
 		assert.NoError(err, "GetChildrenID should not return error")
 		assert.NotNil(children, "Children map should not be nil")
-		childKey := strings.ToLower(testFileName)
-		childInode, exists := children[childKey]
-		assert.True(exists, "Children should contain our test file")
-		assert.Equal(testFileID, childInode.ID(), "Child in map should have correct ID")
+		if children != nil {
+			childKey := strings.ToLower(testFileName)
+			childInode, exists := children[childKey]
+			assert.True(exists, "Children should contain our test file")
+			if exists {
+				assert.Equal(testFileID, childInode.ID(), "Child in map should have correct ID")
+			}
+		}
 
 		// Step 5: Test path operations
 		expectedPath := "/" + testFileName
@@ -130,7 +156,9 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 		foundInode, err := fs.GetPath(expectedPath, fs.auth)
 		assert.NoError(err, "GetPath should find the file")
 		assert.NotNil(foundInode, "Found inode should not be nil")
-		assert.Equal(testFileID, foundInode.ID(), "Found inode ID should match")
+		if foundInode != nil {
+			assert.Equal(testFileID, foundInode.ID(), "Found inode ID should match")
+		}
 
 		// Step 6: Test cache cleanup and management
 
@@ -143,7 +171,7 @@ func TestIT_FS_01_01_Cache_BasicOperations_WorkCorrectly(t *testing.T) {
 // TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer verifies that remote
 // .xdg-volume-info entries returned by the Graph API are ignored so the local
 // virtual file can be used instead.
-func TestIT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
+func TestUT_FS_01_02_Cache_SkipsXDGVolumeInfoFromServer(t *testing.T) {
 	fixture := helpers.SetupFSTestFixture(t, "SkipXDGVolumeInfoFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		return NewFilesystem(auth, mountPoint, cacheTTL)
 	})
