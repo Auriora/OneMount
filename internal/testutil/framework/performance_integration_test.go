@@ -281,10 +281,10 @@ func TestUT_Framework_PerformanceIntegration_AllTests(t *testing.T) {
 		name string
 		test func(*testing.T)
 	}{
-		{"LargeFileHandling", func(t *testing.T) { TestPerformanceIntegration_LargeFileHandling(t) }},
-		{"HighFileCount", func(t *testing.T) { TestPerformanceIntegration_HighFileCount(t) }},
-		{"SustainedOperation", func(t *testing.T) { TestPerformanceIntegration_SustainedOperation(t) }},
-		{"MemoryLeakDetection", func(t *testing.T) { TestPerformanceIntegration_MemoryLeakDetection(t) }},
+		{"LargeFileHandling", func(t *testing.T) { TestUT_Framework_PerformanceIntegration_LargeFileHandling(t) }},
+		{"HighFileCount", func(t *testing.T) { TestUT_Framework_PerformanceIntegration_HighFileCount(t) }},
+		{"SustainedOperation", func(t *testing.T) { TestUT_Framework_PerformanceIntegration_SustainedOperation(t) }},
+		{"MemoryLeakDetection", func(t *testing.T) { TestUT_Framework_PerformanceIntegration_MemoryLeakDetection(t) }},
 	}
 
 	overallStart := time.Now()
