@@ -1,13 +1,16 @@
 package fs
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/auriora/onemount/internal/graph"
+	"github.com/auriora/onemount/internal/graph/api"
 	"github.com/auriora/onemount/internal/metadata"
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
@@ -156,15 +159,17 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 //	Test Case ID    IT-COMPREHENSIVE-02
 //	Title           File Modification to Sync Complete Flow
 //	Description     Tests flow: create file → modify → upload → verify on OneDrive
-//	Preconditions   Filesystem is mounted
-//	Steps           1. Create a new file
-//	                2. Write content to the file
-//	                3. Modify the file content
+//	Preconditions   Filesystem is mounted with real OneDrive authentication
+//	Steps           1. Create a test file directly on OneDrive using Graph API
+//	                2. Fetch the file into the filesystem
+//	                3. Modify the file content locally
 //	                4. Trigger upload (flush/fsync)
-//	                5. Verify file appears on OneDrive with correct content
+//	                5. Verify file is uploaded to OneDrive with correct content
 //	Expected Result Complete file modification to sync flow works correctly
-//	Requirements    11.2
-//	Notes: This test verifies the complete workflow from file creation through upload.
+//	Requirements    11.2, 4.1-4.8
+//	Notes: This test works with real OneDrive API and verifies the complete workflow
+//	       from file creation through modification and upload. The test creates a
+//	       unique test file on OneDrive and cleans it up after the test.
 func TestIT_COMPREHENSIVE_02_FileModificationToSync_CompleteFlow_WorksCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "FileModificationToSyncFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -184,104 +189,143 @@ func TestIT_COMPREHENSIVE_02_FileModificationToSync_CompleteFlow_WorksCorrectly(
 		// Get the test data
 		fsFixture := getFSTestFixture(t, fixture)
 
-		// Get the filesystem and mock client
+		// Get the filesystem
 		fs := fsFixture.FS.(*Filesystem)
-		mockClient := fsFixture.MockClient
+		auth := fsFixture.Auth
 		rootID := fsFixture.RootID
 
-		// Skip test if mock client is not available (real OneDrive mode)
-		// This test requires mock setup for file creation endpoints
-		if mockClient == nil {
-			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
-			return
-		}
-
-		// Step 1: Create a new file
-		testFileName := "new_document.txt"
+		// Step 1: Create a test file directly on OneDrive using Graph API
+		testFileName := "test_comprehensive_02_" + time.Now().Format("20060102_150405") + ".txt"
 		initialContent := "Initial content of the document"
 
-		// Mock the file creation endpoint
-		mockClient.AddMockResponse("/me/drive/items/"+rootID+"/children", []byte(`{"id":"new-file-id","name":"new_document.txt"}`), 201, nil)
+		t.Logf("Creating test file: %s", testFileName)
 
-		// Create the file using Mknod
-		mknodIn := &fuse.MknodIn{
-			InHeader: fuse.InHeader{NodeId: 1}, // Root node ID
-			Mode:     0644,
-		}
-		entryOut := &fuse.EntryOut{}
+		// Create a Graph provider to interact with OneDrive
+		provider := graph.NewProvider(auth)
 
-		status := fs.Mknod(nil, mknodIn, testFileName, entryOut)
-		assert.Equal(fuse.OK, status, "File creation should succeed")
-		assert.NotEqual(uint64(0), entryOut.NodeId, "Created file should have a valid node ID")
-		t.Log("✓ Step 1: File created successfully")
+		// Create the file on OneDrive using the Graph API
+		responseBytes, err := provider.Put(
+			"/me/drive/root:/"+testFileName+":/content",
+			bytes.NewReader([]byte(initialContent)),
+			api.Header{Key: "Content-Type", Value: "text/plain"},
+		)
+		assert.NoError(err, "Failed to create file on OneDrive")
+		assert.NotNil(responseBytes, "Response should not be nil")
 
-		// Step 2: Write initial content to the file
-		writeIn := &fuse.WriteIn{
-			InHeader: fuse.InHeader{NodeId: entryOut.NodeId},
-			Offset:   0,
-		}
+		// Parse the response to get the file ID
+		var createdItem graph.DriveItem
+		err = json.Unmarshal(responseBytes, &createdItem)
+		assert.NoError(err, "Failed to parse created item response")
 
-		bytesWritten, writeStatus := fs.Write(nil, writeIn, []byte(initialContent))
-		assert.Equal(fuse.OK, writeStatus, "Initial write should succeed")
-		assert.Equal(uint32(len(initialContent)), bytesWritten, "Should write all initial bytes")
+		testFileID := createdItem.ID
+		assert.NotEqual("", testFileID, "File ID should not be empty")
+		t.Logf("✓ Step 1: File created on OneDrive with ID: %s", testFileID)
 
-		// Verify file is marked as having changes
-		fileInode := fs.GetNodeID(entryOut.NodeId)
-		assert.NotNil(fileInode, "File inode should exist")
-		assert.True(fileInode.HasChanges(), "File should be marked as having changes")
-		t.Log("✓ Step 2: Initial content written successfully")
+		// Clean up the test file after the test
+		defer func() {
+			t.Logf("Cleaning up test file: %s", testFileName)
+			_ = provider.Delete("/me/drive/items/" + testFileID)
+		}()
 
-		// Step 3: Modify the file content
+		// Step 2: Fetch the file into the filesystem (refresh to see the new file)
+		// The file was just created on OneDrive, so we need to fetch it into the filesystem
+		// Try to get it directly by ID since it might not be in the cache yet
+		t.Logf("Fetching file from OneDrive by ID: %s", testFileID)
+
+		// Fetch the item directly from OneDrive
+		item, err := graph.GetItem(testFileID, auth)
+		assert.NoError(err, "Failed to fetch item from OneDrive")
+		assert.NotNil(item, "Item should not be nil")
+
+		// Create an inode for the item
+		testFileInode := NewInodeDriveItem(item)
+		assert.NotNil(testFileInode, "Test file inode should not be nil")
+
+		// Insert it into the filesystem
+		fs.InsertID(testFileID, testFileInode)
+		fs.InsertChild(rootID, testFileInode)
+
+		t.Log("✓ Step 2: File fetched into filesystem")
+
+		// Step 3: Modify the file content locally
 		modifiedContent := " - Modified content appended"
-		writeIn.Offset = uint64(len(initialContent))
+		fullContent := initialContent + modifiedContent
 
-		bytesWritten, writeStatus = fs.Write(nil, writeIn, []byte(modifiedContent))
-		assert.Equal(fuse.OK, writeStatus, "Modification write should succeed")
+		// Open the file for writing
+		openIn := &fuse.OpenIn{
+			InHeader: fuse.InHeader{NodeId: testFileInode.NodeID()},
+			Flags:    uint32(os.O_RDWR),
+		}
+		openOut := &fuse.OpenOut{}
+		status := fs.Open(nil, openIn, openOut)
+		assert.Equal(fuse.OK, status, "File open for writing should succeed")
+		t.Log("✓ Step 3a: File opened for writing")
+
+		// Write the modified content (append to existing content)
+		writeIn := &fuse.WriteIn{
+			InHeader: fuse.InHeader{NodeId: testFileInode.NodeID()},
+			Fh:       openOut.Fh,
+			Offset:   uint64(len(initialContent)),
+		}
+		bytesWritten, writeStatus := fs.Write(nil, writeIn, []byte(modifiedContent))
+		assert.Equal(fuse.OK, writeStatus, "Write should succeed")
 		assert.Equal(uint32(len(modifiedContent)), bytesWritten, "Should write all modified bytes")
-		assert.True(fileInode.HasChanges(), "File should still be marked as having changes")
-		t.Log("✓ Step 3: File content modified successfully")
+
+		// Verify file is marked as having changes (only if inode is not nil)
+		if testFileInode != nil {
+			assert.True(testFileInode.HasChanges(), "File should be marked as having local changes")
+		}
+		t.Log("✓ Step 3b: File content modified locally")
 
 		// Step 4: Trigger upload (flush/fsync)
-		// Mock the upload endpoint
-		mockClient.AddMockResponse("/me/drive/items/new-file-id/content", []byte(`{"id":"new-file-id","name":"new_document.txt","size":58}`), 200, nil)
-
 		flushIn := &fuse.FlushIn{
-			InHeader: fuse.InHeader{NodeId: entryOut.NodeId},
+			InHeader: fuse.InHeader{NodeId: testFileInode.NodeID()},
+			Fh:       openOut.Fh,
 		}
-
 		flushStatus := fs.Flush(nil, flushIn)
 		assert.Equal(fuse.OK, flushStatus, "Flush should succeed")
 		t.Log("✓ Step 4a: Flush triggered successfully")
 
 		// Fsync to ensure data is persisted
 		fsyncIn := &fuse.FsyncIn{
-			InHeader: fuse.InHeader{NodeId: entryOut.NodeId},
+			InHeader: fuse.InHeader{NodeId: testFileInode.NodeID()},
+			Fh:       openOut.Fh,
 		}
-
 		fsyncStatus := fs.Fsync(nil, fsyncIn)
 		assert.Equal(fuse.OK, fsyncStatus, "Fsync should succeed")
 		t.Log("✓ Step 4b: Fsync completed successfully")
 
-		// Step 5: Verify file appears on OneDrive with correct content
-		// In a real scenario, we would query the mock client to verify the upload
-		// For this test, we verify that the file is no longer marked as having changes
-		// after a successful upload (this would be set by the upload manager)
+		// Release the file
+		releaseIn := &fuse.ReleaseIn{
+			InHeader: fuse.InHeader{NodeId: testFileInode.NodeID()},
+			Fh:       openOut.Fh,
+		}
+		fs.Release(nil, releaseIn)
+		t.Log("✓ Step 4c: File released")
 
-		// Simulate successful upload by clearing the changes flag
-		// (In real implementation, this happens in the upload manager)
-		// Note: ClearChanges would be called by upload manager after successful upload
-		// For this test, we verify the upload mechanism was triggered
-		// assert.False(fileInode.HasChanges(), "File should not have changes after upload")
+		// Wait a moment for the upload to complete
+		// The upload manager processes uploads asynchronously
+		time.Sleep(2 * time.Second)
 
-		// Verify the file exists in the filesystem
-		verifyInode, _ := fs.GetChild(rootID, testFileName, fsFixture.Auth)
-		assert.NotNil(verifyInode, "File should exist in filesystem")
-		assert.Equal(testFileName, verifyInode.Name(), "File name should match")
-		t.Log("✓ Step 5: File verified on OneDrive")
+		// Step 5: Verify file is uploaded to OneDrive with correct content
+		// Download the file from OneDrive to verify the content
+		downloadedContent, _, err := provider.GetItemContent(testFileID)
+		assert.NoError(err, "Failed to download file from OneDrive")
+		assert.NotNil(downloadedContent, "Downloaded content should not be nil")
 
-		// Additional verification: Check that all steps completed without errors
-		assert.Equal(testFileName, fileInode.Name(), "File name should be correct")
-		assert.False(fileInode.IsDir(), "File should not be a directory")
+		// Verify the content matches what we wrote
+		downloadedStr := string(downloadedContent)
+		assert.Equal(fullContent, downloadedStr, "Downloaded content should match what was written")
+		t.Log("✓ Step 5: File verified on OneDrive with correct content")
+
+		// Additional verification: Check that the file is no longer marked as having changes
+		// after a successful upload (this may take a moment for the upload manager to process)
+		// Note: In the current implementation, the changes flag may still be set immediately
+		// after flush/fsync, but should be cleared once the upload completes
+		if testFileInode != nil {
+			t.Logf("File has changes: %v (may be cleared after upload completes)", testFileInode.HasChanges())
+		}
+
 		t.Log("✅ Complete file modification to sync flow test passed")
 	})
 }

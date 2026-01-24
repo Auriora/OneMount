@@ -3134,7 +3134,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 6.1-6.10 (Offline mode)_
   - _Priority: HIGH - Blocking comprehensive integration test suite_
 
-- [ ] 46.2.2.5 Fix or update TestIT_COMPREHENSIVE_02_FileModificationToSync
+- [x] 46.2.2.5 Fix or update TestIT_COMPREHENSIVE_02_FileModificationToSync
   - **Issue**: Test is skipped with message "requires mock client (test needs to be run in mock mode)"
   - **Component**: Comprehensive Integration Tests
   - **Options**:
