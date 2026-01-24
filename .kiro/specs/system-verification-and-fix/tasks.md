@@ -3163,7 +3163,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - Document coverage results
   - _Requirements: All_
 
-- [ ] 46.2.6 Implement skipped unit tests
+- [x] 46.2.6 Implement skipped unit tests
   - Implement `TestUT_UI_01_01_Mountpoint_Validation_ReturnsCorrectResult` in `internal/ui/onemount_test.go`
   - Implement `TestUT_UI_02_01_HomePath_EscapeAndUnescape_ConvertsPaths` in `internal/ui/onemount_test.go`
   - Implement `TestUT_UI_03_01_AccountName_FromAuthTokenFiles_ReturnsCorrectNames` in `internal/ui/onemount_test.go`

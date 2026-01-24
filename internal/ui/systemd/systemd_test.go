@@ -1,8 +1,9 @@
 package systemd
 
 import (
-	"github.com/auriora/onemount/internal/testutil/framework"
 	"testing"
+
+	"github.com/auriora/onemount/internal/testutil/framework"
 )
 
 // TestUT_UI_04_01_SystemdUnit_Template_AppliesInstanceName tests the TemplateUnit function.
@@ -22,11 +23,25 @@ func TestUT_UI_04_01_SystemdUnit_Template_AppliesInstanceName(t *testing.T) {
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement the test case
-		// 1. Define test cases with different unit names and instance names
-		// 2. Call TemplateUnit with each test case
-		// 3. Check if the result matches the expected templated unit name
-		t.Skip("Test not implemented yet")
+		// Test cases for TemplateUnit
+		testCases := []struct {
+			template string
+			instance string
+			expected string
+		}{
+			{"onemount@.service", "home-user-OneDrive", "onemount@home-user-OneDrive.service"},
+			{"onemount@.service", "mnt-onedrive", "onemount@mnt-onedrive.service"},
+			{"onemount@.service", "/home/user/OneDrive", "onemount@-home-user-OneDrive.service"}, // Forward slashes replaced with hyphens
+			{"myservice@.service", "instance1", "myservice@instance1.service"},
+			{"test@.timer", "test-instance", "test@test-instance.timer"},
+		}
+
+		for _, tc := range testCases {
+			result := TemplateUnit(tc.template, tc.instance)
+			if result != tc.expected {
+				t.Errorf("TemplateUnit(%q, %q) = %q, expected %q", tc.template, tc.instance, result, tc.expected)
+			}
+		}
 	})
 }
 
@@ -47,10 +62,35 @@ func TestUT_UI_05_01_SystemdUnit_Untemplate_ExtractsUnitAndInstanceName(t *testi
 
 	// Use the fixture to run the test
 	fixture.Use(t, func(t *testing.T, fixture interface{}) {
-		// TODO: Implement the test case
-		// 1. Define test cases with different templated unit names
-		// 2. Call UntemplateUnit with each test case
-		// 3. Check if the result matches the expected unit name and instance name
-		t.Skip("Test not implemented yet")
+		// Test cases for UntemplateUnit
+		testCases := []struct {
+			input            string
+			expectedInstance string
+			expectError      bool
+		}{
+			{"onemount@home-user-OneDrive.service", "home-user-OneDrive", false},
+			{"onemount@mnt-onedrive.service", "mnt-onedrive", false},
+			{"onemount@-home-user-OneDrive.service", "-home-user-OneDrive", false},
+			{"myservice@instance1.service", "instance1", false},
+			{"test@test-instance.timer", "test-instance", false},
+			{"onemount.service", "", true}, // Not a templated unit
+			{"invalid", "", true},          // Invalid format
+		}
+
+		for _, tc := range testCases {
+			result, err := UntemplateUnit(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("UntemplateUnit(%q) expected error, got nil", tc.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("UntemplateUnit(%q) unexpected error: %v", tc.input, err)
+				}
+				if result != tc.expectedInstance {
+					t.Errorf("UntemplateUnit(%q) = %q, expected %q", tc.input, result, tc.expectedInstance)
+				}
+			}
+		}
 	})
 }
