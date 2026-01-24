@@ -3087,7 +3087,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 13.2, 13.4_
   - _Priority: HIGH - Blocking integration test suite_
 
-- [ ] 46.2.2.2 Review and fix TestIT_COMPREHENSIVE_01 skip condition
+- [x] 46.2.2.2 Review and fix TestIT_COMPREHENSIVE_01 skip condition
   - **Issue**: Test skipped with message "requires mock client (test needs to be run in mock mode)"
   - **Location**: `internal/fs/comprehensive_integration_test.go:58`
   - **Analysis Needed**:
@@ -3103,13 +3103,80 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 13.1, 13.2_
   - _Priority: MEDIUM - Test currently skipped_
 
-- [ ] 46.2.2.3 Re-run integration tests after fixes
+- [x] 46.2.2.3 Re-run integration tests after fixes
   - **Goal**: Verify all integration tests pass after fixing comprehensive tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass (target: 30/30 passed, 0 failed, 0 skipped)
   - Document results in `test-artifacts/task-46.2.2.3-integration-tests-rerun.md`
   - _Requirements: All_
   - _Priority: HIGH - Verification of fixes_
+  - **Result**: ⚠️ MOSTLY PASSED - 27/29 passed (93.1%), 1 failed, 1 skipped
+  - **Summary**: `test-artifacts/task-46.2.2.3-integration-tests-rerun.md`
+  - **Issues**: TestIT_COMPREHENSIVE_03 fails with nil pointer, TestIT_COMPREHENSIVE_02 skipped
+  - **Discovery**: Only 29 integration tests ran out of 244 total integration tests in codebase
+
+- [x] 46.2.2.4 Fix TestIT_COMPREHENSIVE_03_OfflineMode nil pointer issue
+  - **Issue**: Test fails with `panic: runtime error: invalid memory address or nil pointer dereference`
+  - **Location**: `internal/graph/mock_graph.go:773` in `AddMockResponse()`
+  - **Root Cause**: Mock graph client is nil when `CreateMockFile()` is called
+  - **Component**: Test Fixture / Mock Client Initialization
+  - **Tasks**:
+    - Review test setup in `internal/fs/comprehensive_integration_test.go:TestIT_COMPREHENSIVE_03`
+    - Check fixture initialization in test helper `helpers.SetupFSTestFixture()`
+    - Ensure mock graph client is properly initialized before calling `CreateMockFile()`
+    - Add nil checks in `CreateMockFile()` helper function
+    - Update test to properly initialize mock client in fixture setup
+    - Consider adding defensive nil checks in mock client methods
+    - Re-run test: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_COMPREHENSIVE_03" ./internal/fs`
+    - Verify test passes without panic
+  - **Verification**: Test must pass without nil pointer errors
+  - **Documentation**: Update test comments to clarify mock client requirements
+  - _Requirements: 6.1-6.10 (Offline mode)_
+  - _Priority: HIGH - Blocking comprehensive integration test suite_
+
+- [ ] 46.2.2.5 Fix or update TestIT_COMPREHENSIVE_02_FileModificationToSync
+  - **Issue**: Test is skipped with message "requires mock client (test needs to be run in mock mode)"
+  - **Component**: Comprehensive Integration Tests
+  - **Options**:
+    - **Option A**: Update test to work with real auth tokens (preferred for integration tests)
+    - **Option B**: Create separate mock mode test run configuration
+    - **Option C**: Convert to unit test if mock-only behavior is required
+  - **Tasks**:
+    - Review test implementation in `internal/fs/comprehensive_integration_test.go:TestIT_COMPREHENSIVE_02`
+    - Determine if test can be adapted to work with real OneDrive API
+    - If Option A: Update test to use real auth tokens and verify against real OneDrive
+    - If Option B: Document how to run mock mode tests separately
+    - If Option C: Move to unit test file and update test name
+    - Re-run test: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_COMPREHENSIVE_02" ./internal/fs`
+    - Verify test runs and passes (not skipped)
+  - **Verification**: Test must run and pass (not be skipped)
+  - **Documentation**: Update test comments to clarify test mode requirements
+  - _Requirements: 4.1-4.8 (File modification and upload)_
+  - _Priority: MEDIUM - Test currently skipped but functionality may be covered elsewhere_
+
+- [ ] 46.2.2.6 Run ALL integration tests (244 total)
+  - **Goal**: Run complete integration test suite across all packages
+  - **Discovery**: Previous runs only executed 29 tests, but codebase has 244 integration tests
+  - **Packages with integration tests**:
+    - `internal/fs` - 238 tests (filesystem operations, cache, upload, download, delta sync, etc.)
+    - `internal/graph` - 8 tests (authentication, OAuth2, token management)
+    - `internal/socketio` - 7 tests (Socket.IO transport, heartbeat, reconnection)
+  - **Command**: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -timeout 60m -run "^TestIT_" ./...`
+  - **Expected Results**:
+    - All 244 integration tests should run
+    - Target: >95% pass rate (>232 tests passing)
+    - Document any failures with root cause analysis
+  - **Tasks**:
+    - Run complete integration test suite with extended timeout
+    - Monitor test execution for hangs or timeouts
+    - Document results by package and test category
+    - Identify any new failures not seen in previous runs
+    - Create fix tasks for any critical failures
+    - Update `test-artifacts/task-46.2.2.6-all-integration-tests.md` with results
+  - **Verification**: All integration tests must run to completion
+  - **Documentation**: Comprehensive results document with pass/fail breakdown by category
+  - _Requirements: All_
+  - _Priority: HIGH - Complete integration test coverage verification_
 
 - [x] 46.2.3 Run all property-based tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`

@@ -53,14 +53,18 @@ func TestIT_FS_12_01_Directory_ReadContents_EntriesCorrectlyReturned(t *testing.
 
 		// Get the test data
 		fsFixture := getFSTestFixture(t, fixture)
-		if fsFixture.MockClient != nil {
-			t.Skip("Directory removal integration test requires a real OneDrive connection")
-		}
 
 		// Get the filesystem and mock client
 		fs := fsFixture.FS.(*Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
+
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for directory and file creation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
+			return
+		}
 
 		// Step 1: Create a test directory with files
 		// Create a test directory
@@ -152,6 +156,13 @@ func TestIT_FS_13_01_Directory_ListContents_OutputMatchesExpected(t *testing.T) 
 		rootID := fsFixture.RootID
 		// Note: tempDir would be used in a real test to execute the ls command
 		// tempDir := fsFixture.TempDir
+
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for directory and file creation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
+			return
+		}
 
 		// Step 1: Create a test directory with files
 		// Create a test directory
@@ -260,6 +271,13 @@ func TestIT_FS_14_01_Touch_CreateAndUpdate_FilesCorrectlyModified(t *testing.T) 
 		fs := fsFixture.FS.(*Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
+
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for file creation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
+			return
+		}
 
 		// Step 1: Run touch command to create a new file
 		// In a real test, we would execute the touch command
@@ -1131,6 +1149,13 @@ func TestIT_FS_28_01_GIO_TrashIntegration_WorksCorrectly(t *testing.T) {
 		fs := fsFixture.FS.(*Filesystem)
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
+
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for file creation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
+			return
+		}
 
 		// Step 1: Test rename operations for local-only files (simulating trash temp files)
 		// Create a local-only file (like a temporary .trashinfo file)

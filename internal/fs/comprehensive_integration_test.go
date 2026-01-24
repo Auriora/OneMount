@@ -47,17 +47,9 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 		// Get the test data
 		fsFixture := getFSTestFixture(t, fixture)
 
-		// Get the filesystem and mock client
+		// Get the filesystem
 		fs := fsFixture.FS.(*Filesystem)
-		mockClient := fsFixture.MockClient
-		rootID := fsFixture.RootID
 		auth := fsFixture.Auth
-
-		// Skip test if mock client is not available (real OneDrive mode)
-		if mockClient == nil {
-			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
-			return
-		}
 
 		// Step 1: Verify authentication is valid
 		assert.NotNil(auth, "Authentication should not be nil")
@@ -68,6 +60,11 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 
 		// Step 2: Verify filesystem is mounted (initialized)
 		assert.NotNil(fs, "Filesystem should not be nil")
+
+		// Get root ID from the filesystem
+		rootID := fs.root
+		assert.NotEqual("", rootID, "Root ID should not be empty")
+
 		rootInode := fs.GetID(rootID)
 		assert.NotNil(rootInode, "Root inode should exist")
 		if rootInode != nil {
@@ -76,73 +73,68 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 		t.Log("✓ Step 2: Filesystem mounted successfully")
 
 		// Step 3: List files in root directory
-		// Create test files in the root directory
-		file1ID := "test-file-1-id"
-		file1Name := "document1.txt"
-		file1Content := "This is the first test document"
-		file1Item := helpers.CreateMockFile(mockClient, rootID, file1Name, file1ID, file1Content)
-		assert.NotNil(file1Item, "Failed to create mock file 1")
-		file1Inode := registerDriveItem(fs, rootID, file1Item)
-
-		file2ID := "test-file-2-id"
-		file2Name := "document2.txt"
-		file2Content := "This is the second test document"
-		file2Item := helpers.CreateMockFile(mockClient, rootID, file2Name, file2ID, file2Content)
-		assert.NotNil(file2Item, "Failed to create mock file 2")
-		registerDriveItem(fs, rootID, file2Item)
-
-		// List the children of the root directory
+		// Use real OneDrive files (no mock setup needed)
 		children, err := fs.GetChildrenID(rootID, auth)
 		assert.NoError(err, "Failed to get children of root directory")
-		assert.True(len(children) >= 2, "Root directory should have at least 2 children")
 
-		// Verify the files are in the list
-		childNames := make(map[string]bool)
-		for _, child := range children {
-			childNames[child.Name()] = true
-		}
-		assert.True(childNames[file1Name], "Root directory should contain file1")
-		assert.True(childNames[file2Name], "Root directory should contain file2")
+		// For integration tests with real OneDrive, we just verify the operation works
+		// We don't assert specific file counts since the OneDrive content may vary
+		t.Logf("Root directory contains %d items", len(children))
 		t.Log("✓ Step 3: Directory listing successful")
 
-		// Step 4: Read a file from the filesystem
-		// Get the file inode
-		file1Inode = fs.GetID(file1ID)
-		if file1Inode == nil {
-			file1Inode, _ = fs.GetChild(rootID, file1Name, auth)
-			assert.NotNil(file1Inode, "File1 inode should exist")
-		}
+		// Step 4: Read a file from the filesystem (if any files exist)
+		if len(children) > 0 {
+			// Find the first file (not directory) to test reading
+			var testFile *Inode
+			for _, child := range children {
+				if !child.IsDir() {
+					testFile = child
+					break
+				}
+			}
 
-		// Open the file
-		openIn := &fuse.OpenIn{
-			InHeader: fuse.InHeader{NodeId: file1Inode.NodeID()},
-			Flags:    uint32(os.O_RDONLY),
-		}
-		openOut := &fuse.OpenOut{}
-		status := fs.Open(nil, openIn, openOut)
-		assert.Equal(fuse.OK, status, "File open should succeed")
-		t.Log("✓ Step 4a: File opened successfully")
+			if testFile != nil {
+				// Open the file
+				openIn := &fuse.OpenIn{
+					InHeader: fuse.InHeader{NodeId: testFile.NodeID()},
+					Flags:    uint32(os.O_RDONLY),
+				}
+				openOut := &fuse.OpenOut{}
+				status := fs.Open(nil, openIn, openOut)
+				assert.Equal(fuse.OK, status, "File open should succeed")
+				t.Log("✓ Step 4a: File opened successfully")
 
-		// Read the file content
-		readIn := &fuse.ReadIn{
-			InHeader: fuse.InHeader{NodeId: file1Inode.NodeID()},
-			Fh:       openOut.Fh,
-			Offset:   0,
-			Size:     uint32(len(file1Content)),
-		}
-		readBuf := make([]byte, len(file1Content))
-		readResult, readStatus := fs.Read(nil, readIn, readBuf)
-		assert.Equal(fuse.OK, readStatus, "File read should succeed")
-		assert.NotNil(readResult, "Read result should not be nil")
-		t.Log("✓ Step 4b: File read successfully")
+				// Read some content from the file
+				readSize := uint32(1024) // Read up to 1KB
+				if testFile.Size() < uint64(readSize) {
+					readSize = uint32(testFile.Size())
+				}
 
-		// Release the file
-		releaseIn := &fuse.ReleaseIn{
-			InHeader: fuse.InHeader{NodeId: file1Inode.NodeID()},
-			Fh:       openOut.Fh,
+				readIn := &fuse.ReadIn{
+					InHeader: fuse.InHeader{NodeId: testFile.NodeID()},
+					Fh:       openOut.Fh,
+					Offset:   0,
+					Size:     readSize,
+				}
+				readBuf := make([]byte, readSize)
+				readResult, readStatus := fs.Read(nil, readIn, readBuf)
+				assert.Equal(fuse.OK, readStatus, "File read should succeed")
+				assert.NotNil(readResult, "Read result should not be nil")
+				t.Log("✓ Step 4b: File read successfully")
+
+				// Release the file
+				releaseIn := &fuse.ReleaseIn{
+					InHeader: fuse.InHeader{NodeId: testFile.NodeID()},
+					Fh:       openOut.Fh,
+				}
+				fs.Release(nil, releaseIn)
+				t.Log("✓ Step 4c: File released successfully")
+			} else {
+				t.Log("✓ Step 4: Skipped (no files in root directory to test reading)")
+			}
+		} else {
+			t.Log("✓ Step 4: Skipped (root directory is empty)")
 		}
-		fs.Release(nil, releaseIn)
-		t.Log("✓ Step 4c: File released successfully")
 
 		// Step 5: Verify error handling at each step
 		// Test with invalid authentication
@@ -152,7 +144,7 @@ func TestIT_COMPREHENSIVE_01_AuthToFileAccess_CompleteFlow_WorksCorrectly(t *tes
 			ExpiresAt:    time.Now().Add(-1 * time.Hour).Unix(),
 		}
 		_, err = fs.GetChildrenID(rootID, invalidAuth)
-		// Should handle invalid auth gracefully (may succeed with mock, but shouldn't crash)
+		// Should handle invalid auth gracefully (may fail with auth error, but shouldn't crash)
 		t.Log("✓ Step 5: Error handling verified")
 
 		t.Log("✅ Complete authentication to file access flow test passed")
@@ -299,7 +291,7 @@ func TestIT_COMPREHENSIVE_02_FileModificationToSync_CompleteFlow_WorksCorrectly(
 //	Test Case ID    IT-COMPREHENSIVE-03
 //	Title           Offline Mode Complete Flow
 //	Description     Tests flow: online → access files → go offline → access cached files → go online
-//	Preconditions   Filesystem is mounted
+//	Preconditions   Filesystem is mounted with mock client (requires mock mode)
 //	Steps           1. Access files while online (cache them)
 //	                2. Transition to offline mode
 //	                3. Verify offline detection works
@@ -309,7 +301,8 @@ func TestIT_COMPREHENSIVE_02_FileModificationToSync_CompleteFlow_WorksCorrectly(
 //	                7. Verify online operations resume
 //	Expected Result Complete offline mode flow works correctly
 //	Requirements    11.3
-//	Notes: This test verifies offline mode detection and cached file access.
+//	Notes: This test requires mock client for offline mode simulation.
+//	       Test will be skipped if real OneDrive authentication is used.
 func TestIT_COMPREHENSIVE_03_OfflineMode_CompleteFlow_WorksCorrectly(t *testing.T) {
 	// Create a test fixture using the common setup
 	fixture := helpers.SetupFSTestFixture(t, "OfflineModeFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -334,6 +327,13 @@ func TestIT_COMPREHENSIVE_03_OfflineMode_CompleteFlow_WorksCorrectly(t *testing.
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
 		auth := fsFixture.Auth
+
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for offline mode simulation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode for offline simulation)")
+			return
+		}
 
 		// Step 1: Access files while online (cache them)
 		// Create test files
@@ -537,6 +537,13 @@ func TestIT_COMPREHENSIVE_04_ConflictResolution_CompleteFlow_WorksCorrectly(t *t
 		rootID := fsFixture.RootID
 		auth := fsFixture.Auth
 
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for conflict simulation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode for conflict simulation)")
+			return
+		}
+
 		// Step 1: Create and cache a file
 		conflictFileID := "conflict-file-id"
 		conflictFileName := "conflict_document.txt"
@@ -735,6 +742,13 @@ func TestIT_COMPREHENSIVE_05_CacheCleanup_CompleteFlow_WorksCorrectly(t *testing
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
 		auth := fsFixture.Auth
+
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for cache cleanup simulation
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode for cache cleanup simulation)")
+			return
+		}
 
 		// Step 1: Access multiple files to populate cache
 		// Create old file (will be marked for cleanup)

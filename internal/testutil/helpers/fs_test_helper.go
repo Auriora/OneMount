@@ -138,7 +138,14 @@ func CleanupFSTest(t *testing.T, fixture *FSTestFixture) error {
 }
 
 // CreateMockDirectory creates a mock directory in the filesystem.
+// Returns nil if mockClient is nil (defensive check for integration tests with real OneDrive).
 func CreateMockDirectory(mockClient *graph.MockGraphClient, parentID, dirName, dirID string) *graph.DriveItem {
+	// Defensive nil check - return nil if mock client is not available
+	// This can happen in integration tests that use real OneDrive instead of mocks
+	if mockClient == nil {
+		return nil
+	}
+
 	now := time.Now()
 	// Create a directory item
 	dirItem := &graph.DriveItem{
@@ -163,7 +170,14 @@ func CreateMockDirectory(mockClient *graph.MockGraphClient, parentID, dirName, d
 }
 
 // CreateMockFile creates a mock file in the filesystem.
+// Returns nil if mockClient is nil (defensive check for integration tests with real OneDrive).
 func CreateMockFile(mockClient *graph.MockGraphClient, parentID, fileName, fileID string, content string) *graph.DriveItem {
+	// Defensive nil check - return nil if mock client is not available
+	// This can happen in integration tests that use real OneDrive instead of mocks
+	if mockClient == nil {
+		return nil
+	}
+
 	// Convert content to bytes and calculate hash
 	contentBytes := []byte(content)
 	quickXorHash := graph.QuickXORHash(&contentBytes)
