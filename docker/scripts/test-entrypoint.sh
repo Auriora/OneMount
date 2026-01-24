@@ -73,6 +73,54 @@ Notes:
 EOF
 }
 
+# Setup D-Bus function (defined early so it can be called from setup_environment)
+setup_dbus() {
+    print_info "Setting up D-Bus session bus..."
+    
+    # Create runtime directory for D-Bus
+    export XDG_RUNTIME_DIR="/tmp/runtime-tester"
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+    
+    # Check if D-Bus is already running and accessible
+    if [[ -n "$DBUS_SESSION_BUS_ADDRESS" ]] && dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames >/dev/null 2>&1; then
+        print_success "D-Bus session already running: $DBUS_SESSION_BUS_ADDRESS"
+        return 0
+    fi
+    
+    # Start D-Bus session daemon
+    print_info "Starting D-Bus session daemon..."
+    
+    # Remove stale socket if it exists
+    if [[ -S "$XDG_RUNTIME_DIR/bus" ]]; then
+        print_info "Removing stale D-Bus socket..."
+        rm -f "$XDG_RUNTIME_DIR/bus"
+    fi
+    
+    # Start dbus-daemon in session mode
+    if ! dbus-daemon --session --fork --address="unix:path=$XDG_RUNTIME_DIR/bus" 2>/dev/null; then
+        print_error "Failed to start D-Bus daemon"
+        return 1
+    fi
+    
+    # Set the session bus address
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    
+    # Wait for D-Bus to be ready (with timeout)
+    print_info "Waiting for D-Bus to be ready..."
+    for i in {1..10}; do
+        if dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames >/dev/null 2>&1; then
+            print_success "D-Bus session daemon started successfully"
+            print_info "D-Bus address: $DBUS_SESSION_BUS_ADDRESS"
+            return 0
+        fi
+        sleep 0.5
+    done
+    
+    print_error "D-Bus daemon started but not responding"
+    return 1
+}
+
 # Setup function
 setup_environment() {
     print_info "Setting up test environment..."
@@ -136,6 +184,11 @@ setup_environment() {
     # Setup X11 for GUI applications
     setup_x11
 
+    # Setup D-Bus session bus (required for D-Bus integration tests)
+    if ! setup_dbus; then
+        print_warning "D-Bus setup failed - D-Bus integration tests will be skipped"
+    fi
+
     # Setup auth tokens if available
     setup_auth_tokens
 
@@ -162,21 +215,6 @@ setup_x11() {
     # Set up X11 forwarding for GUI applications
     if [[ -n "$DISPLAY" ]]; then
         print_info "Setting up X11 forwarding for GUI applications..."
-        
-        # Create runtime directory for D-Bus
-        export XDG_RUNTIME_DIR="/tmp/runtime-$(whoami)"
-        mkdir -p "$XDG_RUNTIME_DIR"
-        chmod 700 "$XDG_RUNTIME_DIR"
-        
-        # Set up D-Bus session
-        if command -v dbus-launch >/dev/null 2>&1; then
-            # Start D-Bus session if not already running
-            if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]]; then
-                eval $(dbus-launch --sh-syntax)
-                export DBUS_SESSION_BUS_ADDRESS
-                print_info "Started D-Bus session: $DBUS_SESSION_BUS_ADDRESS"
-            fi
-        fi
         
         # Allow X11 access for current user
         if [[ -f "/tmp/.Xauthority" ]]; then

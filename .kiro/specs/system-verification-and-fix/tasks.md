@@ -3201,7 +3201,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 3.2, 3A.1-3A.2, 3B.1-3B.13_
   - _Priority: HIGH - Blocks download manager integration testing_
 
-- [ ] 46.2.2.8 Setup D-Bus session bus in Docker test environment
+- [x] 46.2.2.8 Setup D-Bus session bus in Docker test environment
   - **Goal**: Enable D-Bus integration tests in Docker by setting up session bus
   - **Issue**: 17 D-Bus tests fail with `dial unix /tmp/runtime-tester/bus: connect: no such file or directory`
   - **Impact**: HIGH - 17 integration tests cannot run (D-Bus GetFileStatus, signals, server tests)
