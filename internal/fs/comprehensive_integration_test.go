@@ -197,6 +197,13 @@ func TestIT_COMPREHENSIVE_02_FileModificationToSync_CompleteFlow_WorksCorrectly(
 		mockClient := fsFixture.MockClient
 		rootID := fsFixture.RootID
 
+		// Skip test if mock client is not available (real OneDrive mode)
+		// This test requires mock setup for file creation endpoints
+		if mockClient == nil {
+			t.Skip("Skipping test: requires mock client (test needs to be run in mock mode)")
+			return
+		}
+
 		// Step 1: Create a new file
 		testFileName := "new_document.txt"
 		initialContent := "Initial content of the document"
