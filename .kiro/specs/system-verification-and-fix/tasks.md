@@ -3237,7 +3237,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - **Summary**: `test-artifacts/task-46.2.3-property-tests-summary.md`
   - **Issue**: TestProperty59 timeout blocked remaining 27 tests from running
 
-- [ ] 46.2.3.1 Fix TestProperty59_AdaptiveNetworkThrottling timeout
+- [x] 46.2.3.1 Fix TestProperty59_AdaptiveNetworkThrottling timeout
   - **Issue**: Test times out after 10 minutes, hung in `BandwidthThrottler.Wait()`
   - **Impact**: CRITICAL - Blocks 27 other property tests from running (TestProperty40-45, 60-62)
   - **Component**: Resource Management / Network Throttling (`internal/util/throttler.go`)

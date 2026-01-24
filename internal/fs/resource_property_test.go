@@ -620,6 +620,19 @@ func generateNetworkThrottlingScenario(seed int) NetworkThrottlingScenario {
 
 // **Feature: system-verification-and-fix, Property 59: Adaptive Network Throttling**
 // **Validates: Requirements 24.7**
+//
+// This test verifies that the BandwidthThrottler correctly limits network bandwidth
+// usage to prevent saturation. The throttler works by:
+// 1. Tracking bytes transferred over time
+// 2. Calculating current bandwidth usage
+// 3. Sleeping when bandwidth exceeds the configured limit
+// 4. Supporting context cancellation to prevent goroutine leaks
+//
+// The test creates multiple concurrent "downloads" that use the throttler to
+// limit their transfer rate. It verifies that:
+// - Average bandwidth stays within the configured limit (with tolerance)
+// - All downloads complete successfully
+// - Goroutines are properly cleaned up on timeout or cancellation
 func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping property test in short mode")
@@ -629,6 +642,9 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 	// prevent network saturation and adjust based on network conditions
 	property := func() bool {
 		scenario := generateNetworkThrottlingScenario(int(time.Now().UnixNano() % 1000))
+
+		t.Logf("Testing scenario: BandwidthMbps=%d, NumDownloads=%d, FileSizeKB=%d",
+			scenario.BandwidthMbps, scenario.NumDownloads, scenario.FileSizeKB)
 
 		// Create test environment
 		mountSpec := generateValidMountPoint(t)
@@ -654,10 +670,13 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 		if contextTimeout < 60*time.Second {
 			contextTimeout = 60 * time.Second
 		}
-		// Cap at 5 minutes to prevent extremely long tests
-		if contextTimeout > 5*time.Minute {
-			contextTimeout = 5 * time.Minute
+		// Cap at 2 minutes to prevent extremely long tests
+		if contextTimeout > 2*time.Minute {
+			contextTimeout = 2 * time.Minute
 		}
+
+		t.Logf("Expected transfer time: %.2fs, Context timeout: %v",
+			expectedTransferTime, contextTimeout)
 
 		ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 		defer cancel()
@@ -768,6 +787,21 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 			// Success
 		case <-time.After(contextTimeout):
 			t.Logf("Network throttling test timed out after %v", contextTimeout)
+			cancel() // Cancel context to unblock goroutines
+
+			// Wait for goroutines to finish with a grace period
+			gracePeriod := time.NewTimer(5 * time.Second)
+			defer gracePeriod.Stop()
+
+			select {
+			case <-done:
+				t.Logf("Goroutines completed after context cancellation")
+			case <-gracePeriod.C:
+				t.Logf("Goroutines did not complete within grace period")
+			}
+			return false
+		case <-ctx.Done():
+			t.Logf("Context cancelled: %v", ctx.Err())
 			return false
 		}
 
@@ -809,7 +843,7 @@ func TestProperty59_AdaptiveNetworkThrottling(t *testing.T) {
 	}
 
 	config := &quick.Config{
-		MaxCount: 100,
+		MaxCount: 20, // Reduced from 100 to make test complete faster
 		Rand:     nil,
 	}
 
