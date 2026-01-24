@@ -2890,8 +2890,8 @@ The specification now provides comprehensive coverage of all functional, securit
   - Update script headers with token location requirements
   - _Requirements: 1.2, 15.7_
 
-- [ ] 46. Test infrastructure fixes and comprehensive test suite
-- [-] 46.1 Fix test infrastructure and labeling
+- [-] 46. Test infrastructure fixes and comprehensive test suite
+- [x] 46.1 Fix test infrastructure and labeling
 - [x] 46.1.1 Audit all test functions for correct naming conventions
   - **Goal**: Ensure every test is correctly labeled according to its type
   - **Naming Conventions**:
@@ -3060,23 +3060,95 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: HIGH - Verification of fixes_
 
 - [ ] 46.2 Run final comprehensive test suite (DEFERRED until task 46.1 complete)
-- [ ] 46.2.1 Run all unit tests
+- [x] 46.2.1 Run all unit tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./...`
   - Verify all tests pass
   - Document any failures
   - _Requirements: All_
 
-- [ ] 46.2.2 Run all integration tests
+- [x] 46.2.2 Run all integration tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
   - Verify all tests pass
   - Document any failures
   - _Requirements: All_
+  - **Results**: 28 passed, 1 failed, 1 skipped (see `test-artifacts/task-46.2.2-integration-tests-summary.md`)
 
-- [ ] 46.2.3 Run all property-based tests
+- [ ] 46.2.2.1 Fix TestIT_COMPREHENSIVE_02_FileModificationToSync nil pointer issue
+  - **Issue**: Test panics with nil pointer dereference when calling `AddMockResponse` on MockGraphClient
+  - **Location**: `internal/fs/comprehensive_integration_test.go:205`
+  - **Root Cause**: Test fixture not properly initializing mock client when real auth tokens unavailable
+  - **Tasks**:
+    - Review test fixture logic in `internal/testutil/framework/unit_test_framework.go`
+    - Ensure integration test fixture provides either real client OR properly initialized mock client
+    - Add nil check before calling `AddMockResponse` in test
+    - Update test to skip gracefully if neither real auth nor mock client available
+    - Alternative: Refactor test to work with real auth tokens only (remove mock setup)
+  - **Verification**: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_COMPREHENSIVE_02" ./internal/fs`
+  - _Requirements: 13.2, 13.4_
+  - _Priority: HIGH - Blocking integration test suite_
+
+- [ ] 46.2.2.2 Review and fix TestIT_COMPREHENSIVE_01 skip condition
+  - **Issue**: Test skipped with message "requires mock client (test needs to be run in mock mode)"
+  - **Location**: `internal/fs/comprehensive_integration_test.go:58`
+  - **Analysis Needed**:
+    - Determine if this test should be an integration test (TestIT_) or unit test (TestUT_)
+    - If integration test: Remove mock requirement, use real auth tokens
+    - If unit test: Rename to TestUT_ and ensure it works with mock client
+  - **Tasks**:
+    - Review test purpose and requirements
+    - Decide on appropriate test type
+    - Either fix mock client initialization OR convert to use real auth
+    - Update test name if changing test type
+  - **Verification**: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_COMPREHENSIVE_01" ./internal/fs`
+  - _Requirements: 13.1, 13.2_
+  - _Priority: MEDIUM - Test currently skipped_
+
+- [ ] 46.2.2.3 Re-run integration tests after fixes
+  - **Goal**: Verify all integration tests pass after fixing comprehensive tests
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestIT_" ./...`
+  - Verify all tests pass (target: 30/30 passed, 0 failed, 0 skipped)
+  - Document results in `test-artifacts/task-46.2.2.3-integration-tests-rerun.md`
+  - _Requirements: All_
+  - _Priority: HIGH - Verification of fixes_
+
+- [x] 46.2.3 Run all property-based tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
   - Verify all 67 properties pass
   - Document any failures
   - _Requirements: All_
+  - **Result**: ⚠️ INCOMPLETE - 45/46 ran and passed, 1 timeout, 27 tests never ran
+  - **Summary**: `test-artifacts/task-46.2.3-property-tests-summary.md`
+  - **Issue**: TestProperty59 timeout blocked remaining 27 tests from running
+
+- [ ] 46.2.3.1 Fix TestProperty59_AdaptiveNetworkThrottling timeout
+  - **Issue**: Test times out after 10 minutes, hung in `BandwidthThrottler.Wait()`
+  - **Impact**: CRITICAL - Blocks 27 other property tests from running (TestProperty40-45, 60-62)
+  - **Component**: Resource Management / Network Throttling (`internal/util/throttler.go`)
+  - **Root Cause**: Likely deadlock or infinite wait in bandwidth throttling logic
+  - **Tasks**:
+    - Review goroutine dump in `test-artifacts/task-46.2.3-property-tests.log` (tail -200)
+    - Investigate `BandwidthThrottler.Wait()` implementation in `internal/util/throttler.go`
+    - Check for potential deadlocks in throttler channel operations
+    - Review test implementation in `internal/fs/resource_property_test.go:TestProperty59`
+    - Add timeout protection within the test itself (e.g., context with deadline)
+    - Consider simplifying test complexity or splitting into smaller tests
+    - Fix the deadlock/infinite wait condition
+    - Add logging to track throttler state transitions
+    - Re-run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -timeout 15m -run "^TestProperty59_AdaptiveNetworkThrottling" ./internal/fs`
+    - Verify test completes within reasonable time (< 2 minutes)
+  - **Verification**: Test must pass without timeout
+  - **Documentation**: Update test comments to explain throttling behavior
+  - _Requirements: Adaptive network throttling (resource management)_
+  - _Priority: HIGH - Blocks 27 other property tests from running_
+
+- [ ] 46.2.3.2 Re-run all property-based tests after fixing TestProperty59
+  - **Goal**: Run all 73 property tests to completion
+  - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -timeout 30m -run "^TestProperty" ./internal/fs`
+  - Verify all 73 properties pass
+  - Document any new failures
+  - **Tests that need to run**: TestProperty40-45 (state transitions), TestProperty60-62 (resource management)
+  - _Requirements: All_
+  - _Priority: HIGH - Required to complete property test verification_
 
 - [ ] 46.2.4 Run system tests with real OneDrive
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestSystemST_" ./tests/system`
@@ -3090,6 +3162,17 @@ The specification now provides comprehensive coverage of all functional, securit
   - Identify any coverage gaps
   - Document coverage results
   - _Requirements: All_
+
+- [ ] 46.2.6 Implement skipped unit tests
+  - Implement `TestUT_UI_01_01_Mountpoint_Validation_ReturnsCorrectResult` in `internal/ui/onemount_test.go`
+  - Implement `TestUT_UI_02_01_HomePath_EscapeAndUnescape_ConvertsPaths` in `internal/ui/onemount_test.go`
+  - Implement `TestUT_UI_03_01_AccountName_FromAuthTokenFiles_ReturnsCorrectNames` in `internal/ui/onemount_test.go`
+  - Implement `TestUT_UI_04_01_SystemdUnit_Template_AppliesInstanceName` in `internal/ui/systemd/systemd_test.go`
+  - Implement `TestUT_UI_05_01_SystemdUnit_Untemplate_ExtractsUnitAndInstanceName` in `internal/ui/systemd/systemd_test.go`
+  - Run tests to verify implementations: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_UI" ./internal/ui/...`
+  - Document test implementations
+  - _Requirements: 2.4, 15.1, 15.7_
+  - _Priority: LOW - Not blocking release_
 
 - [ ] 47. Update release documentation
 - [ ] 47.1 Update CHANGELOG.md
