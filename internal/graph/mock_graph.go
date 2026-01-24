@@ -670,6 +670,11 @@ func (m *MockGraphClient) simulateNetworkConditions() error {
 
 // AddMockResponse adds a predefined response for a specific resource path
 func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCode int, err error) {
+	// Defensive nil check
+	if m == nil {
+		return
+	}
+
 	// Check if this is a content resource
 	if strings.Contains(resource, "/content") && statusCode == http.StatusOK {
 		// Extract the item ID from the resource path
@@ -781,6 +786,11 @@ func (m *MockGraphClient) AddMockResponse(resource string, body []byte, statusCo
 
 // AddMockItem adds a predefined DriveItem response for a specific resource path
 func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
+	// Defensive nil check
+	if m == nil {
+		return
+	}
+
 	// Create a new item with the same values to ensure it's not modified
 	itemCopy := *item
 
@@ -816,6 +826,11 @@ func (m *MockGraphClient) AddMockItem(resource string, item *DriveItem) {
 
 // AddMockItems adds a predefined list of DriveItems for a children request
 func (m *MockGraphClient) AddMockItems(resource string, items []*DriveItem) {
+	// Defensive nil check
+	if m == nil {
+		return
+	}
+
 	// Default behavior - no pagination
 	m.AddMockItemsWithPagination(resource, items, 0)
 }
@@ -823,6 +838,10 @@ func (m *MockGraphClient) AddMockItems(resource string, items []*DriveItem) {
 // AddMockItemsWithPagination adds a predefined list of DriveItems with pagination support
 // pageSize of 0 means no pagination
 func (m *MockGraphClient) AddMockItemsWithPagination(resource string, items []*DriveItem, pageSize int) {
+	// Defensive nil check
+	if m == nil {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

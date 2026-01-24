@@ -34,8 +34,8 @@ func TestIT_FS_08_01_DownloadManager_SingleFileDownload(t *testing.T) {
 	// Parallel execution disabled: these fixtures mutate the shared Graph mock client
 	// and must run serially to avoid HTTP client races with other download suites.
 
-	// Create a test fixture using the common setup
-	fixture := helpers.SetupFSTestFixture(t, "SingleFileDownloadIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (download manager tests use mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "SingleFileDownloadIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -202,8 +202,8 @@ func TestIT_FS_08_01_DownloadManager_SingleFileDownload(t *testing.T) {
 func TestIT_FS_08_02_DownloadManager_CachedFileAccess(t *testing.T) {
 	// Parallel execution disabled for the same reason as TestIT_FS_08_01.
 
-	// Create a test fixture using the common setup
-	fixture := helpers.SetupFSTestFixture(t, "CachedFileAccessIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (download manager tests use mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "CachedFileAccessIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -342,8 +342,8 @@ func TestIT_FS_08_02_DownloadManager_CachedFileAccess(t *testing.T) {
 func TestIT_FS_08_03_DownloadManager_ConcurrentDownloads(t *testing.T) {
 	// Parallel execution disabled to keep the mock Graph client state isolated.
 
-	// Create a test fixture using the common setup
-	fixture := helpers.SetupFSTestFixture(t, "ConcurrentDownloadsIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (download manager tests use mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "ConcurrentDownloadsIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -552,8 +552,8 @@ func TestIT_FS_08_03_DownloadManager_ConcurrentDownloads(t *testing.T) {
 func TestIT_FS_08_04_DownloadManager_DownloadFailureAndRetry(t *testing.T) {
 	// Parallel execution disabled to prevent races with shared mock Graph client state.
 
-	// Create a test fixture using the common setup
-	fixture := helpers.SetupFSTestFixture(t, "DownloadFailureRetryIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (download manager tests use mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "DownloadFailureRetryIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
@@ -686,8 +686,8 @@ func TestIT_FS_08_04_DownloadManager_DownloadFailureAndRetry(t *testing.T) {
 func TestIT_FS_08_05_DownloadManager_DownloadStatusTracking(t *testing.T) {
 	// Parallel execution disabled to shield shared mock Graph client fixtures.
 
-	// Create a test fixture using the common setup
-	fixture := helpers.SetupFSTestFixture(t, "DownloadStatusTrackingIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+	// Create a test fixture using the mock setup (download manager tests use mocks)
+	fixture := helpers.SetupMockFSTestFixture(t, "DownloadStatusTrackingIntegrationFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
 		// Create the filesystem
 		fs, err := NewFilesystem(auth, mountPoint, cacheTTL)
 		if err != nil {
