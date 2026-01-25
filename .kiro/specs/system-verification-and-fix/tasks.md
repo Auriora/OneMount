@@ -3228,6 +3228,270 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: HIGH - Blocks 17 integration tests_
   - _Note: If D-Bus cannot run in Docker, consider mocking D-Bus for integration tests_
 
+- [-] 46.2.2.9 Fix Issue #FS-001: GetFileStatus returns "Unknown"
+  - **Goal**: Fix GetFileStatus D-Bus method to return actual file status instead of "Unknown"
+  - **Issue**: 6 D-Bus tests fail because GetFileStatus always returns "Unknown"
+  - **Impact**: HIGH - 6 integration tests failing (GetFileStatus validation tests)
+  - **Root Cause**: GetFileStatus needs path-to-ID mapping or GetPath() method to look up file status
+  - **Reference**: Issue #FS-001 in tasks.md line 20.5
+  - **Tasks**:
+    - Review current GetFileStatus implementation in `internal/fs/dbus.go`
+    - Analyze how file paths are mapped to inode IDs
+    - Choose implementation approach:
+      - Option 1: Add `GetPath(id string) string` method to FilesystemInterface
+      - Option 2: Implement path-to-ID mapping in D-Bus server
+      - Option 3: Add reverse lookup cache (path → inode ID)
+    - Implement chosen solution
+    - Update GetFileStatus to use path-to-ID mapping
+    - Add unit tests for path-to-ID mapping
+    - Re-run failing tests: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_FS_DBus_GetFileStatus" ./internal/fs`
+    - Verify all 6 GetFileStatus tests pass
+  - **Verification**: All 6 GetFileStatus tests should pass
+  - **Tests that will pass**:
+    - `TestIT_FS_DBus_GetFileStatus_ValidPaths`
+    - `TestIT_FS_DBus_GetFileStatus_InvalidPaths`
+    - `TestIT_FS_DBus_GetFileStatus_StatusChanges`
+    - `TestIT_FS_DBus_GetFileStatus_SpecialCharacters`
+    - `TestIT_FS_DBus_GetFileStatus`
+    - `TestIT_FS_DBus_GetFileStatus_WithRealFiles`
+  - **Documentation**: Update `docs/2-architecture/dbus-integration.md` with path-to-ID mapping approach
+  - _Requirements: 8.2, 10.2_
+  - _Priority: HIGH - Blocks 6 integration tests_
+  - _Estimated Effort: 2-3 hours_
+
+- [-] 46.2.2.10 Add D-Bus service discovery automated test
+  - **Goal**: Automate D-Bus service discovery testing (replaces D-Feet manual test)
+  - **Purpose**: Verify OneMount service is discoverable on D-Bus session bus
+  - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Service Discovery Test
+  - **Tasks**:
+    - Create `TestIT_FS_DBus_ServiceDiscovery` in `internal/fs/dbus_discovery_test.go`
+    - Test should:
+      - Connect to D-Bus session bus
+      - List all services using `org.freedesktop.DBus.ListNames`
+      - Verify OneMount service is in the list
+      - Verify service is reachable using `Peer.Ping`
+    - Run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "TestIT_FS_DBus_ServiceDiscovery" ./internal/fs`
+    - Verify test passes
+  - **Verification**: Test passes and verifies service discovery
+  - **Documentation**: Update `docs/testing/dbus-test-automation-status.md` to mark service discovery as automated
+  - _Requirements: 8.2, 10.2_
+  - _Priority: MEDIUM - Improves D-Bus test coverage_
+  - _Estimated Effort: 1 hour_
+
+- [-] 46.2.2.11 Add D-Bus introspection validation automated test
+  - **Goal**: Automate D-Bus introspection testing (replaces D-Feet manual test)
+  - **Purpose**: Verify D-Bus interface structure is correct
+  - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Introspection Validation Test
+  - **Tasks**:
+    - Create `TestIT_FS_DBus_IntrospectionValidation` in `internal/fs/dbus_introspection_test.go`
+    - Test should:
+      - Call `org.freedesktop.DBus.Introspectable.Introspect`
+      - Verify `org.onemount.FileStatus` interface is present
+      - Verify `GetFileStatus` method signature is correct
+      - Verify `FileStatusChanged` signal signature is correct
+      - Verify standard D-Bus interfaces are present (Introspectable, Peer)
+    - Run test: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "TestIT_FS_DBus_IntrospectionValidation" ./internal/fs`
+    - Verify test passes
+  - **Verification**: Test passes and validates interface structure
+  - **Documentation**: Update `docs/testing/dbus-test-automation-status.md` to mark introspection as automated
+  - _Requirements: 8.2, 10.2_
+  - _Priority: MEDIUM - Improves D-Bus test coverage_
+  - _Estimated Effort: 1-2 hours_
+
+- [-] 46.2.2.12 Add D-Bus signal sequence automated tests
+  - **Goal**: Automate signal sequence testing for state transitions
+  - **Purpose**: Verify signals are emitted in correct order during file operations
+  - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Comprehensive Signal Monitoring Test
+  - **Tasks**:
+    - Create `TestIT_FS_DBus_SignalSequence_DownloadFlow` in `internal/fs/dbus_signal_sequence_test.go`
+      - Test Ghost → Downloading → Cached sequence
+      - Verify signals emitted in correct order
+      - Verify no duplicate signals
+    - Create `TestIT_FS_DBus_SignalSequence_UploadFlow`
+      - Test Modified → Uploading → Cached sequence
+      - Verify upload signal sequence
+    - Create `TestIT_FS_DBus_SignalSequence_ModifyFlow`
+      - Test Cached → Modified sequence
+      - Verify modification signals
+    - Create `TestIT_FS_DBus_SignalSequence_ErrorFlow`
+      - Test error state transitions
+      - Verify error signals
+    - Add helper function `collectSignals()` to collect signals with timeout
+    - Run tests: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_FS_DBus_SignalSequence" ./internal/fs`
+    - Verify all tests pass
+  - **Verification**: All signal sequence tests pass
+  - **Documentation**: Update `docs/testing/dbus-test-automation-status.md` to mark signal sequences as automated
+  - _Requirements: 8.1, 8.2, 10.2_
+  - _Priority: MEDIUM - Improves signal testing coverage_
+  - _Estimated Effort: 3-4 hours_
+
+- [-] 46.2.2.13 Add comprehensive D-Bus signal content automated tests
+  - **Goal**: Automate signal content validation for all file operations
+  - **Purpose**: Verify signals contain correct data for all operation types
+  - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Signal Content Validation
+  - **Tasks**:
+    - Create `TestIT_FS_DBus_SignalContent_FileModification` in `internal/fs/dbus_signal_content_test.go`
+      - Test signals during file modification
+      - Verify signal parameters (path, status)
+    - Create `TestIT_FS_DBus_SignalContent_FileDeletion`
+      - Test signals during file deletion
+      - Verify deletion signals
+    - Create `TestIT_FS_DBus_SignalContent_UploadOperations`
+      - Test signals during upload operations
+      - Verify upload progress signals
+    - Create `TestIT_FS_DBus_SignalContent_ErrorStates`
+      - Test signals for error conditions
+      - Verify error signal content
+    - Create `TestIT_FS_DBus_SignalContent_DirectoryOperations`
+      - Test signals for directory operations
+      - Verify directory-related signals
+    - Run tests: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_FS_DBus_SignalContent" ./internal/fs`
+    - Verify all tests pass
+  - **Verification**: All signal content tests pass
+  - **Documentation**: Update `docs/testing/dbus-test-automation-status.md` to mark signal content as fully automated
+  - _Requirements: 8.1, 8.2, 10.2_
+  - _Priority: MEDIUM - Comprehensive signal coverage_
+  - _Estimated Effort: 4-5 hours_
+
+- [-] 46.2.2.14 Add D-Bus external client simulation automated test
+  - **Goal**: Automate external client simulation (replaces D-Feet manual test)
+  - **Purpose**: Verify OneMount works correctly from external client perspective (like Nemo extension)
+  - **Reference**: `docs/testing/dbus-automation-recommendations.md` - External Client Simulation Test
+  - **Tasks**:
+    - Create `TestIT_FS_DBus_ExternalClientSimulation` in `internal/fs/dbus_external_client_test.go`
+    - Test should simulate external client behavior:
+      - Discover OneMount service
+      - Connect to service
+      - Subscribe to signals
+      - Call GetFileStatus method
+      - Perform file operation
+      - Verify signal received
+    - Run test: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_FS_DBus_ExternalClientSimulation" ./internal/fs`
+    - Verify test passes
+  - **Verification**: Test passes and simulates external client correctly
+  - **Documentation**: Update `docs/testing/dbus-test-automation-status.md` to mark external client simulation as automated
+  - _Requirements: 8.2, 8.3, 10.2_
+  - _Priority: LOW - Nice to have for comprehensive coverage_
+  - _Estimated Effort: 2-3 hours_
+
+- [-] 46.2.2.15 Update manual testing guide to reflect D-Bus automation
+  - **Goal**: Update manual testing documentation to reflect automated D-Bus tests
+  - **Purpose**: Remove D-Feet from critical path, keep as optional debugging tool
+  - **Tasks**:
+    - Update `docs/testing/manual-dbus-integration-guide.md`:
+      - Move D-Feet test (Test 7) to "Optional Debugging Tools" section
+      - Add note that Tests 1-6 are now automated
+      - Add references to automated test files
+      - Keep D-Feet instructions for developers who want to use it for debugging
+    - Update `docs/testing/dbus-test-automation-status.md`:
+      - Mark all new tests as automated
+      - Update automation coverage percentage
+      - Update recommendations section
+    - Create summary document: `docs/testing/dbus-automation-complete.md`
+      - Document final automation status
+      - List all automated tests
+      - Provide guidance on when to use manual vs automated tests
+  - **Verification**: Documentation accurately reflects automation status
+  - **Documentation**: 
+    - `docs/testing/manual-dbus-integration-guide.md` - Updated
+    - `docs/testing/dbus-test-automation-status.md` - Updated
+    - `docs/testing/dbus-automation-complete.md` - Created
+  - _Requirements: Documentation_
+  - _Priority: LOW - Documentation cleanup_
+  - _Estimated Effort: 1 hour_
+
+- [-] 46.2.2.16 Automate D-Bus fallback testing (Task 45.2)
+  - **Goal**: Automate 95% of D-Bus fallback testing to verify graceful degradation when D-Bus is unavailable
+  - **Purpose**: Ensure OneMount functions correctly without D-Bus (no crashes, all core operations work)
+  - **Reference**: `docs/testing/manual-tests-automation-analysis.md` - Task 45.2 Analysis
+  - **Tasks**:
+    - Create `internal/fs/dbus_fallback_test.go` with 7 automated tests:
+      - `TestIT_FS_DBusFallback_MountWithoutDBus` - Verify mount succeeds without D-Bus
+      - `TestIT_FS_DBusFallback_FileOperations` - Verify all file operations work (create, read, modify, delete)
+      - `TestIT_FS_DBusFallback_ExtendedAttributes` - Verify xattr status reporting works
+      - `TestIT_FS_DBusFallback_NoCrashes` - Stress test to verify no crashes or panics
+      - `TestIT_FS_DBusFallback_StatusViaXattr` - Verify status queries via xattr
+      - `TestIT_FS_DBusFallback_LogMessages` - Verify appropriate log messages (no errors/fatals)
+      - `TestIT_FS_DBusFallback_PerformanceComparison` - Verify performance degradation < 10%
+    - Each test should unset `DBUS_SESSION_BUS_ADDRESS` to simulate D-Bus unavailable
+    - Run tests: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_FS_DBusFallback" ./internal/fs`
+    - Verify all 7 tests pass
+  - **Verification**: All 7 fallback tests pass, demonstrating graceful degradation
+  - **Documentation**: Update `docs/testing/manual-dbus-fallback-guide.md` to mark automated tests
+  - _Requirements: 8.4 (D-Bus fallback behavior)_
+  - _Priority: HIGH - Critical fallback behavior_
+  - _Estimated Effort: 6-7 hours_
+
+- [-] 46.2.2.17 Automate Nemo extension D-Bus communication testing (Task 45.3 - Backend)
+  - **Goal**: Automate 60% of Nemo extension testing by verifying D-Bus communication protocol
+  - **Purpose**: Ensure Nemo extension can communicate with OneMount via D-Bus without requiring GUI
+  - **Reference**: `docs/testing/manual-tests-automation-analysis.md` - Task 45.3 Analysis
+  - **Tasks**:
+    - Create `internal/fs/nemo_extension_test.go` with D-Bus communication tests:
+      - `TestIT_FS_NemoExtension_ServiceDiscovery` - Simulate extension discovering OneMount service
+      - `TestIT_FS_NemoExtension_GetFileStatus` - Simulate extension calling GetFileStatus method
+      - `TestIT_FS_NemoExtension_SignalSubscription` - Simulate extension subscribing to signals
+      - `TestIT_FS_NemoExtension_SignalReception` - Simulate extension receiving FileStatusChanged signals
+      - `TestIT_FS_NemoExtension_ErrorHandling` - Test extension behavior when D-Bus unavailable
+      - `TestIT_FS_NemoExtension_Performance` - Test status query performance (< 10ms per file)
+    - Create mock Nemo extension client that simulates real extension behavior
+    - Run tests: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "TestIT_FS_NemoExtension" ./internal/fs`
+    - Verify all tests pass
+  - **Verification**: All D-Bus communication tests pass, demonstrating protocol correctness
+  - **Documentation**: Update `docs/testing/manual-nemo-extension-guide.md` to mark automated tests
+  - _Requirements: 8.2, 8.3 (D-Bus integration, Nemo extension)_
+  - _Priority: MEDIUM - Extension backend verification_
+  - _Estimated Effort: 3-4 hours_
+
+- [-] 46.2.2.18 Add Python unit tests for Nemo extension logic (Task 45.3 - Extension Code)
+  - **Goal**: Automate 20% of Nemo extension testing by testing extension Python code directly
+  - **Purpose**: Verify extension logic (status-to-emblem mapping, error handling) without requiring Nemo
+  - **Reference**: `docs/testing/manual-tests-automation-analysis.md` - Task 45.3 Analysis - Alternative 3
+  - **Tasks**:
+    - Create `internal/nemo/test_nemo_extension.py` with Python unit tests:
+      - `test_discover_service` - Test service discovery logic
+      - `test_get_file_status` - Test GetFileStatus call with mocked D-Bus
+      - `test_status_to_emblem` - Test status-to-emblem mapping (Cached → emblem-default, etc.)
+      - `test_error_handling` - Test extension handles D-Bus errors gracefully (no crashes)
+      - `test_signal_handling` - Test signal reception and processing
+    - Use Python `unittest` framework with `unittest.mock` for D-Bus mocking
+    - Run tests: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner python3 -m pytest internal/nemo/test_nemo_extension.py -v`
+    - Verify all tests pass
+  - **Verification**: All Python unit tests pass, demonstrating extension logic correctness
+  - **Documentation**: Update `docs/testing/manual-nemo-extension-guide.md` to mark automated tests
+  - _Requirements: 8.3 (Nemo extension)_
+  - _Priority: MEDIUM - Extension logic verification_
+  - _Estimated Effort: 2-3 hours_
+
+- [-] 46.2.2.19 Update manual testing guides for 45.2 and 45.3 automation
+  - **Goal**: Update manual testing documentation to reflect automated tests for D-Bus fallback and Nemo extension
+  - **Purpose**: Mark automated tests, keep only visual verification as manual
+  - **Tasks**:
+    - Update `docs/testing/manual-dbus-fallback-guide.md`:
+      - Add "Automation Status" section at top
+      - Mark Tests 1-7 as "✅ AUTOMATED" with references to test files
+      - Keep manual testing instructions for reference/debugging
+      - Add note: "These tests are now automated. Manual testing only needed for visual verification or debugging."
+    - Update `docs/testing/manual-nemo-extension-guide.md`:
+      - Add "Automation Status" section at top
+      - Mark D-Bus communication tests as "✅ AUTOMATED" (60%)
+      - Mark extension logic tests as "✅ AUTOMATED" (20%)
+      - Mark visual icon tests as "⚠️ MANUAL REQUIRED" (20%)
+      - Add references to automated test files
+      - Keep visual testing instructions for icon appearance verification
+    - Update `docs/testing/manual-tests-automation-analysis.md`:
+      - Update automation percentages
+      - Mark tasks 45.2 and 45.3 as "COMPLETED"
+      - Add links to implemented test files
+  - **Verification**: Documentation accurately reflects automation status
+  - **Documentation**: 
+    - `docs/testing/manual-dbus-fallback-guide.md` - Updated
+    - `docs/testing/manual-nemo-extension-guide.md` - Updated
+    - `docs/testing/manual-tests-automation-analysis.md` - Updated
+  - _Requirements: Documentation_
+  - _Priority: LOW - Documentation cleanup_
+  - _Estimated Effort: 1 hour_
+
 - [x] 46.2.3 Run all property-based tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestProperty" ./internal/fs`
   - Verify all 67 properties pass
@@ -3258,7 +3522,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: Adaptive network throttling (resource management)_
   - _Priority: HIGH - Blocks 27 other property tests from running_
 
-- [ ] 46.2.3.2 Re-run all property-based tests after fixing TestProperty59
+- [x] 46.2.3.2 Re-run all property-based tests after fixing TestProperty59
   - **Goal**: Run all 73 property tests to completion
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -timeout 30m -run "^TestProperty" ./internal/fs`
   - Verify all 73 properties pass
@@ -3267,13 +3531,13 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: All_
   - _Priority: HIGH - Required to complete property test verification_
 
-- [ ] 46.2.4 Run system tests with real OneDrive
+- [x] 46.2.4 Run system tests with real OneDrive
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner go test -v -run "^TestSystemST_" ./tests/system`
   - Verify all tests pass
   - Document any failures
   - _Requirements: All_
 
-- [ ] 46.2.5 Generate coverage report
+- [x] 46.2.5 Generate coverage report
   - Command: `docker compose -f docker/compose/docker-compose.test.yml -f docker/compose/docker-compose.auth.yml run --rm test-runner make coverage`
   - Review coverage metrics
   - Identify any coverage gaps
