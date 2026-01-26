@@ -3059,7 +3059,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 11.2, 13.2, 13.4_
   - _Priority: HIGH - Verification of fixes_
 
-- [ ] 46.2 Run final comprehensive test suite (DEFERRED until task 46.1 complete)
+- [x] 46.2 Run final comprehensive test suite (DEFERRED until task 46.1 complete)
 - [x] 46.2.1 Run all unit tests
   - Command: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner go test -v -run "^TestUT_" ./...`
   - Verify all tests pass
@@ -3555,29 +3555,29 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Requirements: 2.4, 15.1, 15.7_
   - _Priority: LOW - Not blocking release_
 
-- [ ] 47. Update release documentation
-- [ ] 47.1 Update CHANGELOG.md
+- [x] 47. Update release documentation
+- [x] 47.1 Update CHANGELOG.md
   - Add v1.0.0 release notes
   - List all major features
   - List all bug fixes
   - List known issues
   - _Requirements: All_
 
-- [ ] 47.2 Update README.md
+- [x] 47.2 Update README.md
   - Verify installation instructions
   - Verify usage examples
   - Update feature list
   - Update requirements
   - _Requirements: All_
 
-- [ ] 47.3 Update user documentation
+- [x] 47.3 Update user documentation
   - Document Socket.IO realtime behavior
   - Document ETag cache validation
   - Document XDG compliance
   - Update troubleshooting guide
   - _Requirements: All_
 
-- [ ] 47.4 Create release notes
+- [x] 47.4 Create release notes
   - Summarize major features
   - Highlight Socket.IO realtime sync
   - Highlight ETag-based cache validation

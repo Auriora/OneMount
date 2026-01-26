@@ -79,6 +79,12 @@ other OneDrive clients:
   while setting up a "selective sync". OneMount gives you instant access to
   _all_ of your files and only downloads the ones you use.
 
+- **Realtime synchronization with Socket.IO.** OneMount uses Microsoft Graph Socket.IO
+  subscriptions for instant change notifications. When files change on OneDrive, you'll
+  see the updates immediately without waiting for polling intervals. The system automatically
+  falls back to polling if Socket.IO is unavailable, ensuring reliable synchronization
+  in all network conditions.
+
 - **Bidirectional sync.** Although OneMount doesn't actually "sync" any files,
   any changes that occur on OneDrive will be automatically reflected on your
   local machine. OneMount will only redownload a file when you access a file
@@ -93,6 +99,13 @@ other OneDrive clients:
   Changes made offline are automatically synchronized with intelligent conflict detection
   and multiple resolution strategies (last-writer-wins, keep-both, user choice).
 
+- **Intelligent cache management with ETag validation.** OneMount uses ETag-based cache
+  validation through delta sync to ensure you always have the latest file versions.
+  When remote files change, the cache is automatically invalidated and files are
+  redownloaded only when you access them. This approach is more efficient than
+  traditional sync clients and works seamlessly with Microsoft Graph's pre-authenticated
+  download URLs.
+
 - **Fast and resilient.** Great care has been taken to ensure that OneMount never makes a
   network request unless it actually needs to. OneMount caches both filesystem
   metadata and file contents both in memory and on-disk. The system includes comprehensive
@@ -100,6 +113,12 @@ other OneDrive clients:
   Accessing your OneDrive files will be fast and snappy even if you're engaged in a fight
   to the death for the last power outlet at a coffeeshop with bad wifi. (This has definitely
   never happened to me before, why do you ask?)
+
+- **XDG Base Directory compliance.** OneMount follows Linux standards by storing
+  configuration in `~/.config/onemount/` and cache in `~/.cache/onemount/` (respecting
+  `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` environment variables). Virtual files like
+  `.xdg-volume-info` are served locally without syncing to OneDrive, ensuring proper
+  integration with Linux desktop environments.
 
 - **Has a user interface.** You can add and remove your OneDrive accounts
   without ever using the command-line. Once you've added your OneDrive accounts,
@@ -128,14 +147,24 @@ OneMount is particularly useful for:
 
 Before using OneMount, ensure you have:
 
-* A Linux system with FUSE support
-* A Microsoft OneDrive account
-* Internet connection (for initial setup and downloading files)
+* **A Linux system with FUSE3 support** - Required for mounting OneDrive as a filesystem
+* **A Microsoft OneDrive account** - Personal, Business, or Education account
+* **Internet connection** - For initial setup and downloading files
+* **Go 1.23 or later** - For building from source (runtime not required for binary installations)
 
-For building from source, you'll need:
-* Go programming language
-* GCC compiler
-* webkit2gtk-4.0 and json-glib development headers
+### System Requirements
+
+* **Operating System**: Linux (Ubuntu 24.04 LTS, Linux Mint 22, or compatible)
+* **Kernel**: Linux kernel 4.15 or later with FUSE3 support
+* **Memory**: Minimum 100 MB RAM (200 MB recommended for active sync)
+* **Disk Space**: Varies based on cache size (configurable, default 10 GB)
+* **Network**: Broadband internet connection recommended
+
+For building from source, you'll also need:
+* **GCC compiler** - For building native components
+* **webkit2gtk-4.0 development headers** - For GUI authentication
+* **json-glib development headers** - For JSON processing
+* **pkg-config** - For build configuration
 
 ## Instructions for using OneMount
 
