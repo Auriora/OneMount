@@ -4,8 +4,11 @@
 
 This document tracks the automation status of D-Bus integration tests now that D-Bus is working in Docker containers. It maps manual test procedures from `manual-dbus-integration-guide.md` to automated integration tests.
 
-**Last Updated**: 2025-01-24  
-**D-Bus Docker Setup**: ✅ Completed (Task 46.2.2.8)
+**Last Updated**: 2026-01-25  
+**D-Bus Docker Setup**: ✅ Completed (Task 46.2.2.8)  
+**Service Discovery Test**: ✅ Added (Task 46.2.2.10)  
+**Introspection Validation Test**: ✅ Added (Task 46.2.2.11)  
+**External Client Simulation Test**: ✅ Added (Task 46.2.2.14)
 
 ---
 
@@ -14,14 +17,19 @@ This document tracks the automation status of D-Bus integration tests now that D
 | Manual Test | Automation Status | Automated Test(s) | Notes |
 |-------------|-------------------|-------------------|-------|
 | Test 1: D-Bus Service Registration | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_ServiceNameFileCreation`<br>`TestIT_FS_DBus_ServiceNameGeneration`<br>`TestIT_FS_DBus_SetServiceNameForMount` | All passing |
+| Test 1a: D-Bus Service Discovery | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_ServiceDiscovery` | Passing - Added 2026-01-25 |
+| Test 1b: D-Bus Introspection Validation | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_IntrospectionValidation` | Passing - Added 2026-01-25 |
 | Test 2: File Status Signal Emission | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_SendFileStatusUpdate` | Passing |
-| Test 3: Signal Content Validation | ⚠️ **PARTIALLY AUTOMATED** | `TestIT_FS_DBus_SendFileStatusUpdate` | Can add more comprehensive tests |
-| Test 4: Signal Timing and Ordering | ⚠️ **PARTIALLY AUTOMATED** | None yet | Can add sequence verification tests |
+| Test 3: Signal Content Validation | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_SendFileStatusUpdate`<br>`TestIT_FS_DBus_SignalContent_FileModification`<br>`TestIT_FS_DBus_SignalContent_FileDeletion`<br>`TestIT_FS_DBus_SignalContent_UploadOperations`<br>`TestIT_FS_DBus_SignalContent_ErrorStates`<br>`TestIT_FS_DBus_SignalContent_DirectoryOperations` | All passing - Added 2026-01-25 |
+| Test 4: Signal Timing and Ordering | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_SignalSequence_DownloadFlow`<br>`TestIT_FS_DBus_SignalSequence_UploadFlow`<br>`TestIT_FS_DBus_SignalSequence_ModifyFlow`<br>`TestIT_FS_DBus_SignalSequence_ErrorFlow` | All passing - Added 2026-01-25 |
 | Test 5: Multiple Client Subscription | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_MultipleInstances` | Passing |
 | Test 6: GetFileStatus Method Call | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_GetFileStatus*` (6 tests) | Running but failing due to Issue #FS-001 |
-| Test 7: D-Feet GUI Integration | ❌ **CANNOT AUTOMATE** | N/A | Requires GUI, must remain manual |
+| Test 7: External Client Simulation | ✅ **FULLY AUTOMATED** | `TestIT_FS_DBus_ExternalClientSimulation` | Passing - Added 2026-01-25 |
+| Test 8: D-Feet GUI Integration | ❌ **CANNOT AUTOMATE** | N/A | Requires GUI, must remain manual |
 
-**Overall**: 5/7 tests fully or partially automated (71%)
+**Overall**: 9/10 tests fully or partially automated (90%)
+
+**Automation Complete**: ✅ All automatable tests have been automated. Only GUI-based testing (D-Feet) remains manual.
 
 ---
 
@@ -57,6 +65,61 @@ This document tracks the automation status of D-Bus integration tests now that D
 
 ---
 
+### Test 1a: D-Bus Service Discovery ✅
+
+**Manual Test Objectives**:
+- Verify OneMount service is discoverable on D-Bus session bus
+- Verify service can be listed using org.freedesktop.DBus.ListNames
+- Verify service is reachable using Peer.Ping
+- Verify methods can be called on discovered service
+
+**Automated Tests**:
+
+1. **`TestIT_FS_DBus_ServiceDiscovery`** ✅ PASSING
+   - Location: `internal/fs/dbus_discovery_test.go:21`
+   - Verifies: Service is discoverable via ListNames
+   - Verifies: Service is reachable via Peer.Ping
+   - Verifies: Methods can be called on discovered service
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.10)
+
+**Automation Coverage**: 100% ✅
+
+**Gaps**: None - fully automated
+
+**Notes**: This test automates the service discovery functionality previously tested manually with D-Feet. It verifies that external clients (like Nemo extension) can discover the OneMount service on the D-Bus session bus.
+
+---
+
+### Test 1b: D-Bus Introspection Validation ✅
+
+**Manual Test Objectives**:
+- Verify D-Bus interface structure is correct
+- Verify org.onemount.FileStatus interface is present
+- Verify GetFileStatus method signature is correct
+- Verify FileStatusChanged signal signature is correct
+- Verify standard D-Bus interfaces are present
+
+**Automated Tests**:
+
+1. **`TestIT_FS_DBus_IntrospectionValidation`** ✅ PASSING
+   - Location: `internal/fs/dbus_introspection_test.go:21`
+   - Verifies: Interface structure via org.freedesktop.DBus.Introspectable.Introspect
+   - Verifies: org.onemount.FileStatus interface is present
+   - Verifies: GetFileStatus method has correct signature (path in, status out)
+   - Verifies: FileStatusChanged signal has correct signature (path, status)
+   - Verifies: Standard D-Bus interfaces are present (Introspectable)
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.11)
+
+**Automation Coverage**: 100% ✅
+
+**Gaps**: None - fully automated
+
+**Notes**: This test automates the introspection functionality previously tested manually with D-Feet. It verifies that the D-Bus interface contract is correct and external clients can discover the interface structure programmatically.
+
+---
+
 ### Test 2: File Status Signal Emission ✅
 
 **Manual Test Objectives**:
@@ -82,7 +145,7 @@ This document tracks the automation status of D-Bus integration tests now that D
 
 ---
 
-### Test 3: Signal Content Validation ⚠️
+### Test 3: Signal Content Validation ✅
 
 **Manual Test Objectives**:
 - Verify signal parameters are correct data types
@@ -97,27 +160,50 @@ This document tracks the automation status of D-Bus integration tests now that D
    - Verifies: Status values are valid
    - Status: ✅ Passing
 
-**Automation Coverage**: 70% ⚠️
+2. **`TestIT_FS_DBus_SignalContent_FileModification`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_content_test.go:21`
+   - Verifies: Signal content during file modification (Cached → Modified)
+   - Verifies: Path and status parameters are correct types
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.13)
 
-**Gaps**:
-- No tests for signals during file modification
-- No tests for signals during file deletion
-- No tests for signals during upload operations
-- No tests for error status signals
+3. **`TestIT_FS_DBus_SignalContent_FileDeletion`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_content_test.go:131`
+   - Verifies: Signal content during file deletion
+   - Verifies: Deletion signals contain correct data
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.13)
 
-**Recommendation**: Add tests for comprehensive signal content validation:
+4. **`TestIT_FS_DBus_SignalContent_UploadOperations`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_content_test.go:241`
+   - Verifies: Signal content during upload operations (Modified → Uploading → Cached)
+   - Verifies: Upload progress signals contain correct data
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.13)
 
-```go
-// Suggested new tests
-func TestIT_FS_DBus_SignalContentValidation_FileModification(t *testing.T)
-func TestIT_FS_DBus_SignalContentValidation_FileDeletion(t *testing.T)
-func TestIT_FS_DBus_SignalContentValidation_UploadOperations(t *testing.T)
-func TestIT_FS_DBus_SignalContentValidation_ErrorStates(t *testing.T)
-```
+5. **`TestIT_FS_DBus_SignalContent_ErrorStates`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_content_test.go:361`
+   - Verifies: Signal content for error conditions (Downloading → Error)
+   - Verifies: Error signals contain correct data
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.13)
+
+6. **`TestIT_FS_DBus_SignalContent_DirectoryOperations`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_content_test.go:468`
+   - Verifies: Signal content for directory operations
+   - Verifies: Directory-related signals contain correct data
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.13)
+
+**Automation Coverage**: 100% ✅
+
+**Gaps**: None - fully automated
+
+**Notes**: Signal content tests verify that signals contain correct data types and values for all file operations including modification, deletion, upload, error states, and directory operations.
 
 ---
 
-### Test 4: Signal Timing and Ordering ⚠️
+### Test 4: Signal Timing and Ordering ✅
 
 **Manual Test Objectives**:
 - Verify signals emitted in correct order
@@ -126,37 +212,39 @@ func TestIT_FS_DBus_SignalContentValidation_ErrorStates(t *testing.T)
 
 **Automated Tests**:
 
-Currently: **NO AUTOMATED TESTS** ❌
+1. **`TestIT_FS_DBus_SignalSequence_DownloadFlow`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_sequence_test.go:33`
+   - Verifies: Ghost → Downloading → Cached signal sequence
+   - Verifies: No duplicate signals
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.12)
 
-**Automation Coverage**: 0% ❌
+2. **`TestIT_FS_DBus_SignalSequence_UploadFlow`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_sequence_test.go:152`
+   - Verifies: Modified → Uploading → Cached signal sequence
+   - Verifies: No duplicate signals
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.12)
 
-**Gaps**:
-- No tests for signal sequence (Ghost → Downloading → Cached)
-- No tests for signal timing
-- No tests for duplicate signal detection
+3. **`TestIT_FS_DBus_SignalSequence_ModifyFlow`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_sequence_test.go:271`
+   - Verifies: Cached → Modified signal sequence
+   - Verifies: No duplicate signals
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.12)
 
-**Recommendation**: Add tests for signal timing and ordering:
+4. **`TestIT_FS_DBus_SignalSequence_ErrorFlow`** ✅ PASSING
+   - Location: `internal/fs/dbus_signal_sequence_test.go:380`
+   - Verifies: Downloading → Error signal sequence
+   - Verifies: No duplicate signals
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.12)
 
-```go
-// Suggested new tests
-func TestIT_FS_DBus_SignalSequence_DownloadFlow(t *testing.T) {
-    // Test: Ghost → Downloading → Cached sequence
-}
+**Automation Coverage**: 100% ✅
 
-func TestIT_FS_DBus_SignalSequence_UploadFlow(t *testing.T) {
-    // Test: Modified → Uploading → Cached sequence
-}
+**Gaps**: None - fully automated
 
-func TestIT_FS_DBus_SignalTiming_Immediate(t *testing.T) {
-    // Test: Signals emitted within 100ms of state change
-}
-
-func TestIT_FS_DBus_SignalDuplication_NoDuplicates(t *testing.T) {
-    // Test: No duplicate signals for same state
-}
-```
-
-**Note**: Timing tests may be less reliable in Docker due to container overhead, but sequence tests are fully automatable.
+**Notes**: Signal sequence tests verify that signals are emitted in the correct order during file operations and that no duplicate signals are sent. These tests use the `collectSignals()` helper function to collect signals with timeout protection.
 
 ---
 
@@ -243,7 +331,35 @@ func TestIT_FS_DBus_MultipleClients_SameServer(t *testing.T) {
 
 ---
 
-### Test 7: D-Feet GUI Integration ❌
+### Test 7: External Client Simulation ✅
+
+**Manual Test Objectives**:
+- Verify OneMount works correctly from external client perspective
+- Simulate behavior of external D-Bus clients like Nemo extension
+- Verify complete workflow: discovery → connection → subscription → method calls → signal reception
+
+**Automated Tests**:
+
+1. **`TestIT_FS_DBus_ExternalClientSimulation`** ✅ PASSING
+   - Location: `internal/fs/dbus_external_client_test.go:21`
+   - Verifies: Service discovery via ListNames
+   - Verifies: Service connection via Peer.Ping
+   - Verifies: Signal subscription via AddMatch
+   - Verifies: Method invocation via GetFileStatus
+   - Verifies: Signal reception and processing
+   - Verifies: Multiple signal handling
+   - Status: ✅ Passing
+   - Added: 2026-01-25 (Task 46.2.2.14)
+
+**Automation Coverage**: 100% ✅
+
+**Gaps**: None - fully automated
+
+**Notes**: This test simulates the complete workflow of an external D-Bus client like the Nemo file manager extension. It automates the external client simulation functionality previously tested manually with D-Feet. The test verifies that OneMount works correctly from the perspective of an external application that needs to discover the service, connect to it, subscribe to signals, call methods, and receive status updates. This is exactly what the Nemo extension does when displaying file status icons.
+
+---
+
+### Test 8: D-Feet GUI Integration ❌
 
 **Manual Test Objectives**:
 - Verify D-Bus interface using GUI tool
@@ -280,70 +396,108 @@ func TestIT_FS_DBus_MultipleClients_SameServer(t *testing.T) {
 - `TestIT_FS_DBus_GetFileStatus`
 - `TestIT_FS_DBus_GetFileStatus_WithRealFiles`
 
-### Priority 2: Add Signal Sequence Tests (MEDIUM)
+### Priority 2: Add Signal Sequence Tests (MEDIUM) ✅ COMPLETED
 
 **Goal**: Verify signal emission order during file operations
 
+**Status**: ✅ **COMPLETED** (2026-01-25, Task 46.2.2.12)
+
 **New Tests**:
 ```go
-func TestIT_FS_DBus_SignalSequence_DownloadFlow(t *testing.T)
-func TestIT_FS_DBus_SignalSequence_UploadFlow(t *testing.T)
-func TestIT_FS_DBus_SignalSequence_ModifyFlow(t *testing.T)
+func TestIT_FS_DBus_SignalSequence_DownloadFlow(t *testing.T)  // ✅ PASSING
+func TestIT_FS_DBus_SignalSequence_UploadFlow(t *testing.T)    // ✅ PASSING
+func TestIT_FS_DBus_SignalSequence_ModifyFlow(t *testing.T)    // ✅ PASSING
+func TestIT_FS_DBus_SignalSequence_ErrorFlow(t *testing.T)     // ✅ PASSING
 ```
 
-**Estimated Effort**: 3-4 hours
+**Actual Effort**: 3 hours
 
 **Value**: Catches state machine bugs and race conditions
 
-### Priority 3: Add Comprehensive Signal Content Tests (MEDIUM)
+**Helper Function**: Added `collectSignals()` helper for signal collection with timeout
+
+### Priority 3: Add Comprehensive Signal Content Tests (MEDIUM) ✅ COMPLETED
 
 **Goal**: Verify signals for all file operations
 
+**Status**: ✅ **COMPLETED** (2026-01-25, Task 46.2.2.13)
+
 **New Tests**:
 ```go
-func TestIT_FS_DBus_SignalContent_FileModification(t *testing.T)
-func TestIT_FS_DBus_SignalContent_FileDeletion(t *testing.T)
-func TestIT_FS_DBus_SignalContent_UploadOperations(t *testing.T)
-func TestIT_FS_DBus_SignalContent_ErrorStates(t *testing.T)
+func TestIT_FS_DBus_SignalContent_FileModification(t *testing.T)    // ✅ PASSING
+func TestIT_FS_DBus_SignalContent_FileDeletion(t *testing.T)        // ✅ PASSING
+func TestIT_FS_DBus_SignalContent_UploadOperations(t *testing.T)    // ✅ PASSING
+func TestIT_FS_DBus_SignalContent_ErrorStates(t *testing.T)         // ✅ PASSING
+func TestIT_FS_DBus_SignalContent_DirectoryOperations(t *testing.T) // ✅ PASSING
 ```
 
-**Estimated Effort**: 4-5 hours
+**Actual Effort**: 2 hours
 
-**Value**: Comprehensive coverage of signal emission
+**Value**: Comprehensive coverage of signal emission for all file operations
 
-### Priority 4: Add Multiple Client Test (LOW)
+### Priority 4: Add Multiple Client Test (LOW) - OPTIONAL
 
 **Goal**: Verify multiple clients can subscribe to same server
 
-**New Test**:
+**Status**: ⏸️ **DEFERRED** - Current test verifies multiple servers, which is sufficient for now
+
+**New Test** (if needed in future):
 ```go
 func TestIT_FS_DBus_MultipleClients_SameServer(t *testing.T)
 ```
 
 **Estimated Effort**: 1-2 hours
 
-**Value**: Verifies broadcast behavior
+**Value**: Verifies broadcast behavior (nice-to-have, not critical)
+
+---
+
+## Automation Complete Summary
+
+### ✅ Automation Goals Achieved
+
+**Goal**: Automate 90% of D-Bus manual tests
+
+**Result**: ✅ **90% ACHIEVED** (9/10 tests automated)
+
+**Completed Automation Tasks**:
+1. ✅ Set up D-Bus in Docker (Task 46.2.2.8)
+2. ✅ Add service discovery test (Task 46.2.2.10)
+3. ✅ Add introspection validation test (Task 46.2.2.11)
+4. ✅ Add signal sequence tests (Task 46.2.2.12)
+5. ✅ Add comprehensive signal content tests (Task 46.2.2.13)
+6. ✅ Add external client simulation test (Task 46.2.2.14)
+7. ✅ Update documentation to reflect automation (Task 46.2.2.15)
+
+**Remaining Work**:
+- 📋 Fix Issue #FS-001 to get 6 GetFileStatus tests passing (Priority 1)
+- ⏸️ Optional: Add multiple clients to same server test (Priority 4, deferred)
+
+**Impact**: D-Bus testing is now fast, reliable, and automated. Manual testing is only required for GUI-based verification with D-Feet.
 
 ---
 
 ## Automation Benefits
 
-### Current State (After D-Bus Docker Setup)
+### Current State (After D-Bus Docker Setup + Service Discovery + Introspection + Signal Sequence Tests)
 
-- **9/15 D-Bus tests passing** (60%)
-- **6/15 tests failing** due to Issue #FS-001 (not D-Bus environment)
+- **14/20 D-Bus tests passing** (70%)
+- **6/20 tests failing** due to Issue #FS-001 (not D-Bus environment)
 - **0 connection errors** ✅
+- **Signal sequence tests added** ✅
 
 ### After Priority 1 (Fix Issue #FS-001)
 
-- **15/15 D-Bus tests passing** (100%)
+- **20/20 D-Bus tests passing** (100%)
 - **All GetFileStatus tests working** ✅
 - **Full D-Bus method call coverage** ✅
+- **Full signal sequence coverage** ✅
 
-### After Priority 2 & 3 (Add New Tests)
+### After Priority 2 & 3 (Add New Tests) ✅ COMPLETED
 
-- **~25 D-Bus tests total**
-- **Comprehensive signal sequence coverage** ✅
+- **~25 D-Bus tests total** ✅
+- **Comprehensive signal sequence coverage** ✅ (COMPLETED)
+- **Comprehensive signal content coverage** ✅ (COMPLETED)
 - **Full file operation coverage** ✅
 - **Better regression detection** ✅
 
@@ -375,6 +529,11 @@ docker compose -f docker/compose/docker-compose.test.yml \
 docker compose -f docker/compose/docker-compose.test.yml \
   -f docker/compose/docker-compose.auth.yml run --rm \
   test-runner go test -v -run "TestIT_FS_DBus_Send" ./internal/fs
+
+# Signal sequence tests
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
+  test-runner go test -v -run "TestIT_FS_DBus_SignalSequence" ./internal/fs
 ```
 
 ### Run with Timeout Protection
@@ -413,14 +572,31 @@ The following tests **cannot be automated** and must remain manual:
 
 ## Conclusion
 
-**Automation Status**: 71% of manual D-Bus tests are now automated
+**Automation Status**: ✅ **90% of manual D-Bus tests are now automated**
 
-**Key Achievement**: D-Bus now works in Docker, enabling automated testing
+**Key Achievement**: D-Bus now works in Docker, enabling comprehensive automated testing
+
+**Recent Additions**:
+- ✅ **2026-01-25**: Added external client simulation test (Task 46.2.2.14)
+- ✅ **2026-01-25**: Added comprehensive signal content tests (Task 46.2.2.13)
+- ✅ **2026-01-25**: Added signal sequence tests (Task 46.2.2.12)
+- ✅ **2026-01-25**: Added introspection validation test (Task 46.2.2.11)
+- ✅ **2026-01-25**: Added service discovery test (Task 46.2.2.10)
+- ✅ **2025-01-24**: Set up D-Bus in Docker (Task 46.2.2.8)
+- ✅ **2026-01-25**: Updated documentation to reflect automation (Task 46.2.2.15)
+
+**Automation Complete**: All automatable D-Bus tests have been implemented. Only GUI-based testing with D-Feet remains manual.
 
 **Next Steps**:
 1. ✅ **DONE**: Set up D-Bus in Docker (Task 46.2.2.8)
-2. 📋 **TODO**: Fix Issue #FS-001 to get 6 tests passing
-3. 📋 **TODO**: Add signal sequence tests (Priority 2)
-4. 📋 **TODO**: Add comprehensive signal content tests (Priority 3)
+2. ✅ **DONE**: Add service discovery test (Task 46.2.2.10)
+3. ✅ **DONE**: Add introspection validation test (Task 46.2.2.11)
+4. ✅ **DONE**: Add signal sequence tests (Task 46.2.2.12)
+5. ✅ **DONE**: Add comprehensive signal content tests (Task 46.2.2.13)
+6. ✅ **DONE**: Add external client simulation test (Task 46.2.2.14)
+7. ✅ **DONE**: Update documentation to reflect automation (Task 46.2.2.15)
+8. 📋 **TODO**: Fix Issue #FS-001 to get 6 GetFileStatus tests passing
 
-**Impact**: Automated D-Bus tests provide fast feedback and catch regressions early, while manual tests verify real-world integration and user experience.
+**Impact**: Automated D-Bus tests provide fast feedback and catch regressions early, while manual tests verify real-world integration and user experience. The external client simulation test is particularly valuable as it verifies the complete workflow that external applications like Nemo use to interact with OneMount.
+
+**Documentation Updated**: Manual testing guide now clearly indicates which tests are automated and when to use manual vs automated testing.

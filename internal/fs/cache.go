@@ -890,6 +890,49 @@ func (f *Filesystem) GetID(id string) *Inode {
 	return result
 }
 
+// GetIDByPath converts a filesystem path to an inode ID.
+// This method is used by the D-Bus server to look up file status by path.
+//
+// Parameters:
+//   - path: The filesystem path (e.g., "/Documents/file.txt")
+//
+// Returns:
+//   - The inode ID if the path exists
+//   - Empty string if the path does not exist or an error occurs
+func (f *Filesystem) GetIDByPath(path string) string {
+	methodName, startTime := logging.LogMethodEntry("GetIDByPath", path)
+
+	// Use GetPath to resolve the path to an inode
+	// We pass nil for auth since this is a local lookup operation
+	inode, err := f.GetPath(path, nil)
+	if err != nil {
+		logging.Debug().
+			Err(err).
+			Str("path", path).
+			Msg("GetIDByPath: path not found")
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), "")
+		}()
+		return ""
+	}
+
+	if inode == nil {
+		logging.Debug().
+			Str("path", path).
+			Msg("GetIDByPath: inode is nil")
+		defer func() {
+			logging.LogMethodExit(methodName, time.Since(startTime), "")
+		}()
+		return ""
+	}
+
+	id := inode.ID()
+	defer func() {
+		logging.LogMethodExit(methodName, time.Since(startTime), id)
+	}()
+	return id
+}
+
 // fallbackRootFromMetadata traverses the structured metadata store to locate
 // a directory entry without a parent, which we treat as a candidate root when
 // starting offline.
@@ -956,103 +999,6 @@ func (f *Filesystem) GetIDWithContext(id string, ctx logging.LogContext) *Inode 
 	// Log method exit with context
 	defer logging.LogMethodExitWithContext(methodName, startTime, logger, ctx, result)
 	return result
-}
-
-// GetIDByPath retrieves the OneDrive ID of an item by its filesystem path.
-// The path should be relative to the mount point (e.g., "/Documents/file.txt").
-// This method traverses the filesystem tree to find the inode and returns its ID.
-//
-// Parameters:
-//   - path: The filesystem path relative to the mount point
-//
-// Returns:
-//   - The OneDrive ID of the item if found
-//   - Empty string if the item is not found
-func (f *Filesystem) GetIDByPath(path string) string {
-	methodName, startTime := logging.LogMethodEntry("GetIDByPath", path)
-	defer func() {
-		logging.LogMethodExit(methodName, time.Since(startTime))
-	}()
-
-	// Handle root path
-	if path == "" || path == "/" {
-		return f.root
-	}
-
-	// Remove leading slash if present
-	if path[0] == '/' {
-		path = path[1:]
-	}
-
-	// If path is now empty, it was just "/"
-	if path == "" {
-		return f.root
-	}
-
-	// Split the path into components
-	components := splitPathComponents(path)
-	if len(components) == 0 {
-		return f.root
-	}
-
-	// Start from root and traverse down
-	current := f.GetID(f.root)
-	if current == nil {
-		logging.Warn().Msg("Root inode not found")
-		return ""
-	}
-
-	// Traverse each component
-	for i, component := range components {
-		// Look for this component in the current directory's children
-		found := false
-		children := current.GetChildren()
-		for _, childID := range children {
-			child := f.GetID(childID)
-			if child != nil && child.Name() == component {
-				current = child
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			logging.Debug().
-				Str("path", path).
-				Str("component", component).
-				Int("depth", i).
-				Msg("Path component not found in filesystem")
-			return ""
-		}
-	}
-
-	return current.ID()
-}
-
-// splitPathComponents splits a path into components, handling empty strings
-func splitPathComponents(path string) []string {
-	if path == "" {
-		return []string{}
-	}
-
-	components := []string{}
-	start := 0
-
-	for i := 0; i < len(path); i++ {
-		if path[i] == '/' {
-			if i > start {
-				components = append(components, path[start:i])
-			}
-			start = i + 1
-		}
-	}
-
-	// Add the last component if there is one
-	if start < len(path) {
-		components = append(components, path[start:])
-	}
-
-	return components
 }
 
 // InsertID adds or updates an item in the filesystem by its OneDrive ID.

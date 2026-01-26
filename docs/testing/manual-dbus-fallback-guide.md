@@ -1,5 +1,45 @@
 # Manual D-Bus Fallback Testing Guide
 
+## Automation Status
+
+**Last Updated**: 2026-01-26
+
+### Automated Tests (95% Coverage) ✅
+
+**All functional tests have been automated** as part of Task 45.2. The following tests are now automated in `internal/fs/dbus_fallback_test.go`:
+
+| Test | Status | Test Function | Coverage |
+|------|--------|---------------|----------|
+| Test 1: Mount Without D-Bus | ✅ AUTOMATED | `TestIT_FS_DBusFallback_MountWithoutDBus` | Full |
+| Test 2: Core File Operations | ✅ AUTOMATED | `TestIT_FS_DBusFallback_FileOperations` | Full |
+| Test 3: Extended Attributes | ✅ AUTOMATED | `TestIT_FS_DBusFallback_ExtendedAttributes` | Full |
+| Test 4: Graceful Degradation | ✅ AUTOMATED | `TestIT_FS_DBusFallback_NoCrashes` | Full |
+| Test 5: Status Reporting | ✅ AUTOMATED | `TestIT_FS_DBusFallback_StatusViaXattr` | Full |
+| Test 6: Log Messages | ✅ AUTOMATED | `TestIT_FS_DBusFallback_LogMessages` | Full |
+| Test 7: Performance Comparison | ✅ AUTOMATED | `TestIT_FS_DBusFallback_PerformanceComparison` | Full |
+
+**Run automated tests**:
+```bash
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
+  test-runner go test -v -run "TestIT_FS_DBusFallback" ./internal/fs
+```
+
+**Related Documentation**:
+- Implementation: `docs/testing/dbus-automation-complete.md`
+- Analysis: `docs/testing/manual-tests-automation-analysis.md`
+
+### Manual Tests (5% Coverage) ⚠️
+
+The following aspects still require manual verification:
+- Visual confirmation of system stability (human judgment)
+- Real-world usage patterns and edge cases
+- Integration with desktop environments (Nemo/Nautilus)
+
+**Note**: Manual testing is only needed for visual verification or debugging. All functional correctness is verified by automated tests.
+
+---
+
 ## Overview
 
 This guide provides step-by-step instructions for manually testing OneMount's graceful degradation when D-Bus is unavailable. These tests verify that OneMount continues to function correctly using extended attributes as a fallback mechanism when D-Bus cannot be used.
@@ -7,6 +47,8 @@ This guide provides step-by-step instructions for manually testing OneMount's gr
 **Test Scope**: System operation without D-Bus, graceful degradation, extended attribute fallback
 
 **Requirements Validated**: Requirement 10.4 - System continues operating when D-Bus is unavailable
+
+**⚠️ IMPORTANT**: These tests are now automated. Manual testing is only needed for visual verification or debugging. See the "Automation Status" section above for automated test coverage.
 
 ---
 

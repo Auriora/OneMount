@@ -99,9 +99,43 @@ mount | grep test-onedrive-mount
 
 ---
 
+## Automation Status
+
+**Important**: Most D-Bus tests are now automated! See `docs/testing/dbus-test-automation-status.md` for details.
+
+**Automated Tests** (Tests 1-6): These tests are fully automated and run in Docker:
+- ✅ Test 1: D-Bus Service Registration - `TestIT_FS_DBus_Service*` tests
+- ✅ Test 1a: D-Bus Service Discovery - `TestIT_FS_DBus_ServiceDiscovery`
+- ✅ Test 1b: D-Bus Introspection Validation - `TestIT_FS_DBus_IntrospectionValidation`
+- ✅ Test 2: File Status Signal Emission - `TestIT_FS_DBus_SendFileStatusUpdate`
+- ✅ Test 3: Signal Content Validation - `TestIT_FS_DBus_SignalContent_*` tests
+- ✅ Test 4: Signal Timing and Ordering - `TestIT_FS_DBus_SignalSequence_*` tests
+- ✅ Test 5: Multiple Client Subscription - `TestIT_FS_DBus_MultipleInstances`
+- ✅ Test 6: GetFileStatus Method Call - `TestIT_FS_DBus_GetFileStatus*` tests
+- ✅ Test 7: External Client Simulation - `TestIT_FS_DBus_ExternalClientSimulation`
+
+**Manual Tests** (Test 8 only): Only GUI-based testing requires manual verification:
+- ❌ Test 8: D-Feet GUI Integration - Cannot be automated (requires GUI)
+
+**When to Use Manual Tests**:
+- Debugging D-Bus issues with visual tools
+- Verifying GUI integration with D-Feet
+- Exploring D-Bus interface interactively
+- Learning how D-Bus works
+
+**When to Use Automated Tests**:
+- Regression testing during development
+- CI/CD pipeline validation
+- Quick verification of D-Bus functionality
+- Testing without GUI environment
+
+---
+
 ## Test Procedures
 
 ### Test 1: D-Bus Service Registration
+
+**Status**: ✅ **AUTOMATED** - See `TestIT_FS_DBus_Service*` tests
 
 **Objective**: Verify OneMount registers its D-Bus service correctly
 
@@ -147,6 +181,8 @@ mount | grep test-onedrive-mount
 
 ### Test 2: File Status Signal Emission on File Access
 
+**Status**: ✅ **AUTOMATED** - See `TestIT_FS_DBus_SendFileStatusUpdate` test
+
 **Objective**: Verify D-Bus signals are emitted when files are accessed
 
 **Steps**:
@@ -191,6 +227,8 @@ mount | grep test-onedrive-mount
 
 ### Test 3: Signal Content Validation
 
+**Status**: ✅ **AUTOMATED** - See `TestIT_FS_DBus_SignalContent_*` tests
+
 **Objective**: Verify signal parameters contain correct data types and values
 
 **Steps**:
@@ -233,6 +271,8 @@ mount | grep test-onedrive-mount
 
 ### Test 4: Signal Timing and Ordering
 
+**Status**: ✅ **AUTOMATED** - See `TestIT_FS_DBus_SignalSequence_*` tests
+
 **Objective**: Verify signals are emitted in correct order and at appropriate times
 
 **Steps**:
@@ -274,6 +314,8 @@ mount | grep test-onedrive-mount
 ---
 
 ### Test 5: Multiple Client Subscription
+
+**Status**: ✅ **AUTOMATED** - See `TestIT_FS_DBus_MultipleInstances` test
 
 **Objective**: Verify multiple D-Bus clients can receive signals simultaneously
 
@@ -325,6 +367,8 @@ mount | grep test-onedrive-mount
 ---
 
 ### Test 6: GetFileStatus Method Call
+
+**Status**: ✅ **AUTOMATED** - See `TestIT_FS_DBus_GetFileStatus*` tests
 
 **Objective**: Verify the D-Bus method for querying file status works correctly
 
@@ -393,9 +437,22 @@ mount | grep test-onedrive-mount
 
 ---
 
+## Optional Debugging Tools
+
 ### Test 7: D-Bus Integration with D-Feet GUI Tool
 
+**Status**: ❌ **MANUAL ONLY** - Cannot be automated (requires GUI)
+
 **Objective**: Verify D-Bus interface using graphical inspection tool
+
+**Note**: This test is optional and primarily useful for debugging D-Bus issues. The automated tests provide comprehensive coverage of D-Bus functionality without requiring GUI tools.
+
+**When to Use D-Feet**:
+- Debugging D-Bus communication issues
+- Exploring D-Bus interface structure interactively
+- Learning how D-Bus signals work
+- Verifying signal emission visually
+- Testing method calls manually
 
 **Steps**:
 

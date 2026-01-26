@@ -3228,7 +3228,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: HIGH - Blocks 17 integration tests_
   - _Note: If D-Bus cannot run in Docker, consider mocking D-Bus for integration tests_
 
-- [ ] 46.2.2.9 Fix Issue #FS-001: GetFileStatus returns "Unknown"
+- [x] 46.2.2.9 Fix Issue #FS-001: GetFileStatus returns "Unknown"
   - **Goal**: Fix GetFileStatus D-Bus method to return actual file status instead of "Unknown"
   - **Issue**: 6 D-Bus tests fail because GetFileStatus always returns "Unknown"
   - **Impact**: HIGH - 6 integration tests failing (GetFileStatus validation tests)
@@ -3259,7 +3259,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: HIGH - Blocks 6 integration tests_
   - _Estimated Effort: 2-3 hours_
 
-- [ ] 46.2.2.10 Add D-Bus service discovery automated test
+- [x] 46.2.2.10 Add D-Bus service discovery automated test
   - **Goal**: Automate D-Bus service discovery testing (replaces D-Feet manual test)
   - **Purpose**: Verify OneMount service is discoverable on D-Bus session bus
   - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Service Discovery Test
@@ -3278,7 +3278,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: MEDIUM - Improves D-Bus test coverage_
   - _Estimated Effort: 1 hour_
 
-- [ ] 46.2.2.11 Add D-Bus introspection validation automated test
+- [x] 46.2.2.11 Add D-Bus introspection validation automated test
   - **Goal**: Automate D-Bus introspection testing (replaces D-Feet manual test)
   - **Purpose**: Verify D-Bus interface structure is correct
   - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Introspection Validation Test
@@ -3298,7 +3298,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: MEDIUM - Improves D-Bus test coverage_
   - _Estimated Effort: 1-2 hours_
 
-- [ ] 46.2.2.12 Add D-Bus signal sequence automated tests
+- [x] 46.2.2.12 Add D-Bus signal sequence automated tests
   - **Goal**: Automate signal sequence testing for state transitions
   - **Purpose**: Verify signals are emitted in correct order during file operations
   - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Comprehensive Signal Monitoring Test
@@ -3325,7 +3325,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: MEDIUM - Improves signal testing coverage_
   - _Estimated Effort: 3-4 hours_
 
-- [ ] 46.2.2.13 Add comprehensive D-Bus signal content automated tests
+- [x] 46.2.2.13 Add comprehensive D-Bus signal content automated tests
   - **Goal**: Automate signal content validation for all file operations
   - **Purpose**: Verify signals contain correct data for all operation types
   - **Reference**: `docs/testing/dbus-automation-recommendations.md` - Signal Content Validation
@@ -3353,7 +3353,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: MEDIUM - Comprehensive signal coverage_
   - _Estimated Effort: 4-5 hours_
 
-- [ ] 46.2.2.14 Add D-Bus external client simulation automated test
+- [x] 46.2.2.14 Add D-Bus external client simulation automated test
   - **Goal**: Automate external client simulation (replaces D-Feet manual test)
   - **Purpose**: Verify OneMount works correctly from external client perspective (like Nemo extension)
   - **Reference**: `docs/testing/dbus-automation-recommendations.md` - External Client Simulation Test
@@ -3374,7 +3374,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: LOW - Nice to have for comprehensive coverage_
   - _Estimated Effort: 2-3 hours_
 
-- [ ] 46.2.2.15 Update manual testing guide to reflect D-Bus automation
+- [x] 46.2.2.15 Update manual testing guide to reflect D-Bus automation
   - **Goal**: Update manual testing documentation to reflect automated D-Bus tests
   - **Purpose**: Remove D-Feet from critical path, keep as optional debugging tool
   - **Tasks**:
@@ -3400,7 +3400,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: LOW - Documentation cleanup_
   - _Estimated Effort: 1 hour_
 
-- [ ] 46.2.2.16 Automate D-Bus fallback testing (Task 45.2)
+- [x] 46.2.2.16 Automate D-Bus fallback testing (Task 45.2)
   - **Goal**: Automate 95% of D-Bus fallback testing to verify graceful degradation when D-Bus is unavailable
   - **Purpose**: Ensure OneMount functions correctly without D-Bus (no crashes, all core operations work)
   - **Reference**: `docs/testing/manual-tests-automation-analysis.md` - Task 45.2 Analysis
@@ -3422,7 +3422,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: HIGH - Critical fallback behavior_
   - _Estimated Effort: 6-7 hours_
 
-- [ ] 46.2.2.17 Automate Nemo extension D-Bus communication testing (Task 45.3 - Backend)
+- [x] 46.2.2.17 Automate Nemo extension D-Bus communication testing (Task 45.3 - Backend)
   - **Goal**: Automate 60% of Nemo extension testing by verifying D-Bus communication protocol
   - **Purpose**: Ensure Nemo extension can communicate with OneMount via D-Bus without requiring GUI
   - **Reference**: `docs/testing/manual-tests-automation-analysis.md` - Task 45.3 Analysis
@@ -3443,7 +3443,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: MEDIUM - Extension backend verification_
   - _Estimated Effort: 3-4 hours_
 
-- [ ] 46.2.2.18 Add Python unit tests for Nemo extension logic (Task 45.3 - Extension Code)
+- [x] 46.2.2.18 Add Python unit tests for Nemo extension logic (Task 45.3 - Extension Code)
   - **Goal**: Automate 20% of Nemo extension testing by testing extension Python code directly
   - **Purpose**: Verify extension logic (status-to-emblem mapping, error handling) without requiring Nemo
   - **Reference**: `docs/testing/manual-tests-automation-analysis.md` - Task 45.3 Analysis - Alternative 3
@@ -3463,7 +3463,7 @@ The specification now provides comprehensive coverage of all functional, securit
   - _Priority: MEDIUM - Extension logic verification_
   - _Estimated Effort: 2-3 hours_
 
-- [ ] 46.2.2.19 Update manual testing guides for 45.2 and 45.3 automation
+- [x] 46.2.2.19 Update manual testing guides for 45.2 and 45.3 automation
   - **Goal**: Update manual testing documentation to reflect automated tests for D-Bus fallback and Nemo extension
   - **Purpose**: Mark automated tests, keep only visual verification as manual
   - **Tasks**:

@@ -444,32 +444,6 @@ func TestIT_FS_DBus_MultipleInstances(t *testing.T) {
 	})
 }
 
-// TestSplitPathComponents tests the splitPathComponents helper function.
-func TestIT_FS_DBus_SplitPathComponents(t *testing.T) {
-	// Create assertions helper
-	assert := framework.NewAssert(t)
-
-	testCases := []struct {
-		input    string
-		expected []string
-	}{
-		{"", []string{}},
-		{"file.txt", []string{"file.txt"}},
-		{"dir/file.txt", []string{"dir", "file.txt"}},
-		{"dir1/dir2/file.txt", []string{"dir1", "dir2", "file.txt"}},
-		{"double//slash", []string{"double", "slash"}},
-		{"path/with/trailing/", []string{"path", "with", "trailing"}},
-	}
-
-	for _, tc := range testCases {
-		result := splitPathComponents(tc.input)
-		assert.Equal(len(tc.expected), len(result), "Length mismatch for input: %s", tc.input)
-		for i := range tc.expected {
-			assert.Equal(tc.expected[i], result[i], "Component %d mismatch for input: %s", i, tc.input)
-		}
-	}
-}
-
 // TestFindInodeByPath_PathTraversal tests the path traversal logic without D-Bus.
 func TestIT_FS_DBus_FindInodeByPath_PathTraversal(t *testing.T) {
 	// Create a test fixture using the common setup

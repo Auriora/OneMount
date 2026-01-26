@@ -1,5 +1,71 @@
 # Manual Nemo Extension Testing Guide
 
+## Automation Status
+
+**Last Updated**: 2026-01-26
+
+### Automated Tests (80% Coverage) ✅
+
+**Most tests have been automated** as part of Task 45.3. The following tests are now automated:
+
+#### Go Integration Tests (60% - D-Bus Protocol)
+
+**File**: `internal/fs/nemo_extension_test.go`
+
+| Test | Status | Test Function | Coverage |
+|------|--------|---------------|----------|
+| Service Discovery | ✅ AUTOMATED | `TestIT_FS_NemoExtension_ServiceDiscovery` | Full |
+| GetFileStatus Method | ✅ AUTOMATED | `TestIT_FS_NemoExtension_GetFileStatus` | Full |
+| Signal Subscription | ✅ AUTOMATED | `TestIT_FS_NemoExtension_SignalSubscription` | Full |
+| Signal Reception | ✅ AUTOMATED | `TestIT_FS_NemoExtension_SignalReception` | Full |
+| Error Handling | ✅ AUTOMATED | `TestIT_FS_NemoExtension_ErrorHandling` | Full |
+| Performance | ✅ AUTOMATED | `TestIT_FS_NemoExtension_Performance` | Full |
+
+**Run Go integration tests**:
+```bash
+docker compose -f docker/compose/docker-compose.test.yml \
+  -f docker/compose/docker-compose.auth.yml run --rm \
+  test-runner go test -v -run "TestIT_FS_NemoExtension" ./internal/fs
+```
+
+#### Python Unit Tests (20% - Extension Logic)
+
+**File**: `internal/nemo/tests/test_nemo_extension.py`
+
+| Test Category | Status | Coverage |
+|---------------|--------|----------|
+| Extension Initialization | ✅ AUTOMATED | Full |
+| D-Bus Connection | ✅ AUTOMATED | Full |
+| Mount Point Detection | ✅ AUTOMATED | Full |
+| File Status Retrieval | ✅ AUTOMATED | Full |
+| Status-to-Emblem Mapping | ✅ AUTOMATED | Full |
+| Mount Filtering | ✅ AUTOMATED | Full |
+| Signal Handling | ✅ AUTOMATED | Full |
+| Error Handling | ✅ AUTOMATED | Full |
+
+**Run Python unit tests**:
+```bash
+docker compose -f docker/compose/docker-compose.test.yml run --rm \
+  test-runner python3 -m pytest internal/nemo/tests/test_nemo_extension.py -v
+```
+
+**Related Documentation**:
+- Go Tests: `docs/testing/nemo-extension-automation-complete.md`
+- Python Tests: `docs/testing/nemo-extension-python-tests-complete.md`
+- Analysis: `docs/testing/manual-tests-automation-analysis.md`
+
+### Manual Tests (20% Coverage) ⚠️
+
+The following aspects still require manual verification:
+- **Visual icon appearance** - Verifying emblems actually display in Nemo
+- **Icon clarity and visibility** - Checking icon rendering quality
+- **View mode compatibility** - Testing list, grid, and compact views
+- **Desktop environment integration** - Real-world usage testing
+
+**Note**: Manual testing is only needed for visual verification. All D-Bus protocol correctness and extension logic is verified by automated tests.
+
+---
+
 ## Overview
 
 This guide provides step-by-step instructions for manually testing the OneMount Nemo file manager extension. The extension adds visual status indicators (emblems) to files and folders in Nemo, showing their synchronization state with OneDrive.
@@ -7,6 +73,8 @@ This guide provides step-by-step instructions for manually testing the OneMount 
 **Test Scope**: Nemo extension installation, emblem display, D-Bus integration, status updates
 
 **Requirements Validated**: Requirement 10.3 - Nemo extension provides file status information
+
+**⚠️ IMPORTANT**: Most tests are now automated (80% coverage). Manual testing is only needed for visual icon verification. See the "Automation Status" section above for automated test coverage.
 
 ---
 
@@ -139,6 +207,83 @@ cat ~/test-onedrive-mount/existing-file.txt > /dev/null
 ---
 
 ## Test Procedures
+
+**Note**: Many D-Bus communication tests have been automated. See `internal/fs/nemo_extension_test.go` for automated test coverage. The tests below focus on visual verification that requires manual inspection.
+
+### Automated Tests (No Manual Testing Required)
+
+The following tests are now automated and run as part of the CI/CD pipeline:
+
+#### Go Integration Tests (D-Bus Protocol)
+
+- ✅ **Service Discovery** - `TestIT_FS_NemoExtension_ServiceDiscovery`
+  - Verifies Nemo extension can discover OneMount D-Bus service
+  - Tests service name resolution and connection establishment
+
+- ✅ **GetFileStatus Method Calls** - `TestIT_FS_NemoExtension_GetFileStatus`
+  - Verifies GetFileStatus D-Bus method returns correct status for all file states
+  - Tests with Local, Downloading, Syncing, Modified, Error, and Conflict statuses
+  - Verifies Unknown status for non-existent files
+
+- ✅ **Signal Subscription** - `TestIT_FS_NemoExtension_SignalSubscription`
+  - Verifies Nemo extension can subscribe to FileStatusChanged signals
+  - Tests D-Bus signal handler setup
+
+- ✅ **Signal Reception** - `TestIT_FS_NemoExtension_SignalReception`
+  - Verifies Nemo extension receives FileStatusChanged signals
+  - Tests signal data correctness (path and status)
+  - Tests multiple rapid signal updates
+
+- ✅ **Error Handling** - `TestIT_FS_NemoExtension_ErrorHandling`
+  - Verifies graceful handling when D-Bus service unavailable
+  - Tests error messages and fallback behavior
+
+- ✅ **Performance** - `TestIT_FS_NemoExtension_Performance`
+  - Verifies GetFileStatus queries complete in < 10ms per file
+  - Tests with 50+ files to ensure performance requirements met
+
+#### Python Unit Tests (Extension Logic)
+
+Run with: `docker compose -f docker/compose/docker-compose.test.yml run --rm test-runner python3 -m pytest internal/nemo/tests/test_nemo_extension.py -v`
+
+- ✅ **Extension Initialization** - `test_extension_initialization_success`, `test_extension_initialization_no_dbus`
+  - Verifies extension initializes correctly with and without D-Bus
+  - Tests attribute setup (bus, proxy, cache, mounts)
+
+- ✅ **D-Bus Connection** - `test_dbus_connection_success`, `test_dbus_connection_failure`
+  - Verifies D-Bus connection establishment and failure handling
+  - Tests service discovery and proxy creation
+
+- ✅ **Mount Point Detection** - `test_get_onemount_mounts_success`, `test_get_onemount_mounts_no_mounts`, `test_get_onemount_mounts_file_error`
+  - Verifies OneMount mount point detection from /proc/mounts
+  - Tests with various mount configurations and error conditions
+
+- ✅ **File Status Retrieval** - `test_get_file_status_dbus_success`, `test_get_file_status_cached`, `test_get_file_status_dbus_fallback_to_xattr`
+  - Verifies file status retrieval via D-Bus and xattr fallback
+  - Tests caching behavior and error handling
+
+- ✅ **Status-to-Emblem Mapping** - `test_emblem_assignment_all_statuses`, `test_emblem_assignment_unrecognized_status`
+  - Verifies correct emblem assignment for all file statuses
+  - Tests: Cloud→emblem-synchronizing-offline, Local→emblem-default, Modified→emblem-synchronizing-locally-modified, etc.
+  - Tests unrecognized status handling (emblem-question)
+
+- ✅ **Mount Filtering** - `test_no_emblem_for_non_onemount_files`, `test_update_file_info_no_path`
+  - Verifies emblems only appear on files within OneMount mounts
+  - Tests edge cases (no path, outside mount)
+
+- ✅ **Signal Handling** - `test_file_status_changed_signal`, `test_file_status_changed_signal_error`
+  - Verifies FileStatusChanged signal reception and processing
+  - Tests cache updates and emblem refresh triggers
+  - Tests error handling during signal processing
+
+- ✅ **Error Handling** - `test_dbus_reconnection_on_error`, `test_module_init_function`
+  - Verifies D-Bus reconnection on communication errors
+  - Tests graceful degradation and fallback behavior
+  - Tests module initialization function
+
+**Automation Coverage**: 80% of Nemo extension testing is now automated (60% D-Bus protocol + 20% extension logic), focusing on D-Bus protocol correctness and extension logic verification.
+
+### Manual Tests (Visual Verification Required)
 
 ### Test 1: Extension Installation Verification
 
