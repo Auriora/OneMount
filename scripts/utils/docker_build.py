@@ -118,8 +118,8 @@ class DockerPackageBuilder:
     
     def ensure_docker_image(self, force_rebuild: bool = False) -> str:
         """Ensure Docker build image exists and is up to date."""
-        image_name = "onemount-ubuntu-builder"
-        dockerfile_path = self.paths["project_root"] / "packaging" / "docker" / "Dockerfile.deb-builder"
+        image_name = "onemount-deb-builder"
+        dockerfile_path = self.paths["project_root"] / "docker" / "images" / "deb-builder" / "Dockerfile"
         
         if not dockerfile_path.exists():
             raise DockerBuildError(f"Dockerfile not found: {dockerfile_path}")
