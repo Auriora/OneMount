@@ -127,7 +127,7 @@
         "@GROUP@": "\\nGroup=%i",
         "@WANTED_BY@": "multi-user.target"
       },
-      "source_package": "deployments/systemd/onemount@-system.service"
+      "source_package": "deployments/systemd/onemount@.service"
     }
   ],
   "documentation": [

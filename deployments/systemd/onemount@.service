@@ -3,8 +3,7 @@ Description=onemount
 After=network.target
 
 [Service]
-Type=dbus
-BusName=org.onemount.FileStatus.mnt_%i
+Type=exec
 ExecStart=/usr/bin/onemount %f
 ExecStopPost=/usr/bin/fusermount3 -uz /%I
 Restart=on-abnormal
