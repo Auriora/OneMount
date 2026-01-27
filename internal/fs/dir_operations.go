@@ -1,11 +1,12 @@
 package fs
 
 import (
-	"github.com/auriora/onemount/internal/logging"
 	"math"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/auriora/onemount/internal/logging"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 )

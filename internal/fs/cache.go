@@ -1508,13 +1508,27 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 			logger.Debug().
 				Str(logging.FieldID, id).
 				Str(logging.FieldPath, pathForLogs).
-				Msg("Children not in cache; scheduling background refresh")
+				Bool("syncOnMiss", syncOnMiss).
+				Msg("Children not in cache; checking sync strategy")
 		}
-		f.refreshChildrenAsync(id, auth)
-		defer func() {
-			logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
-		}()
-		return children, nil
+
+		// If syncOnMiss is true (first access from OpenDir), fetch synchronously
+		// to ensure complete data on first directory listing
+		if !syncOnMiss {
+			f.refreshChildrenAsync(id, auth)
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+			}()
+			return children, nil
+		}
+
+		// Fall through to synchronous fetch below
+		if logging.IsDebugEnabled() {
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Msg("Performing synchronous fetch for first access")
+		}
 	}
 
 	if logging.IsDebugEnabled() {
@@ -1747,7 +1761,7 @@ func (f *Filesystem) refreshChildrenAsync(id string, auth *graph.Auth) {
 
 	go func() {
 		defer f.metadataRefresh.Delete(id)
-		if _, err := f.getChildrenID(id, auth, true); err != nil {
+		if _, err := f.getChildrenID(id, auth, true, false); err != nil {
 			logging.Debug().
 				Str(logging.FieldID, id).
 				Err(err).
