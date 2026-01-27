@@ -14,6 +14,14 @@ const (
 	SystemdObjectPath       = "/org/freedesktop/systemd1"
 )
 
+// getSystemdConnection returns the appropriate D-Bus connection.
+// It always uses the session bus for user-level service management,
+// as system services require root/polkit authorization which is not
+// appropriate for a user-facing GUI application.
+func getSystemdConnection() (*dbus.Conn, error) {
+	return dbus.ConnectSessionBus()
+}
+
 // TemplateUnit templates a unit name as systemd would
 func TemplateUnit(template, instance string) string {
 	// Replace forward slashes with hyphens to ensure valid systemd unit name
@@ -41,7 +49,7 @@ func UntemplateUnit(unit string) (string, error) {
 
 // UnitIsActive returns true if the unit is currently active or activating
 func UnitIsActive(unit string) (bool, error) {
-	conn, err := dbus.ConnectSessionBus()
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return false, err
 	}
@@ -76,7 +84,7 @@ func UnitIsActive(unit string) (bool, error) {
 }
 
 func UnitSetActive(unit string, active bool) error {
-	conn, err := dbus.ConnectSessionBus()
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return err
 	}
@@ -96,7 +104,7 @@ func UnitSetActive(unit string, active bool) error {
 
 // UnitIsEnabled returns true if a particular systemd unit is enabled.
 func UnitIsEnabled(unit string) (bool, error) {
-	conn, err := dbus.ConnectSessionBus()
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return false, err
 	}
@@ -120,7 +128,7 @@ func UnitIsEnabled(unit string) (bool, error) {
 
 // UnitSetEnabled sets a systemd unit to enabled/disabled.
 func UnitSetEnabled(unit string, enabled bool) error {
-	conn, err := dbus.ConnectSessionBus()
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return err
 	}

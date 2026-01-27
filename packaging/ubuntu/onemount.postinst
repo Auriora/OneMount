@@ -4,9 +4,14 @@ set -e
 
 case "$1" in
     configure)
-        # Reload systemd daemon to pick up new service files
-        if [ -d /run/systemd/system ]; then
-            systemctl daemon-reload || true
+        # Reload systemd user daemon to pick up new service files
+        # This needs to run for all users, but we can only reload for
+        # users with active sessions
+        if command -v systemctl >/dev/null 2>&1; then
+            # Reload for users with active sessions
+            for uid in $(loginctl list-users --no-legend | awk '{print $1}'); do
+                su - "#$uid" -c "systemctl --user daemon-reload" 2>/dev/null || true
+            done
         fi
 
         # Update desktop database for menu entries

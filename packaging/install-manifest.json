@@ -110,8 +110,8 @@
     {
       "source_template": "deployments/systemd/onemount@.service.template",
       "dest_user": "$(HOME)/.config/systemd/user/onemount@.service",
-      "dest_system": "/usr/local/lib/systemd/system/onemount@.service",
-      "dest_package": "usr/lib/systemd/system/onemount@.service",
+      "dest_system": "/usr/local/lib/systemd/user/onemount@.service",
+      "dest_package": "usr/lib/systemd/user/onemount@.service",
       "mode": "0644",
       "substitutions_user": {
         "@BIN_PATH@": "$(HOME)/.local/bin",
@@ -121,11 +121,11 @@
         "@WANTED_BY@": "default.target"
       },
       "substitutions_system": {
-        "@BIN_PATH@": "/usr/local/bin",
-        "@AFTER@": "\\nAfter=network.target",
-        "@USER@": "\\nUser=%i",
-        "@GROUP@": "\\nGroup=%i",
-        "@WANTED_BY@": "multi-user.target"
+        "@BIN_PATH@": "/usr/bin",
+        "@AFTER@": "",
+        "@USER@": "",
+        "@GROUP@": "",
+        "@WANTED_BY@": "default.target"
       },
       "source_package": "deployments/systemd/onemount@.service"
     }
@@ -181,7 +181,7 @@
       "usr/bin",
       "usr/share/icons/onemount",
       "usr/share/applications",
-      "usr/lib/systemd/system",
+      "usr/lib/systemd/user",
       "usr/share/man/man1",
       "usr/share/nemo-python/extensions",
       "etc/onemount"
