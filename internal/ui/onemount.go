@@ -52,7 +52,10 @@ func MountpointIsValid(mountpoint string) bool {
 	return len(dirents) == 0
 }
 
-// GetKnownMounts returns the currently known mountpoints and returns their escaped name
+// GetKnownMounts returns the currently known mountpoints by scanning for auth tokens
+// in both account-based and instance-based storage locations.
+// Note: This function has limitations with account-based storage since tokens don't
+// map directly to mount points. Consider using systemd unit queries instead.
 func GetKnownMounts(cacheDir string) []string {
 	mounts := make([]string, 0)
 
@@ -68,12 +71,23 @@ func GetKnownMounts(cacheDir string) []string {
 		return mounts
 	}
 
+	// Scan for instance-based tokens (legacy and current mounts)
 	for _, dirent := range dirents {
-		_, err := os.Stat(graph.GetAuthTokensPath(cacheDir, dirent.Name()))
-		if err == nil {
+		if !dirent.IsDir() || dirent.Name() == "accounts" {
+			// Skip files and the accounts directory
+			continue
+		}
+		// Check if this directory has auth tokens (instance-based location)
+		tokenPath := filepath.Join(cacheDir, dirent.Name(), graph.AuthTokensFileName)
+		if _, err := os.Stat(tokenPath); err == nil {
 			mounts = append(mounts, dirent.Name())
 		}
 	}
+
+	// Note: Account-based tokens in accounts/ subdirectory don't map directly
+	// to mount points. The launcher should query systemd for active onemount@
+	// units to get a complete list of mounts.
+
 	return mounts
 }
 

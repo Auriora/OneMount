@@ -91,9 +91,16 @@ func LoadAuthTokens(file string) (*Auth, error) {
 	return auth, nil
 }
 
-// GetAccountName retrieves the account name from the auth tokens file
+// GetAccountName retrieves the account name from the auth tokens file.
+// It searches for tokens in all possible locations (account-based, instance-based, legacy)
+// and returns the account name if found.
 func GetAccountName(cacheDir, instance string) (string, error) {
-	tokenFile := GetAuthTokensPath(cacheDir, instance)
+	// Try to find tokens in any location
+	// We don't know the account email yet, so pass empty string
+	tokenFile, err := FindAuthTokens(cacheDir, instance, "")
+	if err != nil {
+		return "", err
+	}
 
 	auth, err := LoadAuthTokens(tokenFile)
 	if err != nil {
