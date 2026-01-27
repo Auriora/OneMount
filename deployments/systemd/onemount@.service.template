@@ -1,5 +1,6 @@
 [Unit]
-Description=onemount@AFTER@
+Description=onemount
+After=network.target
 
 [Service]
 Type=dbus

@@ -383,10 +383,10 @@ func TestIT_FS_DBus_SetServiceNameForMount(t *testing.T) {
 	defer func() { DBusServiceName = original }()
 
 	SetDBusServiceNameForMount("/home/bcherrington/OneMountTest")
-	assert.Equal("org.onemount.FileStatus.mnt_home-bcherrington-OneMountTest", DBusServiceName)
+	assert.Equal("org.onemount.FileStatus.mnt_home_bcherrington_OneMountTest", DBusServiceName)
 
 	SetDBusServiceNameForMount("/tmp/onemount auth")
-	assert.Equal("org.onemount.FileStatus.mnt_tmp-onemount\\x20auth", DBusServiceName)
+	assert.Equal("org.onemount.FileStatus.mnt_tmp_onemount_x20auth", DBusServiceName)
 }
 
 // TestDBusServer_MultipleInstances tests running multiple D-Bus server instances.

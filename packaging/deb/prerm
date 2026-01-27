@@ -1,0 +1,29 @@
+#!/bin/sh
+# prerm script for onemount
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop all running onemount instances
+        if [ -d /run/systemd/system ]; then
+            # Stop all user instances
+            systemctl --all --no-legend list-units 'onemount@*.service' | \
+                awk '{print $1}' | \
+                while read -r unit; do
+                    systemctl stop "$unit" || true
+                done
+        fi
+        ;;
+
+    failed-upgrade)
+        ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

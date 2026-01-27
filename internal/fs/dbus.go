@@ -36,12 +36,24 @@ func SetDBusServiceNamePrefix(prefix string) {
 }
 
 // SetDBusServiceNameForMount derives a deterministic D-Bus service name from the mount path.
+// D-Bus names can only contain [A-Za-z0-9_.] so we sanitize the path accordingly.
 func SetDBusServiceNameForMount(mountPath string) {
+	// Use systemd escaping as a base, then sanitize for D-Bus
 	escaped := unit.UnitNamePathEscape(mountPath)
 	if escaped == "" {
 		escaped = "root"
 	}
-	SetDBusServiceNamePrefix("mnt_" + escaped)
+	// D-Bus names can only contain alphanumeric, underscore, and dot
+	// Replace any invalid characters (including backslash escapes) with underscores
+	sanitized := ""
+	for _, ch := range escaped {
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' {
+			sanitized += string(ch)
+		} else {
+			sanitized += "_"
+		}
+	}
+	SetDBusServiceNamePrefix("mnt_" + sanitized)
 }
 
 func init() {
