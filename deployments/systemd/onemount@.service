@@ -5,12 +5,10 @@ After=network.target
 [Service]
 Type=exec
 ExecStart=/usr/bin/onemount %f
-ExecStopPost=/usr/bin/fusermount3 -uz /%I
+ExecStopPost=/usr/bin/fusermount3 -uz %f
 Restart=on-abnormal
 RestartSec=3
 RestartForceExitStatus=2
-User=%i
-Group=%i
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

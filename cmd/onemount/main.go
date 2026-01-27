@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/auriora/onemount/cmd/common"
+	mountconfig "github.com/auriora/onemount/internal/config"
 	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/fs"
 	"github.com/auriora/onemount/internal/graph"
@@ -344,6 +345,32 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 			Str("account", auth.Account).
 			Str("tokenPath", auth.Path).
 			Msg("Authentication successful")
+
+		// Register the mount in the registry
+		userConfigDir, err := os.UserConfigDir()
+		if err != nil {
+			logging.Warn().Err(err).Msg("Failed to get user config directory for registry")
+		} else {
+			registryConfigDir := filepath.Join(userConfigDir, "onemount")
+			registry, err := mountconfig.NewMountsRegistry(registryConfigDir)
+			if err != nil {
+				logging.Warn().Err(err).Msg("Failed to load mounts registry")
+			} else {
+				// Register this mount with its account
+				if err := registry.SetMount(absMountPath, auth.Account, ""); err != nil {
+					logging.Warn().Err(err).
+						Str("mountpoint", absMountPath).
+						Str("account", auth.Account).
+						Msg("Failed to register mount in registry")
+				} else {
+					logging.Info().
+						Str("mountpoint", absMountPath).
+						Str("account", auth.Account).
+						Msg("Mount registered in registry")
+				}
+			}
+		}
+
 		os.Exit(0)
 	}
 
@@ -362,6 +389,31 @@ func initializeFilesystem(ctx context.Context, config *common.Config, mountpoint
 		Str("account", auth.Account).
 		Str("tokenPath", auth.Path).
 		Msg("Authentication successful")
+
+	// Register the mount in the registry
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		logging.Warn().Err(err).Msg("Failed to get user config directory for registry")
+	} else {
+		registryConfigDir := filepath.Join(userConfigDir, "onemount")
+		registry, err := mountconfig.NewMountsRegistry(registryConfigDir)
+		if err != nil {
+			logging.Warn().Err(err).Msg("Failed to load mounts registry")
+		} else {
+			// Register this mount with its account
+			if err := registry.SetMount(absMountPath, auth.Account, ""); err != nil {
+				logging.Warn().Err(err).
+					Str("mountpoint", absMountPath).
+					Str("account", auth.Account).
+					Msg("Failed to register mount in registry")
+			} else {
+				logging.Info().
+					Str("mountpoint", absMountPath).
+					Str("account", auth.Account).
+					Msg("Mount registered in registry")
+			}
+		}
+	}
 
 	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval, config.MaxCacheSize)
 	if err != nil {
@@ -497,6 +549,31 @@ func displayStats(ctx context.Context, config *common.Config, mountpoint string)
 		Str("account", auth.Account).
 		Str("tokenPath", auth.Path).
 		Msg("Authentication successful for stats display")
+
+	// Register the mount in the registry (stats mode also needs this)
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		logging.Warn().Err(err).Msg("Failed to get user config directory for registry")
+	} else {
+		registryConfigDir := filepath.Join(userConfigDir, "onemount")
+		registry, err := mountconfig.NewMountsRegistry(registryConfigDir)
+		if err != nil {
+			logging.Warn().Err(err).Msg("Failed to load mounts registry")
+		} else {
+			// Register this mount with its account
+			if err := registry.SetMount(absMountPath, auth.Account, ""); err != nil {
+				logging.Warn().Err(err).
+					Str("mountpoint", absMountPath).
+					Str("account", auth.Account).
+					Msg("Failed to register mount in registry")
+			} else {
+				logging.Debug().
+					Str("mountpoint", absMountPath).
+					Str("account", auth.Account).
+					Msg("Mount registered in registry")
+			}
+		}
+	}
 
 	// Initialize the filesystem without mounting
 	filesystem, err := fs.NewFilesystemWithContext(ctx, auth, cachePath, config.CacheExpiration, config.CacheCleanupInterval, config.MaxCacheSize)

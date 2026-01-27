@@ -15,7 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/auriora/onemount/cmd/common"
-	"github.com/auriora/onemount/internal/graph"
+	mountconfig "github.com/auriora/onemount/internal/config"
 	"github.com/auriora/onemount/internal/logging"
 	"github.com/auriora/onemount/internal/ui"
 	"github.com/auriora/onemount/internal/ui/systemd"
@@ -60,11 +60,11 @@ func setWindowIcon(window *gtk.ApplicationWindow, candidates ...string) {
 		if logoPath == "" {
 			continue
 		}
-        if err := window.SetIconFromFile(logoPath); err != nil {
-            // Missing/invalid icon is non-fatal; log informationally and try next candidate.
-            logging.Info().Err(err).Str("path", logoPath).Msg("Could not load logo.")
-            continue
-        }
+		if err := window.SetIconFromFile(logoPath); err != nil {
+			// Missing/invalid icon is non-fatal; log informationally and try next candidate.
+			logging.Info().Err(err).Str("path", logoPath).Msg("Could not load logo.")
+			continue
+		}
 		logging.Debug().Str("path", logoPath).Msg("Window icon set.")
 		return
 	}
@@ -273,7 +273,8 @@ func activateCallback(app *gtk.Application, config *common.Config, configPath st
 	popover.SetPosition(gtk.POS_BOTTOM)
 	header.PackEnd(menuBtn)
 
-	mounts := ui.GetKnownMounts(config.CacheDir)
+	// Load mounts from registry (pass empty string to use default config directory)
+	mounts := ui.GetKnownMounts("")
 	for _, mount := range mounts {
 		mount = unit.UnitNamePathUnescape(mount)
 
@@ -355,25 +356,32 @@ func newMountRow(config common.Config, mount string) (*gtk.ListBoxRow, *gtk.Swit
 	}
 
 	tildePath := ui.EscapeHome(mount)
-	accountName, err := graph.GetAccountName(config.CacheDir, escapedMount)
+
+	// Load registry to get account for this mount
+	userConfigDir, _ := os.UserConfigDir()
+	configDir := filepath.Join(userConfigDir, "onemount")
+	registry, err := mountconfig.NewMountsRegistry(configDir)
+	var accountName string
+	if err != nil {
+		logging.Warn().Err(err).Msg("Failed to load mounts registry")
+	} else {
+		accountName, _ = registry.GetAccount(mount)
+	}
+
 	label, _ := gtk.LabelNew("")
 	if driveName != "" {
 		// we have a user-assigned name for the user's drive
 		label.SetMarkup(fmt.Sprintf("%s <span style=\"italic\" weight=\"light\">(%s)</span>    ",
 			driveName, tildePath,
 		))
-	} else if err == nil {
-		// fs isn't mounted, so just use user principal name from AAD
+	} else if accountName != "" {
+		// fs isn't mounted, but we have account from registry
 		label, _ = gtk.LabelNew("")
 		label.SetMarkup(fmt.Sprintf("%s <span style=\"italic\" weight=\"light\">(%s)</span>    ",
 			accountName, tildePath,
 		))
 	} else {
-		// something went wrong and all we have is the mountpoint name
-		logging.Error().
-			Err(err).
-			Str("mountpoint", mount).
-			Msg("Could not determine user principal name.")
+		// mount not configured yet - show path only
 		label, _ = gtk.LabelNew(tildePath)
 	}
 	box.PackStart(label, false, false, 5)
@@ -658,7 +666,8 @@ func newSettingsDialog(config *common.Config, configPath string, parent gtk.IWin
 
 		// actually perform the stop+move op
 		isMounted := make([]string, 0)
-		for _, mount := range ui.GetKnownMounts(oldPath) {
+		// Load mounts from registry (pass empty string to use default config directory)
+		for _, mount := range ui.GetKnownMounts("") {
 			unitName := systemd.TemplateUnit(systemd.OneMountServiceTemplate, mount)
 			logging.Info().
 				Str("mount", mount).

@@ -14,7 +14,9 @@ import (
 	"strings"
 	"time"
 
+	mountconfig "github.com/auriora/onemount/internal/config"
 	"github.com/auriora/onemount/internal/logging"
+	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/imdario/mergo"
 )
 
@@ -91,12 +93,27 @@ func LoadAuthTokens(file string) (*Auth, error) {
 	return auth, nil
 }
 
-// GetAccountName retrieves the account name from the auth tokens file.
-// It searches for tokens in all possible locations (account-based, instance-based, legacy)
-// and returns the account name if found.
+// GetAccountName retrieves the account name for a mount point.
+// It first checks the mount registry, then falls back to reading from auth tokens if needed.
+// This function is primarily for backward compatibility and display purposes.
 func GetAccountName(cacheDir, instance string) (string, error) {
-	// Try to find tokens in any location
-	// We don't know the account email yet, so pass empty string
+	// First, try to get the account from the registry
+	userConfigDir, err := os.UserConfigDir()
+	if err == nil {
+		configDir := filepath.Join(userConfigDir, "onemount")
+		// We need to unescapethe instance to get the mount point
+		mountPoint := unit.UnitNamePathUnescape(instance)
+
+		registry, err := mountconfig.NewMountsRegistry(configDir)
+		if err == nil {
+			if account, exists := registry.GetAccount(mountPoint); exists && account != "" {
+				return account, nil
+			}
+		}
+	}
+
+	// Fallback: Try to find tokens in any location and read the account from there
+	// This is for backward compatibility with existing installations
 	tokenFile, err := FindAuthTokens(cacheDir, instance, "")
 	if err != nil {
 		return "", err
@@ -520,11 +537,86 @@ func AuthenticateWithAccountStorage(ctx context.Context, config AuthConfig, cach
 		ctx = context.Background()
 	}
 
-	// First, try to find existing tokens in any location
+	logging.Debug().
+		Str("cacheDir", cacheDir).
+		Str("instance", instance).
+		Bool("headless", headless).
+		Msg("AuthenticateWithAccountStorage called")
+
+	// First, check the registry to see if we know the account for this mount
+	// This allows us to look directly in the account-based location
+	userConfigDir, err := os.UserConfigDir()
+	if err == nil {
+		configDirPath := filepath.Join(userConfigDir, "onemount")
+		mountPoint := unit.UnitNamePathUnescape(instance)
+
+		logging.Debug().
+			Str("mountPoint", mountPoint).
+			Str("configDir", configDirPath).
+			Msg("Checking registry for account")
+
+		registry, regErr := mountconfig.NewMountsRegistry(configDirPath)
+		if regErr == nil {
+			if account, exists := registry.GetAccount(mountPoint); exists && account != "" {
+				// We know the account, check account-based location first
+				accountPath := GetAuthTokensPathByAccount(cacheDir, account)
+
+				logging.Info().
+					Str("account", account).
+					Str("accountPath", accountPath).
+					Str("mountPoint", mountPoint).
+					Msg("Found account in registry, checking for tokens")
+
+				if accountPath != "" {
+					if _, statErr := os.Stat(accountPath); statErr == nil {
+						auth := &Auth{}
+						if loadErr := auth.FromFile(accountPath); loadErr == nil {
+							logging.Info().
+								Str("path", accountPath).
+								Str("account", auth.Account).
+								Msg("Loaded auth tokens from account-based location (via registry)")
+
+							// Refresh tokens if needed
+							if refreshErr := auth.Refresh(ctx); refreshErr != nil {
+								logging.Warn().Err(refreshErr).Msg("Failed to refresh auth tokens, continuing with existing tokens")
+							}
+							return auth, nil
+						} else {
+							logging.Warn().
+								Err(loadErr).
+								Str("path", accountPath).
+								Msg("Failed to load auth tokens from account-based location")
+						}
+					} else {
+						logging.Warn().
+							Err(statErr).
+							Str("path", accountPath).
+							Msg("Account-based token file does not exist")
+					}
+				}
+			} else {
+				logging.Debug().
+					Str("mountPoint", mountPoint).
+					Bool("exists", exists).
+					Msg("Mount not found in registry or no account associated")
+			}
+		} else {
+			logging.Warn().
+				Err(regErr).
+				Str("configDir", configDirPath).
+				Msg("Failed to load mounts registry")
+		}
+	} else {
+		logging.Warn().
+			Err(err).
+			Msg("Failed to get user config directory")
+	}
+
+	// Second, try to find existing tokens in any location
 	// We don't know the account email yet, so we search all locations
 	auth := &Auth{}
 
-	// Try instance-based location first (most common for existing installations)
+	// Try instance-based location (for existing installations)
 	instancePath := GetAuthTokensPath(cacheDir, instance)
 	if _, err := os.Stat(instancePath); err == nil {
 		if err := auth.FromFile(instancePath); err == nil {
@@ -603,10 +695,11 @@ func AuthenticateWithAccountStorage(ctx context.Context, config AuthConfig, cach
 	// No existing tokens found, perform new authentication
 	// We'll save to a temporary location first, then move to account-based location after we get the account email
 	tempPath := filepath.Join(cacheDir, ".temp_auth_tokens.json")
-	auth, err := newAuth(ctx, config, tempPath, headless)
-	if err != nil {
-		return nil, fmt.Errorf("authentication failed: %w", err)
+	newAuthResult, authErr := newAuth(ctx, config, tempPath, headless)
+	if authErr != nil {
+		return nil, fmt.Errorf("authentication failed: %w", authErr)
 	}
+	auth = newAuthResult
 
 	// Now that we have the account email, move to account-based location
 	if auth.Account != "" {
