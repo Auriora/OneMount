@@ -2,6 +2,8 @@
 
 Newest entries first.
 
+- **2026-01-28** – [WebKit Build Tag Detection for Go Builds and Tests](./2026-01-28-170047-webkit-build-tag-detection.md)
+- **2026-01-28** – [Lazy Directory Loading Fix: Phase 1 Tasks Completed](./2026-01-28-164919-lazy-directory-loading-phase1.md)
 - **2026-01-28** – [Kiro Specs and Steering Reference Added](./2026-01-28-160050-kiro-specs-steering-reference.md)
 - **2026-01-23** – [Task 4.9: Auth Token Storage Refactoring Added to Spec](./2026-01-23-070000-task-4-9-auth-token-storage-refactoring-added.md)
 - **2026-01-23** – [Task 46.1.6: Integration Test Auth Fixes](./2026-01-23-063400-task-46-1-6-integration-test-fixes.md)

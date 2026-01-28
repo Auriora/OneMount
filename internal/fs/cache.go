@@ -1595,6 +1595,32 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), fetchTimeout)
 	defer fetchCancel()
 
+	type fetchResult struct {
+		items []*graph.DriveItem
+		err   error
+	}
+
+	fetchWithTimeout := func(fetch func() ([]*graph.DriveItem, error)) ([]*graph.DriveItem, error) {
+		resultChan := make(chan fetchResult, 1)
+		go func() {
+			items, fetchErr := fetch()
+			resultChan <- fetchResult{items: items, err: fetchErr}
+		}()
+
+		select {
+		case result := <-resultChan:
+			return result.items, result.err
+		case <-fetchCtx.Done():
+			err := fmt.Errorf("timeout fetching children for %s after %v", id, fetchTimeout)
+			logger.Error().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Dur("timeout", fetchTimeout).
+				Msg("Synchronous fetch timed out - returning error instead of empty")
+			return nil, err
+		}
+	}
+
 	if f.metadataRequestManager != nil {
 		// Create a channel to receive the result
 		resultChan := make(chan struct {
@@ -1618,7 +1644,9 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 					Str(logging.FieldPath, pathForLogs).
 					Msg("Metadata queue full, falling back to direct call")
 			}
-			fetched, err = graph.GetItemChildren(id, auth)
+			fetched, err = fetchWithTimeout(func() ([]*graph.DriveItem, error) {
+				return graph.GetItemChildren(id, auth)
+			})
 		} else {
 			// Wait for the result with 10-second timeout (Requirement 1.3)
 			select {
@@ -1647,7 +1675,9 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 				Str(logging.FieldPath, pathForLogs).
 				Msg("About to call graph.GetItemChildren (no metadata manager)")
 		}
-		fetched, err = graph.GetItemChildren(id, auth)
+		fetched, err = fetchWithTimeout(func() ([]*graph.DriveItem, error) {
+			return graph.GetItemChildren(id, auth)
+		})
 	}
 
 	if logging.IsDebugEnabled() {

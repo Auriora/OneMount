@@ -76,6 +76,34 @@ if [ "$VERBOSE" = true ]; then
     set -x
 fi
 
+# Detect and apply Go build tags for WebKit/GLib compatibility.
+set_go_build_tags() {
+    local tags=""
+
+    if [[ -f "/workspace/scripts/detect-go-build-tags.sh" ]]; then
+        tags="$(bash /workspace/scripts/detect-go-build-tags.sh 2>/dev/null || true)"
+    elif [[ -f "./scripts/detect-go-build-tags.sh" ]]; then
+        tags="$(bash ./scripts/detect-go-build-tags.sh 2>/dev/null || true)"
+    fi
+
+    if [[ -n "$tags" ]]; then
+        if [[ "${GOFLAGS:-}" == *"-tags="* ]] || [[ "${GOFLAGS:-}" == *"-tags "* ]]; then
+            print_info "GOFLAGS already defines build tags; leaving as-is"
+            return 0
+        fi
+
+        if [[ -n "${GOFLAGS:-}" ]]; then
+            export GOFLAGS="${GOFLAGS} -tags=${tags}"
+        else
+            export GOFLAGS="-tags=${tags}"
+        fi
+
+        print_info "Using Go build tags: ${tags}"
+    fi
+}
+
+set_go_build_tags
+
 # Function to build binaries
 build_binaries() {
     print_info "Building OneMount binaries..."

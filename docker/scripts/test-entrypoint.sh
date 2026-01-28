@@ -121,6 +121,30 @@ setup_dbus() {
     return 1
 }
 
+# Detect and apply Go build tags for WebKit/GLib compatibility.
+set_go_build_tags() {
+    local tags=""
+
+    if [[ -f "./scripts/detect-go-build-tags.sh" ]]; then
+        tags="$(bash ./scripts/detect-go-build-tags.sh 2>/dev/null || true)"
+    fi
+
+    if [[ -n "$tags" ]]; then
+        if [[ "${GOFLAGS:-}" == *"-tags="* ]] || [[ "${GOFLAGS:-}" == *"-tags "* ]]; then
+            print_info "GOFLAGS already defines build tags; leaving as-is"
+            return 0
+        fi
+
+        if [[ -n "${GOFLAGS:-}" ]]; then
+            export GOFLAGS="${GOFLAGS} -tags=${tags}"
+        else
+            export GOFLAGS="-tags=${tags}"
+        fi
+
+        print_info "Using Go build tags: ${tags}"
+    fi
+}
+
 # Setup function
 setup_environment() {
     print_info "Setting up test environment..."
@@ -168,6 +192,8 @@ setup_environment() {
         print_error "Please mount the OneMount source code to /workspace"
         exit 1
     fi
+
+    set_go_build_tags
 
     # Download dependencies
     print_info "Downloading Go dependencies..."

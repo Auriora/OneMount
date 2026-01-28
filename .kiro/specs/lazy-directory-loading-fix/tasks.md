@@ -6,15 +6,15 @@
 
 ## Phase 1: Fix GetChildrenID Blocking Behavior (Req 1, 3, 4)
 
-[ ] 1. Fix GetChildrenID to Block on Cache Miss
+[x] 1. Fix GetChildrenID to Block on Cache Miss
 **Addresses:** Requirements 1.1, 1.2, 1.3, 1.4, 3.3
-- [ ] 1.1 Remove undefined `syncOnMiss` variable reference in `GetChildrenID()`
-- [ ] 1.2 Implement synchronous blocking when cache miss occurs (no async return)
-- [ ] 1.3 Add 10-second timeout for synchronous fetch with error return (not empty)
-- [ ] 1.4 Ensure NEVER returns empty directory listing when data exists
-- [ ] 1.5 Update error handling to return proper error status on timeout/failure
+- [x] 1.1 Remove undefined `syncOnMiss` variable reference in `GetChildrenID()`
+- [x] 1.2 Implement synchronous blocking when cache miss occurs (no async return)
+- [x] 1.3 Add 10-second timeout for synchronous fetch with error return (not empty)
+- [x] 1.4 Ensure NEVER returns empty directory listing when data exists
+- [x] 1.5 Update error handling to return proper error status on timeout/failure
 
-[ ] 2. Implement Stale Cache Refresh Policy
+[x] 2. Implement Stale Cache Refresh Policy
 **Addresses:** Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7
 - [x] 2.1 Create `isCacheFresh()` helper to check cache TTL
 - [x] 2.2 Implement 2-second timeout for stale cache refresh attempt
@@ -22,11 +22,11 @@
 - [x] 2.4 Continue refresh in background after serving stale data
 - [x] 2.5 Add logging for stale cache refresh behavior
 
-[ ] 3. Update GetChildrenID Test Expectations
+[x] 3. Update GetChildrenID Test Expectations
 **Addresses:** Requirement 7.1
-- [ ] 3.1 Update `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking (not quick return)
-- [ ] 3.2 Verify test expects complete data (not empty) on first access
-- [ ] 3.3 Add timeout expectation (up to 10 seconds for uncached)
+- [x] 3.1 Update `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking (not quick return)
+- [x] 3.2 Verify test expects complete data (not empty) on first access
+- [x] 3.3 Add timeout expectation (up to 10 seconds for uncached)
 
 ## Phase 2: Implement Recursive Prefetch (Req 2)
 
