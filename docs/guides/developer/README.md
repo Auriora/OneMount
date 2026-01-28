@@ -21,6 +21,7 @@ This directory contains documentation for OneMount developers and contributors.
 - [github-runners.md](github-runners.md) - GitHub Actions runner setup
 - [jetbrains-run-configurations.md](jetbrains-run-configurations.md) - IDE configuration
 - [remote-docker-setup.md](remote-docker-setup.md) - Remote Docker setup
+- [kiro-specs-steering-reference.md](kiro-specs-steering-reference.md) - Kiro spec and steering file reference
 
 ## Code Guidelines
 
