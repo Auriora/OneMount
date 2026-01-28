@@ -1452,17 +1452,74 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		inode.mu.RUnlock()
 
 		if cachedChildIDs != nil {
-			if logging.IsDebugEnabled() {
+			// Cache hit - check freshness (Requirement 4.1)
+			if f.isCacheFresh(id) {
+				// Fresh cache - return immediately (< 50ms) (Requirement 4.1, 6.1)
+				if logging.IsDebugEnabled() {
+					logger.Debug().
+						Str(logging.FieldID, id).
+						Str(logging.FieldPath, pathForLogs).
+						Int("childCount", len(cachedChildIDs)).
+						Msg("Children found in fresh cache, returning immediately")
+				}
+
+				// can potentially have out-of-date child metadata if started offline, but since
+				// changes are disallowed while offline, the children will be back in sync after
+				// the first successful delta fetch (which also brings the fs back online)
+				for _, childID := range cachedChildIDs {
+					child := f.GetID(childID)
+					if child == nil {
+						continue
+					}
+					children[strings.ToLower(child.Name())] = child
+				}
+
+				if logging.IsDebugEnabled() {
+					logger.Debug().
+						Str(logging.FieldID, id).
+						Str(logging.FieldPath, pathForLogs).
+						Int("childCount", len(children)).
+						Msg("Successfully retrieved children from fresh cache")
+				}
+
+				defer func() {
+					logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
+				}()
+				return children, nil
+			}
+
+			// Cache is stale - attempt refresh with 2-second timeout (Requirement 4.2)
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Msg("Cache is stale, attempting 2-second refresh")
+
+			refreshed, err := f.refreshChildrenWithTimeout(id, auth, 2*time.Second)
+			if err == nil {
+				// Refresh succeeded - return fresh data (Requirement 4.3)
 				logger.Debug().
 					Str(logging.FieldID, id).
 					Str(logging.FieldPath, pathForLogs).
-					Int("childCount", len(cachedChildIDs)).
-					Msg("Children found in cache, retrieving them")
+					Int("childCount", len(refreshed)).
+					Msg("Stale cache refresh succeeded, returning fresh data")
+
+				defer func() {
+					logging.LogMethodExit(methodName, time.Since(startTime), refreshed, nil)
+				}()
+				return refreshed, nil
 			}
 
-			// can potentially have out-of-date child metadata if started offline, but since
-			// changes are disallowed while offline, the children will be back in sync after
-			// the first successful delta fetch (which also brings the fs back online)
+			// Refresh timed out or failed - serve stale data as fallback (Requirement 4.4, 4.5, 4.6)
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Err(err).
+				Msg("Stale cache refresh timed out or failed, serving stale data and continuing refresh in background")
+
+			// Continue refresh in background (Requirement 4.7)
+			go f.refreshChildrenAsync(id, auth)
+
+			// Serve stale data (NEVER return empty when stale cache available)
 			for _, childID := range cachedChildIDs {
 				child := f.GetID(childID)
 				if child == nil {
@@ -1476,7 +1533,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 					Str(logging.FieldID, id).
 					Str(logging.FieldPath, pathForLogs).
 					Int("childCount", len(children)).
-					Msg("Successfully retrieved children from cache")
+					Msg("Serving stale cache data while background refresh continues")
 			}
 
 			defer func() {
@@ -1503,31 +1560,15 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		}
 	}
 
+	// CRITICAL: Always block and fetch synchronously on cache miss
+	// NEVER return empty directory listings (Requirement 1.1, 1.2)
+	// This ensures directories always show their contents on first access
 	if !forceRefresh {
 		if logging.IsDebugEnabled() {
 			logger.Debug().
 				Str(logging.FieldID, id).
 				Str(logging.FieldPath, pathForLogs).
-				Bool("syncOnMiss", syncOnMiss).
-				Msg("Children not in cache; checking sync strategy")
-		}
-
-		// If syncOnMiss is true (first access from OpenDir), fetch synchronously
-		// to ensure complete data on first directory listing
-		if !syncOnMiss {
-			f.refreshChildrenAsync(id, auth)
-			defer func() {
-				logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
-			}()
-			return children, nil
-		}
-
-		// Fall through to synchronous fetch below
-		if logging.IsDebugEnabled() {
-			logger.Debug().
-				Str(logging.FieldID, id).
-				Str(logging.FieldPath, pathForLogs).
-				Msg("Performing synchronous fetch for first access")
+				Msg("Children not in cache; performing synchronous fetch to ensure complete data")
 		}
 	}
 
@@ -1540,6 +1581,7 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 
 	// We haven't fetched the children for this item yet, get them from the server.
 	// Use prioritized metadata request for foreground operations
+	// CRITICAL: 10-second timeout for synchronous fetch (Requirement 1.3)
 	var fetched []*graph.DriveItem
 	var err error
 
@@ -1547,6 +1589,11 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	if forceRefresh {
 		priority = PriorityBackground
 	}
+
+	// Create timeout context for synchronous fetch (10 seconds)
+	fetchTimeout := 10 * time.Second
+	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), fetchTimeout)
+	defer fetchCancel()
 
 	if f.metadataRequestManager != nil {
 		// Create a channel to receive the result
@@ -1573,18 +1620,23 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 			}
 			fetched, err = graph.GetItemChildren(id, auth)
 		} else {
-			// Wait for the result with timeout
+			// Wait for the result with 10-second timeout (Requirement 1.3)
 			select {
 			case result := <-resultChan:
 				fetched = result.items
 				err = result.err
-			case <-time.After(30 * time.Second):
-				err = context.DeadlineExceeded
-				logger.Warn().
+			case <-fetchCtx.Done():
+				// Timeout reached - return error, not empty (Requirement 1.3, 1.4)
+				err = fmt.Errorf("timeout fetching children for %s after %v", id, fetchTimeout)
+				logger.Error().
 					Str(logging.FieldID, id).
 					Str(logging.FieldPath, pathForLogs).
-					Msg("Foreground metadata request timed out, falling back to direct call")
-				fetched, err = graph.GetItemChildren(id, auth)
+					Dur("timeout", fetchTimeout).
+					Msg("Synchronous fetch timed out - returning error instead of empty")
+				defer func() {
+					logging.LogMethodExit(methodName, time.Since(startTime), nil, err)
+				}()
+				return nil, err
 			}
 		}
 	} else {
@@ -1744,6 +1796,79 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 	return children, nil
 }
 
+// isCacheFresh checks if the cached metadata for a directory is still fresh (within TTL).
+// Returns true if the cache is fresh (< 5 minutes old), false if stale.
+// Requirement 4.1: Check cache freshness based on TTL
+func (f *Filesystem) isCacheFresh(id string) bool {
+	// Get metadata entry to check UpdatedAt timestamp
+	entry, err := f.metadataStore.Get(context.Background(), id)
+	if err != nil {
+		// If we can't get the metadata entry, consider cache stale
+		return false
+	}
+
+	// Cache TTL: 5 minutes (configurable constant)
+	const cacheTTL = 5 * time.Minute
+
+	// Check if the cache has exceeded its TTL
+	age := time.Since(entry.UpdatedAt)
+	isFresh := age < cacheTTL
+
+	if logging.IsDebugEnabled() {
+		logging.Debug().
+			Str(logging.FieldID, id).
+			Dur("age", age).
+			Dur("ttl", cacheTTL).
+			Bool("fresh", isFresh).
+			Msg("Cache freshness check")
+	}
+
+	return isFresh
+}
+
+// refreshChildrenWithTimeout attempts to refresh directory children with a timeout.
+// Returns the refreshed children map on success, or an error if timeout/failure occurs.
+// Requirement 4.2: Implement 2-second timeout for stale cache refresh attempt
+func (f *Filesystem) refreshChildrenWithTimeout(id string, auth *graph.Auth, timeout time.Duration) (map[string]*Inode, error) {
+	// Create a channel to receive the result
+	type result struct {
+		children map[string]*Inode
+		err      error
+	}
+	resultChan := make(chan result, 1)
+
+	// Start the refresh in a goroutine
+	go func() {
+		children, err := f.getChildrenID(id, auth, true)
+		resultChan <- result{children: children, err: err}
+	}()
+
+	// Wait for result or timeout
+	select {
+	case res := <-resultChan:
+		if res.err != nil {
+			logging.Debug().
+				Str(logging.FieldID, id).
+				Err(res.err).
+				Msg("Stale cache refresh failed")
+			return nil, res.err
+		}
+		logging.Debug().
+			Str(logging.FieldID, id).
+			Dur("timeout", timeout).
+			Int("childCount", len(res.children)).
+			Msg("Stale cache refresh succeeded within timeout")
+		return res.children, nil
+	case <-time.After(timeout):
+		err := fmt.Errorf("stale cache refresh timed out after %v", timeout)
+		logging.Debug().
+			Str(logging.FieldID, id).
+			Dur("timeout", timeout).
+			Msg("Stale cache refresh timed out")
+		return nil, err
+	}
+}
+
 // refreshChildrenAsync kicks off a background metadata refresh for the given directory.
 func (f *Filesystem) refreshChildrenAsync(id string, auth *graph.Auth) {
 	if id == "" {
@@ -1761,7 +1886,7 @@ func (f *Filesystem) refreshChildrenAsync(id string, auth *graph.Auth) {
 
 	go func() {
 		defer f.metadataRefresh.Delete(id)
-		if _, err := f.getChildrenID(id, auth, true, false); err != nil {
+		if _, err := f.getChildrenID(id, auth, true); err != nil {
 			logging.Debug().
 				Str(logging.FieldID, id).
 				Err(err).

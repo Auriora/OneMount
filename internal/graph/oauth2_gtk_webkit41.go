@@ -1,13 +1,9 @@
-//go:build linux && cgo && !webkit40 && !webkit41
+//go:build linux && cgo && webkit41
 
 package graph
 
-// This file is kept for backward compatibility but should not be compiled
-// when webkit40 or webkit41 build tags are used.
-// The actual implementations are in oauth2_gtk_webkit40.go and oauth2_gtk_webkit41.go
-
 /*
-#cgo linux pkg-config: webkit2gtk-4.0
+#cgo linux pkg-config: webkit2gtk-4.1
 #include "stdlib.h"
 #include "oauth2_gtk.h"
 */
@@ -19,8 +15,7 @@ import (
 )
 
 // Fetch the auth code required as the first part of oauth2 authentication. Uses
-// webkit2gtk to create a popup browser.
-// This is the default implementation when no webkit build tag is specified.
+// webkit2gtk-4.1 to create a popup browser.
 func getAuthCode(a AuthConfig, accountName string) (string, error) {
 	cAuthURL := C.CString(getAuthURL(a))
 	cAccountName := C.CString(accountName)

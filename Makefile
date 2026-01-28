@@ -10,7 +10,9 @@ RPM_FULL_VERSION = $(VERSION)-$(RELEASE)$(DIST)
 # glib compatibility: https://github.com/gotk3/gotk3/issues/762#issuecomment-919035313
 CGO_CFLAGS := CGO_CFLAGS=-Wno-deprecated-declarations
 GOTK3_GLIB_TAG ?= $(shell bash scripts/detect-glib-build-tag.sh)
-GO_BUILD_TAGS := $(strip $(GOTK3_GLIB_TAG))
+WEBKIT_VERSION ?= $(shell bash scripts/detect-webkit-version.sh)
+WEBKIT_TAG := $(if $(filter webkit2gtk-4.1,$(WEBKIT_VERSION)),webkit41,webkit40)
+GO_BUILD_TAGS := $(strip $(GOTK3_GLIB_TAG) $(WEBKIT_TAG))
 GO_TAGS_FLAG := $(if $(GO_BUILD_TAGS),-tags "$(GO_BUILD_TAGS)",)
 
 # Build directory structure

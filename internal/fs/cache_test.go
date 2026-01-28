@@ -398,6 +398,11 @@ func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 			fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
 			fs := fsFixture.FS.(*Filesystem)
 			rootID := fsFixture.RootID
+			mockClient := fsFixture.MockClient
+
+			// Create a test file in the mock
+			testFile := helpers.CreateMockFile(mockClient, rootID, "test-file.txt", "test-file-id", "test content")
+			mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{testFile})
 
 			root := fs.GetID(rootID)
 			require.NotNil(t, root)
@@ -417,13 +422,26 @@ func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 				})
 			}
 
+			// UPDATED TEST: Now expects blocking behavior (Requirement 7.1)
+			// GetChildrenID should block and fetch synchronously when cache is empty
+			// It should NEVER return empty when data exists (Requirement 1.2, 7.2)
 			start := time.Now()
 			children, err := fs.GetChildrenID(rootID, fs.auth)
-			require.NoError(t, err)
-			require.Len(t, children, 0)
-			if time.Since(start) > 50*time.Millisecond {
-				t.Fatalf("GetChildrenID blocked waiting for metadata refresh")
-			}
+			elapsed := time.Since(start)
+
+			require.NoError(t, err, "GetChildrenID should not return error")
+			require.NotNil(t, children, "Children map should not be nil")
+			require.Len(t, children, 1, "Should return complete data (not empty) on first access")
+
+			// Verify the test file is in the results
+			_, exists := children[strings.ToLower(testFile.Name)]
+			require.True(t, exists, "Test file should be present in children")
+
+			// Should block until data is fetched (up to 10 seconds timeout per Requirement 1.3, 7.3)
+			// In practice, with mock, this should complete quickly but not instantly
+			require.Less(t, elapsed, 10*time.Second, "Should complete within 10-second timeout")
+
+			t.Logf("GetChildrenID completed in %v (blocking fetch as expected)", elapsed)
 		})
 	})
 }
@@ -526,4 +544,94 @@ func TestIT_FS_Cache_FallbackRootFromMetadata(t *testing.T) {
 	if val, ok := fs.metadata.Load("root"); !ok || val == nil {
 		t.Fatalf("expected synthetic root cached in metadata map")
 	}
+}
+
+// TestIT_FS_Cache_StaleCacheRefreshWithTimeout tests the stale cache refresh policy
+// Requirement 4.2, 7.6: Test stale cache refresh with 2-second timeout
+// Requirement 4.4: Verify serves stale data if refresh times out
+// Requirement 4.7: Verify background refresh continues
+func TestIT_FS_Cache_StaleCacheRefreshWithTimeout(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "StaleCacheRefreshFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, data interface{}) {
+			unitTestFixture := data.(*framework.UnitTestFixture)
+			fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+			fs := fsFixture.FS.(*Filesystem)
+			rootID := fsFixture.RootID
+			mockClient := fsFixture.MockClient
+
+			// Create initial test files in the mock
+			testFile1 := helpers.CreateMockFile(mockClient, rootID, "file1.txt", "file1-id", "content1")
+			testFile2 := helpers.CreateMockFile(mockClient, rootID, "file2.txt", "file2-id", "content2")
+			mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{testFile1, testFile2})
+
+			// First access - populate cache
+			children1, err := fs.GetChildrenID(rootID, fs.auth)
+			require.NoError(t, err)
+			require.Len(t, children1, 2, "Should have 2 files initially")
+
+			// Make the cache stale by updating the metadata entry's UpdatedAt timestamp
+			// to be older than the TTL (5 minutes)
+			if fs.metadataStore != nil {
+				_, err := fs.metadataStore.Update(context.Background(), rootID, func(entry *metadata.Entry) error {
+					if entry == nil {
+						return metadata.ErrNotFound
+					}
+					// Set UpdatedAt to 10 minutes ago (older than 5-minute TTL)
+					entry.UpdatedAt = time.Now().Add(-10 * time.Minute)
+					return nil
+				})
+				require.NoError(t, err, "Should be able to update metadata timestamp")
+			}
+
+			// Verify cache is now stale
+			isFresh := fs.isCacheFresh(rootID)
+			require.False(t, isFresh, "Cache should be stale after timestamp manipulation")
+
+			// Add a new file to the mock (simulating remote changes)
+			testFile3 := helpers.CreateMockFile(mockClient, rootID, "file3.txt", "file3-id", "content3")
+			mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{testFile1, testFile2, testFile3})
+
+			// Second access with stale cache - should attempt refresh
+			// If refresh succeeds within 2 seconds, should return fresh data (3 files)
+			// If refresh times out, should return stale data (2 files) and continue in background
+			start := time.Now()
+			children2, err := fs.GetChildrenID(rootID, fs.auth)
+			elapsed := time.Since(start)
+
+			require.NoError(t, err, "Should not return error even if refresh times out")
+			require.NotNil(t, children2, "Should never return nil")
+
+			// The result depends on whether refresh completed within 2 seconds
+			// With mock client, it should complete quickly and return fresh data
+			if len(children2) == 3 {
+				// Refresh succeeded within timeout - got fresh data (Requirement 4.3)
+				t.Logf("Stale cache refresh succeeded within timeout (%v), returned fresh data with 3 files", elapsed)
+				_, exists := children2[strings.ToLower(testFile3.Name)]
+				require.True(t, exists, "New file should be present in refreshed data")
+			} else if len(children2) == 2 {
+				// Refresh timed out - got stale data (Requirement 4.4)
+				t.Logf("Stale cache refresh timed out (%v), served stale data with 2 files", elapsed)
+				require.Less(t, elapsed, 3*time.Second, "Should return stale data within ~2 seconds")
+
+				// Background refresh should continue (Requirement 4.7)
+				// Wait a bit for background refresh to complete
+				time.Sleep(3 * time.Second)
+
+				// Third access should now have fresh data from background refresh
+				children3, err := fs.GetChildrenID(rootID, fs.auth)
+				require.NoError(t, err)
+				require.Len(t, children3, 3, "Background refresh should have updated cache")
+			} else {
+				t.Fatalf("Unexpected number of children: %d (expected 2 or 3)", len(children2))
+			}
+
+			// Verify cache is fresh after refresh
+			isFresh = fs.isCacheFresh(rootID)
+			require.True(t, isFresh, "Cache should be fresh after refresh")
+		})
+	})
 }
