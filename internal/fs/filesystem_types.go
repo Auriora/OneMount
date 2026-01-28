@@ -125,6 +125,10 @@ type Filesystem struct {
 	metadataRequestManager *MetadataRequestManager // Manager for prioritized metadata requests
 	metadataRefresh        sync.Map                // Tracks in-flight metadata refreshes by directory ID
 
+	// Prefetch lifecycle tracking
+	prefetchActive  atomic.Bool
+	prefetchPending atomic.Bool
+
 	// Realtime subscription management
 	realtimeOptions        *RealtimeOptions
 	subscriptionManager    subscriptionManager

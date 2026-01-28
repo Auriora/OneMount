@@ -406,6 +406,23 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 	// Initialize download manager with configurable worker threads and queue size
 	fs.downloads = NewDownloadManager(fs, auth, defaultHydrationWorkers, defaultHydrationQueueSize, db)
 
+	if fs.IsOffline() {
+		if !fs.hasCachedRootChildren() {
+			logging.Error().Msg("Offline mount aborted: no cached root children available")
+			return nil, errors.New("offline and no cached root children available for mount")
+		}
+		if !fs.populateRootChildrenFromMetadata() {
+			logging.Warn().Msg("Offline mount: unable to materialize cached root children into memory")
+		}
+	} else {
+		if _, err := fs.prefetchDirectory(context.Background(), fs.root, 0); err != nil {
+			logging.LogError(err, "Failed to hydrate root children during mount",
+				logging.FieldOperation, "NewFilesystem",
+				logging.FieldID, fs.root)
+			return nil, errors.Wrap(err, "failed to hydrate root children during mount")
+		}
+	}
+
 	if !fs.IsOffline() {
 		// .Trash-UID is used by "gio trash" for user trash, create it if it
 		// does not exist
@@ -474,6 +491,8 @@ func NewFilesystemWithContext(ctx context.Context, auth *graph.Auth, cacheDir st
 		logging.Error().Err(err).Msg("Failed to start D-Bus server")
 		// Continue even if D-Bus server fails to start
 	}
+
+	fs.StartPrefetch()
 
 	return fs, nil
 }

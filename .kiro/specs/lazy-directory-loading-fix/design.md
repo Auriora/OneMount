@@ -46,9 +46,11 @@ func (f *Filesystem) StartPrefetch() {
 }
 
 func (f *Filesystem) prefetchRecursive(dirID string, depth int) {
-    // Prevent infinite recursion (safety limit) (Req 2.4)
+    // Prevent runaway recursion in a single batch (safety limit) (Req 2.4)
+    // Directories beyond the limit are queued for a later batch so the full
+    // tree is eventually covered.
     if depth > 100 {
-        logging.Warn().Int("depth", depth).Msg("Prefetch depth limit reached")
+        enqueueForNextBatch(dirID)
         return
     }
     
@@ -59,7 +61,7 @@ func (f *Filesystem) prefetchRecursive(dirID string, depth int) {
     children, err := f.metadataRequestManager.FetchChildrenSync(
         dirID, 
         f.auth, 
-        30*time.Second, // Longer timeout for background operation
+        30*time.Second,
         PriorityBackground,
     )
     if err != nil {
@@ -69,7 +71,7 @@ func (f *Filesystem) prefetchRecursive(dirID string, depth int) {
         return
     }
     
-    // Cache the results in memory
+    // Cache the results in memory (metadata only) (Req 2.2)
     f.cacheChildren(dirID, children)
     
     // Persist to metadata store for use across restarts (Req 2.9)
@@ -212,6 +214,12 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 - Prefetch only fetches metadata (directory listings, file names, sizes, etc.) (Req 2.2)
 - File contents are downloaded on-demand when file is opened (Req 5.1)
 - Both operations block until complete (NEVER return empty/partial data) (Req 1.2, 5.7)
+
+### 2.6 Mount + Offline Behavior (Implementation Detail)
+
+- **Online mount**: synchronously hydrate root children before returning, then launch recursive prefetch in a goroutine.
+- **Offline mount**: only proceed if cached root children exist; otherwise fail mount.
+- **Offline → online transition**: resume prefetch when connectivity returns.
 
 ### 2.4 Metadata State Tracking
 **Addresses: Requirement 2.6, 2.7, 3.6**
@@ -625,4 +633,3 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 - `internal/fs/cache_test.go`: Cache behavior tests
 - `internal/fs/fuse_metadata_local_test.go`: Metadata operation tests
 - Test to update: `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` (Req 7.1)
-

@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2026-01-28** – [Lazy Directory Loading Fix: Phase 2 Prefetch Implementation](./2026-01-28-203200-lazy-directory-loading-phase2.md)
 - **2026-01-28** – [WebKit Build Tag Detection for Go Builds and Tests](./2026-01-28-170047-webkit-build-tag-detection.md)
 - **2026-01-28** – [Lazy Directory Loading Fix: Phase 1 Tasks Completed](./2026-01-28-164919-lazy-directory-loading-phase1.md)
 - **2026-01-28** – [Kiro Specs and Steering Reference Added](./2026-01-28-160050-kiro-specs-steering-reference.md)

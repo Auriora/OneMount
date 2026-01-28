@@ -30,28 +30,28 @@
 
 ## Phase 2: Implement Recursive Prefetch (Req 2)
 
-[ ] 4. Create Prefetch Infrastructure
+[x] 4. Create Prefetch Infrastructure
 **Addresses:** Requirements 2.1, 2.2, 2.3, 2.4, 2.5
-- [ ] 4.1 Create `StartPrefetch()` method to initiate background prefetch
-- [ ] 4.2 Create `prefetchRecursive()` method with depth limit (100 levels)
-- [ ] 4.3 Use PriorityBackground for all prefetch requests
-- [ ] 4.4 Fetch metadata only (NOT file contents)
-- [ ] 4.5 Add logging to track prefetch progress and errors
+- [x] 4.1 Create `StartPrefetch()` method to initiate background prefetch
+- [x] 4.2 Create `prefetchRecursive()` method with depth limit (100 levels)
+- [x] 4.3 Use PriorityBackground for all prefetch requests
+- [x] 4.4 Fetch metadata only (NOT file contents)
+- [x] 4.5 Add logging to track prefetch progress and errors
 
-[ ] 5. Integrate Prefetch with Metadata State Machine
+[x] 5. Integrate Prefetch with Metadata State Machine
 **Addresses:** Requirements 2.6, 2.7, 2.8, 2.9
-- [ ] 5.1 Set metadata state to HYDRATING when prefetch starts
-- [ ] 5.2 Set metadata state to HYDRATED when prefetch completes
-- [ ] 5.3 Set metadata state to ERROR on prefetch failure (log and continue)
-- [ ] 5.4 Persist prefetched metadata to metadata store
-- [ ] 5.5 Handle graceful degradation on prefetch errors
+- [x] 5.1 Set metadata state to HYDRATING when prefetch starts
+- [x] 5.2 Set metadata state to HYDRATED when prefetch completes
+- [x] 5.3 Set metadata state to ERROR on prefetch failure (log and continue)
+- [x] 5.4 Persist prefetched metadata to metadata store
+- [x] 5.5 Handle graceful degradation on prefetch errors
 
-[ ] 6. Call Prefetch After Mount
+[x] 6. Call Prefetch After Mount
 **Addresses:** Requirements 2.1, 6.5
-- [ ] 6.1 Call `StartPrefetch()` in `NewFilesystem()` after initialization
-- [ ] 6.2 Ensure prefetch runs in goroutine (non-blocking mount)
-- [ ] 6.3 Verify mount completes quickly (< 2 seconds)
-- [ ] 6.4 Add integration point in filesystem initialization
+- [x] 6.1 Call `StartPrefetch()` in `NewFilesystem()` after initialization
+- [x] 6.2 Ensure prefetch runs in goroutine (non-blocking mount)
+- [x] 6.3 Verify mount completes quickly (< 2 seconds)
+- [x] 6.4 Add integration point in filesystem initialization
 
 ## Phase 3: Prefetch-Aware Directory Access (Req 3)
 

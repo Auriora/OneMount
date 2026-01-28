@@ -21,7 +21,7 @@ const (
 // See docs/guides/developer/concurrency-guidelines.md
 func (f *Filesystem) SetOfflineMode(mode OfflineMode) {
 	f.Lock()
-	defer f.Unlock()
+	wasOffline := f.offline
 
 	switch mode {
 	case OfflineModeDisabled:
@@ -30,6 +30,11 @@ func (f *Filesystem) SetOfflineMode(mode OfflineMode) {
 	case OfflineModeReadWrite:
 		f.offline = true
 		logging.Info().Msg("Offline mode enabled")
+	}
+	f.Unlock()
+
+	if wasOffline && mode == OfflineModeDisabled {
+		f.StartPrefetch()
 	}
 }
 

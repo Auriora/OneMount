@@ -526,6 +526,7 @@ func (f *Filesystem) DeltaLoop(interval time.Duration) {
 							Msg("Successfully processed offline changes with sync manager")
 					}
 				}(f.ctx)
+				f.StartPrefetch()
 			}
 		} else {
 			// Switch to offline ticker for shorter retry intervals
