@@ -1,109 +1,158 @@
 # Tasks: Lazy Directory Loading Performance Fix
 
-## Phase 1: Implement Recursive Prefetch
+**References:**
+- Requirements: `.kiro/specs/lazy-directory-loading-fix/requirements.md`
+- Design: `.kiro/specs/lazy-directory-loading-fix/design.md`
 
-### 1. Implement Prefetch Infrastructure
-- [ ] 1.1 Create `StartPrefetch()` method to initiate prefetch on mount
-- [ ] 1.2 Create `prefetchRecursive()` method to recursively fetch directory metadata
-- [ ] 1.3 Add depth limit (100 levels) to prevent infinite recursion
-- [ ] 1.4 Use low priority (PriorityBackground) for prefetch requests
-- [ ] 1.5 Add logging to track prefetch progress
+## Phase 1: Fix GetChildrenID Blocking Behavior (Req 1, 3, 4)
 
-### 2. Integrate Prefetch with Filesystem Initialization
-- [ ] 2.1 Call `StartPrefetch()` after filesystem mount completes
-- [ ] 2.2 Ensure prefetch runs in background (non-blocking)
-- [ ] 2.3 Handle errors gracefully (log and continue)
-- [ ] 2.4 Track prefetch state using metadata states (GHOST → HYDRATING → HYDRATED)
-- [ ] 2.5 Persist prefetched metadata to metadata store
+[ ] 1. Fix GetChildrenID to Block on Cache Miss
+**Addresses:** Requirements 1.1, 1.2, 1.3, 1.4, 3.3
+- [ ] 1.1 Remove undefined `syncOnMiss` variable reference in `GetChildrenID()`
+- [ ] 1.2 Implement synchronous blocking when cache miss occurs (no async return)
+- [ ] 1.3 Add 10-second timeout for synchronous fetch with error return (not empty)
+- [ ] 1.4 Ensure NEVER returns empty directory listing when data exists
+- [ ] 1.5 Update error handling to return proper error status on timeout/failure
 
-### 3. Update GetChildrenID for Prefetch Awareness
-- [ ] 3.1 Check cache first - return immediately if fresh
-- [ ] 3.2 If stale, attempt refresh with 2 second timeout
-- [ ] 3.3 If cache miss, check if prefetch in progress (`isPrefetchInProgress()`)
-- [ ] 3.4 If prefetch in progress, wait for it to complete (`waitForPrefetch()`)
-- [ ] 3.5 If not prefetched, block and fetch synchronously
+[ ] 2. Implement Stale Cache Refresh Policy
+**Addresses:** Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7
+- [x] 2.1 Create `isCacheFresh()` helper to check cache TTL
+- [x] 2.2 Implement 2-second timeout for stale cache refresh attempt
+- [x] 2.3 Serve stale data if refresh times out (never return empty)
+- [x] 2.4 Continue refresh in background after serving stale data
+- [x] 2.5 Add logging for stale cache refresh behavior
 
-### 4. Implement Prefetch Helper Methods
-- [ ] 4.1 Create `isPrefetchInProgress()` to check metadata state
-- [ ] 4.2 Create `waitForPrefetch()` to poll cache with timeout
-- [ ] 4.3 Create `isCacheFresh()` to check cache TTL
-- [ ] 4.4 Create `cacheChildren()` to store results
-- [ ] 4.5 Add proper error handling for all methods
+[ ] 3. Update GetChildrenID Test Expectations
+**Addresses:** Requirement 7.1
+- [ ] 3.1 Update `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking (not quick return)
+- [ ] 3.2 Verify test expects complete data (not empty) on first access
+- [ ] 3.3 Add timeout expectation (up to 10 seconds for uncached)
 
-## Phase 2: File Content Loading
+## Phase 2: Implement Recursive Prefetch (Req 2)
 
-### 5. Ensure File Content is NOT Prefetched
-- [ ] 5.1 Verify prefetch only fetches metadata (not content)
-- [ ] 5.2 Verify file content is only loaded on file open
-- [ ] 5.3 Add assertions to prevent accidental content prefetch
-- [ ] 5.4 Document the separation clearly in code comments
+[ ] 4. Create Prefetch Infrastructure
+**Addresses:** Requirements 2.1, 2.2, 2.3, 2.4, 2.5
+- [ ] 4.1 Create `StartPrefetch()` method to initiate background prefetch
+- [ ] 4.2 Create `prefetchRecursive()` method with depth limit (100 levels)
+- [ ] 4.3 Use PriorityBackground for all prefetch requests
+- [ ] 4.4 Fetch metadata only (NOT file contents)
+- [ ] 4.5 Add logging to track prefetch progress and errors
 
-### 6. Update File Open to Block Until Downloaded
-- [ ] 6.1 Check if content is already cached in `Open()`
-- [ ] 6.2 If not cached, queue download with foreground priority
-- [ ] 6.3 Block until download completes (60 second timeout)
-- [ ] 6.4 Return error if download fails (not partial/empty file)
-- [ ] 6.5 Add progress indication if possible
+[ ] 5. Integrate Prefetch with Metadata State Machine
+**Addresses:** Requirements 2.6, 2.7, 2.8, 2.9
+- [ ] 5.1 Set metadata state to HYDRATING when prefetch starts
+- [ ] 5.2 Set metadata state to HYDRATED when prefetch completes
+- [ ] 5.3 Set metadata state to ERROR on prefetch failure (log and continue)
+- [ ] 5.4 Persist prefetched metadata to metadata store
+- [ ] 5.5 Handle graceful degradation on prefetch errors
 
-## Phase 3: Testing
+[ ] 6. Call Prefetch After Mount
+**Addresses:** Requirements 2.1, 6.5
+- [ ] 6.1 Call `StartPrefetch()` in `NewFilesystem()` after initialization
+- [ ] 6.2 Ensure prefetch runs in goroutine (non-blocking mount)
+- [ ] 6.3 Verify mount completes quickly (< 2 seconds)
+- [ ] 6.4 Add integration point in filesystem initialization
 
-### 7. Add Prefetch Tests
-- [ ] 7.1 Test `prefetchRecursive()` fetches all directories
-- [ ] 7.2 Test prefetch only fetches metadata (not content)
-- [ ] 7.3 Test prefetch handles errors gracefully
-- [ ] 7.4 Test prefetch respects depth limit
-- [ ] 7.5 Test prefetch uses low priority
+## Phase 3: Prefetch-Aware Directory Access (Req 3)
 
-### 8. Update GetChildrenID Tests
-- [ ] 8.1 Test returns immediately if prefetched (< 50ms)
-- [ ] 8.2 Test waits for prefetch if in progress (< 5s)
-- [ ] 8.3 Test blocks and fetches if not prefetched (< 10s)
-- [ ] 8.4 Test NEVER returns empty
-- [ ] 8.5 Test stale cache refresh with timeout
+[ ] 7. Implement Prefetch Detection Helpers
+**Addresses:** Requirements 3.2, 3.4, 3.6
+- [ ] 7.1 Create `isPrefetchInProgress()` to check if state is HYDRATING
+- [ ] 7.2 Create `waitForPrefetch()` to poll cache with 100ms interval
+- [ ] 7.3 Add 5-second timeout for waiting on prefetch
+- [ ] 7.4 Fall back to synchronous fetch if prefetch times out
 
-### 9. Add File Content Tests
-- [ ] 9.1 Test file open blocks until content downloaded
-- [ ] 9.2 Test file open returns error on download failure
-- [ ] 9.3 Test file content is NOT prefetched
-- [ ] 9.4 Test multiple concurrent file opens
-- [ ] 9.5 Test large file downloads with timeout
+[ ] 8. Update GetChildrenID for Prefetch Awareness
+**Addresses:** Requirements 3.1, 3.2, 3.3, 3.5
+- [ ] 8.1 Check if prefetch in progress before synchronous fetch
+- [ ] 8.2 Wait for prefetch completion if HYDRATING state detected
+- [ ] 8.3 Return immediately if data already prefetched (< 50ms)
+- [ ] 8.4 Block and fetch synchronously if not prefetched
+- [ ] 8.5 Add logging for prefetch-aware behavior
 
-### 10. Integration Testing
-- [ ] 10.1 Test complete mount → prefetch → user access flow
-- [ ] 10.2 Test with real OneDrive account
-- [ ] 10.3 Test with large directory trees (1000+ folders)
-- [ ] 10.4 Test with slow network conditions
-- [ ] 10.5 Test with network errors during prefetch
+## Phase 4: File Content Loading (Req 5)
 
-## Phase 4: Performance and Validation
+[ ] 9. Verify File Content Separation
+**Addresses:** Requirements 5.1, 5.2, 5.3
+- [ ] 9.1 Verify prefetch ONLY fetches metadata (not file contents)
+- [ ] 9.2 Add code comments documenting metadata vs content separation
+- [ ] 9.3 Add assertions to prevent accidental content prefetch
+- [ ] 9.4 Verify file content loaded only in `Open()` method
 
-### 11. Performance Testing
-- [ ] 11.1 Measure prefetch time for various directory sizes
-- [ ] 11.2 Measure directory access latency after prefetch
-- [ ] 11.3 Measure API usage during prefetch
-- [ ] 11.4 Measure memory usage during prefetch
-- [ ] 11.5 Verify no performance regression
+[ ] 10. Update File Open to Block Until Downloaded
+**Addresses:** Requirements 5.2, 5.3, 5.4, 5.5, 5.6, 5.7
+- [ ] 10.1 Verify content cache check in `Open()` (already exists)
+- [ ] 10.2 Ensure download uses PriorityForeground (already exists)
+- [ ] 10.3 Add blocking wait for download completion (60 second timeout)
+- [ ] 10.4 Return error on download failure (not partial/empty file)
+- [ ] 10.5 Verify NEVER returns partial content to user
 
-### 12. Manual Testing
-- [ ] 12.1 Mount filesystem and verify prefetch starts
-- [ ] 12.2 Navigate directories and verify instant access
-- [ ] 12.3 Open files and verify content downloads
-- [ ] 12.4 Test with file managers (Nautilus, Dolphin)
-- [ ] 12.5 Verify error messages are clear
+## Phase 5: Testing (Req 7)
 
-## Phase 5: Documentation
+[ ] 11. Add Prefetch Tests
+**Addresses:** Requirements 7.3, 7.4
+- [ ] 11.1 Test `prefetchRecursive()` fetches all directories recursively
+- [ ] 11.2 Test prefetch ONLY fetches metadata (not file contents)
+- [ ] 11.3 Test prefetch handles errors gracefully (log and continue)
+- [ ] 11.4 Test prefetch respects 100-level depth limit
+- [ ] 11.5 Test prefetch uses PriorityBackground
 
-### 13. Update Documentation
-- [ ] 13.1 Document prefetch behavior in code comments
-- [ ] 13.2 Update design document with implementation details
-- [ ] 13.3 Create fix document in `docs/fixes/`
-- [ ] 13.4 Update ADR-003 with prefetch strategy
-- [ ] 13.5 Document configuration options (if any)
+[ ] 12. Add GetChildrenID Blocking Tests
+**Addresses:** Requirements 7.2, 7.7
+- [ ] 12.1 Test returns immediately if prefetched (< 50ms)
+- [ ] 12.2 Test waits for prefetch if HYDRATING (< 5s)
+- [ ] 12.3 Test blocks and fetches if not prefetched (< 10s)
+- [ ] 12.4 Test NEVER returns empty directory listing
+- [ ] 12.5 Test stale cache refresh with 2-second timeout
 
-## Notes
+[ ] 13. Add File Content Tests
+**Addresses:** Requirements 7.5
+- [ ] 13.1 Test file open blocks until content downloaded
+- [ ] 13.2 Test file open returns error on download failure
+- [ ] 13.3 Test file content is NOT prefetched during metadata prefetch
+- [ ] 13.4 Test multiple concurrent file opens
+- [ ] 13.5 Test large file downloads with 60-second timeout
 
-- **Prefetch is critical** - without it, directories will be empty on first access
-- **Prefetch only metadata** - file contents are loaded on-demand
-- **NEVER return empty** - always block until data is available
-- **Use metadata states** - track prefetch progress (GHOST → HYDRATING → HYDRATED)
-- **Priority management** - prefetch uses low priority, user operations use high priority
+[ ] 14. Integration Testing
+**Addresses:** Requirements 6.1, 6.2, 6.3, 6.4, 6.5
+- [ ] 14.1 Test complete mount → prefetch → user access flow
+- [ ] 14.2 Test cached directory access < 50ms
+- [ ] 14.3 Test uncached directory access < 10s with timeout
+- [ ] 14.4 Test stale cache refresh < 2s timeout
+- [ ] 14.5 Test mount completes quickly (< 2s) with background prefetch
+
+## Phase 6: Performance Validation (Req 6)
+
+[ ] 15. Performance Testing
+**Addresses:** Requirements 6.6, 6.7
+- [ ] 15.1 Measure memory usage increase (must be < 20%)
+- [ ] 15.2 Measure API request rate (no significant increase)
+- [ ] 15.3 Measure prefetch time for various directory sizes
+- [ ] 15.4 Measure directory access latency after prefetch
+- [ ] 15.5 Verify no performance regression in existing operations
+
+[ ] 16. Manual Testing
+**Addresses:** Requirements 1.6, 6.1, 6.2
+- [ ] 16.1 Mount filesystem and verify prefetch starts in background
+- [ ] 16.2 Navigate directories and verify instant access (< 50ms)
+- [ ] 16.3 Open files and verify content downloads on-demand
+- [ ] 16.4 Test with file managers (Nautilus, Dolphin, Thunar)
+- [ ] 16.5 Verify directories NEVER appear empty on first access
+
+## Phase 7: Documentation
+
+[ ] 17. Update Documentation
+- [ ] 17.1 Document prefetch behavior in code comments
+- [ ] 17.2 Update design document with implementation details
+- [ ] 17.3 Create fix document in `docs/fixes/lazy-directory-loading-fix.md`
+- [ ] 17.4 Update ADR-003 with prefetch strategy details
+- [ ] 17.5 Document any configuration options added
+
+## Implementation Notes
+
+**Critical Requirements:**
+- ✅ Metadata state machine (GHOST, HYDRATING, HYDRATED) already exists
+- ✅ Metadata request manager with priority queuing already exists
+- ✅ Download manager already exists
+- ❌ Prefetch infrastructure needs to be created
+- ❌ GetChildrenID needs blocki

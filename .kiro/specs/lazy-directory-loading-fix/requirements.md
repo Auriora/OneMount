@@ -1,202 +1,240 @@
-# Requirements: Lazy Directory Loading Performance Fix
+# Requirements Document: Lazy Directory Loading Performance Fix
 
-## 1. Overview
+## Introduction
 
-### 1.1 Purpose
-This specification addresses the lazy directory loading performance issue where directories appear empty on first access and populate after 5-10 seconds. The investigation will determine if this is a bug in the implementation or a gap in the requirements/design.
+This specification addresses the lazy directory loading performance issue where directories appear empty on first access and populate after 5-10 seconds. The system currently returns empty directory listings immediately and populates them asynchronously, creating poor user experience. This spec defines requirements to ensure directories are never empty on first access through recursive prefetch and synchronous blocking when necessary.
 
-### 1.2 Background
-OneMount uses a lazy-loading approach with:
-- **Metadata state management** (GHOST, HYDRATING, HYDRATED states)
-- **Metadata request prioritization** (foreground vs background queues)
-- **Stale-cache policy** (serve stale data immediately, refresh async)
-- **Structured metadata store** (BBolt database for persistence)
+OneMount uses a lazy-loading approach with metadata state management (GHOST, HYDRATING, HYDRATED states), metadata request prioritization (foreground vs background queues), stale-cache policy (serve stale data immediately, refresh async), and structured metadata store (BBolt database for persistence).
 
-### 1.3 Problem Statement
-When navigating directories in the mounted OneDrive filesystem:
-1. Initial directory listing shows empty (no subdirectories or files)
-2. After 5-10 seconds, contents appear
-3. File managers show empty folders initially, causing confusion
-4. Subsequent access is fast (< 100ms) due to caching
+## Glossary
 
-## 2. Investigation Findings
+- **OneMount System**: The complete OneDrive filesystem client for Linux including FUSE filesystem, Graph API integration, caching, and UI components
+- **Lazy Loading**: Loading data on-demand rather than preloading everything at mount time
+- **Prefetch**: Proactively loading directory metadata in the background before user access
+- **Recursive Prefetch**: Prefetching directory metadata for all subdirectories starting from root
+- **Metadata**: File and directory information (names, sizes, timestamps) without file content
+- **File Content**: The actual data/bytes of a file, loaded separately from metadata
+- **Cache Miss**: When requested data is not found in the cache and must be fetched from API
+- **Cache Hit**: When requested data is found in the cache and returned immediately
+- **Stale Cache**: Cached data that has exceeded its time-to-live (TTL) and may be outdated
+- **Synchronous Fetch**: Blocking operation that waits for data to be retrieved before returning
+- **Asynchronous Fetch**: Non-blocking operation that schedules data retrieval in the background
+- **Metadata State**: Current status of metadata (GHOST, HYDRATING, HYDRATED, ERROR)
+- **GHOST State**: Metadata is known to exist but not yet fetched
+- **HYDRATING State**: Metadata fetch is currently in progress
+- **HYDRATED State**: Metadata has been fetched and is cached
+- **Metadata Store**: BBolt database for persisting metadata across restarts
+- **Request Priority**: Classification of requests as foreground (user-initiated) or background (system-initiated)
+- **TTL (Time-To-Live)**: Duration after which cached data is considered stale
+- **FUSE**: Filesystem in Userspace - Linux kernel interface for implementing filesystems
+- **Microsoft Graph API**: Microsoft's REST API for accessing OneDrive data
 
-### 2.1 Current Implementation (INCORRECT)
-The system currently:
-1. Returns empty immediately on cache miss (< 50ms)
-2. Schedules background refresh
-3. Populates cache asynchronously
-4. Requires second access to see contents
+## Requirements
 
-This is **confirmed by test**: `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached`
+### Requirement 1: Never Return Empty Directories
 
-**This is BAD UX** - users see empty directories on first access!
+**User Story:** As a Linux user, I want directories to always show their contents on first access so that I don't see empty folders that later populate.
 
-### 2.2 Desired Behavior (CORRECT)
-The system **should NEVER return empty**:
-1. **First access**: Block and fetch data synchronously (up to 10 second timeout)
-2. Return complete data to user on first access
-3. Cache the data for subsequent fast access (< 50ms)
-4. Background refresh keeps data fresh
+#### Acceptance Criteria
 
-**No exceptions** - always wait for data to be available before returning.
+1. WHEN a user accesses a directory for the first time, THE OneMount System SHALL block and fetch directory contents synchronously before returning
+2. THE OneMount System SHALL NEVER return an empty directory listing when the directory contains files or subdirectories
+3. WHEN fetching directory contents synchronously, THE OneMount System SHALL timeout after 10 seconds and return an error (not empty)
+4. WHEN a synchronous fetch fails, THE OneMount System SHALL return an error status to the user (not empty)
+5. WHEN a directory is accessed and data is already cached, THE OneMount System SHALL return cached data immediately (< 50ms)
+6. WHEN file managers open directories, THE OneMount System SHALL display complete contents on first access
 
-### 2.3 Stale-Cache Policy (for subsequent accesses)
-After first access, when cache becomes stale:
-1. Check if directory already cached
-2. Check if cache is fresh (< TTL, e.g., 5 minutes)
-3. If fresh, serve from cache immediately (< 50ms)
-4. **If stale, block and try to refresh (2 second timeout)**:
-   - If refresh succeeds within timeout: Return fresh data
-   - If refresh times out: Serve stale data and continue refresh in background
-5. Background refresh updates cache for next access
+### Requirement 2: Recursive Metadata Prefetch
 
-**Key point**: Try to get fresh data first, but don't wait too long - stale data is better than long waits!
+**User Story:** As a user, I want the system to prefetch directory metadata in the background so that directories are already cached when I navigate to them.
 
-### 2.4 Prefetch Strategy (Critical for Performance)
-To ensure directories are never empty, implement **recursive prefetch on mount**:
+#### Acceptance Criteria
 
-1. **On filesystem mount**:
-   - Start prefetch from root directory
-   - Fetch all children (files and folders) - metadata only, not content
-   - For each subdirectory found, recursively prefetch its children
-   - Continue until entire directory tree is prefetched
+1. WHEN the filesystem is mounted, THE OneMount System SHALL start recursive prefetch from the root directory in the background
+2. WHEN prefetching directories, THE OneMount System SHALL fetch metadata only (directory listings, file names, sizes, timestamps) and NOT file contents
+3. WHEN prefetching a directory, THE OneMount System SHALL recursively prefetch all subdirectories found
+4. THE OneMount System SHALL limit prefetch recursion depth to 100 levels to prevent infinite loops
+5. WHEN prefetching, THE OneMount System SHALL use low priority (background) to not interfere with user operations
+6. WHEN prefetch completes for a directory, THE OneMount System SHALL update metadata state to HYDRATED
+7. WHEN prefetch is in progress for a directory, THE OneMount System SHALL set metadata state to HYDRATING
+8. WHEN prefetch fails for a directory, THE OneMount System SHALL log the error and continue with other directories
+9. THE OneMount System SHALL persist prefetched metadata to the metadata store for use across restarts
 
-2. **What to prefetch**:
-   - ✅ Directory listings (folder names and metadata)
-   - ✅ File names and metadata (size, modified time, etc.)
-   - ❌ File contents (only loaded when file is opened)
+### Requirement 3: Prefetch-Aware Directory Access
 
-3. **Prefetch behavior**:
-   - Run in background after mount
-   - Use low priority to not interfere with user operations
-   - Populate cache and metadata store
-   - Track progress (GHOST → HYDRATING → HYDRATED states)
+**User Story:** As a user, I want the system to use prefetched data when available so that directory access is instant.
 
-4. **User access during prefetch**:
-   - If directory already prefetched: Return immediately from cache
-   - If directory prefetch in progress: Wait for prefetch to complete
-   - If directory not yet prefetched: Block and fetch synchronously
+#### Acceptance Criteria
 
-**This ensures**: By the time user navigates to any directory, it's already cached!
+1. WHEN a user accesses a directory that has been prefetched, THE OneMount System SHALL return cached data immediately (< 50ms)
+2. WHEN a user accesses a directory where prefetch is in progress, THE OneMount System SHALL wait for prefetch to complete (up to 5 seconds)
+3. WHEN a user accesses a directory that has not been prefetched, THE OneMount System SHALL block and fetch synchronously (up to 10 seconds)
+4. WHEN waiting for prefetch, THE OneMount System SHALL poll the cache every 100ms to check if data is available
+5. WHEN prefetch timeout is reached, THE OneMount System SHALL fall back to synchronous fetch
+6. THE OneMount System SHALL check metadata state (GHOST, HYDRATING, HYDRATED) to determine if prefetch is in progress
 
-### 2.5 File Content Loading
-File contents are handled separately:
-- **NOT prefetched** - only metadata is prefetched
-- **Loaded on-demand** when file is opened
-- **Block until download complete** - never return partial/empty file
-- Use existing download manager with hydration workers
+### Requirement 4: Stale Cache Refresh Policy
 
-### 2.5 Root Cause
-The current implementation has **two fundamental design flaws**:
-1. **Returns empty on cache miss** instead of blocking
-2. **No recursive prefetch** to populate cache on mount
+**User Story:** As a user, I want the system to serve cached data quickly while keeping it fresh in the background so that I get both speed and accuracy.
 
-**The fix requires**:
-1. Implement recursive prefetch on mount (metadata only)
-2. Update `GetChildrenID()` to block if not cached
-3. Update tests to expect blocking behavior
-4. Track prefetch progress with metadata states
+#### Acceptance Criteria
 
-## 3. Acceptance Criteria
+1. WHEN cached data is fresh (within TTL), THE OneMount System SHALL return it immediately (< 50ms)
+2. WHEN cached data is stale (exceeded TTL), THE OneMount System SHALL attempt to refresh it synchronously with a 2 second timeout
+3. WHEN stale cache refresh succeeds within timeout, THE OneMount System SHALL return fresh data
+4. WHEN stale cache refresh times out, THE OneMount System SHALL serve stale data and continue refresh in background
+5. WHEN stale cache refresh fails, THE OneMount System SHALL serve stale data and log the error
+6. THE OneMount System SHALL NEVER return empty when stale cache is available
+7. WHEN background refresh completes, THE OneMount System SHALL update the cache for next access
 
-### 3.1 Investigation Phase
-- [ ] **AC-1.1**: Verify current behavior returns empty on first access
-- [ ] **AC-1.2**: Identify all code paths that return empty directory listings
-- [ ] **AC-1.3**: Review test `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` expectations
-- [ ] **AC-1.4**: Document why current implementation returns empty
+### Requirement 5: File Content On-Demand Loading
 
-### 3.2 Fix Phase
-- [ ] **AC-2.1**: First directory access **NEVER returns empty** - always blocks until data available
-- [ ] **AC-2.2**: First directory access completes within 10 seconds (with timeout)
-- [ ] **AC-2.3**: Subsequent accesses remain fast (< 50ms from cache)
-- [ ] **AC-2.4**: Stale cache is served immediately (never empty)
-- [ ] **AC-2.5**: File managers display directories correctly on first open
-- [ ] **AC-2.6**: No increase in API rate limit errors
-- [ ] **AC-2.7**: Memory usage remains acceptable (< 20% increase)
-- [ ] **AC-2.8**: All existing tests updated to reflect new behavior
-- [ ] **AC-2.9**: New tests verify **NEVER empty** behavior
+**User Story:** As a user, I want file contents to be loaded only when I open files so that the system doesn't waste bandwidth prefetching data I may not need.
 
-## 4. Requirements
+#### Acceptance Criteria
 
-### 4.1 Functional Requirements
+1. THE OneMount System SHALL NOT prefetch file contents during recursive metadata prefetch
+2. WHEN a user opens a file, THE OneMount System SHALL check if content is already cached
+3. WHEN file content is cached, THE OneMount System SHALL return it immediately
+4. WHEN file content is not cached, THE OneMount System SHALL block and download it synchronously (up to 60 seconds)
+5. WHEN file download fails, THE OneMount System SHALL return an error (not partial/empty file)
+6. THE OneMount System SHALL use the existing download manager with foreground priority for file opens
+7. THE OneMount System SHALL NEVER return partial or empty file content to the user
 
-| ID | Requirement | Priority | Rationale |
-|----|-------------|----------|-----------|
-| **FR-1** | The system shall NEVER return an empty directory listing | Must-have | Core UX requirement - users must see complete data |
-| **FR-2** | The system shall block on first directory access until data is fetched from API | Must-have | Required to satisfy FR-1 |
-| **FR-3** | The system shall cache directory contents after first fetch | Must-have | Performance requirement for subsequent accesses |
-| **FR-4** | The system shall serve cached data immediately on subsequent accesses | Must-have | Performance requirement |
-| **FR-5** | The system shall attempt to refresh stale cached data synchronously with 2 second timeout | Must-have | Try to get fresh data without long waits |
-| **FR-6** | The system shall serve stale cached data if refresh times out | Must-have | Better UX than blocking indefinitely |
-| **FR-7** | The system shall continue refresh in background after serving stale data | Must-have | Keep data fresh for next access |
-| **FR-8** | The system shall timeout synchronous fetches after 10 seconds | Must-have | Prevent indefinite blocking |
-| **FR-9** | The system shall return error (not empty) if fetch fails | Must-have | Clear error indication to user |
-| **FR-10** | The system shall prefetch all directory metadata recursively on mount | Must-have | Ensure directories are cached before user access |
-| **FR-11** | The system shall prefetch directory listings (not file contents) | Must-have | Metadata only for performance |
-| **FR-12** | The system shall use low priority for prefetch operations | Must-have | Don't interfere with user operations |
-| **FR-13** | The system shall track prefetch progress using metadata states | Must-have | Know what's cached vs in-progress |
-| **FR-14** | The system shall load file contents only when file is opened | Must-have | On-demand content loading |
-| **FR-15** | The system shall block file open until content is downloaded | Must-have | Never return partial/empty file |
+### Requirement 6: Performance Targets
 
-### 4.2 Non-Functional Requirements
+**User Story:** As a user, I want directory access to be fast and responsive so that the filesystem feels native.
 
-| ID | Requirement | Priority | Rationale |
-|----|-------------|----------|-----------|
-| **NFR-1** | First directory access shall complete within 10 seconds (with timeout) | Must-have | User experience - reasonable wait time |
-| **NFR-2** | Cached directory access shall complete within 50ms | Must-have | Performance - instant feel |
-| **NFR-3** | Stale cache refresh shall be attempted within 2 seconds before fallback | Must-have | Balance freshness vs responsiveness |
-| **NFR-4** | Memory usage shall not increase by more than 20% | Should-have | Resource efficiency |
-| **NFR-5** | API usage shall not increase significantly | Should-have | Rate limit compliance |
-| **NFR-6** | System shall handle network errors gracefully | Must-have | Reliability |
-| **NFR-7** | Prefetch shall not significantly delay mount operation | Should-have | Mount should complete quickly |
-| **NFR-8** | Prefetch shall use reasonable API rate limits | Must-have | Avoid throttling |
-| **NFR-9** | File content download shall show progress indication | Should-have | User feedback |
+#### Acceptance Criteria
 
-## 5. Out of Scope
+1. WHEN accessing a cached directory, THE OneMount System SHALL complete the operation in less than 50ms
+2. WHEN accessing an uncached directory with prefetch complete, THE OneMount System SHALL complete in less than 50ms
+3. WHEN accessing an uncached directory without prefetch, THE OneMount System SHALL complete within 10 seconds or timeout
+4. WHEN refreshing stale cache, THE OneMount System SHALL attempt refresh for up to 2 seconds before serving stale data
+5. WHEN prefetching metadata, THE OneMount System SHALL not significantly delay mount operation (mount completes quickly, prefetch runs in background)
+6. THE OneMount System SHALL maintain memory usage increase below 20% compared to current implementation
+7. THE OneMount System SHALL not significantly increase API request rate to avoid rate limiting
 
-- Prefetching file contents (only metadata is prefetched)
-- Selective prefetch (all directories are prefetched)
-- User configuration of prefetch behavior (future enhancement)
-- Changing the metadata state machine
-- Modifying the metadata request prioritization system
+### Requirement 7: Test Updates and Validation
 
-## 6. Dependencies
+**User Story:** As a developer, I want tests to validate the new behavior so that regressions are caught early.
 
-- ADR-001: Structured Metadata Store
-- ADR-003: Metadata Request Prioritization
-- FR-FS-005: The system shall cache file metadata to improve performance
-- Existing tests: `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached`
-- Existing tests: `TestIT_FS_Cache_GetChildrenIDDoesNotCallGraphWhenMetadataPresent`
+#### Acceptance Criteria
 
-## 7. Risks and Assumptions
+1. THE OneMount System SHALL update test `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking behavior (not quick return)
+2. THE OneMount System SHALL add tests to verify directories are NEVER returned empty
+3. THE OneMount System SHALL add tests to verify recursive prefetch fetches all directories
+4. THE OneMount System SHALL add tests to verify prefetch only fetches metadata (not file contents)
+5. THE OneMount System SHALL add tests to verify file open blocks until content is downloaded
+6. THE OneMount System SHALL add tests to verify stale cache refresh with timeout
+7. THE OneMount System SHALL add tests to verify prefetch-aware directory access (wait for prefetch in progress)
+8. ALL existing tests SHALL pass with the new implementation
 
-### 7.1 Risks
-- Metadata store may not be properly populated during delta sync
-- `tryPopulateChildrenFromMetadata()` may have a bug
-- Metadata store queries may be inefficient
-- State transitions may not be updating metadata store correctly
+## Out of Scope
 
-### 7.2 Assumptions
-- The design intent (stale-cache policy) is correct
-- The structured metadata store is the right solution
-- The existing tests accurately reflect requirements
-- Delta sync is running and populating metadata
+The following items are explicitly excluded from this specification:
 
-## 8. Success Metrics
+- **Prefetching file contents**: Only metadata (directory listings, file names, sizes) is prefetched; file contents are loaded on-demand
+- **Selective prefetch**: All directories are prefetched recursively; selective/partial prefetch is not supported
+- **User configuration of prefetch behavior**: Prefetch is automatic with no user configuration options (future enhancement)
+- **Metadata state machine changes**: The existing GHOST/HYDRATING/HYDRATED state machine is not modified
+- **Metadata request prioritization changes**: The existing foreground/background priority system is not modified
+- **Progress indication for prefetch**: No UI feedback for prefetch progress (future enhancement)
+- **Prefetch cancellation**: Once started, prefetch runs to completion (future enhancement)
 
-- **NEVER** returns empty directory listing
-- First directory access shows complete contents (blocks until available)
-- Subsequent accesses are fast (< 50ms from cache)
-- Stale cache is served immediately (< 50ms) while refreshing
-- No regression in existing functionality
-- All tests updated to reflect new behavior
-- New tests verify **NEVER empty** requirement
+## Dependencies
 
-## 9. References
+### Internal Dependencies
 
-- Issue: `docs/issues/lazy-directory-loading-performance.md`
-- ADR-001: `docs/2-architecture/decisions/ADR-001-structured-metadata-store.md`
-- ADR-003: `docs/2-architecture/decisions/ADR-003-metadata-request-prioritization.md`
-- Tests: `internal/fs/cache_test.go`
-- Tests: `internal/fs/fuse_metadata_local_test.go`
+- **Cache Management Spec**: Prefetch populates cache and metadata store
+- **File Download and Hydration Spec**: File content loading uses existing download manager
+- **Delta Sync Spec**: Delta sync may populate metadata store, reducing prefetch work
+
+### External Dependencies
+
+- **Microsoft Graph API**: Source of directory metadata and file information
+- **BBolt Metadata Store**: Persistence layer for prefetched metadata (ADR-001)
+- **Metadata Request Manager**: Handles prioritization of prefetch vs user requests (ADR-003)
+
+### Code Dependencies
+
+- `internal/fs/cache.go`: GetChildrenID() implementation
+- `internal/fs/fuse_metadata_local_test.go`: Tests for metadata operations
+- `internal/fs/cache_test.go`: Tests for cache behavior
+- `internal/metadata/store.go`: Metadata persistence
+- `internal/fs/download_manager.go`: File content downloads
+
+## Risks and Assumptions
+
+### Risks
+
+1. **Large directory trees**: Prefetching very large directory structures (10,000+ folders) may take significant time and memory
+2. **API rate limiting**: Recursive prefetch may trigger Microsoft Graph API rate limits
+3. **Network failures**: Prefetch failures may leave gaps in cached metadata
+4. **Memory usage**: Caching entire directory tree metadata may increase memory consumption
+5. **Mount delay perception**: Users may perceive mount as slow if they try to access directories before prefetch completes
+
+### Assumptions
+
+1. **Metadata store is reliable**: BBolt database correctly persists and retrieves metadata
+2. **State transitions work correctly**: GHOST → HYDRATING → HYDRATED transitions are reliable
+3. **Priority system works**: Low priority prefetch doesn't block high priority user requests
+4. **Delta sync compatibility**: Prefetch and delta sync can coexist without conflicts
+5. **Reasonable directory sizes**: Most OneDrive accounts have < 10,000 directories
+6. **Network is available**: Prefetch assumes network connectivity at mount time
+
+### Mitigation Strategies
+
+- **Rate limiting**: Implement delays between prefetch requests to avoid API throttling
+- **Graceful degradation**: If prefetch fails, fall back to synchronous fetch on user access
+- **Memory monitoring**: Track memory usage and implement limits if needed
+- **Timeout handling**: Prefetch requests have timeouts to prevent hanging
+- **Error recovery**: Prefetch errors are logged but don't prevent mount or user access
+
+## Success Metrics
+
+### User Experience Metrics
+
+- **Zero empty directories**: No directory ever appears empty on first access
+- **Fast cached access**: Cached directory access < 50ms (99th percentile)
+- **Reasonable first access**: Uncached directory access < 10 seconds (with timeout)
+- **File manager compatibility**: Nautilus, Dolphin, Thunar display directories correctly on first open
+
+### Performance Metrics
+
+- **Memory usage**: < 20% increase compared to current implementation
+- **API request rate**: No significant increase in API calls per minute
+- **Mount time**: Mount operation completes quickly (< 2 seconds), prefetch runs in background
+- **Cache hit rate**: > 95% of directory accesses served from cache after prefetch completes
+
+### Quality Metrics
+
+- **Test coverage**: All new code covered by unit and integration tests
+- **Test pass rate**: 100% of tests pass with new implementation
+- **No regressions**: All existing functionality continues to work
+- **Error handling**: All error paths tested and logged appropriately
+
+## References
+
+### SRS Requirements
+
+- **FR-FS-005**: The system shall cache file metadata to improve performance
+- **FR-FS-006**: The system shall implement lazy loading for directory contents
+- **NFR-PERF-001**: Directory listing operations shall complete within 100ms for cached data
+- **NFR-PERF-002**: The system shall minimize API calls through effective caching
+
+### Design Documents
+
+- **ADR-001**: Structured Metadata Store (docs/2-architecture/decisions/ADR-001-structured-metadata-store.md)
+- **ADR-003**: Metadata Request Prioritization (docs/2-architecture/decisions/ADR-003-metadata-request-prioritization.md)
+
+### Issue Tracking
+
+- **Issue**: Lazy Directory Loading Performance (docs/issues/lazy-directory-loading-performance.md)
+
+### Test Files
+
+- `internal/fs/cache_test.go`: Cache behavior tests
+- `internal/fs/fuse_metadata_local_test.go`: Metadata operation tests
+- Test: `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` (needs update)
+- Test: `TestIT_FS_Cache_GetChildrenIDDoesNotCallGraphWhenMetadataPresent` (should still pass)
