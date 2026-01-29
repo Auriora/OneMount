@@ -387,6 +387,122 @@ func TestIT_FS_Cache_GetPathUsesMetadataStoreWhenOffline(t *testing.T) {
 	})
 }
 
+// TestUT_FS_Cache_GetChildrenIDReturnsPrefetchedDataQuickly ensures prefetched data returns immediately.
+func TestUT_FS_Cache_GetChildrenIDReturnsPrefetchedDataQuickly(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "PrefetchImmediateFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, data interface{}) {
+			unitTestFixture := data.(*framework.UnitTestFixture)
+			fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+			fs := fsFixture.FS.(*Filesystem)
+			mockClient := fsFixture.MockClient
+			rootID := fsFixture.RootID
+
+			if mockClient == nil {
+				t.Skip("Skipping prefetch test: requires mock graph client")
+				return
+			}
+
+			waitForPrefetchIdle(t, fs)
+
+			dirItem := helpers.CreateMockDirectory(mockClient, rootID, "prefetch-dir", "prefetch-dir-id")
+			require.NotNil(t, dirItem)
+			fileItem := helpers.CreateMockFile(mockClient, dirItem.ID, "prefetch.txt", "prefetch-file-id", "prefetch")
+			require.NotNil(t, fileItem)
+
+			dirInode := NewInodeDriveItem(dirItem)
+			fs.InsertChild(rootID, dirInode)
+			fs.persistMetadataEntry(dirItem.ID, dirInode)
+			fs.persistMetadataEntry(rootID, fs.GetID(rootID))
+
+			_, err := fs.prefetchDirectory(context.Background(), dirItem.ID, 0)
+			require.NoError(t, err)
+
+			start := time.Now()
+			children, err := fs.GetChildrenID(dirItem.ID, fs.auth)
+			elapsed := time.Since(start)
+
+			require.NoError(t, err)
+			require.Len(t, children, 1, "Prefetched directory should return children immediately")
+			require.Less(t, elapsed, 50*time.Millisecond, "Prefetched access should be < 50ms")
+		})
+	})
+}
+
+// TestUT_FS_Cache_GetChildrenIDWaitsForPrefetch ensures GetChildrenID waits for HYDRATING prefetch.
+func TestUT_FS_Cache_GetChildrenIDWaitsForPrefetch(t *testing.T) {
+	withTempSandbox(t, func() {
+		fixture := helpers.SetupFSTestFixture(t, "PrefetchWaitFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+			return NewFilesystem(auth, mountPoint, cacheTTL)
+		})
+
+		fixture.Use(t, func(t *testing.T, data interface{}) {
+			unitTestFixture := data.(*framework.UnitTestFixture)
+			fsFixture := unitTestFixture.SetupData.(*helpers.FSTestFixture)
+			fs := fsFixture.FS.(*Filesystem)
+			mockClient := fsFixture.MockClient
+			rootID := fsFixture.RootID
+
+			if mockClient == nil {
+				t.Skip("Skipping prefetch test: requires mock graph client")
+				return
+			}
+
+			waitForPrefetchIdle(t, fs)
+
+			testFile := helpers.CreateMockFile(mockClient, rootID, "wait-file.txt", "prefetch-wait-file", "wait")
+			require.NotNil(t, testFile)
+			mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{testFile})
+
+			if root := fs.GetID(rootID); root != nil {
+				root.mu.Lock()
+				root.children = nil
+				root.subdir = 0
+				root.mu.Unlock()
+			}
+
+			_, err := fs.UpdateMetadataEntry(rootID, func(entry *metadata.Entry) error {
+				if entry == nil {
+					return metadata.ErrNotFound
+				}
+				entry.State = metadata.ItemStateHydrating
+				entry.Children = nil
+				entry.SubdirCount = 0
+				return nil
+			})
+			require.NoError(t, err)
+
+			delay := 150 * time.Millisecond
+			go func() {
+				time.Sleep(delay)
+				childInode := NewInodeDriveItem(testFile)
+				fs.InsertChild(rootID, childInode)
+				fs.cacheChildrenFromMap(rootID, map[string]*Inode{strings.ToLower(testFile.Name): childInode})
+				_, _ = fs.UpdateMetadataEntry(rootID, func(entry *metadata.Entry) error {
+					if entry != nil {
+						entry.State = metadata.ItemStateHydrated
+						entry.Children = []string{testFile.ID}
+						entry.SubdirCount = 0
+					}
+					return nil
+				})
+			}()
+
+			start := time.Now()
+			children, err := fs.GetChildrenID(rootID, fs.auth)
+			elapsed := time.Since(start)
+
+			require.NoError(t, err)
+			require.Len(t, children, 1, "Prefetch wait should return populated children")
+			require.GreaterOrEqual(t, elapsed, delay, "GetChildrenID should wait for prefetch completion")
+			require.Less(t, elapsed, 5*time.Second, "Prefetch wait should respect 5-second timeout")
+		})
+	})
+}
+
 func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 	withTempSandbox(t, func() {
 		fixture := helpers.SetupFSTestFixture(t, "MetadataAsyncRefreshFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
@@ -422,6 +538,15 @@ func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 				})
 			}
 
+			resource := "/me/drive/items/" + rootID + "/children"
+			if response, ok := mockClient.RequestResponses[resource]; ok {
+				delay := 200 * time.Millisecond
+				mockClient.SetResponseCallback(resource, func() ([]byte, int, error) {
+					time.Sleep(delay)
+					return response.Body, response.StatusCode, response.Error
+				})
+			}
+
 			// UPDATED TEST: Now expects blocking behavior (Requirement 7.1)
 			// GetChildrenID should block and fetch synchronously when cache is empty
 			// It should NEVER return empty when data exists (Requirement 1.2, 7.2)
@@ -440,6 +565,7 @@ func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
 			// Should block until data is fetched (up to 10 seconds timeout per Requirement 1.3, 7.3)
 			// In practice, with mock, this should complete quickly but not instantly
 			require.Less(t, elapsed, 10*time.Second, "Should complete within 10-second timeout")
+			require.GreaterOrEqual(t, elapsed, 200*time.Millisecond, "Should block until fetch completes")
 
 			t.Logf("GetChildrenID completed in %v (blocking fetch as expected)", elapsed)
 		})

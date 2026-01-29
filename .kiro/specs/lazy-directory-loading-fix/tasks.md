@@ -89,37 +89,37 @@
 
 ## Phase 5: Testing (Req 7)
 
-[ ] 11. Add Prefetch Tests
+[x] 11. Add Prefetch Tests
 **Addresses:** Requirements 7.3, 7.4
-- [ ] 11.1 Test `prefetchRecursive()` fetches all directories recursively
-- [ ] 11.2 Test prefetch ONLY fetches metadata (not file contents)
-- [ ] 11.3 Test prefetch handles errors gracefully (log and continue)
-- [ ] 11.4 Test prefetch respects 100-level depth limit
-- [ ] 11.5 Test prefetch uses PriorityBackground
+- [x] 11.1 Test `prefetchRecursive()` fetches all directories recursively
+- [x] 11.2 Test prefetch ONLY fetches metadata (not file contents)
+- [x] 11.3 Test prefetch handles errors gracefully (log and continue)
+- [x] 11.4 Test prefetch respects 100-level depth limit
+- [x] 11.5 Test prefetch uses PriorityBackground
 
-[ ] 12. Add GetChildrenID Blocking Tests
+[x] 12. Add GetChildrenID Blocking Tests
 **Addresses:** Requirements 7.2, 7.7
-- [ ] 12.1 Test returns immediately if prefetched (< 50ms)
-- [ ] 12.2 Test waits for prefetch if HYDRATING (< 5s)
-- [ ] 12.3 Test blocks and fetches if not prefetched (< 10s)
-- [ ] 12.4 Test NEVER returns empty directory listing
-- [ ] 12.5 Test stale cache refresh with 2-second timeout
+- [x] 12.1 Test returns immediately if prefetched (< 50ms)
+- [x] 12.2 Test waits for prefetch if HYDRATING (< 5s)
+- [x] 12.3 Test blocks and fetches if not prefetched (< 10s)
+- [x] 12.4 Test NEVER returns empty directory listing
+- [x] 12.5 Test stale cache refresh with 2-second timeout
 
-[ ] 13. Add File Content Tests
+[x] 13. Add File Content Tests
 **Addresses:** Requirements 7.5
-- [ ] 13.1 Test file open blocks until content downloaded
-- [ ] 13.2 Test file open returns error on download failure
-- [ ] 13.3 Test file content is NOT prefetched during metadata prefetch
-- [ ] 13.4 Test multiple concurrent file opens
-- [ ] 13.5 Test large file downloads with 60-second timeout
+- [x] 13.1 Test file open blocks until content downloaded
+- [x] 13.2 Test file open returns error on download failure
+- [x] 13.3 Test file content is NOT prefetched during metadata prefetch
+- [x] 13.4 Test multiple concurrent file opens
+- [x] 13.5 Test large file downloads with 60-second timeout
 
-[ ] 14. Integration Testing
+[x] 14. Integration Testing
 **Addresses:** Requirements 6.1, 6.2, 6.3, 6.4, 6.5
-- [ ] 14.1 Test complete mount → prefetch → user access flow
-- [ ] 14.2 Test cached directory access < 50ms
-- [ ] 14.3 Test uncached directory access < 10s with timeout
-- [ ] 14.4 Test stale cache refresh < 2s timeout
-- [ ] 14.5 Test mount completes quickly (< 2s) with background prefetch
+- [x] 14.1 Test complete mount → prefetch → user access flow
+- [x] 14.2 Test cached directory access < 50ms
+- [x] 14.3 Test uncached directory access < 10s with timeout
+- [x] 14.4 Test stale cache refresh < 2s timeout
+- [x] 14.5 Test mount completes quickly (< 2s) with background prefetch
 
 ## Phase 6: Performance Validation (Req 6)
 

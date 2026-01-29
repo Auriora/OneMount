@@ -1,8 +1,11 @@
 package fs
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +14,7 @@ import (
 	"github.com/auriora/onemount/internal/testutil/framework"
 	"github.com/auriora/onemount/internal/testutil/helpers"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/stretchr/testify/require"
 )
 
 // TestUT_FS_FileRead_01_UncachedFile tests reading a file that hasn't been cached yet.
@@ -468,5 +472,266 @@ func TestIT_FS_FileRead_04_FileMetadata(t *testing.T) {
 		assert.Equal(0, len(cachedContent), "File content should not be downloaded for metadata operations")
 
 		t.Logf("File metadata verified: name=%s, size=%d bytes", testFileName, expectedSize)
+	})
+}
+
+// TestUT_FS_FileOpen_BlocksUntilDownloadCompletes ensures Open waits for foreground downloads.
+func TestUT_FS_FileOpen_BlocksUntilDownloadCompletes(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "FileOpenBlockingFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		fsFixture := getFSTestFixture(t, fixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		if mockClient == nil {
+			t.Skip("Skipping file open test: requires mock graph client")
+			return
+		}
+
+		waitForPrefetchIdle(t, fs)
+
+		testFileName := "blocking-file.txt"
+		testFileID := "blocking-file-id"
+		testContent := "blocking content"
+		fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, testContent)
+		require.NotNil(t, fileItem)
+
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertChild(rootID, fileInode)
+		fs.persistMetadataEntry(testFileID, fileInode)
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
+
+		delay := 200 * time.Millisecond
+		contentResource := "/me/drive/items/" + testFileID + "/content"
+		mockClient.SetResponseCallback(contentResource, func() ([]byte, int, error) {
+			time.Sleep(delay)
+			return []byte(testContent), 200, nil
+		})
+
+		nodeID := fs.InsertNodeID(fileInode)
+		openIn := &fuse.OpenIn{
+			InHeader: fuse.InHeader{NodeId: nodeID},
+			Flags:    uint32(os.O_RDONLY),
+		}
+		openOut := &fuse.OpenOut{}
+
+		start := time.Now()
+		status := fs.Open(nil, openIn, openOut)
+		elapsed := time.Since(start)
+
+		require.Equal(t, fuse.OK, status)
+		require.GreaterOrEqual(t, elapsed, delay, "Open should block until download finishes")
+		require.Less(t, elapsed, openDownloadTimeout, "Open should respect 60s timeout")
+	})
+}
+
+// TestUT_FS_FileOpen_ReturnsErrorOnDownloadFailure ensures Open fails when downloads error.
+func TestUT_FS_FileOpen_ReturnsErrorOnDownloadFailure(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "FileOpenFailureFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		fsFixture := getFSTestFixture(t, fixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		if mockClient == nil {
+			t.Skip("Skipping file open test: requires mock graph client")
+			return
+		}
+
+		waitForPrefetchIdle(t, fs)
+
+		testFileName := "failure-file.txt"
+		testFileID := "failure-file-id"
+		testContent := "failure content"
+		fileItem := helpers.CreateMockFile(mockClient, rootID, testFileName, testFileID, testContent)
+		require.NotNil(t, fileItem)
+
+		fileInode := NewInodeDriveItem(fileItem)
+		fs.InsertChild(rootID, fileInode)
+		fs.persistMetadataEntry(testFileID, fileInode)
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
+
+		contentResource := "/me/drive/items/" + testFileID + "/content"
+		mockClient.SetResponseCallback(contentResource, func() ([]byte, int, error) {
+			return nil, 0, errors.New("download failed")
+		})
+
+		nodeID := fs.InsertNodeID(fileInode)
+		openIn := &fuse.OpenIn{
+			InHeader: fuse.InHeader{NodeId: nodeID},
+			Flags:    uint32(os.O_RDONLY),
+		}
+		openOut := &fuse.OpenOut{}
+
+		status := fs.Open(nil, openIn, openOut)
+		require.Equal(t, fuse.EREMOTEIO, status)
+	})
+}
+
+// TestUT_FS_FileContent_NotPrefetchedDuringMetadataPrefetch verifies prefetch does not hydrate file bytes.
+func TestUT_FS_FileContent_NotPrefetchedDuringMetadataPrefetch(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "FileContentPrefetchFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		fsFixture := getFSTestFixture(t, fixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		if mockClient == nil {
+			t.Skip("Skipping file content test: requires mock graph client")
+			return
+		}
+
+		waitForPrefetchIdle(t, fs)
+
+		dirItem := helpers.CreateMockDirectory(mockClient, rootID, "content-dir", "content-dir-id")
+		require.NotNil(t, dirItem)
+		fileItem := helpers.CreateMockFile(mockClient, dirItem.ID, "content.txt", "content-file-id", "content")
+		require.NotNil(t, fileItem)
+
+		fs.runPrefetch(context.Background())
+
+		require.False(t, fs.content.HasContent(fileItem.ID), "Prefetch should not download file content")
+	})
+}
+
+// TestUT_FS_FileOpen_MultipleConcurrentOpens ensures concurrent file opens all complete successfully.
+func TestUT_FS_FileOpen_MultipleConcurrentOpens(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "ConcurrentFileOpenFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		fsFixture := getFSTestFixture(t, fixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		if mockClient == nil {
+			t.Skip("Skipping concurrent open test: requires mock graph client")
+			return
+		}
+
+		waitForPrefetchIdle(t, fs)
+
+		files := []struct {
+			name    string
+			id      string
+			content string
+		}{
+			{"concurrent-1.txt", "concurrent-file-1", "content-1"},
+			{"concurrent-2.txt", "concurrent-file-2", "content-2"},
+			{"concurrent-3.txt", "concurrent-file-3", "content-3"},
+		}
+
+		nodeIDs := make([]uint64, 0, len(files))
+		for _, file := range files {
+			item := helpers.CreateMockFile(mockClient, rootID, file.name, file.id, file.content)
+			require.NotNil(t, item)
+			inode := NewInodeDriveItem(item)
+			fs.InsertChild(rootID, inode)
+			fs.persistMetadataEntry(item.ID, inode)
+			nodeIDs = append(nodeIDs, fs.InsertNodeID(inode))
+
+			contentResource := "/me/drive/items/" + item.ID + "/content"
+			mockClient.SetResponseCallback(contentResource, func(content string) func() ([]byte, int, error) {
+				return func() ([]byte, int, error) {
+					time.Sleep(100 * time.Millisecond)
+					return []byte(content), 200, nil
+				}
+			}(file.content))
+		}
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
+
+		var wg sync.WaitGroup
+		statuses := make(chan fuse.Status, len(nodeIDs))
+
+		for _, nodeID := range nodeIDs {
+			wg.Add(1)
+			go func(nodeID uint64) {
+				defer wg.Done()
+				openIn := &fuse.OpenIn{
+					InHeader: fuse.InHeader{NodeId: nodeID},
+					Flags:    uint32(os.O_RDONLY),
+				}
+				openOut := &fuse.OpenOut{}
+				statuses <- fs.Open(nil, openIn, openOut)
+			}(nodeID)
+		}
+
+		wg.Wait()
+		close(statuses)
+
+		for status := range statuses {
+			require.Equal(t, fuse.OK, status)
+		}
+	})
+}
+
+// TestUT_FS_FileOpen_LargeFileCompletesWithinTimeout verifies large downloads still honor the timeout.
+func TestUT_FS_FileOpen_LargeFileCompletesWithinTimeout(t *testing.T) {
+	fixture := helpers.SetupFSTestFixture(t, "LargeFileOpenFixture", func(auth *graph.Auth, mountPoint string, cacheTTL int) (interface{}, error) {
+		return NewFilesystem(auth, mountPoint, cacheTTL)
+	})
+
+	fixture.Use(t, func(t *testing.T, fixture interface{}) {
+		fsFixture := getFSTestFixture(t, fixture)
+		fs := fsFixture.FS.(*Filesystem)
+		mockClient := fsFixture.MockClient
+		rootID := fsFixture.RootID
+
+		if mockClient == nil {
+			t.Skip("Skipping large file test: requires mock graph client")
+			return
+		}
+
+		waitForPrefetchIdle(t, fs)
+
+		largeFileID := "large-file-id"
+		largeFile := &graph.DriveItem{
+			ID:   largeFileID,
+			Name: "large.bin",
+			Parent: &graph.DriveItemParent{
+				ID: rootID,
+			},
+			File: &graph.File{
+				Hashes: graph.Hashes{},
+			},
+			Size: uint64(12 * 1024 * 1024),
+		}
+
+		mockClient.AddMockItem("/me/drive/items/"+largeFileID, largeFile)
+		mockClient.AddMockItems("/me/drive/items/"+rootID+"/children", []*graph.DriveItem{largeFile})
+		mockClient.AddMockResponse("/me/drive/items/"+largeFileID+"/content", []byte("chunk"), 200, nil)
+
+		inode := NewInodeDriveItem(largeFile)
+		fs.InsertChild(rootID, inode)
+		fs.persistMetadataEntry(largeFileID, inode)
+		fs.persistMetadataEntry(rootID, fs.GetID(rootID))
+
+		nodeID := fs.InsertNodeID(inode)
+		openIn := &fuse.OpenIn{
+			InHeader: fuse.InHeader{NodeId: nodeID},
+			Flags:    uint32(os.O_RDONLY),
+		}
+		openOut := &fuse.OpenOut{}
+
+		start := time.Now()
+		status := fs.Open(nil, openIn, openOut)
+		elapsed := time.Since(start)
+
+		require.Equal(t, fuse.OK, status)
+		require.Less(t, elapsed, openDownloadTimeout, "Large file open should complete within 60 seconds")
 	})
 }
