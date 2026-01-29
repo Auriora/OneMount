@@ -159,6 +159,9 @@ func (f *Filesystem) waitForPrefetch(id string, timeout time.Duration) map[strin
         if children := f.getCachedChildren(id); children != nil {
             return children
         }
+        if !f.isPrefetchInProgress(id) {
+            return nil
+        }
         time.Sleep(100 * time.Millisecond) // Poll interval (Req 3.4)
     }
     return nil

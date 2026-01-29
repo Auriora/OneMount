@@ -55,20 +55,20 @@
 
 ## Phase 3: Prefetch-Aware Directory Access (Req 3)
 
-[ ] 7. Implement Prefetch Detection Helpers
+[x] 7. Implement Prefetch Detection Helpers
 **Addresses:** Requirements 3.2, 3.4, 3.6
-- [ ] 7.1 Create `isPrefetchInProgress()` to check if state is HYDRATING
-- [ ] 7.2 Create `waitForPrefetch()` to poll cache with 100ms interval
-- [ ] 7.3 Add 5-second timeout for waiting on prefetch
-- [ ] 7.4 Fall back to synchronous fetch if prefetch times out
+- [x] 7.1 Create `isPrefetchInProgress()` to check if state is HYDRATING
+- [x] 7.2 Create `waitForPrefetch()` to poll cache with 100ms interval
+- [x] 7.3 Add 5-second timeout for waiting on prefetch
+- [x] 7.4 Fall back to synchronous fetch if prefetch times out
 
-[ ] 8. Update GetChildrenID for Prefetch Awareness
+[x] 8. Update GetChildrenID for Prefetch Awareness
 **Addresses:** Requirements 3.1, 3.2, 3.3, 3.5
-- [ ] 8.1 Check if prefetch in progress before synchronous fetch
-- [ ] 8.2 Wait for prefetch completion if HYDRATING state detected
-- [ ] 8.3 Return immediately if data already prefetched (< 50ms)
-- [ ] 8.4 Block and fetch synchronously if not prefetched
-- [ ] 8.5 Add logging for prefetch-aware behavior
+- [x] 8.1 Check if prefetch in progress before synchronous fetch
+- [x] 8.2 Wait for prefetch completion if HYDRATING state detected
+- [x] 8.3 Return immediately if data already prefetched (< 50ms)
+- [x] 8.4 Block and fetch synchronously if not prefetched
+- [x] 8.5 Add logging for prefetch-aware behavior
 
 ## Phase 4: File Content Loading (Req 5)
 

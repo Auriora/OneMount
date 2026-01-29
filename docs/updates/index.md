@@ -1,6 +1,7 @@
 # Updates Index
 
 Newest entries first.
+- **2026-01-28** – [Lazy Directory Loading Fix: Phase 3 Prefetch-Aware Directory Access](./2026-01-28-215500-lazy-directory-loading-phase3.md)
 
 - **2026-01-28** – [Lazy Directory Loading Fix: Phase 2 Prefetch Implementation](./2026-01-28-203200-lazy-directory-loading-phase2.md)
 - **2026-01-28** – [WebKit Build Tag Detection for Go Builds and Tests](./2026-01-28-170047-webkit-build-tag-detection.md)

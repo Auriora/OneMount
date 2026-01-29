@@ -1579,6 +1579,37 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		}
 	}
 
+	if !forceRefresh && f.isPrefetchInProgress(id) {
+		prefetchTimeout := 5 * time.Second
+		if logging.IsDebugEnabled() {
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Dur("timeout", prefetchTimeout).
+				Msg("Prefetch in progress, waiting for cached children")
+		}
+		if prefetched := f.waitForPrefetch(id, prefetchTimeout); prefetched != nil {
+			if logging.IsDebugEnabled() {
+				logger.Debug().
+					Str(logging.FieldID, id).
+					Str(logging.FieldPath, pathForLogs).
+					Int("childCount", len(prefetched)).
+					Msg("Prefetch completed, returning cached children")
+			}
+			defer func() {
+				logging.LogMethodExit(methodName, time.Since(startTime), prefetched, nil)
+			}()
+			return prefetched, nil
+		}
+		if logging.IsDebugEnabled() {
+			logger.Debug().
+				Str(logging.FieldID, id).
+				Str(logging.FieldPath, pathForLogs).
+				Dur("timeout", prefetchTimeout).
+				Msg("Prefetch wait timed out, falling back to synchronous fetch")
+		}
+	}
+
 	// CRITICAL: Always block and fetch synchronously on cache miss
 	// NEVER return empty directory listings (Requirement 1.1, 1.2)
 	// This ensures directories always show their contents on first access
@@ -1843,6 +1874,78 @@ func (f *Filesystem) getChildrenID(id string, auth *graph.Auth, forceRefresh boo
 		logging.LogMethodExit(methodName, time.Since(startTime), children, nil)
 	}()
 	return children, nil
+}
+
+func (f *Filesystem) isPrefetchInProgress(id string) bool {
+	if f == nil || id == "" {
+		return false
+	}
+	entry, err := f.GetMetadataEntry(id)
+	if err != nil || entry == nil {
+		return false
+	}
+	return entry.State == metadata.ItemStateHydrating
+}
+
+func (f *Filesystem) waitForPrefetch(id string, timeout time.Duration) map[string]*Inode {
+	if f == nil || id == "" {
+		return nil
+	}
+	const prefetchPollInterval = 100 * time.Millisecond
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	ticker := time.NewTicker(prefetchPollInterval)
+	defer ticker.Stop()
+
+	for {
+		if children := f.getCachedChildrenSnapshot(id); children != nil {
+			return children
+		}
+		if !f.isPrefetchInProgress(id) {
+			return nil
+		}
+
+		select {
+		case <-ticker.C:
+		case <-timer.C:
+			return nil
+		}
+	}
+}
+
+func (f *Filesystem) getCachedChildrenSnapshot(id string) map[string]*Inode {
+	if f == nil || id == "" {
+		return nil
+	}
+	inode := f.GetID(id)
+	if inode == nil {
+		inode = f.ensureInodeFromMetadataStore(id)
+	}
+	if inode == nil || !inode.IsDir() {
+		return nil
+	}
+
+	var cachedChildIDs []string
+	inode.mu.RLock()
+	if inode.children != nil {
+		cachedChildIDs = append(cachedChildIDs, inode.children...)
+	}
+	inode.mu.RUnlock()
+
+	if cachedChildIDs == nil {
+		return nil
+	}
+
+	children := make(map[string]*Inode, len(cachedChildIDs))
+	for _, childID := range cachedChildIDs {
+		child := f.GetID(childID)
+		if child == nil {
+			continue
+		}
+		children[strings.ToLower(child.Name())] = child
+	}
+	return children
 }
 
 // isCacheFresh checks if the cached metadata for a directory is still fresh (within TTL).
