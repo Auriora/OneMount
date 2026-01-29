@@ -2,13 +2,13 @@
 
 ## Overview
 
-This spec covers Lazy loading, recursive prefetch, cache management.
+This spec covers lazy loading, recursive prefetch, stale cache refresh, and scoped cache invalidation for directory metadata.
 
 ## Status
 
 **Current Status**: In Progress  
 **Created**: 2026-01-27  
-**Last Updated**: 2026-01-27
+**Last Updated**: 2026-01-29
 
 ## Contents
 
@@ -28,7 +28,8 @@ See requirements.md for dependencies on other specs.
 
 - SRS: `docs/1-requirements/software-requirements-specification.md`
 - Architecture: `docs/2-architecture/`
-- Original spec: `.kiro/specs/system-verification-and-fix/`
+- Original spec: `.kiro/specs/archive/system-verification-and-fix/`
+- Merged spec: `.kiro/specs/archive/lazy-directory-loading-fix/`
 
 ## Related Specs
 

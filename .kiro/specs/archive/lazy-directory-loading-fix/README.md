@@ -4,6 +4,8 @@
 
 This spec addresses the issue where directories appear empty on first access in OneMount, requiring users to access them twice to see contents.
 
+**Archived**: 2026-01-29. Merged into `.kiro/specs/directory-loading-and-caching/`.
+
 ## Problem
 
 **Current behavior (WRONG)**:

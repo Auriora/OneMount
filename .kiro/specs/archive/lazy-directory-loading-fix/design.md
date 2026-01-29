@@ -616,7 +616,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 ## 14. References
 
 ### Requirements
-- Requirements: `.kiro/specs/lazy-directory-loading-fix/requirements.md`
+- Requirements: `.kiro/specs/archive/lazy-directory-loading-fix/requirements.md`
 - All 7 requirements addressed in this design
 
 ### Architecture Decisions

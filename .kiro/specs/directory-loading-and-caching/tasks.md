@@ -1,8 +1,8 @@
-# Tasks: Lazy Directory Loading Performance Fix
+# Tasks: Directory Loading and Caching
 
 **References:**
-- Requirements: `.kiro/specs/lazy-directory-loading-fix/requirements.md`
-- Design: `.kiro/specs/lazy-directory-loading-fix/design.md`
+- Requirements: `.kiro/specs/directory-loading-and-caching/requirements.md`
+- Design: `.kiro/specs/directory-loading-and-caching/design.md`
 
 ## Phase 1: Fix GetChildrenID Blocking Behavior (Req 1, 3, 4)
 
@@ -23,7 +23,7 @@
 - [x] 2.5 Add logging for stale cache refresh behavior
 
 [x] 3. Update GetChildrenID Test Expectations
-**Addresses:** Requirement 7.1
+**Addresses:** Requirement 8.1
 - [x] 3.1 Update `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking (not quick return)
 - [x] 3.2 Verify test expects complete data (not empty) on first access
 - [x] 3.3 Add timeout expectation (up to 10 seconds for uncached)
@@ -47,7 +47,7 @@
 - [x] 5.5 Handle graceful degradation on prefetch errors
 
 [x] 6. Call Prefetch After Mount
-**Addresses:** Requirements 2.1, 6.5
+**Addresses:** Requirements 2.1, 7.5
 - [x] 6.1 Call `StartPrefetch()` in `NewFilesystem()` after initialization
 - [x] 6.2 Ensure prefetch runs in goroutine (non-blocking mount)
 - [x] 6.3 Verify mount completes quickly (< 2 seconds)
@@ -70,27 +70,27 @@
 - [x] 8.4 Block and fetch synchronously if not prefetched
 - [x] 8.5 Add logging for prefetch-aware behavior
 
-## Phase 4: File Content Loading (Req 5)
+## Phase 4: File Content Loading (Req 6)
 
 [x] 9. Verify File Content Separation
-**Addresses:** Requirements 5.1, 5.2, 5.3
+**Addresses:** Requirements 6.1, 6.2, 6.3
 - [x] 9.1 Verify prefetch ONLY fetches metadata (not file contents)
 - [x] 9.2 Add code comments documenting metadata vs content separation
 - [x] 9.3 Add assertions to prevent accidental content prefetch
 - [x] 9.4 Verify file content loaded only in `Open()` method
 
 [x] 10. Update File Open to Block Until Downloaded
-**Addresses:** Requirements 5.2, 5.3, 5.4, 5.5, 5.6, 5.7
+**Addresses:** Requirements 6.2, 6.3, 6.4, 6.5, 6.6, 6.7
 - [x] 10.1 Verify content cache check in `Open()` (already exists)
 - [x] 10.2 Ensure download uses PriorityForeground (already exists)
 - [x] 10.3 Add blocking wait for download completion (60 second timeout)
 - [x] 10.4 Return error on download failure (not partial/empty file)
 - [x] 10.5 Verify NEVER returns partial content to user
 
-## Phase 5: Testing (Req 7)
+## Phase 5: Testing (Req 8)
 
 [x] 11. Add Prefetch Tests
-**Addresses:** Requirements 7.3, 7.4
+**Addresses:** Requirements 8.3, 8.4
 - [x] 11.1 Test `prefetchRecursive()` fetches all directories recursively
 - [x] 11.2 Test prefetch ONLY fetches metadata (not file contents)
 - [x] 11.3 Test prefetch handles errors gracefully (log and continue)
@@ -98,7 +98,7 @@
 - [x] 11.5 Test prefetch uses PriorityBackground
 
 [x] 12. Add GetChildrenID Blocking Tests
-**Addresses:** Requirements 7.2, 7.7
+**Addresses:** Requirements 8.2, 8.7
 - [x] 12.1 Test returns immediately if prefetched (< 50ms)
 - [x] 12.2 Test waits for prefetch if HYDRATING (< 5s)
 - [x] 12.3 Test blocks and fetches if not prefetched (< 10s)
@@ -106,7 +106,7 @@
 - [x] 12.5 Test stale cache refresh with 2-second timeout
 
 [x] 13. Add File Content Tests
-**Addresses:** Requirements 7.5
+**Addresses:** Requirements 8.5
 - [x] 13.1 Test file open blocks until content downloaded
 - [x] 13.2 Test file open returns error on download failure
 - [x] 13.3 Test file content is NOT prefetched during metadata prefetch
@@ -114,17 +114,17 @@
 - [x] 13.5 Test large file downloads with 60-second timeout
 
 [x] 14. Integration Testing
-**Addresses:** Requirements 6.1, 6.2, 6.3, 6.4, 6.5
+**Addresses:** Requirements 7.1, 7.2, 7.3, 7.4, 7.5
 - [x] 14.1 Test complete mount → prefetch → user access flow
 - [x] 14.2 Test cached directory access < 50ms
 - [x] 14.3 Test uncached directory access < 10s with timeout
 - [x] 14.4 Test stale cache refresh < 2s timeout
 - [x] 14.5 Test mount completes quickly (< 2s) with background prefetch
 
-## Phase 6: Performance Validation (Req 6)
+## Phase 6: Performance Validation (Req 7)
 
 [ ] 15. Performance Testing
-**Addresses:** Requirements 6.6, 6.7
+**Addresses:** Requirements 7.6, 7.7
 - [ ] 15.1 Measure memory usage increase (must be < 20%)
 - [ ] 15.2 Measure API request rate (no significant increase)
 - [ ] 15.3 Measure prefetch time for various directory sizes
@@ -132,7 +132,7 @@
 - [ ] 15.5 Verify no performance regression in existing operations
 
 [ ] 16. Manual Testing
-**Addresses:** Requirements 1.6, 6.1, 6.2
+**Addresses:** Requirements 1.6, 7.1, 7.2
 - [ ] 16.1 Mount filesystem and verify prefetch starts in background
 - [ ] 16.2 Navigate directories and verify instant access (< 50ms)
 - [ ] 16.3 Open files and verify content downloads on-demand
@@ -144,9 +144,19 @@
 [ ] 17. Update Documentation
 - [ ] 17.1 Document prefetch behavior in code comments
 - [ ] 17.2 Update design document with implementation details
-- [ ] 17.3 Create fix document in `docs/fixes/lazy-directory-loading-fix.md`
+- [ ] 17.3 Create fix document in `docs/fixes/directory-loading-and-caching.md`
 - [ ] 17.4 Update ADR-003 with prefetch strategy details
 - [ ] 17.5 Document any configuration options added
+
+## Phase 8: Scoped Cache Invalidation (Req 5)
+
+[ ] 18. Implement scoped cache invalidation on lookup failure
+**Addresses:** Requirements 5.1, 5.2, 5.3
+- [ ] 18.1 Identify lookup failure call sites (name mismatch, virtual files, missing children)
+- [ ] 18.2 Add helper to invalidate a single child without clearing parent cache
+- [ ] 18.3 Trigger background refresh to reconcile the missing entry
+- [ ] 18.4 Add unit tests to ensure parent cache is preserved
+- [ ] 18.5 Add integration tests covering virtual file lookup failures
 
 ## Implementation Notes
 
@@ -154,5 +164,6 @@
 - ✅ Metadata state machine (GHOST, HYDRATING, HYDRATED) already exists
 - ✅ Metadata request manager with priority queuing already exists
 - ✅ Download manager already exists
-- ❌ Prefetch infrastructure needs to be created
-- ❌ GetChildrenID needs blocki
+- ✅ Prefetch infrastructure implemented
+- ✅ GetChildrenID blocks on cache misses
+- ❌ Scoped cache invalidation still needs implementation and tests

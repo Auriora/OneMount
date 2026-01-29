@@ -19,8 +19,8 @@ This directory contains focused specifications for OneMount functionality. Each 
 ### 3. Directory Loading and Caching
 **Location**: [directory-loading-and-caching/](directory-loading-and-caching/)  
 **Status**: In Progress  
-**Covers**: Lazy loading, recursive prefetch, cache population, stale cache refresh  
-**Note**: Consolidates requirements from lazy-directory-loading-fix spec
+**Covers**: Lazy loading, recursive prefetch, cache population, stale cache refresh, scoped invalidation  
+**Note**: Merged lazy-directory-loading-fix and initial sync/cache requirements from system verification
 
 ### 4. Virtual File Management
 **Location**: [virtual-file-management/](virtual-file-management/)  
@@ -81,13 +81,13 @@ This directory contains focused specifications for OneMount functionality. Each 
 
 ### System Verification and Fix (Archived)
 **Location**: [archive/system-verification-and-fix/](archive/system-verification-and-fix/)  
-**Status**: Archived (2026-01-27)  
+**Status**: Archived (2026-01-29)  
 **Reason**: Broken down into focused specs listed above
 
-### Lazy Directory Loading Fix (To be merged)
-**Location**: [lazy-directory-loading-fix/](lazy-directory-loading-fix/)  
-**Status**: To be merged into directory-loading-and-caching spec  
-**Action**: Consolidate with spec #3 above
+### Lazy Directory Loading Fix (Archived)
+**Location**: [archive/lazy-directory-loading-fix/](archive/lazy-directory-loading-fix/)  
+**Status**: Archived (2026-01-29)  
+**Reason**: Merged into directory-loading-and-caching spec
 
 ## Dependency Graph
 

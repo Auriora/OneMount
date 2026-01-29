@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2026-01-29** – [Kiro Specs Split Continuation (Directory Loading Consolidation)](./2026-01-29-153855-kiro-specs-split-continuation.md)
 - **2026-01-29** – [Lazy Directory Loading Fix: Phase 5 Testing](./2026-01-29-150000-lazy-directory-loading-phase5.md)
 - **2026-01-29** – [Download Manager Foreground Priority Queue](./2026-01-29-123000-download-foreground-priority.md)
 - **2026-01-29** – [Lazy Directory Loading Fix: Phase 4 File Content Loading](./2026-01-29-120000-lazy-directory-loading-phase4.md)

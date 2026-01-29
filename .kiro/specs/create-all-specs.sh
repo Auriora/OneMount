@@ -54,7 +54,7 @@ See requirements.md for dependencies on other specs.
 
 - SRS: \`docs/1-requirements/software-requirements-specification.md\`
 - Architecture: \`docs/2-architecture/\`
-- Original spec: \`.kiro/specs/system-verification-and-fix/\`
+- Original spec: \`.kiro/specs/archive/system-verification-and-fix/\`
 
 ## Related Specs
 
