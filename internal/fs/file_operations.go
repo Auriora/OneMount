@@ -8,10 +8,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/auriora/onemount/internal/errors"
 	"github.com/auriora/onemount/internal/graph"
 	"github.com/auriora/onemount/internal/logging"
 	"github.com/auriora/onemount/internal/metadata"
 	"github.com/hanwen/go-fuse/v2/fuse"
+)
+
+const (
+	// openDownloadTimeout enforces a hard limit on foreground file opens.
+	openDownloadTimeout = 60 * time.Second
 )
 
 // Mknod creates a regular file. The server doesn't have this yet.
@@ -347,11 +353,19 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 	}
 
 	// For actual file read/write operations, wait for the download to complete
-	// This ensures we don't return until the file is available
-	if err := f.downloads.WaitForDownload(id); err != nil {
-		logging.LogErrorWithContext(err, logCtx, "Download failed",
-			logging.FieldID, id,
-			logging.FieldPath, path)
+	// with a timeout to avoid indefinite blocking.
+	if err := f.downloads.WaitForDownloadWithTimeout(id, openDownloadTimeout); err != nil {
+		if errors.IsTimeoutError(err) {
+			logging.LogErrorWithContext(err, logCtx, "Download timed out",
+				logging.FieldID, id,
+				logging.FieldPath, path,
+				"timeout", openDownloadTimeout.String())
+		} else {
+			logging.LogErrorWithContext(err, logCtx, "Download failed",
+				logging.FieldID, id,
+				logging.FieldPath, path)
+		}
+		f.MarkFileError(id, err)
 		defer func() {
 			logging.LogMethodExit(methodName, time.Since(startTime), fuse.EREMOTEIO)
 		}()

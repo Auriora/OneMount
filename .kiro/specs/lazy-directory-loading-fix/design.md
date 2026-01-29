@@ -193,11 +193,11 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
     }
     
     // Content not cached - BLOCK and download (Req 5.4)
-    // Use download manager with foreground priority (Req 5.6)
-    session := f.downloads.QueueDownload(inode.ID(), PriorityForeground)
+    // Foreground file opens queue immediately and wait for completion. (Req 5.6)
+    session := f.downloads.QueueDownload(inode.ID())
     
     // Block until download completes (60 second timeout) (Req 5.4)
-    err := f.downloads.WaitForDownload(inode.ID(), 60*time.Second)
+    err := f.downloads.WaitForDownloadWithTimeout(inode.ID(), 60*time.Second)
     if err != nil {
         // Return error if download fails (not partial/empty file) (Req 5.5, 5.7)
         return fuse.EIO
@@ -245,7 +245,7 @@ This allows `GetChildrenID()` to know if it should wait for prefetch or fetch sy
 - **Prefetch**: Low priority (PriorityBackground) - doesn't interfere with user operations (Req 2.5)
 - **User access**: High priority (PriorityForeground) - immediate response
 - **Stale refresh**: Medium priority - balance between freshness and responsiveness
-- **File downloads**: High priority (PriorityForeground) when user opens file (Req 5.6)
+- **File downloads**: Foreground file opens queue immediately and block until completion (Req 5.6)
 
 This ensures user operations are never blocked by prefetch.
 

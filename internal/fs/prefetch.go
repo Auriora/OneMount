@@ -131,6 +131,7 @@ func (f *Filesystem) prefetchDirectory(ctx context.Context, dirID string, depth 
 		metadata.WithWorker(prefetchWorkerID),
 		metadata.WithTransitionTimestamp(start))
 
+	// Prefetch is metadata-only and must never download file contents.
 	items, err := f.fetchPrefetchChildren(ctx, dirID, f.auth)
 	if err != nil {
 		f.transitionItemState(dirID, metadata.ItemStateError,
@@ -171,6 +172,8 @@ func (f *Filesystem) prefetchDirectory(ctx context.Context, dirID string, depth 
 	if len(children) > 0 {
 		f.cacheChildrenFromMap(dirID, children)
 	}
+
+	f.assertMetadataOnlyPrefetch(items)
 
 	f.transitionToState(dirID, metadata.ItemStateHydrated,
 		metadata.WithHydrationEvent(),
@@ -248,6 +251,24 @@ func (f *Filesystem) ensureMetadataEntry(id string) {
 		return
 	}
 	f.persistMetadataEntry(id, inode)
+}
+
+// assertMetadataOnlyPrefetch logs when prefetch encounters cached content. Prefetch never
+// populates content; any cached data is from prior file opens or background hydration.
+func (f *Filesystem) assertMetadataOnlyPrefetch(items []*graph.DriveItem) {
+	if f == nil || f.content == nil || len(items) == 0 {
+		return
+	}
+	for _, item := range items {
+		if item == nil || item.IsDir() {
+			continue
+		}
+		if f.content.HasContent(item.ID) {
+			logging.Debug().
+				Str(logging.FieldID, item.ID).
+				Msg("Prefetch observed existing content; metadata prefetch does not download file data")
+		}
+	}
 }
 
 func (f *Filesystem) hasCachedRootChildren() bool {

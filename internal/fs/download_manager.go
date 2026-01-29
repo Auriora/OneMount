@@ -53,6 +53,9 @@ const (
 const (
 	// Default chunk size for downloads (1MB)
 	downloadChunkSize uint64 = 1024 * 1024
+
+	// Poll interval when waiting for download completion.
+	downloadWaitPollInterval = 100 * time.Millisecond
 )
 
 var bucketDownloads = []byte("downloads")
@@ -630,7 +633,28 @@ func (dm *DownloadManager) GetDownloadStatus(id string) (DownloadState, error) {
 
 // WaitForDownload waits for a download to complete
 func (dm *DownloadManager) WaitForDownload(id string) error {
+	return dm.waitForDownload(id, 0)
+}
+
+// WaitForDownloadWithTimeout waits for a download to complete or times out.
+func (dm *DownloadManager) WaitForDownloadWithTimeout(id string, timeout time.Duration) error {
+	if timeout <= 0 {
+		return dm.waitForDownload(id, 0)
+	}
+	return dm.waitForDownload(id, timeout)
+}
+
+func (dm *DownloadManager) waitForDownload(id string, timeout time.Duration) error {
+	var deadline time.Time
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+
 	for {
+		if !deadline.IsZero() && time.Now().After(deadline) {
+			return errors.NewTimeoutError("download timed out", nil)
+		}
+
 		dm.mutex.RLock()
 		session, exists := dm.sessions[id]
 		dm.mutex.RUnlock()
@@ -655,7 +679,7 @@ func (dm *DownloadManager) WaitForDownload(id string) error {
 			return err
 		default:
 			// Still in progress, wait a bit
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(downloadWaitPollInterval)
 		}
 	}
 }

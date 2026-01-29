@@ -1,5 +1,7 @@
 package fs
 
+import "time"
+
 // DownloadState represents the state of a download
 type DownloadState int
 
@@ -44,6 +46,9 @@ type DownloadManagerInterface interface {
 
 	// Wait for a download to complete
 	WaitForDownload(id string) error
+
+	// Wait for a download to complete or time out
+	WaitForDownloadWithTimeout(id string, timeout time.Duration) error
 
 	// Stop the download manager
 	Stop()

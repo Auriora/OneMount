@@ -72,20 +72,20 @@
 
 ## Phase 4: File Content Loading (Req 5)
 
-[ ] 9. Verify File Content Separation
+[x] 9. Verify File Content Separation
 **Addresses:** Requirements 5.1, 5.2, 5.3
-- [ ] 9.1 Verify prefetch ONLY fetches metadata (not file contents)
-- [ ] 9.2 Add code comments documenting metadata vs content separation
-- [ ] 9.3 Add assertions to prevent accidental content prefetch
-- [ ] 9.4 Verify file content loaded only in `Open()` method
+- [x] 9.1 Verify prefetch ONLY fetches metadata (not file contents)
+- [x] 9.2 Add code comments documenting metadata vs content separation
+- [x] 9.3 Add assertions to prevent accidental content prefetch
+- [x] 9.4 Verify file content loaded only in `Open()` method
 
-[ ] 10. Update File Open to Block Until Downloaded
+[x] 10. Update File Open to Block Until Downloaded
 **Addresses:** Requirements 5.2, 5.3, 5.4, 5.5, 5.6, 5.7
-- [ ] 10.1 Verify content cache check in `Open()` (already exists)
-- [ ] 10.2 Ensure download uses PriorityForeground (already exists)
-- [ ] 10.3 Add blocking wait for download completion (60 second timeout)
-- [ ] 10.4 Return error on download failure (not partial/empty file)
-- [ ] 10.5 Verify NEVER returns partial content to user
+- [x] 10.1 Verify content cache check in `Open()` (already exists)
+- [x] 10.2 Ensure download uses PriorityForeground (already exists)
+- [x] 10.3 Add blocking wait for download completion (60 second timeout)
+- [x] 10.4 Return error on download failure (not partial/empty file)
+- [x] 10.5 Verify NEVER returns partial content to user
 
 ## Phase 5: Testing (Req 7)
 
