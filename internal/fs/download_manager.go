@@ -127,6 +127,7 @@ type DownloadManager struct {
 	auth       *graph.Auth
 	sessions   map[string]*DownloadSession
 	queue      chan string
+	foreground chan string
 	mutex      sync.RWMutex
 	workerWg   sync.WaitGroup
 	numWorkers int
@@ -150,7 +151,8 @@ func NewDownloadManager(fs *Filesystem, auth *graph.Auth, numWorkers int, queueS
 		fs:              fs,
 		auth:            auth,
 		sessions:        make(map[string]*DownloadSession),
-		queue:           make(chan string, queueSize), // Buffer for download requests
+		queue:           make(chan string, queueSize), // Background download requests
+		foreground:      make(chan string, queueSize), // Foreground download requests
 		numWorkers:      numWorkers,
 		stopChan:        make(chan struct{}),
 		db:              db,
@@ -190,6 +192,9 @@ func (dm *DownloadManager) Snapshot() DownloadStats {
 	defer dm.mutex.RUnlock()
 	if dm.queue != nil {
 		stats.QueueDepth = len(dm.queue)
+	}
+	if dm.foreground != nil {
+		stats.QueueDepth += len(dm.foreground)
 	}
 	for _, session := range dm.sessions {
 		session.mutex.RLock()
@@ -268,6 +273,17 @@ func (dm *DownloadManager) worker() {
 
 	for {
 		select {
+		case id := <-dm.foreground:
+			dm.processDownload(id)
+			continue
+		case <-dm.stopChan:
+			return
+		default:
+		}
+
+		select {
+		case id := <-dm.foreground:
+			dm.processDownload(id)
 		case id := <-dm.queue:
 			dm.processDownload(id)
 		case <-dm.stopChan:
@@ -531,8 +547,23 @@ func (dm *DownloadManager) finishDownloadSession(id string) {
 	}
 }
 
-// QueueDownload adds a file to the download queue
+// DownloadPriority indicates how urgently a download should be processed.
+type DownloadPriority int
+
+const (
+	// DownloadPriorityBackground is used for background hydration.
+	DownloadPriorityBackground DownloadPriority = iota
+	// DownloadPriorityForeground is used for user-initiated file opens.
+	DownloadPriorityForeground
+)
+
+// QueueDownload adds a file to the background download queue.
 func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
+	return dm.QueueDownloadWithPriority(id, DownloadPriorityBackground)
+}
+
+// QueueDownloadWithPriority adds a file to the download queue with priority.
+func (dm *DownloadManager) QueueDownloadWithPriority(id string, priority DownloadPriority) (*DownloadSession, error) {
 	// Check if the file is already being downloaded
 	dm.mutex.RLock()
 	session, exists := dm.sessions[id]
@@ -589,8 +620,12 @@ func (dm *DownloadManager) QueueDownload(id string) (*DownloadSession, error) {
 	dm.mutex.Unlock()
 
 	// Add to download queue
+	targetQueue := dm.queue
+	if priority == DownloadPriorityForeground {
+		targetQueue = dm.foreground
+	}
 	select {
-	case dm.queue <- id:
+	case targetQueue <- id:
 		logging.Info().
 			Str("id", id).
 			Str("path", path).

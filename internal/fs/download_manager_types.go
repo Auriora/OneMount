@@ -41,6 +41,9 @@ type DownloadManagerInterface interface {
 	// Queue a download
 	QueueDownload(id string) (DownloadSessionInterface, error)
 
+	// Queue a download with priority
+	QueueDownloadWithPriority(id string, priority DownloadPriority) (DownloadSessionInterface, error)
+
 	// Get the status of a download
 	GetDownloadStatus(id string) (DownloadState, error)
 

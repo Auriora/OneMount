@@ -325,8 +325,9 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 
 	logger.Info().Msg("Not using cached item due to file hash mismatch, fetching content from API")
 
-	// Queue the download in the background
-	if _, err := f.downloads.QueueDownload(id); err != nil {
+	// Queue the download for a foreground file open. File content is never prefetched
+	// during metadata-only directory traversal.
+	if _, err := f.downloads.QueueDownloadWithPriority(id, DownloadPriorityForeground); err != nil {
 		logging.LogErrorWithContext(err, logCtx, "Failed to queue download",
 			logging.FieldID, id,
 			logging.FieldPath, path)
