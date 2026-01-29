@@ -9,6 +9,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 1: Docker Environment Setup and Validation
+MOVED_TO: .kiro/specs/integration-testing/tasks.md
 
 - [x] 1. Review and validate Docker test environment
 - [x] 1.1 Review Docker configuration files
@@ -51,6 +52,7 @@ This implementation plan breaks down the verification and fix process into discr
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
 ## Phase 2: Initial Test Suite Analysis
+MOVED_TO: .kiro/specs/integration-testing/tasks.md
 
 - [x] 2. Analyze existing test suite
   - Run all existing unit tests in Docker: `docker compose -f docker/compose/docker-compose.test.yml run unit-tests`
@@ -72,6 +74,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 3: Authentication Component Verification
+MOVED_TO: .kiro/specs/authentication-and-accounts/tasks.md
 
 - [x] 4. Verify authentication implementation
 - [x] 4.1 Review OAuth2 code structure
@@ -208,6 +211,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 4: Filesystem Mounting Verification
+MOVED_TO: .kiro/specs/filesystem-mounting/tasks.md
 
 - [x] 5. Verify filesystem mounting
 - [x] 5.1 Review FUSE initialization code
@@ -338,6 +342,8 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 5: File Operations Verification
+MOVED_TO: .kiro/specs/file-upload-modification/tasks.md
+MOVED_TO: .kiro/specs/file-download-hydration/tasks.md
 
 - [x] 6. Verify file read operations
 - [x] 6.1 Review file operation code
@@ -527,6 +533,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 6: Download Manager Verification
+MOVED_TO: .kiro/specs/file-download-hydration/tasks.md
 
 - [x] 8. Verify download manager
 - [x] 8.1 Review download manager code
@@ -578,6 +585,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 7: Upload Manager Verification
+MOVED_TO: .kiro/specs/file-upload-modification/tasks.md
 
 - [x] 9. Verify upload manager
 - [x] 9.1 Review upload manager code
@@ -638,6 +646,8 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 8: Delta Synchronization Verification
+MOVED_TO: .kiro/specs/conflict-resolution/tasks.md
+MOVED_TO: .kiro/specs/delta-sync-realtime/tasks.md
 
 - [x] 10. Verify delta synchronization
 - [x] 10.1 Review delta sync code
@@ -764,6 +774,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 9: Cache Management Verification
+MOVED_TO: .kiro/specs/cache-management/tasks.md
 
 - [x] 11. Verify cache management
 - [x] 11.1 Review cache code
@@ -851,6 +862,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 10: Offline Mode Verification
+MOVED_TO: .kiro/specs/offline-mode-sync/tasks.md
 
 - [x] 12. Verify offline mode
 - [x] 12.1 Review offline mode code
@@ -990,6 +1002,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 11: File Status and D-Bus Verification
+MOVED_TO: .kiro/specs/notifications-and-status/tasks.md
 
 - [-] 13. Verify file status tracking
 - [x] 13.1 Review file status code
@@ -1052,6 +1065,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 12: Error Handling and Recovery Verification
+MOVED_TO: .kiro/specs/error-handling-recovery/tasks.md
 
 - [x] 14. Verify error handling
 - [x] 14.1 Review error handling code
@@ -1124,6 +1138,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 13: Performance and Concurrency Verification
+MOVED_TO: .kiro/specs/fuse-performance/tasks.md
 
 - [x] 15. Verify performance and concurrency
 - [x] 15.1 Review concurrency implementation
@@ -1206,6 +1221,8 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 14: Integration and End-to-End Testing
+MOVED_TO: .kiro/specs/conflict-resolution/tasks.md
+MOVED_TO: .kiro/specs/integration-testing/tasks.md
 
 - [x] 16. Run comprehensive integration tests with real OneDrive
 - [x] 16.1 Test authentication to file access with real OneDrive
@@ -1646,6 +1663,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 17: Documentation Updates
+MOVED_TO: .kiro/specs/integration-testing/tasks.md
 
 - [-] 22. Update documentation
 - [x] 22.1 Update architecture documentation
@@ -1730,6 +1748,8 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 15: XDG Compliance Verification ✅ COMPLETE
+MOVED_TO: .kiro/specs/virtual-file-management/tasks.md
+MOVED_TO: .kiro/specs/filesystem-mounting/tasks.md
 
 - [x] 26. Verify XDG Base Directory compliance ✅ COMPLETE
 - [x] 26.1 Review XDG implementation ✅ COMPLETE
@@ -1773,6 +1793,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 16: Socket.IO Transport Implementation Verification
+MOVED_TO: .kiro/specs/delta-sync-realtime/tasks.md
 
 **Status**: ✅ **IMPLEMENTED** - Verification tasks for Requirement 20 compliance
 
@@ -1898,6 +1919,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 16: ETag Cache Validation Verification ✅ COMPLETE
+MOVED_TO: .kiro/specs/cache-management/tasks.md
 
 - [x] 29. Verify ETag-based cache validation with real OneDrive ✅ COMPLETE
 - [x] 29.1 Review ETag implementation ✅ COMPLETE
@@ -1914,6 +1936,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 17: State Management Verification
+MOVED_TO: .kiro/specs/cache-management/tasks.md
 
 - [x] 30. Verify metadata state model implementation
 - [x] 30.1 Review state model implementation
@@ -2018,6 +2041,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 18: Security Property-Based Tests
+MOVED_TO: .kiro/specs/authentication-and-accounts/tasks.md
 
 - [x] 31. Implement security property-based tests
 - [x] 31.1 Implement Property 43: Token Encryption at Rest
@@ -2072,6 +2096,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 19: Performance Property-Based Tests
+MOVED_TO: .kiro/specs/fuse-performance/tasks.md
 
 - [x] 32. Implement performance property-based tests
 - [x] 32.1 Implement Property 49: Directory Listing Performance
@@ -2134,6 +2159,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 20: Resource Management Property-Based Tests
+MOVED_TO: .kiro/specs/fuse-performance/tasks.md
 
 - [x] 33. Implement resource management property-based tests
 - [x] 33.1 Implement Property 56: Cache Size Enforcement
@@ -2196,6 +2222,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 20.1: Fix Resource Management Property Test Failures
+MOVED_TO: .kiro/specs/fuse-performance/tasks.md
 
 - [x] 33.8 Fix Property 56: Cache Size Enforcement failure
   - **Issue**: Cache size 256MB exceeds configured 10MB limit (with tolerance)
@@ -2255,6 +2282,7 @@ This implementation plan breaks down the verification and fix process into discr
 
 
 ## Phase 21: Concurrency and Lock Management Property-Based Tests
+MOVED_TO: .kiro/specs/fuse-performance/tasks.md
 
 - [x] 34. Implement concurrency and lock management property-based tests
 - [x] 34.1 Implement Property 63: Lock Ordering Compliance
@@ -2301,6 +2329,7 @@ This implementation plan breaks down the verification and fix process into discr
 ---
 
 ## Phase 22: Final Verification
+MOVED_TO: .kiro/specs/integration-testing/tasks.md
 
 - [x] 35. Run complete test suite in Docker ✅ COMPLETED
   - Build latest test images: `docker compose -f docker/compose/docker-compose.build.yml build` ✅

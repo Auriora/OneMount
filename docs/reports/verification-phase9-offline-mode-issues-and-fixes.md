@@ -7,81 +7,15 @@
 
 ## Executive Summary
 
-The offline mode implementation in OneMount is **functionally complete** with comprehensive change tracking and automatic online/offline transitions. However, there is a **significant design discrepancy** between the requirements (which specify read-only offline mode) and the implementation (which allows read-write operations with change queuing).
+The offline mode implementation in OneMount is **functionally complete** with comprehensive change tracking and automatic online/offline transitions.
 
 **Overall Assessment**: ⚠️ **Functional but Non-Compliant**
 - ✅ Core offline functionality works correctly
 - ✅ Change tracking and queuing implemented
 - ✅ Automatic offline detection and recovery
-- ⚠️ Does not enforce read-only mode as specified in requirements
 - ⚠️ Passive offline detection (via delta sync failures)
 
 ## Identified Issues
-
-### Issue #OF-001: Read-Write vs Read-Only Offline Mode
-
-**Severity**: ⚠️ **Medium** (Design Discrepancy)  
-**Status**: Open  
-**Discovered**: 2025-11-11  
-**Component**: Offline Mode State Management  
-**Requirements Affected**: 6.3
-
-**Description**:
-Requirement 6.3 states: "WHILE offline, THE OneMount System SHALL make the filesystem read-only". However, the current implementation allows full read-write operations while offline, with changes being queued for later upload.
-
-**Current Behavior**:
-```go
-// In file_operations.go
-if f.IsOffline() {
-    ctx.Info().Msg("File creation in offline mode will be cached locally")
-    // Operation proceeds normally
-}
-```
-
-**Expected Behavior** (per requirements):
-```go
-if f.IsOffline() {
-    return syscall.EROFS // Read-only filesystem error
-}
-```
-
-**Impact**:
-- **Positive**: Users can continue working offline without interruption
-- **Positive**: Changes are preserved and uploaded when back online
-- **Negative**: Does not comply with stated requirements
-- **Negative**: May confuse users who expect read-only behavior
-- **Negative**: Risk of conflicts if same file modified offline and remotely
-
-**Root Cause**:
-The implementation was designed to provide a better user experience by allowing offline work with change queuing, rather than strictly enforcing read-only mode. This is a deliberate design decision that differs from the requirements.
-
-**Affected Files**:
-- `internal/fs/file_operations.go` (Create, Write, Delete operations)
-- `internal/fs/dir_operations.go` (Mkdir operation)
-- `internal/fs/offline.go` (OfflineMode enum)
-- `internal/fs/cache.go` (TrackOfflineChange, ProcessOfflineChanges)
-
-**Evidence**:
-```go
-// From file_operations.go:37-40
-if f.IsOffline() {
-    ctx.Info().Msg("File creation in offline mode will be cached locally")
-}
-// Operation continues...
-
-// From file_operations.go:493-496
-if f.IsOffline() {
-    logger.Info().Msg("Write operations in offline mode will be cached locally")
-}
-// Write proceeds...
-```
-
-**Test Coverage**:
-- ✅ `TestIT_OF_02_01`: Verifies write operations work offline
-- ✅ `TestIT_OF_03_01`: Verifies changes are cached offline
-- ❌ No test verifies read-only enforcement (because it's not enforced)
-
----
 
 ### Issue #OF-002: Passive Offline Detection
 
@@ -255,42 +189,10 @@ WHEN multiple changes are made to the same file offline, THE OneMount System
 SHALL preserve the most recent version for upload.
 ```
 
-#### Option B: Enforce Read-Only Mode
-**Rationale**: Strict compliance with current requirements.
 
-**Changes Required**:
-1. Modify file operation handlers to return `syscall.EROFS` when offline
-2. Remove offline change tracking (or keep for future use)
-3. Update tests to expect read-only behavior
-4. Add user-facing error messages
-
-**Pros**:
-- ✅ Complies with current requirements
-- ✅ Simpler behavior (no conflict resolution needed)
-- ✅ Matches traditional offline filesystem behavior
-
-**Cons**:
-- ❌ Worse user experience
-- ❌ Users lose work if they try to edit offline
-- ❌ Breaks existing tests
-- ❌ Removes useful functionality
-
-**Implementation**:
-```go
-// In file_operations.go
-func (f *Filesystem) Create(cancel <-chan struct{}, in *fuse.CreateIn, name string, out *fuse.CreateOut) fuse.Status {
-    if f.IsOffline() {
-        return fuse.Status(syscall.EROFS) // Read-only filesystem
-    }
-    // ... rest of implementation
-}
-```
-
-#### Option C: Configurable Offline Mode
 **Rationale**: Provide flexibility for different use cases.
 
 **Changes Required**:
-1. Add configuration option: `offline_mode: read-only | read-write`
 2. Implement both behaviors based on configuration
 3. Update documentation for both modes
 4. Add tests for both modes
@@ -531,7 +433,6 @@ docker compose -f docker/compose/docker-compose.test.yml run --rm \
 
 ## Conclusion
 
-The offline mode implementation in OneMount is **well-designed and functional**. The primary issue is a discrepancy between requirements (read-only) and implementation (read-write with queuing). 
 
 **Recommended Resolution**: Update requirements to match the superior implementation rather than degrading functionality to match outdated requirements.
 

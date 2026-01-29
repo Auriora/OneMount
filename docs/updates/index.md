@@ -2,6 +2,8 @@
 
 Newest entries first.
 
+- **2026-01-29** – [Offline Read/Write Conflict Cleanup](./2026-01-29-210017-offline-readwrite-conflicts-cleanup.md)
+- **2026-01-29** – [Kiro Specs Monolith Move (Requirements/Design/Tasks)](./2026-01-29-201727-kiro-specs-monolith-move.md)
 - **2026-01-29** – [Kiro Specs Split Continuation (Directory Loading Consolidation)](./2026-01-29-153855-kiro-specs-split-continuation.md)
 - **2026-01-29** – [Lazy Directory Loading Fix: Phase 5 Testing](./2026-01-29-150000-lazy-directory-loading-phase5.md)
 - **2026-01-29** – [Download Manager Foreground Priority Queue](./2026-01-29-123000-download-foreground-priority.md)

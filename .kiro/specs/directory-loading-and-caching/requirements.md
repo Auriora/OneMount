@@ -1,10 +1,29 @@
-# Requirements Document: Directory Loading and Caching
+# Requirements Document: Directory Loading And Caching
+
+## Source
+Moved from `.kiro/specs/archive/system-verification-and-fix/requirements.md`. Sections below are verbatim.
+
+## Requirements
+
+### Requirement 2A: Initial Synchronization and Caching
+
+**User Story:** As a user, I want the initial sync to be non-blocking so that I can start using the filesystem immediately while it populates in the background.
+
+#### Acceptance Criteria
+
+1. WHEN the filesystem is mounted for the first time, THE OneMount System SHALL fetch and cache the complete directory structure from OneDrive without blocking interactive operations; commands SHALL use whatever metadata is already cached while the remaining tree sync runs in the background
+2. WHEN the user navigates directories, THE OneMount System SHALL serve directory listings from the cached metadata without network requests; if cached metadata exists but is older than the refresh threshold, THE OneMount System SHALL return the cached data immediately and trigger a refresh asynchronously
+3. WHEN a directory lookup fails (including typos, case mismatches, or maintenance of virtual files such as `.xdg-volume-info`), THE OneMount System SHALL scope cache invalidation to the affected entry rather than clearing the entire parent directory cache
+
+---
+
+# Requirements Document: Lazy Directory Loading Performance Fix
 
 ## Introduction
 
-This specification defines the directory loading and caching behavior in OneMount. It consolidates the lazy directory loading fix with the initial sync and cache policies from system verification. The goal is to ensure directories never appear empty on first access, recursive metadata prefetch runs in the background without blocking mount, stale cache refresh is bounded, and cache invalidation is scoped to the affected entry only.
+This specification addresses the lazy directory loading performance issue where directories appear empty on first access and populate after 5-10 seconds. The system currently returns empty directory listings immediately and populates them asynchronously, creating poor user experience. This spec defines requirements to ensure directories are never empty on first access through recursive prefetch and synchronous blocking when necessary.
 
-OneMount uses a lazy-loading approach with metadata state management (GHOST, HYDRATING, HYDRATED states), metadata request prioritization (foreground vs background queues), a stale-cache policy (attempt short refresh, then serve stale data and continue refresh in background), and a structured metadata store (BBolt database for persistence).
+OneMount uses a lazy-loading approach with metadata state management (GHOST, HYDRATING, HYDRATED states), metadata request prioritization (foreground vs background queues), stale-cache policy (serve stale data immediately, refresh async), and structured metadata store (BBolt database for persistence).
 
 ## Glossary
 
@@ -50,7 +69,7 @@ OneMount uses a lazy-loading approach with metadata state management (GHOST, HYD
 
 #### Acceptance Criteria
 
-1. WHEN the filesystem is mounted, THE OneMount System SHALL start recursive prefetch from the root directory in the background without blocking mount or interactive operations
+1. WHEN the filesystem is mounted, THE OneMount System SHALL start recursive prefetch from the root directory in the background
 2. WHEN prefetching directories, THE OneMount System SHALL fetch metadata only (directory listings, file names, sizes, timestamps) and NOT file contents
 3. WHEN prefetching a directory, THE OneMount System SHALL recursively prefetch all subdirectories found
 4. THE OneMount System SHALL limit prefetch recursion depth to 100 levels to prevent infinite loops
@@ -87,17 +106,7 @@ OneMount uses a lazy-loading approach with metadata state management (GHOST, HYD
 6. THE OneMount System SHALL NEVER return empty when stale cache is available
 7. WHEN background refresh completes, THE OneMount System SHALL update the cache for next access
 
-### Requirement 5: Scoped Cache Invalidation on Lookup Failure
-
-**User Story:** As a user, I want failed directory lookups to invalidate only the affected entry so that the rest of the cache remains available.
-
-#### Acceptance Criteria
-
-1. WHEN a directory lookup fails (typos, case mismatches, or virtual file handling), THE OneMount System SHALL scope cache invalidation to the affected entry rather than clearing the entire parent directory cache
-2. WHEN scoped invalidation occurs, THE OneMount System SHALL preserve unrelated cached entries in the parent directory
-3. WHEN invalidating an entry, THE OneMount System SHALL mark it for refresh or revalidation without disrupting other cached children
-
-### Requirement 6: File Content On-Demand Loading
+### Requirement 5: File Content On-Demand Loading
 
 **User Story:** As a user, I want file contents to be loaded only when I open files so that the system doesn't waste bandwidth prefetching data I may not need.
 
@@ -111,7 +120,7 @@ OneMount uses a lazy-loading approach with metadata state management (GHOST, HYD
 6. THE OneMount System SHALL use the existing download manager with foreground priority for file opens
 7. THE OneMount System SHALL NEVER return partial or empty file content to the user
 
-### Requirement 7: Performance Targets
+### Requirement 6: Performance Targets
 
 **User Story:** As a user, I want directory access to be fast and responsive so that the filesystem feels native.
 
@@ -125,7 +134,7 @@ OneMount uses a lazy-loading approach with metadata state management (GHOST, HYD
 6. THE OneMount System SHALL maintain memory usage increase below 20% compared to current implementation
 7. THE OneMount System SHALL not significantly increase API request rate to avoid rate limiting
 
-### Requirement 8: Test Updates and Validation
+### Requirement 7: Test Updates and Validation
 
 **User Story:** As a developer, I want tests to validate the new behavior so that regressions are caught early.
 
@@ -151,8 +160,6 @@ The following items are explicitly excluded from this specification:
 - **Metadata request prioritization changes**: The existing foreground/background priority system is not modified
 - **Progress indication for prefetch**: No UI feedback for prefetch progress (future enhancement)
 - **Prefetch cancellation**: Once started, prefetch runs to completion (future enhancement)
-- **Cache eviction and size limits**: See cache-management spec
-- **Virtual file policy definitions**: See virtual-file-management spec
 
 ## Dependencies
 
@@ -161,7 +168,6 @@ The following items are explicitly excluded from this specification:
 - **Cache Management Spec**: Prefetch populates cache and metadata store
 - **File Download and Hydration Spec**: File content loading uses existing download manager
 - **Delta Sync Spec**: Delta sync may populate metadata store, reducing prefetch work
-- **Virtual File Management Spec**: Lookup failures and virtual file overlays inform scoped invalidation
 
 ### External Dependencies
 
@@ -244,8 +250,6 @@ The following items are explicitly excluded from this specification:
 ### Issue Tracking
 
 - **Issue**: Lazy Directory Loading Performance (docs/issues/lazy-directory-loading-performance.md)
-- **Original Spec**: `.kiro/specs/archive/system-verification-and-fix/` (initial sync and cache policy)
-- **Merged Spec**: `.kiro/specs/archive/lazy-directory-loading-fix/`
 
 ### Test Files
 

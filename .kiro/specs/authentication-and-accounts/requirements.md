@@ -177,3 +177,53 @@ This specification defines the requirements for authentication and multi-account
 ### ADRs
 
 - None currently - this spec may result in ADRs for authentication architecture decisions
+
+## Monolith Requirements (Moved Verbatim)
+
+Moved from `.kiro/specs/archive/system-verification-and-fix/requirements.md`.
+
+### Requirement 1: Authentication Verification
+
+**User Story:** As a Linux user, I want to authenticate with my Microsoft account so that I can access my OneDrive files.
+
+#### Acceptance Criteria
+
+1. WHEN the user launches OneMount for the first time, THE OneMount System SHALL display an authentication dialog
+2. WHEN the user completes Microsoft OAuth2 authentication, THE OneMount System SHALL store authentication tokens securely
+3. WHEN authentication tokens expire, THE OneMount System SHALL automatically refresh them using the refresh token
+4. IF token refresh fails, THEN THE OneMount System SHALL prompt the user to re-authenticate
+5. WHERE the system is running in headless mode, THE OneMount System SHALL use device code flow for authentication
+6. WHEN storing authentication tokens, THE OneMount System SHALL use account-based storage paths derived from account identity (email hash) rather than mount point location, ensuring tokens are accessible regardless of mount point changes and preventing token duplication across multiple mounts of the same account
+
+### Requirement 14: Multiple Account and Drive Support
+
+**User Story:** As a user with multiple OneDrive accounts, I want to mount my personal OneDrive, work OneDrive, and shared drives simultaneously so that I can access all my files.
+
+#### Acceptance Criteria
+
+1. THE OneMount System SHALL support mounting multiple OneDrive accounts simultaneously at different mount points
+2. WHEN mounting a personal OneDrive account, THE OneMount System SHALL access the user's personal drive using `/me/drive`
+3. WHEN mounting a OneDrive for Business account, THE OneMount System SHALL access the user's work drive using `/me/drive`
+4. THE OneMount System SHALL support mounting shared drives using `/drives/{drive-id}`
+5. THE OneMount System SHALL support accessing "Shared with me" items using `/me/drive/sharedWithMe`
+6. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate authentication tokens for each account
+7. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate caches for each account
+8. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate delta sync loops for each account
+
+### Requirement 22: Security Requirements
+
+**User Story:** As a security-conscious user, I want my authentication tokens and file data to be protected from unauthorized access so that my OneDrive account remains secure.
+
+#### Acceptance Criteria
+
+1. WHEN storing authentication tokens, THE OneMount System SHALL encrypt tokens at rest using AES-256 encryption
+2. WHEN creating token storage files, THE OneMount System SHALL set file permissions to 0600 (owner read/write only)
+3. WHEN storing authentication tokens, THE OneMount System SHALL store them in the XDG configuration directory with restricted access
+4. WHEN communicating with Microsoft Graph API, THE OneMount System SHALL use HTTPS/TLS 1.2 or higher for all connections
+5. WHEN validating TLS certificates, THE OneMount System SHALL verify certificate chains and reject invalid certificates
+6. WHEN logging operations, THE OneMount System SHALL never log authentication tokens, passwords, or sensitive user data
+7. WHEN handling authentication failures, THE OneMount System SHALL implement rate limiting to prevent brute force attacks
+8. WHEN storing cached file content, THE OneMount System SHALL set appropriate file permissions to prevent unauthorized access
+9. WHEN the system detects potential security threats, THE OneMount System SHALL log security events for audit purposes
+10. WHEN cleaning up temporary files, THE OneMount System SHALL securely delete temporary authentication data
+

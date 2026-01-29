@@ -30,6 +30,7 @@ This specification defines the requirements for systematically verifying and fix
 ## Requirements
 
 ### Requirement 1: Authentication Verification
+MOVED_TO: .kiro/specs/authentication-and-accounts/requirements.md
 
 **User Story:** As a Linux user, I want to authenticate with my Microsoft account so that I can access my OneDrive files.
 
@@ -43,6 +44,7 @@ This specification defines the requirements for systematically verifying and fix
 6. WHEN storing authentication tokens, THE OneMount System SHALL use account-based storage paths derived from account identity (email hash) rather than mount point location, ensuring tokens are accessible regardless of mount point changes and preventing token duplication across multiple mounts of the same account
 
 ### Requirement 2: Basic Filesystem Mounting
+MOVED_TO: .kiro/specs/filesystem-mounting/requirements.md
 
 **User Story:** As a Linux user, I want to mount my OneDrive as a local directory so that I can access files using standard file operations.
 
@@ -55,6 +57,7 @@ This specification defines the requirements for systematically verifying and fix
 5. WHEN the user unmounts the filesystem, THE OneMount System SHALL cleanly release all resources
 
 ### Requirement 2A: Initial Synchronization and Caching
+MOVED_TO: .kiro/specs/directory-loading-and-caching/requirements.md
 
 **User Story:** As a user, I want the initial sync to be non-blocking so that I can start using the filesystem immediately while it populates in the background.
 
@@ -65,6 +68,7 @@ This specification defines the requirements for systematically verifying and fix
 3. WHEN a directory lookup fails (including typos, case mismatches, or maintenance of virtual files such as `.xdg-volume-info`), THE OneMount System SHALL scope cache invalidation to the affected entry rather than clearing the entire parent directory cache
 
 ### Requirement 2B: Virtual File Management
+MOVED_TO: .kiro/specs/virtual-file-management/requirements.md
 
 **User Story:** As a Linux desktop user, I want virtual files like `.xdg-volume-info` to work correctly so that my file manager displays proper volume information.
 
@@ -74,6 +78,7 @@ This specification defines the requirements for systematically verifying and fix
 2. WHEN representing filesystem entries that exist only locally (e.g., `.xdg-volume-info`, policy folders, or pinned views), THE OneMount System SHALL persist them as metadata records with `local-*` identifiers and overlay policies describing precedence so that the virtual view is resolved inside the metadata database without a separate wrapper layer
 
 ### Requirement 2C: Advanced Mounting Options
+MOVED_TO: .kiro/specs/filesystem-mounting/requirements.md
 
 **User Story:** As a user, I want advanced mounting options so that I can use OneMount in different scenarios and configurations.
 
@@ -86,6 +91,7 @@ This specification defines the requirements for systematically verifying and fix
 5. IF a database lock file is detected and is not stale, THEN THE OneMount System SHALL retry with exponential backoff up to 10 attempts
 
 ### Requirement 2D: FUSE Operation Performance
+MOVED_TO: .kiro/specs/fuse-performance/requirements.md
 
 **User Story:** As a user, I want file operations to be fast and responsive so that the mounted filesystem feels like a local filesystem.
 
@@ -94,6 +100,7 @@ This specification defines the requirements for systematically verifying and fix
 1. WHEN fulfilling FUSE operations such as `readdir`, `getattr`, `rename`, `create`, `unlink`, `chmod`, or `chown`, THE OneMount System SHALL service the request exclusively from the local metadata database and content cache so that Graph API latency never blocks the FUSE thread; any Graph interaction SHALL be delegated to background sync or hydration workers
 
 ### Requirement 3: Basic On-Demand File Access
+MOVED_TO: .kiro/specs/file-download-hydration/requirements.md
 
 **User Story:** As a user with limited disk space, I want files to download only when I access them so that I don't need to sync my entire OneDrive.
 
@@ -115,6 +122,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 - Satisfies the intent of requirements 3.4, 3.5, and 3.6
 
 ### Requirement 3A: Download Status and Progress Tracking
+MOVED_TO: .kiro/specs/file-download-hydration/requirements.md
 
 **User Story:** As a user, I want to see the status of file downloads so that I know when files are being downloaded and if any errors occur.
 
@@ -124,6 +132,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 2. IF a download fails, THEN THE OneMount System SHALL mark the file with an error status and log the failure
 
 ### Requirement 3B: Download Manager Configuration
+MOVED_TO: .kiro/specs/file-download-hydration/requirements.md
 
 **User Story:** As a power user, I want to configure download behavior so that I can optimize performance for my network conditions and usage patterns.
 
@@ -144,6 +153,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 13. WHEN download manager configuration is invalid, THE OneMount System SHALL display a clear error message with valid ranges
 
 ### Requirement 3C: File Hydration State Management
+MOVED_TO: .kiro/specs/file-download-hydration/requirements.md
 
 **User Story:** As a user, I want the system to manage file availability states efficiently so that I can understand which files are available locally and which need to be downloaded.
 
@@ -153,6 +163,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 2. WHEN a hydrated file is evicted to save space, THE OneMount System SHALL transition the item back to `GHOST` without removing its metadata so that future FUSE requests can immediately rehydrate it on demand
 
 ### Requirement 4: File Modification and Upload Verification
+MOVED_TO: .kiro/specs/file-upload-modification/requirements.md
 
 **User Story:** As a user, I want to edit files locally and have changes automatically uploaded to OneDrive so that my work is synchronized.
 
@@ -173,6 +184,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 13. WHEN a directory is deleted, THE OneMount System SHALL remove the directory inode from the filesystem's internal tracking
 
 ### Requirement 5: Delta Synchronization Verification
+MOVED_TO: .kiro/specs/delta-sync-realtime/requirements.md
 
 **User Story:** As a user, I want local changes from OneDrive to be reflected automatically so that I always see the latest version of files.
 
@@ -194,6 +206,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 14. IF subscription renewal or reconnection fails, THEN THE OneMount System SHALL continue using the shorter polling interval until the subscription is restored and SHALL raise diagnostics for the operator
 
 ### Requirement 6: Offline Mode Verification
+MOVED_TO: .kiro/specs/offline-mode-sync/requirements.md
 
 **User Story:** As a user with unreliable internet, I want to access previously downloaded files when offline so that I can continue working.
 
@@ -221,6 +234,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 20. WHEN network connectivity is restored, THE OneMount System SHALL resume delta sync operations
 
 ### Requirement 7: Cache Management Verification
+MOVED_TO: .kiro/specs/cache-management/requirements.md
 
 **User Story:** As a user, I want the cache to be managed efficiently so that it doesn't consume excessive disk space and always reflects the latest remote state.
 
@@ -237,6 +251,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 9. WHEN cache cleanup runs, THE OneMount System SHALL identify and remove cache entries for files that no longer exist in the filesystem metadata
 
 ### Requirement 8: Conflict Resolution Verification
+MOVED_TO: .kiro/specs/conflict-resolution/requirements.md
 
 **User Story:** As a user, I want conflicts between local and remote changes to be handled gracefully so that I don't lose any work.
 
@@ -260,6 +275,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 16. WHEN using the keep-both strategy, THE OneMount System SHALL create separate versions for both local and remote changes
 
 ### Requirement 9: User Notifications and Feedback
+MOVED_TO: .kiro/specs/notifications-and-status/requirements.md
 
 **User Story:** As a user, I want to be notified of network state changes and synchronization status so that I understand the current state of my files.
 
@@ -282,6 +298,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 15. WHERE the user enables manual offline mode, THE OneMount System SHALL allow explicit offline mode activation via command-line or configuration
 
 ### Requirement 9: User Notifications and Feedback
+MOVED_TO: .kiro/specs/notifications-and-status/requirements.md
 
 **User Story:** As a user, I want to be notified of network state changes and synchronization status so that I understand the current state of my files.
 
@@ -304,6 +321,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 15. WHERE the user enables manual offline mode, THE OneMount System SHALL allow explicit offline mode activation via command-line or configuration
 
 ### Requirement 10: File Status and D-Bus Integration Verification
+MOVED_TO: .kiro/specs/notifications-and-status/requirements.md
 
 **User Story:** As a user of Nemo/Nautilus file manager, I want to see file sync status icons so that I know which files are synced, downloading, or have errors.
 
@@ -316,6 +334,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 5. WHILE files are downloading, THE OneMount System SHALL update status to show download progress
 
 ### Requirement 11: Error Handling and Recovery Verification
+MOVED_TO: .kiro/specs/error-handling-recovery/requirements.md
 
 **User Story:** As a user, I want the system to handle errors gracefully so that temporary issues don't cause data loss or crashes.
 
@@ -328,6 +347,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 5. WHERE errors are user-facing, THE OneMount System SHALL display helpful error messages
 
 ### Requirement 12: Performance and Concurrency Verification
+MOVED_TO: .kiro/specs/fuse-performance/requirements.md
 
 **User Story:** As a user, I want the filesystem to be responsive so that file operations don't block or hang.
 
@@ -340,6 +360,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 5. WHEN goroutines are spawned, THE OneMount System SHALL track them with wait groups for clean shutdown
 
 ### Requirement 13: Integration Test Coverage
+MOVED_TO: .kiro/specs/integration-testing/requirements.md
 
 **User Story:** As a developer, I want comprehensive integration tests so that I can verify the system works end-to-end.
 
@@ -352,6 +373,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 5. THE OneMount System SHALL have integration tests for cache cleanup and expiration
 
 ### Requirement 14: Multiple Account and Drive Support
+MOVED_TO: .kiro/specs/authentication-and-accounts/requirements.md
 
 **User Story:** As a user with multiple OneDrive accounts, I want to mount my personal OneDrive, work OneDrive, and shared drives simultaneously so that I can access all my files.
 
@@ -367,6 +389,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 8. WHEN multiple accounts are mounted, THE OneMount System SHALL maintain separate delta sync loops for each account
 
 ### Requirement 15: XDG Base Directory Compliance
+MOVED_TO: .kiro/specs/filesystem-mounting/requirements.md
 
 **User Story:** As a Linux user, I want OneMount to follow XDG Base Directory standards so that my configuration and cache files are stored in standard locations.
 
@@ -387,6 +410,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 13. WHEN accessing `.xdg-volume-info` files, THE OneMount System SHALL serve content from the local cache without attempting to sync to OneDrive
 
 ### Requirement 16: Docker-Based Test Environment
+MOVED_TO: .kiro/specs/integration-testing/requirements.md
 
 **User Story:** As a developer, I want to run all tests in isolated Docker containers so that my local environment is not affected by test execution.
 
@@ -401,6 +425,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 7. THE OneMount System SHALL provide a test runner container with all required dependencies pre-installed
 
 ### Requirement 17: Realtime Subscription Management
+MOVED_TO: .kiro/specs/delta-sync-realtime/requirements.md
 
 **User Story:** As a system, I want a resilient Microsoft Graph Socket.IO subscription layer so that realtime notifications stay healthy without requiring inbound webhooks.
 
@@ -413,6 +438,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 5. THE realtime implementation SHALL remain fully standalone (no webhooks, proxies, or managed relays such as Azure Web PubSub) unless explicitly approved in configuration.
 
 ### Requirement 18: Documentation Alignment
+MOVED_TO: .kiro/specs/integration-testing/requirements.md
 
 **User Story:** As a developer, I want documentation to match the actual implementation so that I can understand and maintain the code.
 
@@ -425,6 +451,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 5. WHEN code changes are made, THE OneMount System SHALL update corresponding documentation
 
 ### Requirement 19: Network Error Pattern Recognition
+MOVED_TO: .kiro/specs/error-handling-recovery/requirements.md
 
 **User Story:** As a system, I want to recognize specific network error patterns so that I can accurately detect offline conditions.
 
@@ -443,6 +470,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 11. WHEN an offline condition is detected, THE OneMount System SHALL log the specific error pattern that triggered the detection
 
 ### Requirement 20: Engine.IO / Socket.IO Transport Implementation
+MOVED_TO: .kiro/specs/delta-sync-realtime/requirements.md
 
 **User Story:** As a OneMount developer, I want clear requirements for the optional Engine.IO/Socket.IO transport so that, when this transport is selected, it behaves predictably without relying on unmaintained third-party libraries or external services.
 
@@ -459,6 +487,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 9. THE transport SHALL remain self-contained within the OneMount codebase—no third-party Socket.IO client libraries, proxies, or managed relays (e.g., Azure Web PubSub) are permitted unless explicitly whitelisted via configuration for troubleshooting.
 
 ### Requirement 21: Metadata State Model Verification
+MOVED_TO: .kiro/specs/cache-management/requirements.md
 
 **User Story:** As a developer, I want a clearly defined metadata state machine so that every file or folder transitions predictably between cloud-only, hydrated, dirty, or deleted states.
 
@@ -476,6 +505,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 10. ALL virtual-only entries (Requirement 2.16) SHALL set `item_state=HYDRATED`, `remote_id=NULL`, and `is_virtual=TRUE`, ensuring they bypass sync/upload logic while still participating in directory listings.
 
 ### Requirement 22: Security Requirements
+MOVED_TO: .kiro/specs/authentication-and-accounts/requirements.md
 
 **User Story:** As a security-conscious user, I want my authentication tokens and file data to be protected from unauthorized access so that my OneDrive account remains secure.
 
@@ -493,6 +523,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 10. WHEN cleaning up temporary files, THE OneMount System SHALL securely delete temporary authentication data
 
 ### Requirement 23: Performance Requirements
+MOVED_TO: .kiro/specs/fuse-performance/requirements.md
 
 **User Story:** As a user, I want OneMount to be responsive and efficient so that it doesn't impact my system performance or consume excessive resources.
 
@@ -512,6 +543,7 @@ Requirements 3.4, 3.5, and 3.6 specify ETag-based cache validation. The implemen
 12. WHEN under heavy load, THE OneMount System SHALL maintain CPU usage below 25% on average
 
 ### Requirement 24: Resource Management Requirements
+MOVED_TO: .kiro/specs/fuse-performance/requirements.md
 
 **User Story:** As a user, I want OneMount to use system resources responsibly so that it doesn't slow down my computer or consume excessive resources.
 

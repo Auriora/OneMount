@@ -1,4 +1,45 @@
-# Design: Directory Loading and Caching
+# Design: Directory Loading And Caching
+
+## Source
+Moved from `.kiro/specs/archive/system-verification-and-fix/design.md`. Sections below are verbatim.
+
+### 2A. Initial Synchronization and Caching Component
+
+**Location**: `internal/fs/sync.go`, `internal/fs/cache.go`, `internal/fs/metadata_manager.go`
+
+**Verification Steps**:
+1. Review background tree synchronization implementation
+2. Test non-blocking initial sync behavior
+3. Test cached metadata serving
+4. Test asynchronous refresh triggers
+5. Test scoped cache invalidation
+
+**Expected Interfaces**:
+- `StartBackgroundSync()` method for non-blocking sync
+- `ServeFromCache()` method for immediate responses
+- `TriggerAsyncRefresh()` for background updates
+- `InvalidateEntry()` for scoped invalidation
+
+**Verification Criteria**:
+- Initial sync runs in background without blocking operations
+- Interactive commands use cached metadata immediately
+- Stale cache triggers async refresh while serving cached data
+- Failed lookups only invalidate specific entries, not entire directories
+- Background sync progress is trackable
+
+### Metadata Request Manager
+
+Interactive metadata operations (e.g., `ls`, `cd`, file open/close) must remain responsive even while the tree sync, delta loop, or realtime handler are active. To achieve this:
+
+- **Worker pools:** The metadata request manager runs a configurable set of workers. At least one worker is dedicated to foreground work so user-facing commands never wait behind background jobs.
+- **Priority handling:** Foreground requests preempt background work. When a worker is processing a background task and a foreground request arrives, the worker finishes the current Graph call but immediately switches to the high-priority queue; background jobs resume only when no foreground work is pending.
+- **In-flight deduplication:** Requests for the same directory share a single in-flight Graph call. Multiple callers attach callbacks to the same result rather than spawning duplicate requests.
+- **Stale-cache policy:** If a directory already has cached children (even if the cache is due for refresh), the manager returns the cached data immediately and triggers a refresh in the background. The caller never waits for a refresh unless the directory has never been fetched before.
+- **Scoped invalidation:** Failed lookups (typos, case mismatches) and virtual-file maintenance never clear entire parent caches. Only the specific entry is invalidated, ensuring other children remain available without refetching.
+
+---
+
+# Design: Lazy Directory Loading Performance Fix
 
 ## 1. Problem Analysis
 
@@ -41,7 +82,7 @@ Implement recursive metadata prefetch to populate cache before user access:
 ```go
 func (f *Filesystem) StartPrefetch() {
     // Start prefetch in background after mount (Req 2.1)
-    // Non-blocking to ensure mount completes quickly (Req 7.5)
+    // Non-blocking to ensure mount completes quickly (Req 6.5)
     go f.prefetchRecursive(f.root, 0)
 }
 
@@ -85,7 +126,7 @@ func (f *Filesystem) prefetchRecursive(dirID string, depth int) {
         if child.IsDir() {
             f.prefetchRecursive(child.ID(), depth+1)
         }
-        // Note: We do NOT prefetch file contents, only metadata (Req 2.2, 6.1)
+        // Note: We do NOT prefetch file contents, only metadata (Req 2.2, 5.1)
     }
 }
 
@@ -175,20 +216,8 @@ func (f *Filesystem) waitForPrefetch(id string, timeout time.Duration) map[strin
 ```
 ```
 
-### 2.3 Scoped Cache Invalidation on Lookup Failure
-**Addresses: Requirement 5 (Scoped Cache Invalidation on Lookup Failure)**
-
-When a directory lookup fails, invalidate only the affected entry and preserve the rest of the cached children:
-
-- Keep the parent directory cache intact to avoid clearing unrelated entries.
-- Mark the missing entry as needing refresh without dropping existing children.
-- Trigger a targeted refresh for the parent (or a focused lookup) in the background, then merge results.
-
-**Design Decision: Scoped invalidation without cache wipe**
-**Rationale**: Preserving the parent cache avoids unnecessary cache misses for unrelated entries while still correcting stale or missing items. This aligns with the requirement to keep directory listings stable during background refresh.
-
-### 2.4 File Content Loading (Separate from Prefetch)
-**Addresses: Requirement 6 (File Content On-Demand Loading)**
+### 2.3 File Content Loading (Separate from Prefetch)
+**Addresses: Requirement 5 (File Content On-Demand Loading)**
 
 File contents are loaded on-demand when opened, NOT during prefetch:
 
@@ -199,19 +228,19 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
         return fuse.ENOENT
     }
     
-    // Check if content is already cached (Req 6.2, 6.3)
+    // Check if content is already cached (Req 5.2, 5.3)
     if f.content.Has(inode.ID()) {
         return fuse.OK
     }
     
-    // Content not cached - BLOCK and download (Req 6.4)
-    // Foreground file opens queue immediately and wait for completion. (Req 6.6)
+    // Content not cached - BLOCK and download (Req 5.4)
+    // Foreground file opens queue immediately and wait for completion. (Req 5.6)
     session := f.downloads.QueueDownload(inode.ID())
     
-    // Block until download completes (60 second timeout) (Req 6.4)
+    // Block until download completes (60 second timeout) (Req 5.4)
     err := f.downloads.WaitForDownloadWithTimeout(inode.ID(), 60*time.Second)
     if err != nil {
-        // Return error if download fails (not partial/empty file) (Req 6.5, 6.7)
+        // Return error if download fails (not partial/empty file) (Req 5.5, 5.7)
         return fuse.EIO
     }
     
@@ -222,21 +251,21 @@ func (f *Filesystem) Open(cancel <-chan struct{}, in *fuse.OpenIn, out *fuse.Ope
 // Rationale: Metadata is small (KB) and benefits from prefetch, while file
 // contents can be large (GB) and should only be downloaded when needed.
 // This minimizes bandwidth usage and memory consumption while still providing
-// fast directory navigation. (Req 6.1)
+// fast directory navigation. (Req 5.1)
 ```
 
 **Key points**:
 - Prefetch only fetches metadata (directory listings, file names, sizes, etc.) (Req 2.2)
-- File contents are downloaded on-demand when file is opened (Req 6.1)
-- Both operations block until complete (NEVER return empty/partial data) (Req 1.2, 6.7)
+- File contents are downloaded on-demand when file is opened (Req 5.1)
+- Both operations block until complete (NEVER return empty/partial data) (Req 1.2, 5.7)
 
-### 2.5 Mount + Offline Behavior (Implementation Detail)
+### 2.6 Mount + Offline Behavior (Implementation Detail)
 
 - **Online mount**: synchronously hydrate root children before returning, then launch recursive prefetch in a goroutine.
 - **Offline mount**: only proceed if cached root children exist; otherwise fail mount.
 - **Offline → online transition**: resume prefetch when connectivity returns.
 
-### 2.6 Metadata State Tracking
+### 2.4 Metadata State Tracking
 **Addresses: Requirement 2.6, 2.7, 3.6**
 
 Use existing metadata states to track prefetch progress:
@@ -251,29 +280,29 @@ This allows `GetChildrenID()` to know if it should wait for prefetch or fetch sy
 **Design Decision: Reuse existing metadata state machine**
 **Rationale**: The existing state machine already tracks metadata lifecycle. By using HYDRATING state for prefetch, we avoid introducing new state management complexity and leverage existing infrastructure. This also ensures consistency with other metadata operations like delta sync.
 
-### 2.7 Priority Management
-**Addresses: Requirement 2.5, 6.6**
+### 2.5 Priority Management
+**Addresses: Requirement 2.5, 5.6**
 
 - **Prefetch**: Low priority (PriorityBackground) - doesn't interfere with user operations (Req 2.5)
 - **User access**: High priority (PriorityForeground) - immediate response
 - **Stale refresh**: Medium priority - balance between freshness and responsiveness
-- **File downloads**: Foreground file opens queue immediately and block until completion (Req 6.6)
+- **File downloads**: Foreground file opens queue immediately and block until completion (Req 5.6)
 
 This ensures user operations are never blocked by prefetch.
 
 **Design Decision: Leverage existing priority system**
 **Rationale**: The existing metadata request manager (ADR-003) already implements priority-based request queuing. By using PriorityBackground for prefetch, we ensure it doesn't interfere with user-initiated operations while still populating the cache proactively.
 
-### 2.8 Test Updates
-**Addresses: Requirement 8 (Test Updates and Validation)**
+### 2.6 Test Updates
+**Addresses: Requirement 7 (Test Updates and Validation)**
 
 Update tests to reflect new behavior:
 
 ```go
 func TestIT_FS_Cache_PrefetchRecursive(t *testing.T) {
-    // Test that prefetch recursively fetches all directories (Req 8.3)
+    // Test that prefetch recursively fetches all directories (Req 7.3)
     // Verify metadata is cached
-    // Verify file contents are NOT prefetched (Req 8.4)
+    // Verify file contents are NOT prefetched (Req 7.4)
 }
 
 func TestIT_FS_Cache_GetChildrenIDReturnsPrefetchedData(t *testing.T) {
@@ -293,7 +322,7 @@ func TestIT_FS_Cache_GetChildrenIDBlocksIfNotPrefetched(t *testing.T) {
 }
 
 func TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached(t *testing.T) {
-    // UPDATE: This test needs to be modified (Req 8.1)
+    // UPDATE: This test needs to be modified (Req 7.1)
     // Old behavior: Expected quick return with empty
     // New behavior: Expected blocking until data fetched (up to 10s)
 }
@@ -305,9 +334,9 @@ func TestIT_FS_Cache_StaleCacheRefreshWithTimeout(t *testing.T) {
 }
 
 func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
-    // Test that file open blocks until content downloaded (Req 6.4, 8.5)
+    // Test that file open blocks until content downloaded (Req 5.4, 7.5)
     // Should block up to 60 seconds
-    // NEVER returns partial/empty file (Req 6.7)
+    // NEVER returns partial/empty file (Req 5.7)
 }
 
 // Design Decision: Update existing test rather than delete
@@ -325,7 +354,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 **Rationale**: 
 - Most users navigate through directory trees sequentially
 - Metadata is small (KB per directory) compared to file contents (MB-GB)
-- Background prefetch doesn't delay mount operation (Req 7.5)
+- Background prefetch doesn't delay mount operation (Req 6.5)
 - Prefetched data persists across restarts via metadata store (Req 2.9)
 - Addresses Requirement 2 completely
 
@@ -358,7 +387,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 - Users don't open every file, but do navigate directories
 - Bandwidth efficiency: Only download what's needed
 - Memory efficiency: Don't cache unused file contents
-- Addresses Requirement 6 completely
+- Addresses Requirement 5 completely
 
 ### 3.5 Why Use Existing State Machine?
 **Problem**: Need to track prefetch progress.
@@ -378,7 +407,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 - Background prefetch runs when system is idle
 - User operations always take precedence
 - No changes to existing priority system (out of scope)
-- Addresses Requirements 2.5, 6.6
+- Addresses Requirements 2.5, 5.6
 
 ## 4. Design Constraints
 
@@ -387,20 +416,20 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 - Existing metadata request prioritization (foreground/background) - no modifications (out of scope)
 - Existing stale-cache policy design - enhanced with timeout-based refresh
 - Backward compatibility with existing metadata store
-- All existing tests must pass (Req 8.8)
+- All existing tests must pass (Req 7.8)
 
 ### 4.2 Must Not Change
 - Fundamental lazy-loading architecture
 - FUSE operation contracts
 - Metadata state transitions
-- API request patterns (no significant increase in rate) (Req 7.7)
+- API request patterns (no significant increase in rate) (Req 6.7)
 
 ### 4.3 Performance Constraints
-- Memory usage increase < 20% (Req 7.6)
-- Cached directory access < 50ms (Req 7.1, 7.2)
-- Uncached directory access < 10 seconds (Req 7.3)
-- Stale cache refresh timeout: 2 seconds (Req 7.4)
-- Mount operation completes quickly (< 2 seconds) (Req 7.5)
+- Memory usage increase < 20% (Req 6.6)
+- Cached directory access < 50ms (Req 6.1, 6.2)
+- Uncached directory access < 10 seconds (Req 6.3)
+- Stale cache refresh timeout: 2 seconds (Req 6.4)
+- Mount operation completes quickly (< 2 seconds) (Req 6.5)
 
 ### 4.4 Out of Scope (Explicitly Excluded)
 - Prefetching file contents (only metadata)
@@ -414,53 +443,51 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 ## 5. Testing Strategy
 
 ### 5.1 Unit Tests
-**Addresses: Requirement 8 (Test Updates and Validation)**
+**Addresses: Requirement 7 (Test Updates and Validation)**
 
-- Test `prefetchRecursive()` fetches all directories (Req 8.3)
-- Test prefetch only fetches metadata, not file contents (Req 8.4)
+- Test `prefetchRecursive()` fetches all directories (Req 7.3)
+- Test prefetch only fetches metadata, not file contents (Req 7.4)
 - Test `isPrefetchInProgress()` checks metadata state correctly (Req 3.6)
 - Test `waitForPrefetch()` polls cache with 100ms interval (Req 3.4)
 - Test `isCacheFresh()` checks TTL correctly (Req 4.1)
 - Test `refreshChildrenWithTimeout()` respects 2-second timeout (Req 4.2)
 - Test state transitions (GHOST → HYDRATING → HYDRATED) (Req 2.6, 2.7)
 - Test error handling for prefetch failures (Req 2.8)
-- Test scoped invalidation preserves parent cache and triggers refresh (Req 5.1, 5.2, 5.3)
 
 ### 5.2 Integration Tests
-**Addresses: Requirement 8 (Test Updates and Validation)**
+**Addresses: Requirement 7 (Test Updates and Validation)**
 
-- Test `GetChildrenID()` returns immediately if prefetched (< 50ms) (Req 3.1, 7.2)
-- Test `GetChildrenID()` waits for prefetch in progress (up to 5s) (Req 3.2, 8.7)
-- Test `GetChildrenID()` blocks if not prefetched (up to 10s) (Req 3.3, 7.3)
-- Test `GetChildrenID()` NEVER returns empty (Req 1.2, 8.2)
-- Test stale cache refresh with timeout (Req 4.2, 8.6)
-- Test file open blocks until content downloaded (Req 6.4, 8.5)
-- Test scoped invalidation on lookup failure preserves parent cache (Req 5.1, 5.2)
+- Test `GetChildrenID()` returns immediately if prefetched (< 50ms) (Req 3.1, 7.3)
+- Test `GetChildrenID()` waits for prefetch in progress (up to 5s) (Req 3.2, 7.7)
+- Test `GetChildrenID()` blocks if not prefetched (up to 10s) (Req 3.3, 7.2)
+- Test `GetChildrenID()` NEVER returns empty (Req 1.2, 7.2)
+- Test stale cache refresh with timeout (Req 4.2, 7.6)
+- Test file open blocks until content downloaded (Req 5.4, 7.5)
 - Test prefetch persists to metadata store (Req 2.9)
-- Update `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking (Req 8.1)
+- Update `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` to expect blocking (Req 7.1)
 
 ### 5.3 System Tests
-**Addresses: Requirement 7 (Performance Targets)**
+**Addresses: Requirement 6 (Performance Targets)**
 
 - Test real directory access patterns with file managers
 - Test performance under load (1000+ directories)
-- Test memory usage increase < 20% (Req 7.6)
-- Test API request rate doesn't significantly increase (Req 7.7)
-- Test mount operation completes quickly (< 2s) (Req 7.5)
+- Test memory usage increase < 20% (Req 6.6)
+- Test API request rate doesn't significantly increase (Req 6.7)
+- Test mount operation completes quickly (< 2s) (Req 6.5)
 - Test with slow network conditions
 - Test with network errors during prefetch
 
 ## 6. Performance Considerations
 
 ### 6.1 Targets
-**Addresses: Requirement 7 (Performance Targets)**
+**Addresses: Requirement 6 (Performance Targets)**
 
-- Cached directory access: < 50ms (Req 7.1, 7.2)
-- Uncached directory access: < 10 seconds with timeout (Req 7.3)
-- Stale cache refresh timeout: 2 seconds (Req 7.4)
-- Mount operation: < 2 seconds (prefetch runs in background) (Req 7.5)
-- Memory usage increase: < 20% compared to current (Req 7.6)
-- API request rate: No significant increase (Req 7.7)
+- Cached directory access: < 50ms (Req 6.1, 6.2)
+- Uncached directory access: < 10 seconds with timeout (Req 6.3)
+- Stale cache refresh timeout: 2 seconds (Req 6.4)
+- Mount operation: < 2 seconds (prefetch runs in background) (Req 6.5)
+- Memory usage increase: < 20% compared to current (Req 6.6)
+- API request rate: No significant increase (Req 6.7)
 
 ### 6.2 Optimizations
 - Use PriorityBackground for prefetch to avoid blocking user operations (Req 2.5)
@@ -484,7 +511,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 **From Requirements document**
 
 - **Cache Management Spec**: Prefetch populates cache and metadata store
-- **File Download and Hydration Spec**: File content loading uses existing download manager (Req 6.6)
+- **File Download and Hydration Spec**: File content loading uses existing download manager (Req 5.6)
 - **Delta Sync Spec**: Delta sync may populate metadata store, reducing prefetch work
 
 ### 7.2 External Dependencies
@@ -509,24 +536,24 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 **From Requirements document**
 
 - **Zero empty directories**: No directory ever appears empty on first access (Req 1.2)
-- **Fast cached access**: Cached directory access < 50ms (99th percentile) (Req 7.1)
-- **Reasonable first access**: Uncached directory access < 10 seconds (with timeout) (Req 7.3)
+- **Fast cached access**: Cached directory access < 50ms (99th percentile) (Req 6.1)
+- **Reasonable first access**: Uncached directory access < 10 seconds (with timeout) (Req 6.3)
 - **File manager compatibility**: Nautilus, Dolphin, Thunar display directories correctly on first open (Req 1.6)
 
 ### 8.2 Performance Metrics
 **From Requirements document**
 
-- **Memory usage**: < 20% increase compared to current implementation (Req 7.6)
-- **API request rate**: No significant increase in API calls per minute (Req 7.7)
-- **Mount time**: Mount operation completes quickly (< 2 seconds), prefetch runs in background (Req 7.5)
+- **Memory usage**: < 20% increase compared to current implementation (Req 6.6)
+- **API request rate**: No significant increase in API calls per minute (Req 6.7)
+- **Mount time**: Mount operation completes quickly (< 2 seconds), prefetch runs in background (Req 6.5)
 - **Cache hit rate**: > 95% of directory accesses served from cache after prefetch completes
 
 ### 8.3 Quality Metrics
 **From Requirements document**
 
 - **Test coverage**: All new code covered by unit and integration tests (Req 7)
-- **Test pass rate**: 100% of tests pass with new implementation (Req 8.8)
-- **No regressions**: All existing functionality continues to work (Req 8.8)
+- **Test pass rate**: 100% of tests pass with new implementation (Req 7.8)
+- **No regressions**: All existing functionality continues to work (Req 7.8)
 - **Error handling**: All error paths tested and logged appropriately (Req 2.8)
 
 ## 9. Monitoring and Logging
@@ -559,7 +586,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 
 ### 10.2 Safety Measures
 - Depth limit prevents infinite recursion (Req 2.4)
-- Timeouts prevent indefinite hangs (Req 1.3, 3.2, 3.3, 4.2, 6.4)
+- Timeouts prevent indefinite hangs (Req 1.3, 3.2, 3.3, 4.2, 5.4)
 - Error handling prevents crashes (Req 2.8)
 - Background priority prevents blocking user operations (Req 2.5)
 - Graceful degradation on prefetch failures (Req 2.8)
@@ -568,7 +595,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 
 ### 11.1 Resolved Questions
 1. ✅ Should prefetch be recursive? **Yes** - Requirement 2.3
-2. ✅ Should file contents be prefetched? **No** - Requirement 6.1
+2. ✅ Should file contents be prefetched? **No** - Requirement 5.1
 3. ✅ What timeout for synchronous fetch? **10 seconds** - Requirement 1.3
 4. ✅ What timeout for stale cache refresh? **2 seconds** - Requirement 4.2
 5. ✅ Should we modify metadata state machine? **No** - Out of scope
@@ -593,7 +620,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 2. Monitor prefetch progress and errors
 3. Verify directory access behavior (no empty directories)
 4. Monitor performance metrics (memory, API rate)
-5. Verify all tests pass (Req 8.8)
+5. Verify all tests pass (Req 7.8)
 6. Rollback if issues detected
 
 ## 13. Next Steps
@@ -630,7 +657,7 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 ## 14. References
 
 ### Requirements
-- Requirements: `.kiro/specs/directory-loading-and-caching/requirements.md`
+- Requirements: `.kiro/specs/archive/lazy-directory-loading-fix/requirements.md`
 - All 7 requirements addressed in this design
 
 ### Architecture Decisions
@@ -649,4 +676,4 @@ func TestIT_FS_Cache_FileOpenBlocksUntilDownloaded(t *testing.T) {
 ### Test Files
 - `internal/fs/cache_test.go`: Cache behavior tests
 - `internal/fs/fuse_metadata_local_test.go`: Metadata operation tests
-- Test to update: `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` (Req 8.1)
+- Test to update: `TestIT_FS_Cache_GetChildrenIDReturnsQuicklyWhenUncached` (Req 7.1)

@@ -68,10 +68,8 @@ Conducted a comprehensive audit of all verification documents to ensure all iden
 
 ### Offline Mode Issues (4 new)
 
-6. **Issue #OF-001**: Read-write vs read-only offline mode
    - **Severity**: Medium (Design Discrepancy)
    - **Component**: Offline Mode
-   - **Description**: Implementation allows writes offline, requirements specify read-only
    - **Recommendation**: Update requirements to match implementation
    - **Fix Estimate**: 1 hour (requirements update)
 
@@ -162,7 +160,6 @@ Replaced all "BC:" comments with "ACTION REQUIRED:" for clarity:
 
 ### Design Discrepancies
 
-1. **Offline Mode Behavior**: Implementation provides read-write offline mode with change queuing, while requirements specify read-only mode. **Recommendation**: Update requirements to match the superior implementation.
 
 2. **Offline Detection**: Implementation uses passive detection via API failures rather than active network monitoring. This is simpler and more reliable, but has detection latency.
 
@@ -189,7 +186,6 @@ Replaced all "BC:" comments with "ACTION REQUIRED:" for clarity:
 
 ### Immediate Actions (High Priority)
 
-1. **Update Requirements** (Issue #OF-001)
    - Update Requirement 6.3 to specify read-write offline mode
    - Add requirements for offline state notifications
    - Align requirements with implementation

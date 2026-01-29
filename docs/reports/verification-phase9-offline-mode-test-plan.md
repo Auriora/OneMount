@@ -165,9 +165,9 @@ func TestIT_OF_06_01_OfflineReadOperations_CachedFiles_AccessibleOffline(t *test
 - Files marked with `hasChanges = true`
 
 **Expected Results** (per requirements):
-- File creation should be rejected (read-only mode)
-- File modification should be rejected (read-only mode)
-- Clear error message: "filesystem is read-only in offline mode"
+- File creation is allowed (cached locally)
+- File modification is allowed (cached locally)
+- Changes are queued for upload when back online
 
 **Docker Command**:
 ```bash
@@ -188,7 +188,6 @@ func TestIT_OF_07_01_OfflineWriteRestrictions_WriteOperations_BehaviorVerified(t
 }
 ```
 
-**Note**: This test will reveal the discrepancy between requirements (read-only) and implementation (read-write with queuing).
 
 ---
 
@@ -346,39 +345,16 @@ ls -la test-artifacts/logs/
 | Test ID | Test Name | Expected Result | Requirements |
 |---------|-----------|-----------------|--------------|
 | IT-OF-01-01 | Offline file access | ✅ Pass | 6.2 |
-| IT-OF-02-01 | Offline filesystem operations | ⚠️ Pass (but violates 6.3) | 6.3, 6.4 |
+| IT-OF-02-01 | Offline filesystem operations | ✅ Pass | 6.3, 6.4 |
 | IT-OF-03-01 | Offline changes cached | ✅ Pass | 6.4 |
 | IT-OF-04-01 | Offline synchronization | ✅ Pass | 6.5 |
 | IT-OF-05-01 | Offline detection | 🆕 To be created | 6.1 |
 | IT-OF-06-01 | Offline read operations | 🆕 To be created | 6.2 |
-| IT-OF-07-01 | Offline write restrictions | 🆕 To be created | 6.3 |
+| IT-OF-07-01 | Offline write operations | 🆕 To be created | 6.3 |
 | IT-OF-08-01 | Change queuing | 🆕 To be created | 6.4 |
 | IT-OF-09-01 | Online transition | 🆕 To be created | 6.5 |
 
 ## Known Issues and Discrepancies
-
-### Issue #1: Read-Write vs Read-Only Offline Mode
-
-**Severity**: Medium  
-**Requirement**: 6.3
-
-**Description**: Requirements specify that the filesystem should be read-only while offline, but the implementation allows read-write operations with change queuing.
-
-**Current Behavior**:
-- File creation allowed offline
-- File modification allowed offline
-- File deletion allowed offline
-- Changes queued for upload when back online
-
-**Required Behavior**:
-- Filesystem should be read-only offline
-- Write operations should be rejected
-- Clear error message to user
-
-**Recommendation**: 
-- **Option A**: Update requirements to match implementation (read-write with queuing)
-- **Option B**: Modify implementation to enforce read-only mode
-- **Option C**: Make it configurable (read-only vs read-write offline mode)
 
 ### Issue #2: Passive Offline Detection
 

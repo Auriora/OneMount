@@ -13,6 +13,7 @@ This design document outlines the systematic approach to verifying and fixing th
 ## Architecture
 
 ### Verification Framework
+MOVED_TO: .kiro/specs/integration-testing/design.md
 
 The verification process follows a layered approach:
 
@@ -29,6 +30,7 @@ The verification process follows a layered approach:
 ```
 
 ### Verification Phases
+MOVED_TO: .kiro/specs/integration-testing/design.md
 
 #### Phase 1: Code Analysis
 - Review existing code structure
@@ -118,6 +120,7 @@ Each mount is completely isolated with:
 - Individual realtime (Socket.IO) subscription
 
 ### Tree Synchronization Behavior
+MOVED_TO: .kiro/specs/delta-sync-realtime/design.md
 
 The initial tree walk (and any subsequent full resync) runs entirely in the background. While the walk is running:
 
@@ -127,6 +130,7 @@ The initial tree walk (and any subsequent full resync) runs entirely in the back
 - When the refresh interval elapses, the walker revalidates directories asynchronously while continuing to serve cached data.
 
 ### Item State Model
+MOVED_TO: .kiro/specs/cache-management/design.md
 
 Every entry in the metadata database carries an explicit state that drives hydration, uploads, eviction, and conflict handling:
 
@@ -237,6 +241,7 @@ stateDiagram-v2
 - Persistent errors may require manual intervention or cache clearing
 
 ### `.xdg-volume-info` Handling
+MOVED_TO: .kiro/specs/virtual-file-management/design.md
 
 `.xdg-volume-info` is a local-only virtual file. Creating or refreshing it:
 
@@ -245,6 +250,7 @@ stateDiagram-v2
 - Never clears the entire root cache, preventing unnecessary re-fetches after maintenance.
 
 ### Virtual Items and Overlay Policies
+MOVED_TO: .kiro/specs/virtual-file-management/design.md
 
 - Virtual items live in the same BBolt buckets as remote-backed entries and are flagged with `virtual=true`, `remote_id=NULL`, and `overlay_policy` (`LOCAL_WINS`, `REMOTE_WINS`, or `MERGED`).
 - `LOCAL_WINS` (default for `.xdg-volume-info`, policy folders, or pinned views) hides any remote item that collides by name so FUSE can enumerate a single authoritative child list without merging logic.
@@ -253,6 +259,7 @@ stateDiagram-v2
 - Because these flags live inside the metadata DB, FUSE handles `readdir` with a single query. The sync engine simply ignores virtual entries when generating upload/delete workqueues.
 
 ### Realtime Socket Architecture
+MOVED_TO: .kiro/specs/delta-sync-realtime/design.md
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -289,6 +296,7 @@ stateDiagram-v2
 - When the transport degrades, the manager marks itself unhealthy, emits diagnostics, and leaves the delta loop in 5-minute polling mode until the Socket.IO channel recovers.
 
 ### Metadata Request Manager
+MOVED_TO: .kiro/specs/directory-loading-and-caching/design.md
 
 Interactive metadata operations (e.g., `ls`, `cd`, file open/close) must remain responsive even while the tree sync, delta loop, or realtime handler are active. To achieve this:
 
@@ -299,6 +307,7 @@ Interactive metadata operations (e.g., `ls`, `cd`, file open/close) must remain 
 - **Scoped invalidation:** Failed lookups (typos, case mismatches) and virtual-file maintenance never clear entire parent caches. Only the specific entry is invalidated, ensuring other children remain available without refetching.
 
 ### ETag-Based Cache Validation
+MOVED_TO: .kiro/specs/cache-management/design.md
 
 **Note**: This flow uses delta sync for ETag validation, NOT HTTP `if-none-match` headers.
 Pre-authenticated download URLs from Microsoft Graph API do not support conditional GET.
@@ -407,6 +416,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 1.6**
 
 ### Filesystem Mounting Properties
+MOVED_TO: .kiro/specs/filesystem-mounting/design.md
 
 **Property 5: FUSE Mount Success**
 *For any* valid mount point specification, the system should successfully mount OneDrive using FUSE
@@ -433,6 +443,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 2.5**
 
 ### File Access Properties
+MOVED_TO: .kiro/specs/file-download-hydration/design.md
 
 **Property 11: Metadata-Only Directory Listing**
 *For any* directory listing operation, the system should display all files using cached metadata without downloading file content
@@ -455,6 +466,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 3.6**
 
 ### File Modification Properties
+MOVED_TO: .kiro/specs/file-upload-modification/design.md
 
 **Property 16: Local Change Tracking**
 *For any* file modification, the system should mark the file as having local changes
@@ -473,6 +485,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 4.8**
 
 ### Delta Synchronization Properties
+MOVED_TO: .kiro/specs/delta-sync-realtime/design.md
 
 **Property 20: Initial Delta Sync**
 *For any* first filesystem mount, the system should fetch the complete directory structure using the delta API
@@ -491,6 +504,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 5.12**
 
 ### Offline Mode Properties
+MOVED_TO: .kiro/specs/offline-mode-sync/design.md
 
 **Property 24: Offline Detection**
 *For any* network connectivity loss, the system should detect the offline state through passive monitoring of API call failures
@@ -509,6 +523,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 6.10**
 
 ### Cache Management Properties
+MOVED_TO: .kiro/specs/cache-management/design.md
 
 **Property 28: ETag-Based Cache Storage**
 *For any* downloaded file, the system should store content in the cache directory with the file's ETag
@@ -519,6 +534,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 7.3**
 
 ### Conflict Resolution Properties
+MOVED_TO: .kiro/specs/conflict-resolution/design.md
 
 **Property 30: ETag-Based Conflict Detection**
 *For any* file modified both locally and remotely, the system should detect the conflict by comparing ETags
@@ -533,6 +549,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 8.5**
 
 ### Concurrency Properties
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Property 33: Safe Concurrent File Access**
 *For any* simultaneous file access operations, the system should handle concurrent operations safely without race conditions
@@ -543,6 +560,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 10.2**
 
 ### Error Handling Properties
+MOVED_TO: .kiro/specs/error-handling-recovery/design.md
 
 **Property 35: Network Error Logging**
 *For any* network error occurrence, the system should log the error with appropriate context information
@@ -567,6 +585,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 15.8**
 
 ### State Management Properties
+MOVED_TO: .kiro/specs/cache-management/design.md
 
 **Property 40: Initial Item State**
 *For any* drive item discovered via delta for the first time, the system should insert it with GHOST state and not download content until required
@@ -581,6 +600,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 21.6**
 
 ### Security Properties
+MOVED_TO: .kiro/specs/authentication-and-accounts/design.md
 
 **Property 43: Token Encryption at Rest**
 *For any* authentication token storage operation, the system should encrypt tokens using AES-256 encryption
@@ -607,6 +627,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 22.8**
 
 ### Performance Properties
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Property 49: Directory Listing Performance**
 *For any* directory listing operation with up to 1000 files, the system should respond within 2 seconds
@@ -637,6 +658,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 23.10**
 
 ### Resource Management Properties
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Property 56: Cache Size Enforcement**
 *For any* cache size configuration, the system should enforce the specified maximum cache size limit
@@ -667,6 +689,7 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: Requirements 24.10**
 
 ### Concurrency and Lock Management Properties
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Property 63: Lock Ordering Compliance**
 *For any* sequence of lock acquisitions, the system should acquire locks in the defined order (filesystem → mount manager → cache manager → inode → worker pool → network state)
@@ -689,8 +712,10 @@ Based on the prework analysis of acceptance criteria, the following 67 correctne
 **Validates: State Machine Design Requirements**
 
 ## Concurrency and Lock Management
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 ### Lock Ordering Policy
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 To prevent deadlocks, all components MUST acquire locks in the following order:
 
@@ -709,6 +734,7 @@ To prevent deadlocks, all components MUST acquire locks in the following order:
 - Minimize lock hold time by preparing data before acquiring locks
 
 ### Concurrent Operation Guidelines
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Safe Concurrent Operations**:
 - Multiple file reads from different inodes (each inode has its own lock)
@@ -722,6 +748,7 @@ To prevent deadlocks, all components MUST acquire locks in the following order:
 - Filesystem shutdown + active operations (coordinate via context cancellation)
 
 ### Deadlock Prevention Strategies
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Lock Timeout Policy**:
 ```go
@@ -747,6 +774,7 @@ defer filesystem.mutex.Unlock()
 - Implement circuit breakers for external API calls
 
 ### Lock Granularity Guidelines
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Filesystem Level** (Coarse-grained):
 - Mount/unmount operations
@@ -769,6 +797,7 @@ defer filesystem.mutex.Unlock()
 - Status updates
 
 ### Race Condition Prevention
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Common Race Conditions and Solutions**:
 
@@ -789,6 +818,7 @@ defer filesystem.mutex.Unlock()
    - Detect conflicts before applying changes
 
 ### Performance Considerations
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Lock Contention Reduction**:
 - Use read-write locks where appropriate (`sync.RWMutex`)
@@ -805,6 +835,7 @@ defer filesystem.mutex.Unlock()
 ## Components and Interfaces
 
 ### 1. Authentication Component
+MOVED_TO: .kiro/specs/authentication-and-accounts/design.md
 
 **Location**: `internal/graph/oauth2*.go`, `internal/graph/authenticator.go`
 
@@ -923,6 +954,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Multi-account tests for token isolation
 
 ### 2. Basic Filesystem Mounting Component
+MOVED_TO: .kiro/specs/filesystem-mounting/design.md
 
 **Location**: `internal/fs/raw_filesystem.go`, `cmd/onemount/main.go`
 
@@ -949,6 +981,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Standard file operations work correctly
 
 ### 2A. Initial Synchronization and Caching Component
+MOVED_TO: .kiro/specs/directory-loading-and-caching/design.md
 
 **Location**: `internal/fs/sync.go`, `internal/fs/cache.go`, `internal/fs/metadata_manager.go`
 
@@ -973,6 +1006,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Background sync progress is trackable
 
 ### 2B. Virtual File Management Component
+MOVED_TO: .kiro/specs/virtual-file-management/design.md
 
 **Location**: `cmd/common/xdg.go`, `internal/fs/virtual_files.go`
 
@@ -997,6 +1031,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Virtual files excluded from upload/delete operations
 
 ### 2C. Advanced Mounting Options Component
+MOVED_TO: .kiro/specs/filesystem-mounting/design.md
 
 **Location**: `cmd/onemount/main.go`, `internal/fs/daemon.go`, `internal/fs/database.go`
 
@@ -1021,6 +1056,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Configuration validation provides clear error messages
 
 ### 2D. FUSE Operation Performance Component
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 **Location**: `internal/fs/fuse_operations.go`, `internal/fs/metadata_cache.go`
 
@@ -1103,6 +1139,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - After 10 failed attempts, returns error with diagnostic information
 
 ### 3. Basic On-Demand File Access Component
+MOVED_TO: .kiro/specs/file-download-hydration/design.md
 
 **Location**: `internal/fs/file_operations.go`, `internal/fs/dir_operations.go`
 
@@ -1129,6 +1166,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Cache misses invalidate and re-download content
 
 ### 3A. Download Status and Progress Tracking Component
+MOVED_TO: .kiro/specs/file-download-hydration/design.md
 
 **Location**: `internal/fs/file_status.go`, `internal/fs/download_manager.go`
 
@@ -1153,6 +1191,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Status information available via extended attributes and D-Bus
 
 ### 3B. Download Manager Configuration Component
+MOVED_TO: .kiro/specs/file-download-hydration/design.md
 
 **Location**: `internal/fs/download_manager.go`, `internal/config/download_config.go`
 
@@ -1180,6 +1219,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Configuration parameters validated on startup
 
 ### 3C. File Hydration State Management Component
+MOVED_TO: .kiro/specs/file-download-hydration/design.md
 
 **Location**: `internal/fs/state_manager.go`, `internal/fs/hydration.go`
 
@@ -1205,6 +1245,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Future FUSE requests can immediately rehydrate on demand
 
 ### 4. Download Manager Component
+MOVED_TO: .kiro/specs/file-download-hydration/design.md
 
 **Location**: `internal/fs/download_manager.go`
 
@@ -1256,6 +1297,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Invalid configuration values display clear error messages with valid ranges
 
 ### 5. Upload Manager Component
+MOVED_TO: .kiro/specs/file-upload-modification/design.md
 
 **Location**: `internal/fs/upload_manager.go`, `internal/fs/upload_session.go`
 
@@ -1280,6 +1322,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Upload conflicts are detected and handled
 
 ### 6. Delta Synchronization Component
+MOVED_TO: .kiro/specs/delta-sync-realtime/design.md
 
 **Location**: `internal/fs/delta.go`, `internal/fs/sync.go`
 
@@ -1304,6 +1347,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Delta link persists across restarts
 
 ### 7. Cache Management Component
+MOVED_TO: .kiro/specs/cache-management/design.md
 
 **Location**: `internal/fs/cache.go`, `internal/fs/content_cache.go`
 
@@ -1336,6 +1380,7 @@ func FindAuthTokens(cacheDir, instance, accountEmail string) (string, error) {
 - Cache survives filesystem restarts
 
 ### 8. Offline Mode Component
+MOVED_TO: .kiro/specs/offline-mode-sync/design.md
 
 **Location**: `internal/fs/offline.go`, `internal/graph/network_feedback.go`
 
@@ -1434,6 +1479,7 @@ The system implements a read-write offline mode where all file operations are al
 - Configuration options are respected
 
 ### 9. Offline-to-Online Synchronization Process
+MOVED_TO: .kiro/specs/offline-mode-sync/design.md
 
 **Location**: `internal/fs/sync_manager.go`, `internal/fs/offline.go`
 
@@ -1506,6 +1552,7 @@ type OfflineChangeQueue struct {
 - Change queue persists across filesystem restarts
 
 ### 10. User Notification and Feedback System
+MOVED_TO: .kiro/specs/notifications-and-status/design.md
 
 **Location**: `internal/graph/network_feedback.go`, `internal/fs/dbus.go`
 
@@ -1568,6 +1615,7 @@ Signals:
 - Notifications work correctly even when D-Bus is unavailable
 
 ### 11. File Status and D-Bus Component
+MOVED_TO: .kiro/specs/notifications-and-status/design.md
 
 **Location**: `internal/fs/file_status.go`, `internal/fs/dbus.go`
 
@@ -1592,6 +1640,7 @@ Signals:
 - Status persists across filesystem restarts
 
 ### 12. Error Handling Component
+MOVED_TO: .kiro/specs/error-handling-recovery/design.md
 
 **Location**: `internal/errors/`, `internal/logging/` throughout codebase
 
@@ -1617,6 +1666,7 @@ Signals:
 - All tests run in Docker containers
 
 ### 13. Realtime Subscription Component
+MOVED_TO: .kiro/specs/delta-sync-realtime/design.md
 
 **Location**: `internal/fs/socket_subscription.go`, `internal/graph/socketio/`
 
@@ -1641,6 +1691,7 @@ Signals:
 - Personal drives can scope subscriptions to root or subfolders; business drives restrict to the root per Graph limits.
 
 ### 14. Multi-Account Mount Manager Component
+MOVED_TO: .kiro/specs/authentication-and-accounts/design.md
 
 **Location**: `cmd/onemount/main.go`, `internal/ui/onemount.go`
 
@@ -1674,6 +1725,7 @@ Signals:
 - No cross-contamination between mounts
 
 ### 15. ETag Cache Validation Component
+MOVED_TO: .kiro/specs/cache-management/design.md
 
 **Location**: `internal/fs/cache.go`, `internal/fs/content_cache.go`, `internal/fs/delta.go`
 
@@ -1717,6 +1769,7 @@ This approach is more efficient than per-file conditional GET because:
 - QuickXORHash ensures downloaded content integrity
 
 ### 16. Network Error Pattern Recognition Component
+MOVED_TO: .kiro/specs/error-handling-recovery/design.md
 
 **Location**: `internal/graph/network_feedback.go`, `internal/fs/offline.go`
 
@@ -2337,6 +2390,7 @@ All DriveItem responses include:
   - Use `token=latest` to get current state without enumeration
 
 ## Testing Strategy
+MOVED_TO: .kiro/specs/integration-testing/design.md
 
 ### Docker Test Environment
 
@@ -2488,6 +2542,7 @@ The implementation will follow this sequence:
    - Create troubleshooting guide
 
 ## Timeout Configuration
+MOVED_TO: .kiro/specs/fuse-performance/design.md
 
 ### Overview
 

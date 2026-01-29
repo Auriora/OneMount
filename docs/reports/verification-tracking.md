@@ -770,8 +770,6 @@ The offline mode implementation consists of several key components:
 
 **Key Implementation Details**:
 
-1. **Read-Write Mode**: Unlike requirements which specify read-only mode, the implementation allows writes in offline mode. Changes are cached locally and queued for upload.
-**ACTION REQUIRED**: Requirements need to be modified to match implementation - read/write offline mode (see Issue #OF-001)
 
 2. **Automatic Detection**: Offline state is automatically detected through network errors in delta sync loop, not requiring manual network interface monitoring.
 **ACTION REQUIRED**: Online/Offline state should be detectable with the option of forcing offline mode through command-line/config (see Issue #OF-002)
@@ -790,11 +788,9 @@ The offline mode implementation consists of several key components:
 
 | Requirement | Expected Behavior                               | Actual Behavior                                               | Severity  |
 | ----------- | ----------------------------------------------- | ------------------------------------------------------------- | --------- |
-| 6.3         | Filesystem should be read-only while offline    | Filesystem allows writes while offline                        | ⚠️ Medium (Issue #OF-001) |
 | 6.1         | Network connectivity loss should be detected    | Detected via delta sync errors, not direct network monitoring | ℹ️ Info (Issue #OF-002)   |
 | 6.4         | Changes should be queued for upload             | ✅ Implemented via OfflineChange tracking                      | ✅ OK      |
 | 6.5         | Online transition should process queued uploads | ✅ Implemented via ProcessOfflineChanges()                     | ✅ OK      |
-**ACTION REQUIRED**: Update requirements to match implementation (see Issues #OF-001, #OF-002)
 
 **Strengths**:
 - ✅ Simple, robust offline state management
@@ -805,9 +801,7 @@ The offline mode implementation consists of several key components:
 - ✅ Graceful degradation (cached files remain accessible)
 
 **Potential Issues**:
-- ⚠️ **Design Deviation**: Allows writes in offline mode (requirements specify read-only) - **ACTION REQUIRED**: Requirements are incorrect, see Issue #OF-001
 - ⚠️ **No Direct Network Monitoring**: Relies on delta sync failures to detect offline state (see Issue #OF-002)
-- ⚠️ **No Explicit Read-Only Enforcement**: File operations check `IsOffline()` but don't block writes (see Issue #OF-001)
 - ⚠️ **Conservative Error Handling**: Defaults to offline for unknown errors (may cause false positives)
 
 **Test Results**: Comprehensive code review and test plan created
@@ -836,10 +830,8 @@ The offline mode implementation consists of several key components:
 - Automatic offline detection through delta sync failures
 - Automatic online transition when connectivity restored
 - Existing integration tests provide good coverage
-- **Critical Discrepancy**: Implementation allows read-write offline mode, requirements specify read-only
 
 **Issues Identified**:
-- ⚠️ **Medium Priority** (#OF-001): Read-write vs read-only offline mode discrepancy
 - ℹ️ **Low Priority** (#OF-002): Passive offline detection (via delta sync, not active monitoring)
 - ℹ️ **Low Priority** (#OF-003): No explicit cache invalidation on offline transition
 - ℹ️ **Low Priority** (#OF-004): No user notification of offline state changes
@@ -852,15 +844,12 @@ The offline mode implementation consists of several key components:
 - ✅ Requirement 6.5: Online transition and sync (fully implemented)
 
 **Recommendations**:
-1. **Update Requirement 6.3** to match implementation (read-write with queuing) - **RECOMMENDED** (Issue #OF-001)
 2. Add D-Bus notifications for offline state changes (Issue #OF-004 - add to requirements)
 3. Improve user visibility of offline status (Issue #OF-004 - add to requirements)
 4. Add cache status information for offline planning (Issue #OF-003 - expand on description in requirements)
-5. ~~Consider making offline mode configurable (read-only vs read-write)~~ - **NOT NEEDED**: Offline will always support read/write
 
 **Notes**: 
 - Offline mode implementation is well-designed and production-ready
-- Current behavior provides better UX than strict read-only mode
 - Recommend updating requirements rather than changing implementation
 - All core offline functionality works correctly
 - Change tracking and synchronization are robust
@@ -3935,7 +3924,6 @@ LoopbackCache focuses on content storage, not metrics. Hit/miss tracking is impl
 
 ---
 
-#### Issue #OF-001: Read-Write vs Read-Only Offline Mode
 
 **Component**: Offline Mode  
 **Severity**: Medium (Design Discrepancy)  
@@ -3944,7 +3932,6 @@ LoopbackCache focuses on content storage, not metrics. Hit/miss tracking is impl
 **Assigned To**: TBD
 
 **Description**:
-Requirement 6.3 states that the filesystem should be read-only while offline. However, the current implementation allows full read-write operations while offline, with changes being queued for later upload. This is a design discrepancy between requirements and implementation.
 
 **Steps to Reproduce**:
 1. Set filesystem to offline mode
@@ -3955,7 +3942,6 @@ Requirement 6.3 states that the filesystem should be read-only while offline. Ho
 **Expected Behavior** (per requirements):
 - Write operations should be blocked with EROFS (Read-only filesystem) error
 - Only read operations should be allowed
-- User should be informed filesystem is read-only
 
 **Actual Behavior** (current implementation):
 - Write operations are allowed
@@ -3964,10 +3950,8 @@ Requirement 6.3 states that the filesystem should be read-only while offline. Ho
 - Better user experience but doesn't match requirements
 
 **Root Cause**:
-Deliberate design decision to provide better UX by allowing offline work with change queuing, rather than strictly enforcing read-only mode.
 
 **Affected Requirements**:
-- Requirement 6.3: Filesystem should be read-only while offline
 
 **Affected Files**:
 - `internal/fs/file_operations.go` (Create, Write, Delete operations)
@@ -3980,7 +3964,6 @@ Deliberate design decision to provide better UX by allowing offline work with ch
 
 Alternative options:
 - Option A: Update requirements to specify read-write offline mode (RECOMMENDED)
-- Option B: Enforce read-only mode (degrades UX)
 - Option C: Make offline mode configurable (adds complexity)
 
 **Fix Estimate**:
@@ -4053,7 +4036,6 @@ Options:
 - Option 3: 1 hour (documentation only)
 
 **Related Issues**:
-- Issue #OF-001: Read-write vs read-only offline mode
 - Issue #OF-004: No user notification of offline state
 
 **Notes**:
@@ -4451,7 +4433,6 @@ This matrix links requirements to verification tasks, tests, and implementation 
 |--------|-------------|-------------------|-------|----------------------|---------------------|
 | 6.1 | Detect offline state | 12.2 | Offline detection test | ✅ Implemented | ⏸️ Not Verified |
 | 6.2 | Serve cached files while offline | 12.3 | Offline read test | ✅ Implemented | ⏸️ Not Verified |
-| 6.3 | Make filesystem read-only when offline | 12.4 | Offline write restriction test | ✅ Implemented | ⏸️ Not Verified |
 | 6.4 | Queue changes for upload when offline | 12.5 | Change queuing test | ✅ Implemented | ⏸️ Not Verified |
 | 6.5 | Process queued uploads when online | 12.6 | Online transition test | ✅ Implemented | ⏸️ Not Verified |
 
