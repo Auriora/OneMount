@@ -2,6 +2,7 @@
 
 Newest entries first.
 
+- **2026-02-13** – [Task 9.4: Comprehensive Security Documentation Complete](./2026-02-13-120920-task-9-4-security-documentation-complete.md)
 - **2026-01-29** – [Offline Read/Write Conflict Cleanup](./2026-01-29-210017-offline-readwrite-conflicts-cleanup.md)
 - **2026-01-29** – [Kiro Specs Monolith Move (Requirements/Design/Tasks)](./2026-01-29-201727-kiro-specs-monolith-move.md)
 - **2026-01-29** – [Kiro Specs Split Continuation (Directory Loading Consolidation)](./2026-01-29-153855-kiro-specs-split-continuation.md)
