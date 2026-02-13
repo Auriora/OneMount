@@ -66,7 +66,7 @@ override_dh_auto_build:
 
 Build completed successfully:
 ```bash
-$ ./build-deb-package.sh
+$ ./scripts/build-deb-package.sh
 [INFO] Building OneMount v0.1.0rc1-1%{?dist} Debian package
 [INFO] Starting Docker build...
 ...

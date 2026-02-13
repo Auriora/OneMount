@@ -84,7 +84,7 @@ For each match, it:
 
 Package builds successfully:
 ```bash
-./build-deb-package.sh
+./scripts/build-deb-package.sh
 ```
 
 Verification:

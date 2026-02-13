@@ -50,7 +50,7 @@ After rebuilding the package, verify the scripts are included:
 
 ```bash
 # Build the package
-./build-deb-package.sh
+./scripts/build-deb-package.sh
 
 # Extract and inspect
 dpkg-deb -e build/packages/deb/onemount_*.deb /tmp/deb-control
@@ -74,4 +74,4 @@ You should see:
 - `packaging/ubuntu/onemount.prerm` - Pre-removal script
 - `packaging/ubuntu/onemount.postrm` - Post-removal script
 - `packaging/ubuntu/rules` - Build rules (calls debhelper)
-- `build-deb-package.sh` - Package build script
+- `scripts/build-deb-package.sh` - Package build script
