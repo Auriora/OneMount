@@ -43,6 +43,9 @@ onemount-*/
 *.upload
 *.tar.xz
 
+# Temporary build scripts (created dynamically during build)
+docker-build-script.sh
+
 # for tests on older linuxes
 util-linux*
 unshare
