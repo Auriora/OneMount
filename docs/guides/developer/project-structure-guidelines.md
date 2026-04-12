@@ -120,7 +120,7 @@ To use these configurations:
 
 Developer scripts should be placed in the `build/dev/tools` directory. Script output should be directed to the `tmp/` directory.
 
-- **cgo-helper.sh** - Helps with CGO compilation
+- **detect-go-build-tags.sh** - Detects Go build tags for webkit and glib versions
 - **curl-graph.sh** - Utility for interacting with Microsoft Graph API
 
 ## Best Practices

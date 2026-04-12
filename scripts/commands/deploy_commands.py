@@ -251,8 +251,7 @@ def status(ctx: typer.Context):
     scripts = [
         ("deploy-docker-remote.sh", "Remote Docker deployment"),
         ("setup-personal-ci.sh", "CI environment setup"),
-        ("manage-runner.sh", "Local runner management"),
-        ("manage-runners.sh", "Simple 2-runner management"),
+        ("manage-runners.sh", "Runner management (single and multi-runner)"),
         ("deploy-remote-runner.sh", "Remote runner deployment"),
     ]
     

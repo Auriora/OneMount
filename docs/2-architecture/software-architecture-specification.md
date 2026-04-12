@@ -304,7 +304,7 @@ onemount uses a Makefile-based build system that supports various targets:
 The development process is supported by several tools:
 
 - **GoLand**: JetBrains IDE with predefined run configurations
-- **cgo-helper.sh**: Script to help with CGO compilation
+- **detect-go-build-tags.sh**: Script to detect Go build tags for webkit and glib versions
 - **curl-graph.sh**: Utility for interacting with Microsoft Graph API
 - **run_tests_with_mock_auth.sh**: Script to run tests with mock authentication
 

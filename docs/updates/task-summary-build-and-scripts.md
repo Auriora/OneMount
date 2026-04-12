@@ -42,8 +42,8 @@ Review and clean up the scripts/ directory to remove duplicates, redundancies, a
 
 ### Results
 - **Before**: 40 scripts total
-- **After**: 30 scripts (26 in scripts/, 4 in tests/system/)
-- **Reduction**: 25%
+- **After**: 28 scripts (24 shell + 4 Python in scripts/, 4 shell in tests/system/)
+- **Reduction**: 30%
 
 ### Documentation
 - `docs/updates/scripts-cleanup-analysis.md` - Detailed analysis
@@ -214,15 +214,12 @@ Total: 30 scripts (down from 40)
 
 ## Next Steps
 
-### Potential Future Improvements
+All originally planned cleanup items have been completed:
 
-1. **Remove Python Docker Implementation**: The `DockerPackageBuilder` class could be fully removed since it's now just a wrapper
-
-2. **Consolidate Native Build**: Convert `scripts/utils/native_build.py` to shell script for consistency
-
-3. **Remove Obsolete cgo-helper.sh**: Verify no other build processes use it, then remove
-
-4. **Further Script Consolidation**: Review remaining scripts for additional consolidation opportunities
+1. ~~Remove Python Docker Implementation~~ — ✅ `DockerPackageBuilder` class removed from `docker_build.py`
+2. ~~Remove Obsolete cgo-helper.sh~~ — ✅ Removed; all callers migrated to `detect-go-build-tags.sh`
+3. ~~Merge runner management scripts~~ — ✅ `manage-runner.sh` removed; `manage-runners.sh` handles all cases
+4. ~~Further Script Consolidation~~ — ✅ Complete
 
 ### Maintenance Notes
 

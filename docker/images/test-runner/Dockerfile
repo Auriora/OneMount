@@ -126,7 +126,9 @@ RUN go mod download
 # Copy only required source to maximize cache hits
 COPY --chown=tester:tester cmd/ ./cmd
 COPY --chown=tester:tester internal/ ./internal
-COPY --chown=tester:tester scripts/cgo-helper.sh ./scripts/cgo-helper.sh
+COPY --chown=tester:tester scripts/detect-go-build-tags.sh ./scripts/detect-go-build-tags.sh
+COPY --chown=tester:tester scripts/detect-glib-build-tag.sh ./scripts/detect-glib-build-tag.sh
+COPY --chown=tester:tester scripts/detect-webkit-version.sh ./scripts/detect-webkit-version.sh
 
 # Create test directories
 RUN mkdir -p /home/tester/.onemount-tests/tmp && \
@@ -151,10 +153,11 @@ RUN chmod +x /usr/local/bin/common.sh && \
 USER tester
 
 # Pre-build OneMount binaries for faster test execution
-# First run CGO helper with CGO enabled to update webkit version in source
-RUN CGO_ENABLED=1 bash scripts/cgo-helper.sh && \
+# Use build tags to select correct webkit version
+RUN GO_TAGS="$(bash scripts/detect-go-build-tags.sh 2>/dev/null || true)" && \
+    if [ -n "$GO_TAGS" ]; then GO_TAGS_FLAG="-tags=$GO_TAGS"; else GO_TAGS_FLAG=""; fi && \
     mkdir -p build/binaries && \
-    CGO_ENABLED=0 go build -v \
+    CGO_ENABLED=0 go build -v $GO_TAGS_FLAG \
         -o build/binaries/onemount \
         -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
         ./cmd/onemount && \

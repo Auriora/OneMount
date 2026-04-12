@@ -206,7 +206,7 @@ Note: Offline tests require sudo privileges to simulate network disconnection.
 
 ## Executing Scripts
 
-- **scripts/cgo-helper.sh** - Helps with CGO compilation
+- **scripts/detect-go-build-tags.sh** - Detects Go build tags for webkit and glib versions
 - **scripts/curl-graph.sh** - Utility for interacting with Microsoft Graph API
 - **scripts/update_imports.sh** - Updates import paths after restructuring the project
 

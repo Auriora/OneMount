@@ -24,7 +24,6 @@ pandas>=1.4.0             # For data analysis in coverage trends
 numpy>=1.21.0             # For numerical operations in analysis (Go 1.23+ compatible)
 
 # Native Python implementations (replacing shell scripts)
-docker>=6.0.0             # For Docker operations (replacing build-deb-docker.sh)
 paramiko>=3.0.0           # For SSH operations (replacing deploy scripts)
 jinja2>=3.1.0             # For template generation (replacing coverage reports)
 packaging>=21.0           # For version parsing and manipulation

@@ -188,8 +188,8 @@ python3 --version
 ls -l /dev/fuse
 
 # Build OneMount
-bash scripts/cgo-helper.sh
-go build -o build/onemount ./cmd/onemount
+GO_TAGS="$(bash scripts/detect-go-build-tags.sh 2>/dev/null || true)"
+go build -tags="$GO_TAGS" -o build/onemount ./cmd/onemount
 
 # Run specific tests
 go test -v ./internal/fs -run TestCache

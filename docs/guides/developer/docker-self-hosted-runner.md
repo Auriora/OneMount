@@ -8,7 +8,7 @@ This guide shows how to run the OneMount self-hosted GitHub Actions runner in a 
 
 ```bash
 # Run the interactive setup
-./scripts/manage-runner.sh setup
+./scripts/manage-runners.sh setup
 ```
 
 This will guide you through:
@@ -20,13 +20,13 @@ This will guide you through:
 
 ```bash
 # Build the runner image
-./scripts/manage-runner.sh build
+./scripts/manage-runners.sh build
 
 # Start the runner
-./scripts/manage-runner.sh start
+./scripts/manage-runners.sh start
 
 # View logs
-./scripts/manage-runner.sh logs --follow
+./scripts/manage-runners.sh logs --follow
 ```
 
 ## 📋 Prerequisites
@@ -102,32 +102,32 @@ Add the output to `AUTH_TOKENS_B64` in your `.env` file.
 
 ```bash
 # Build the runner image
-./scripts/manage-runner.sh build
+./scripts/manage-runners.sh build
 
 # Start the runner
-./scripts/manage-runner.sh start
+./scripts/manage-runners.sh start
 
 # Stop the runner
-./scripts/manage-runner.sh stop
+./scripts/manage-runners.sh stop
 
 # Restart the runner
-./scripts/manage-runner.sh restart
+./scripts/manage-runners.sh restart
 
 # View status
-./scripts/manage-runner.sh status
+./scripts/manage-runners.sh status
 ```
 
 ### Development & Debugging
 
 ```bash
 # Start development shell
-./scripts/manage-runner.sh shell --dev
+./scripts/manage-runners.sh shell --dev
 
 # Test the environment
-./scripts/manage-runner.sh test
+./scripts/manage-runners.sh test
 
 # View logs with follow
-./scripts/manage-runner.sh logs --follow
+./scripts/manage-runners.sh logs --follow
 ```
 
 ### Direct Docker Commands
@@ -198,10 +198,10 @@ docker-compose -f docker/compose/docker-compose.runner.yml run --rm github-runne
 
 ```bash
 # Stop and remove containers
-./scripts/manage-runner.sh stop
+./scripts/manage-runners.sh stop
 
 # Complete cleanup (removes volumes and images)
-./scripts/manage-runner.sh clean
+./scripts/manage-runners.sh clean
 ```
 
 ## 🔗 Integration with GitHub Actions

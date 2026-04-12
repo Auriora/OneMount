@@ -17,13 +17,11 @@ RUN go mod download
 
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
-COPY scripts/cgo-helper.sh ./scripts/cgo-helper.sh
 COPY scripts/detect-go-build-tags.sh ./scripts/detect-go-build-tags.sh
 COPY scripts/detect-glib-build-tag.sh ./scripts/detect-glib-build-tag.sh
 COPY scripts/detect-webkit-version.sh ./scripts/detect-webkit-version.sh
 
-RUN bash scripts/cgo-helper.sh && \
-    GO_TAGS="$(bash scripts/detect-go-build-tags.sh 2>/dev/null || true)" && \
+RUN GO_TAGS="$(bash scripts/detect-go-build-tags.sh 2>/dev/null || true)" && \
     if [ -n "$GO_TAGS" ]; then GO_TAGS_FLAG="-tags=$GO_TAGS"; else GO_TAGS_FLAG=""; fi && \
     mkdir -p /app && \
     CGO_CFLAGS=-Wno-deprecated-declarations go build -v $GO_TAGS_FLAG \

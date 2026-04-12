@@ -32,16 +32,24 @@ were files on your local computer.
 %autosetup
 
 %build
-bash scripts/cgo-helper.sh
+# Detect build tags for webkit and glib versions
+DETECTED_TAGS=$(bash scripts/detect-go-build-tags.sh 2>/dev/null || true)
 mkdir -p build/binaries
 if rpm -q pango | grep -q 1.42; then
-  BUILD_TAGS=-tags=pango_1_42,gtk_3_22
+  PANGO_TAGS="pango_1_42,gtk_3_22"
 fi
-go build -v -mod=vendor $BUILD_TAGS \
+if [ -n "$DETECTED_TAGS" ] && [ -n "${PANGO_TAGS:-}" ]; then
+  BUILD_TAGS="-tags=$DETECTED_TAGS,$PANGO_TAGS"
+elif [ -n "$DETECTED_TAGS" ]; then
+  BUILD_TAGS="-tags=$DETECTED_TAGS"
+elif [ -n "${PANGO_TAGS:-}" ]; then
+  BUILD_TAGS="-tags=$PANGO_TAGS"
+fi
+go build -v -mod=vendor ${BUILD_TAGS:-} \
   -o build/binaries/onemount \
   -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount
-go build -v -mod=vendor $BUILD_TAGS \
+go build -v -mod=vendor ${BUILD_TAGS:-} \
   -o build/binaries/onemount-launcher \
   -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(cat .commit)" \
   ./cmd/onemount-launcher

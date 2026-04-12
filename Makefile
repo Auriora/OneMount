@@ -35,7 +35,6 @@ build: all
 
 
 onemount: $(shell find internal/fs/ -type f) cmd/onemount/main.go
-	bash scripts/cgo-helper.sh
 	mkdir -p $(OUTPUT_DIR)
 	$(CGO_CFLAGS) go build -v $(GO_TAGS_FLAG) \
 		-o $(OUTPUT_DIR)/onemount \
@@ -100,7 +99,6 @@ uninstall-system-dry-run:
 # Validate packaging requirements
 validate-packaging:
 	@./scripts/dev build manifest --target makefile --action validate | bash
-	@test -f scripts/cgo-helper.sh || (echo "Error: cgo-helper.sh script not found" && exit 1)
 
 # Setup pbuilder environment for building packages (legacy)
 setup-pbuilder:

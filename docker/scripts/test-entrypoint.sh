@@ -421,14 +421,19 @@ build_onemount() {
 
     print_info "Building OneMount binaries from source..."
 
-    # Use the project's build script for CGO compatibility
-    if [[ -f "scripts/cgo-helper.sh" ]]; then
-        bash scripts/cgo-helper.sh
+    # Detect build tags for webkit and glib versions
+    local go_tags=""
+    if [[ -f "scripts/detect-go-build-tags.sh" ]]; then
+        go_tags=$(bash scripts/detect-go-build-tags.sh 2>/dev/null || true)
+    fi
+    local tags_flag=""
+    if [[ -n "$go_tags" ]]; then
+        tags_flag="-tags=$go_tags"
     fi
 
     # Build main binary
     mkdir -p build
-    CGO_CFLAGS=-Wno-deprecated-declarations go build -v \
+    CGO_CFLAGS=-Wno-deprecated-declarations go build -v $tags_flag \
         -o build/onemount \
         -ldflags="-X github.com/auriora/onemount/cmd/common.commit=$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
         ./cmd/onemount

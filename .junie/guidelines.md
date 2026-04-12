@@ -149,8 +149,8 @@ make docker-test-build  # Build Docker test image
 make docker-test-all    # Run all tests in Docker
 
 # Run GitHub Actions self-hosted runner
-./scripts/manage-runner.sh setup
-./scripts/manage-runner.sh start
+./scripts/manage-runners.sh setup
+./scripts/manage-runners.sh start
 ```
 
 ## Version Management
