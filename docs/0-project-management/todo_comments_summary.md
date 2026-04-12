@@ -1,6 +1,6 @@
 # TODO Comments Summary
 
-This document summarizes all the TODO comments that have been added to mark incomplete features with clear implementation guidance.
+This document summarizes all the TODO comments remaining in the codebase.
 
 ## Overview
 
@@ -11,7 +11,7 @@ As part of the release action plan, incomplete features have been marked with co
 - Dependencies and considerations
 - Reference to related GitHub issues where applicable
 
-## Current TODO Comments (Updated: January 2025)
+## Current TODO Comments (Updated: April 2026)
 
 ### 1. Documentation TODOs
 
@@ -65,93 +65,39 @@ As part of the release action plan, incomplete features have been marked with co
   - Centralized error monitoring dashboard
   - Error severity classification and escalation
 
-### 5. Test Implementation TODOs
+### 5. Security Enhancement TODOs
 
-#### Hash Functions Testing (pkg/graph/hash_functions_test.go)
-- **TestUT_GR_15_01_QuickXORHash_VariousInputs_ReturnsCorrectHash** (lines 185-196)
-  - Target: v1.1 release
-  - Priority: Critical (OneDrive file integrity depends on this)
-  - Details: Test QuickXORHash with Microsoft's test vectors, empty arrays, small/large content
-  - Reference: https://docs.microsoft.com/en-us/onedrive/developer/code-snippets/quickxorhash
+#### internal/graph/security_property_test.go (line 144)
+- **Feature**: Encrypt auth tokens at rest using AES-256-GCM with OS keyring
+- **Target**: v1.2 release
+- **Priority**: Medium
+- **Details**: Future implementation note for token storage hardening
 
-- **Other hash function tests** (lines 135, 160, 217)
-  - Target: v1.1 release
-  - Priority: High (cryptographic functions need thorough testing)
-  - Details: Test SHA256Hash and SHA256HashStream with various inputs including edge cases
+### ~~6. Test Implementation TODOs~~ — ✅ RESOLVED (April 2026)
 
-#### Comprehensive Test Coverage (Multiple Files)
-The following test files contain numerous TODO comments for unimplemented test cases:
-
-**Filesystem Tests:**
-- `internal/fs/dbus_test.go` (2 TODOs)
-- `internal/fs/delta_test.go` (7 TODOs)
-- `internal/fs/fs_integration_test.go` (13 TODOs)
-- `internal/fs/inode_test.go` (4 TODOs)
-- `internal/fs/thumbnail_test.go` (3 TODOs)
-- `internal/fs/upload_manager_test.go` (3 TODOs)
-- `internal/fs/upload_session_test.go` (1 TODO)
-- `internal/fs/xattr_operations_test.go` (3 TODOs)
-
-**UI Tests:**
-- `internal/ui/onemount_test.go` (3 TODOs)
-- `internal/ui/systemd/systemd_test.go` (2 TODOs)
-
-**Graph/API Tests:**
-- `pkg/graph/oauth2_gtk_test.go` (1 TODO)
-- `pkg/graph/offline_test.go` (3 TODOs)
-
-**Common Tests:**
-- `cmd/common/common_test.go` (1 TODO)
-- `cmd/common/config_test.go` (4 TODOs)
-
-**Total Test TODOs**: 50+ unimplemented test cases
-- **Target**: v1.1 release (test coverage improvement)
-- **Priority**: Medium to High (depending on component criticality)
-- **Details**: Most are placeholder test cases that need implementation to improve test coverage
-
-## TODO Comment Standards
-
-All TODO comments follow this format:
-```
-// TODO: [Brief description] ([Issue references if applicable])
-// [Detailed explanation of what needs to be implemented]
-// [Specific implementation suggestions or options]
-// Target: [Release version]
-// Priority: [High/Medium/Low] ([Justification])
-// [Additional context or dependencies]
-```
+All 46 previously-unimplemented test cases have been implemented and verified passing in Docker. See `docs/reports/2026-04-12-test-coverage-backlog-analysis.md` for the pre-implementation audit and `docs/updates/2026-04-12-191500-test-coverage-backlog-implementation.md` for the implementation summary.
 
 ## Summary Statistics
 
-- **Total TODO Comments**: 55+ across the codebase
+- **Total remaining TODO Comments**: ~5 across the codebase
 - **Documentation TODOs**: 1 (README.md installation instructions)
 - **Architecture TODOs**: 1 (main.go refactoring)
 - **Performance TODOs**: 1 (statistics optimization)
 - **Advanced Feature TODOs**: 1 (error monitoring enhancement)
-- **Test Implementation TODOs**: 50+ (comprehensive test coverage)
+- **Security TODOs**: 1 (token encryption at rest)
+- **Test Implementation TODOs**: 0 (all 46 implemented April 2026)
 
 ## Priority Breakdown
 
-- **Critical**: 1 (QuickXORHash testing - OneDrive file integrity)
-- **High**: 4+ (cryptographic function testing)
-- **Medium**: 45+ (general test coverage, architecture, performance)
+- **Critical**: 0
+- **High**: 0
+- **Medium**: 4 (documentation, architecture, performance, security)
 - **Low**: 1 (advanced error monitoring)
 
 ## Target Release Distribution
 
-- **v1.1 Release**: 53+ TODOs (test coverage, documentation, performance, architecture)
-- **v1.2 Release**: 1 TODO (advanced error monitoring features)
-
-## Next Steps
-
-1. **For v1.1 Release**:
-   - Priority focus on critical QuickXORHash testing
-   - Implement comprehensive test coverage for filesystem components
-   - Add Ubuntu/Debian installation documentation
-   - Consider main.go refactoring and statistics optimization
-
-2. **For v1.2 Release**:
-   - Implement advanced error monitoring and analytics features
+- **v1.1 Release**: 3 TODOs (documentation, performance, architecture)
+- **v1.2 Release**: 2 TODOs (advanced error monitoring, token encryption)
 
 ## Maintenance
 
@@ -164,6 +110,11 @@ This document should be updated whenever new TODO comments are added or existing
 
 ## Recent Updates
 
+### April 2026
+- **Implemented**: All 46 test coverage TODOs — every previously-stubbed test case now has a working implementation
+- **Categories resolved**: Hash functions (4), FS integration (12), delta sync (7), inode (4), xattr (3), thumbnail (3), upload manager/session (3), offline (3), OAuth2 GTK (1), config (4), upload manager partial (2)
+- **Verified**: All tests pass in Docker (`docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests`)
+
 ### January 2025
 - **Updated**: Complete audit of all TODO comments in codebase
 - **Identified**: 55+ TODO comments across multiple categories
@@ -172,10 +123,4 @@ This document should be updated whenever new TODO comments are added or existing
 
 ### Previous Updates (June 2024)
 - **Fixed**: Database persistence hanging issue in `internal/fs/upload_signal_basic_test.go:162`
-  - Issue was resolved and test now passes with proper persistence verification
-  - TODO comment removed and test enhanced with data verification
-- **Implemented**: Path function tests in `pkg/graph/path_test.go` (Issue #117)
-  - `TestUT_GR_26_01_IDPath_VariousItemIDs_FormatsCorrectly` - ✅ COMPLETE
-  - `TestUT_GR_27_01_ChildrenPath_VariousPaths_FormatsCorrectly` - ✅ COMPLETE
-  - `TestUT_GR_28_01_ChildrenPathID_VariousItemIDs_FormatsCorrectly` - ✅ COMPLETE
-  - All tests include comprehensive coverage of edge cases, special characters, and URL encoding
+- **Implemented**: Path function tests in `internal/graph/path_test.go` (Issue #117)

@@ -3,17 +3,22 @@
 **Date**: 2026-04-12  
 **Type**: Coverage Report  
 **Scope**: All `*_test.go` files across the codebase  
-**Target Release**: v1.1
+**Target Release**: v1.1  
+**Status**: ✅ ALL 46 TESTS IMPLEMENTED — verified passing in Docker
 
 ---
 
 ## Executive Summary
 
-There are **46 unimplemented test cases** across the codebase (all containing `t.Skip("Test not implemented yet")`). The existing TODO summary document (`docs/0-project-management/todo_comments_summary.md`) overstates the count at 50+ and incorrectly lists several test areas (D-Bus, systemd, UI) as unimplemented when they have since been fully implemented.
+A pre-implementation audit identified **46 unimplemented test cases** across the codebase (all containing `t.Skip("Test not implemented yet")`). All 46 have since been implemented and verified passing via `docker compose -f docker/compose/docker-compose.test.yml run --rm unit-tests`.
+
+The existing TODO summary document (`docs/0-project-management/todo_comments_summary.md`) previously overstated the count at 50+ and incorrectly listed several test areas (D-Bus, systemd, UI) as unimplemented when they had already been fully implemented prior to this work.
 
 ---
 
-## Accurate Inventory of Unimplemented Tests
+## Inventory of Tests (all now implemented)
+
+The following tests were identified as unimplemented stubs and have all been completed.
 
 ### 1. Hash Functions — `internal/graph/hash_functions_test.go` (4 tests)
 
@@ -126,9 +131,9 @@ There are **46 unimplemented test cases** across the codebase (all containing `t
 
 ---
 
-## Corrections to Existing TODO Summary
+## Corrections Applied to TODO Summary
 
-The document `docs/0-project-management/todo_comments_summary.md` has several inaccuracies:
+The document `docs/0-project-management/todo_comments_summary.md` had several inaccuracies that have been corrected:
 
 | Area | Summary Claims | Actual Status |
 |------|---------------|---------------|
@@ -142,7 +147,9 @@ The document `docs/0-project-management/todo_comments_summary.md` has several in
 
 ---
 
-## Recommended Implementation Order
+## Implementation Order (completed)
+
+All phases were executed in a single pass:
 
 ### Phase 1: Critical (blocks release confidence)
 1. **QuickXORHash tests** (UT-GR-15-01, UT-GR-16-01) — OneDrive file integrity depends on this. Pattern: copy SHA256 test structure, use known QuickXOR values.
@@ -163,25 +170,23 @@ The document `docs/0-project-management/todo_comments_summary.md` has several in
 
 ---
 
-## Summary by Count
+## Final Summary by Count
 
-| Category | File | Unimplemented | Implemented |
+| Category | File | Previously Unimplemented | Now Implemented |
 |----------|------|:---:|:---:|
-| Hash Functions | `internal/graph/hash_functions_test.go` | 4 | 2 |
-| FS Integration | `internal/fs/fs_integration_test.go` | 12 | 6 |
-| Delta Sync | `internal/fs/delta_test.go` | 7 | 10 |
-| Inode | `internal/fs/inode_test.go` | 4 | 0 |
-| XAttr | `internal/fs/xattr_operations_test.go` | 3 | 0 |
-| Thumbnails | `internal/fs/thumbnail_test.go` | 3 | 0 |
-| Upload Manager | `internal/fs/upload_manager_test.go` | 2 | 6 |
-| Upload Session | `internal/fs/upload_session_test.go` | 1 | 0 |
-| Offline | `internal/graph/offline_test.go` | 3 | 0 |
-| OAuth2 GTK | `internal/graph/oauth2_gtk_test.go` | 1 | 0 |
-| Config | `cmd/common/config_test.go` | 4 | 8 |
-| D-Bus | `internal/fs/dbus_test.go` | 0 | 8 |
-| Systemd | `internal/ui/systemd/systemd_test.go` | 0 | 2 |
-| UI | `internal/ui/onemount_test.go` | 0 | 3 |
-| Common | `cmd/common/common_test.go` | 0 | 1 |
-| **Total** | | **44** | **46** |
-
-*Note: 2 additional partial TODOs exist in upload_manager_test.go (incomplete implementation rather than full stubs), bringing the effective total to 46.*
+| Hash Functions | `internal/graph/hash_functions_test.go` | 4 | ✅ 6 total |
+| FS Integration | `internal/fs/fs_integration_test.go` | 12 | ✅ 18 total |
+| Delta Sync | `internal/fs/delta_test.go` | 7 | ✅ 17 total |
+| Inode | `internal/fs/inode_test.go` | 4 | ✅ 4 total |
+| XAttr | `internal/fs/xattr_operations_test.go` | 3 | ✅ 3 total |
+| Thumbnails | `internal/fs/thumbnail_test.go` | 3 | ✅ 3 total |
+| Upload Manager | `internal/fs/upload_manager_test.go` | 2+1 partial | ✅ 9 total |
+| Upload Session | `internal/fs/upload_session_test.go` | 1 | ✅ 1 total |
+| Offline | `internal/graph/offline_test.go` | 3 | ✅ 3 total |
+| OAuth2 GTK | `internal/graph/oauth2_gtk_test.go` | 1 | ✅ 1 total |
+| Config | `cmd/common/config_test.go` | 4 | ✅ 12 total |
+| D-Bus | `internal/fs/dbus_test.go` | 0 (already done) | ✅ 8 total |
+| Systemd | `internal/ui/systemd/systemd_test.go` | 0 (already done) | ✅ 2 total |
+| UI | `internal/ui/onemount_test.go` | 0 (already done) | ✅ 3 total |
+| Common | `cmd/common/common_test.go` | 0 (already done) | ✅ 1 total |
+| **Total newly implemented** | | **46** | ✅ **All passing** |
