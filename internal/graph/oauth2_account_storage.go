@@ -7,9 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/auriora/onemount/internal/logging"
 )
+
+// DeprecationGracePeriod is the duration after migration before old token files
+// are eligible for cleanup. This gives users time to verify the migration worked
+// before old files are removed.
+const DeprecationGracePeriod = 90 * 24 * time.Hour // 90 days
 
 // GetAuthTokensPathByAccount returns the full path to the auth tokens file based on account identity.
 //
@@ -268,11 +274,99 @@ func migrateTokens(oldPath, newPath string) error {
 		Str("to", newPath).
 		Msg("Auth token migration completed successfully")
 
-	// Note: We intentionally do NOT delete the old file for safety
-	// It can be removed in a future version after sufficient migration period
-	// os.Remove(oldPath)
+	// Log deprecation warning for the old file location
+	logging.Warn().
+		Str("path", oldPath).
+		Str("migratedTo", newPath).
+		Msg("Old token file is deprecated and will be eligible for cleanup after the grace period. " +
+			"Please verify the new location works correctly.")
 
 	return nil
+}
+
+// CleanupOldTokens removes old token files that have been successfully migrated
+// to account-based storage and are past the deprecation grace period.
+//
+// A file is eligible for cleanup when:
+//  1. The corresponding account-based token file exists and is valid
+//  2. The old file has not been modified since migration (mtime older than grace period)
+//
+// Parameters:
+//   - cacheDir: XDG cache directory
+//   - instance: Mount point instance name
+//   - accountEmail: Account email address
+//
+// Returns:
+//   - removed: list of paths that were cleaned up
+//   - error: any error encountered (non-fatal; partial cleanup may have occurred)
+func CleanupOldTokens(cacheDir, instance, accountEmail string) ([]string, error) {
+	if accountEmail == "" {
+		return nil, nil
+	}
+
+	accountPath := GetAuthTokensPathByAccount(cacheDir, accountEmail)
+	if accountPath == "" {
+		return nil, nil
+	}
+
+	// Account-based file must exist and be valid before we remove anything
+	if !fileExists(accountPath) {
+		return nil, nil
+	}
+
+	var removed []string
+	cutoff := time.Now().Add(-DeprecationGracePeriod)
+
+	// Check instance-based location
+	if instance != "" {
+		instancePath := GetAuthTokensPath(cacheDir, instance)
+		if r, err := cleanupIfEligible(instancePath, cutoff); err != nil {
+			logging.Warn().Err(err).Str("path", instancePath).Msg("Failed to clean up old instance-based token file")
+		} else if r {
+			removed = append(removed, instancePath)
+		}
+	}
+
+	// Check legacy location
+	legacyPath := GetAuthTokensPathFromCacheDir(cacheDir)
+	if r, err := cleanupIfEligible(legacyPath, cutoff); err != nil {
+		logging.Warn().Err(err).Str("path", legacyPath).Msg("Failed to clean up old legacy token file")
+	} else if r {
+		removed = append(removed, legacyPath)
+	}
+
+	if len(removed) > 0 {
+		logging.Info().
+			Strs("removed", removed).
+			Msg("Cleaned up deprecated token files")
+	}
+
+	return removed, nil
+}
+
+// cleanupIfEligible removes a file if it exists and its modification time is before the cutoff.
+// Returns true if the file was removed, false otherwise.
+func cleanupIfEligible(path string, cutoff time.Time) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, nil // file doesn't exist, nothing to do
+	}
+	if info.IsDir() {
+		return false, nil
+	}
+	if info.ModTime().After(cutoff) {
+		logging.Debug().
+			Str("path", path).
+			Time("modTime", info.ModTime()).
+			Time("cutoff", cutoff).
+			Msg("Old token file not yet eligible for cleanup (within grace period)")
+		return false, nil
+	}
+
+	if err := os.Remove(path); err != nil {
+		return false, fmt.Errorf("failed to remove deprecated token file %q: %w", path, err)
+	}
+	return true, nil
 }
 
 // fileExists checks if a file exists and is not a directory.

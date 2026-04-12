@@ -532,6 +532,60 @@ func Authenticate(ctx context.Context, config AuthConfig, path string, headless 
 //	if err != nil {
 //	    return fmt.Errorf("authentication failed: %w", err)
 //	}
+//
+// resolveAccountFromRegistry looks up the account email for a mount point
+// from the mount-account registry. Returns empty string if not found.
+func resolveAccountFromRegistry(instance string) string {
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		logging.Warn().Err(err).Msg("Failed to get user config directory for registry lookup")
+		return ""
+	}
+
+	configDirPath := filepath.Join(userConfigDir, "onemount")
+	mountPoint := unit.UnitNamePathUnescape(instance)
+
+	logging.Debug().
+		Str("mountPoint", mountPoint).
+		Str("configDir", configDirPath).
+		Msg("Checking registry for account")
+
+	registry, regErr := mountconfig.NewMountsRegistry(configDirPath)
+	if regErr != nil {
+		logging.Warn().Err(regErr).Str("configDir", configDirPath).Msg("Failed to load mounts registry")
+		return ""
+	}
+
+	account, exists := registry.GetAccount(mountPoint)
+	if !exists || account == "" {
+		logging.Debug().Str("mountPoint", mountPoint).Bool("exists", exists).
+			Msg("Mount not found in registry or no account associated")
+		return ""
+	}
+
+	logging.Debug().Str("mountPoint", mountPoint).Str("account", account).
+		Msg("Found account in registry")
+	return account
+}
+
+// loadAndRefreshAuth loads auth tokens from a file path, refreshes them if needed,
+// and returns the Auth object. Returns nil if loading fails.
+func loadAndRefreshAuth(ctx context.Context, tokenPath string) *Auth {
+	auth := &Auth{}
+	if err := auth.FromFile(tokenPath); err != nil {
+		logging.Warn().Err(err).Str("path", tokenPath).Msg("Failed to load auth tokens")
+		return nil
+	}
+
+	logging.Info().Str("path", tokenPath).Str("account", auth.Account).
+		Msg("Loaded auth tokens")
+
+	if err := auth.Refresh(ctx); err != nil {
+		logging.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
+	}
+	return auth
+}
+
 func AuthenticateWithAccountStorage(ctx context.Context, config AuthConfig, cacheDir, instance string, headless bool) (*Auth, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -543,190 +597,66 @@ func AuthenticateWithAccountStorage(ctx context.Context, config AuthConfig, cach
 		Bool("headless", headless).
 		Msg("AuthenticateWithAccountStorage called")
 
-	// First, check the registry to see if we know the account for this mount
-	// This allows us to look directly in the account-based location
-	userConfigDir, err := os.UserConfigDir()
-	if err == nil {
-		configDirPath := filepath.Join(userConfigDir, "onemount")
-		mountPoint := unit.UnitNamePathUnescape(instance)
+	// Step 1: Resolve account email from the mount-account registry (if known)
+	accountEmail := resolveAccountFromRegistry(instance)
 
-		logging.Debug().
-			Str("mountPoint", mountPoint).
-			Str("configDir", configDirPath).
-			Msg("Checking registry for account")
-
-		registry, regErr := mountconfig.NewMountsRegistry(configDirPath)
-		if regErr == nil {
-			if account, exists := registry.GetAccount(mountPoint); exists && account != "" {
-				// We know the account, check account-based location first
-				accountPath := GetAuthTokensPathByAccount(cacheDir, account)
-
-				logging.Info().
-					Str("account", account).
-					Str("accountPath", accountPath).
-					Str("mountPoint", mountPoint).
-					Msg("Found account in registry, checking for tokens")
-
-				if accountPath != "" {
-					if _, statErr := os.Stat(accountPath); statErr == nil {
-						auth := &Auth{}
-						if loadErr := auth.FromFile(accountPath); loadErr == nil {
-							logging.Info().
-								Str("path", accountPath).
-								Str("account", auth.Account).
-								Msg("Loaded auth tokens from account-based location (via registry)")
-
-							// Refresh tokens if needed
-							if refreshErr := auth.Refresh(ctx); refreshErr != nil {
-								logging.Warn().Err(refreshErr).Msg("Failed to refresh auth tokens, continuing with existing tokens")
-							}
-							return auth, nil
-						} else {
-							logging.Warn().
-								Err(loadErr).
-								Str("path", accountPath).
-								Msg("Failed to load auth tokens from account-based location")
-						}
-					} else {
-						logging.Warn().
-							Err(statErr).
-							Str("path", accountPath).
-							Msg("Account-based token file does not exist")
-					}
-				}
-			} else {
-				logging.Debug().
-					Str("mountPoint", mountPoint).
-					Bool("exists", exists).
-					Msg("Mount not found in registry or no account associated")
-			}
-		} else {
-			logging.Warn().
-				Err(regErr).
-				Str("configDir", configDirPath).
-				Msg("Failed to load mounts registry")
-		}
-	} else {
-		logging.Warn().
-			Err(err).
-			Msg("Failed to get user config directory")
+	// Step 2: Use FindAuthTokens to locate existing tokens (handles migration automatically)
+	tokenPath, err := FindAuthTokens(cacheDir, instance, accountEmail)
+	if err != nil {
+		logging.Warn().Err(err).Msg("Error searching for auth tokens")
 	}
 
-	// Second, try to find existing tokens in any location
-	// We don't know the account email yet, so we search all locations
-	auth := &Auth{}
-
-	// Try instance-based location (for existing installations)
-	instancePath := GetAuthTokensPath(cacheDir, instance)
-	if _, err := os.Stat(instancePath); err == nil {
-		if err := auth.FromFile(instancePath); err == nil {
-			// Found tokens in instance-based location
-			logging.Info().
-				Str("path", instancePath).
-				Str("account", auth.Account).
-				Msg("Loaded auth tokens from instance-based location")
-
-			// Migrate to account-based location if we have account email
-			if auth.Account != "" {
-				accountPath := GetAuthTokensPathByAccount(cacheDir, auth.Account)
-				if accountPath != "" && accountPath != instancePath {
-					if err := migrateTokens(instancePath, accountPath); err == nil {
-						auth.Path = accountPath
-						logging.Info().
-							Str("from", instancePath).
-							Str("to", accountPath).
-							Msg("Migrated auth tokens to account-based location")
-					} else {
-						logging.Warn().
-							Err(err).
-							Str("from", instancePath).
-							Str("to", accountPath).
-							Msg("Failed to migrate auth tokens, continuing with instance-based location")
+	// Step 3: Try to load tokens from the resolved path
+	if tokenPath != "" {
+		if auth := loadAndRefreshAuth(ctx, tokenPath); auth != nil {
+			// If we loaded from a non-account-based path and now know the account,
+			// ensure migration happened (FindAuthTokens handles this, but the loaded
+			// auth may have the account email we didn't have before)
+			if auth.Account != "" && accountEmail == "" {
+				newPath := GetAuthTokensPathByAccount(cacheDir, auth.Account)
+				if newPath != "" && newPath != tokenPath {
+					if migErr := migrateTokens(tokenPath, newPath); migErr == nil {
+						auth.Path = newPath
+						logging.Info().Str("from", tokenPath).Str("to", newPath).
+							Msg("Migrated auth tokens to account-based location after loading")
 					}
 				}
 			}
 
-			// Refresh tokens if needed
-			if err := auth.Refresh(ctx); err != nil {
-				logging.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
+			// Attempt cleanup of old deprecated token files
+			if auth.Account != "" {
+				if removed, _ := CleanupOldTokens(cacheDir, instance, auth.Account); len(removed) > 0 {
+					logging.Info().Strs("cleaned", removed).Msg("Cleaned up deprecated token files during authentication")
+				}
 			}
+
 			return auth, nil
 		}
 	}
 
-	// Try legacy location
-	legacyPath := GetAuthTokensPathFromCacheDir(cacheDir)
-	if _, err := os.Stat(legacyPath); err == nil {
-		if err := auth.FromFile(legacyPath); err == nil {
-			// Found tokens in legacy location
-			logging.Info().
-				Str("path", legacyPath).
-				Str("account", auth.Account).
-				Msg("Loaded auth tokens from legacy location")
-
-			// Migrate to account-based location if we have account email
-			if auth.Account != "" {
-				accountPath := GetAuthTokensPathByAccount(cacheDir, auth.Account)
-				if accountPath != "" && accountPath != legacyPath {
-					if err := migrateTokens(legacyPath, accountPath); err == nil {
-						auth.Path = accountPath
-						logging.Info().
-							Str("from", legacyPath).
-							Str("to", accountPath).
-							Msg("Migrated auth tokens from legacy location to account-based location")
-					} else {
-						logging.Warn().
-							Err(err).
-							Str("from", legacyPath).
-							Str("to", accountPath).
-							Msg("Failed to migrate auth tokens from legacy location, continuing with legacy location")
-					}
-				}
-			}
-
-			// Refresh tokens if needed
-			if err := auth.Refresh(ctx); err != nil {
-				logging.Warn().Err(err).Msg("Failed to refresh auth tokens, continuing with existing tokens")
-			}
-			return auth, nil
-		}
-	}
-
-	// No existing tokens found, perform new authentication
-	// We'll save to a temporary location first, then move to account-based location after we get the account email
+	// Step 4: No existing tokens found or loadable — perform new authentication
 	tempPath := filepath.Join(cacheDir, ".temp_auth_tokens.json")
 	newAuthResult, authErr := newAuth(ctx, config, tempPath, headless)
 	if authErr != nil {
 		return nil, fmt.Errorf("authentication failed: %w", authErr)
 	}
-	auth = newAuthResult
+	auth := newAuthResult
 
-	// Now that we have the account email, move to account-based location
+	// Step 5: Move tokens to account-based location now that we know the account email
 	if auth.Account != "" {
 		accountPath := GetAuthTokensPathByAccount(cacheDir, auth.Account)
 		if accountPath != "" {
-			// Ensure directory exists
 			if err := os.MkdirAll(filepath.Dir(accountPath), 0700); err != nil {
-				logging.Warn().
-					Err(err).
-					Str("path", accountPath).
+				logging.Warn().Err(err).Str("path", accountPath).
 					Msg("Failed to create directory for account-based tokens, using temporary location")
+			} else if err := auth.ToFile(accountPath); err == nil {
+				auth.Path = accountPath
+				os.Remove(tempPath)
+				logging.Info().Str("path", accountPath).Str("account", auth.Account).
+					Msg("Saved new auth tokens to account-based location")
 			} else {
-				// Move tokens to account-based location
-				if err := auth.ToFile(accountPath); err == nil {
-					auth.Path = accountPath
-					// Remove temporary file
-					os.Remove(tempPath)
-					logging.Info().
-						Str("path", accountPath).
-						Str("account", auth.Account).
-						Msg("Saved new auth tokens to account-based location")
-				} else {
-					logging.Warn().
-						Err(err).
-						Str("path", accountPath).
-						Msg("Failed to save tokens to account-based location, using temporary location")
-				}
+				logging.Warn().Err(err).Str("path", accountPath).
+					Msg("Failed to save tokens to account-based location, using temporary location")
 			}
 		}
 	}

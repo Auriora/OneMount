@@ -13,7 +13,7 @@ OneMount needs to:
 ### OAuth2 Implementation
 - Located in `internal/graph/oauth2.go`, `oauth2_gtk.go`, `oauth2_headless.go`
 - Supports both interactive (GTK) and headless (device code) flows
-- Token storage currently uses mount-point-based paths
+- Token storage uses account-based paths (refactored from mount-point-based)
 
 ### Token Storage (Refactored — Complete)
 - Tokens now stored in `{cacheDir}/accounts/{account-hash}/auth_tokens.json` (account-based)
@@ -21,12 +21,12 @@ OneMount needs to:
 - Implementation: `internal/graph/oauth2_account_storage.go`
 - Completion report: `docs/updates/2026-01-23-task-4-9-auth-token-storage-refactoring-complete.md`
 
-### Issues Identified
-1. **Token duplication**: Same account mounted at different points creates duplicate tokens
-2. **Docker reliability**: Mount-point-based paths cause test failures
-3. **Migration needed**: Existing tokens need to be migrated to new structure
+### Issues Resolved
+1. **Token duplication**: ✅ Fixed — one account = one token file via account-based storage
+2. **Docker reliability**: ✅ Fixed — tokens found by account email, not mount point
+3. **Migration**: ✅ Implemented — automatic migration from old locations with grace-period cleanup
 
-## Proposed Solution Design
+## Implemented Solution
 
 ### Account-Based Token Storage
 
@@ -34,49 +34,55 @@ OneMount needs to:
 {cacheDir}/accounts/{account-hash}/auth_tokens.json
 ```
 
-Where `account-hash` is SHA256 hash of account email.
+Where `account-hash` is the first 16 characters of the SHA256 hash of the normalized account email.
 
 ### Architecture Components
 
-1. **Token Path Resolution**
-   - `GetAuthTokensPathByAccount(email string) string` - Get path by account
+1. **Token Path Resolution** (implemented in `internal/graph/oauth2_account_storage.go`)
+   - `GetAuthTokensPathByAccount(cacheDir, email string) string` - Get path by account
    - `hashAccount(email string) string` - Generate account hash
-   - `FindAuthTokens(email string) (string, error)` - Search multiple locations
+   - `FindAuthTokens(cacheDir, instance, email string) (string, error)` - Search multiple locations with auto-migration
 
-2. **Token Migration**
-   - Automatic migration from old paths to new paths
+2. **Token Migration** (implemented in `internal/graph/oauth2_account_storage.go`)
+   - Automatic migration from old paths to new paths via `migrateTokens()`
    - Fallback to old locations for backward compatibility
+   - Grace-period cleanup of deprecated files via `CleanupOldTokens()`
    - Migration logging for troubleshooting
 
-3. **Multi-Account Support**
+3. **Authentication Entry Point** (implemented in `internal/graph/oauth2.go`)
+   - `AuthenticateWithAccountStorage()` delegates to `FindAuthTokens()` for path resolution
+   - `resolveAccountFromRegistry()` looks up account email from mount-account registry
+   - `loadAndRefreshAuth()` loads and refreshes tokens from a resolved path
+
+4. **Multi-Account Support** (implemented)
    - Separate token storage per account
    - Separate cache directories per account
    - Separate delta sync loops per account
 
-### Security Design
+### Security Design (Implemented)
 
-1. **Encryption**: AES-256 for tokens at rest
-2. **File Permissions**: 0600 (owner read/write only)
-3. **TLS**: HTTPS/TLS 1.2+ for all API communication
-4. **Rate Limiting**: Prevent brute force attacks
+1. **Encryption**: AES-256 for tokens at rest ✅
+2. **File Permissions**: 0600 (owner read/write only) ✅
+3. **TLS**: HTTPS/TLS 1.2+ for all API communication ✅
+4. **Rate Limiting**: Prevent brute force attacks ✅
 
-## Design Constraints
+## Design Constraints (All Satisfied)
 
-- Must maintain backward compatibility with existing token locations
-- Must work in Docker test environment
-- Must support multiple accounts without conflicts
-- Must be secure and follow best practices
+- ✅ Maintains backward compatibility with existing token locations
+- ✅ Works in Docker test environment
+- ✅ Supports multiple accounts without conflicts
+- ✅ Secure and follows best practices
 
-## Testing Strategy
+## Testing Strategy (Implemented)
 
-1. **Unit Tests**: Token path generation, hashing, migration logic
-2. **Integration Tests**: OAuth2 flow, token refresh, multi-account
-3. **Property-Based Tests**: Token storage security, automatic refresh
-4. **Docker Tests**: Verify reliability in containerized environment
+1. **Unit Tests**: Token path generation, hashing, migration logic — `internal/graph/oauth2_account_storage_test.go`
+2. **Integration Tests**: Migration, multi-account isolation, Docker token access — `internal/graph/oauth2_account_storage_integration_test.go`
+3. **Property-Based Tests**: Token storage security, automatic refresh — `internal/graph/oauth2_property_test.go`
+4. **Docker Tests**: Verified reliability in containerized environment
 
-## Implementation Phases
+## Implementation Phases (All Complete)
 
-See [tasks.md](tasks.md) for detailed implementation plan.
+See [tasks.md](tasks.md) for detailed task list. All phases delivered — see `docs/updates/2026-01-23-task-4-9-auth-token-storage-refactoring-complete.md`.
 
 ## References
 
