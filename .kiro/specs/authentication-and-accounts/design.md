@@ -15,10 +15,11 @@ OneMount needs to:
 - Supports both interactive (GTK) and headless (device code) flows
 - Token storage currently uses mount-point-based paths
 
-### Token Storage
-- Tokens stored in `{cacheDir}/{instance}/auth_tokens.json`
-- Instance derived from mount point, causing Docker test issues
-- No account-based storage mechanism
+### Token Storage (Refactored — Complete)
+- Tokens now stored in `{cacheDir}/accounts/{account-hash}/auth_tokens.json` (account-based)
+- Fallback to legacy `{cacheDir}/{instance}/auth_tokens.json` with automatic migration
+- Implementation: `internal/graph/oauth2_account_storage.go`
+- Completion report: `docs/updates/2026-01-23-task-4-9-auth-token-storage-refactoring-complete.md`
 
 ### Issues Identified
 1. **Token duplication**: Same account mounted at different points creates duplicate tokens
